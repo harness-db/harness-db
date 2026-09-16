@@ -165,8 +165,24 @@ OpenReview (ICLR, NeurIPS, ICML 2023–2026); GitHub repositories with more than
 major-lab technical reports; agent leaderboards for the outcomes table.
 
 ## 6. Search strategy
-Harness block AND LLM block (optional structure block for precision). Final strings, dates
-and per-source hit counts are recorded in `data/raw/search_log.md` at search freeze.
+Harness block AND LLM block (optional structure block for precision on the two largest
+sources). Final strings, dates and per-source hit counts are recorded in
+`data/raw/search_log.md` at search freeze.
+
+Harness block (v2, 2026-09-16, after the registered validation rule triggered; see Amendments):
+"agent harness" OR harness OR "agent scaffold*" OR "agentic framework" OR "agent framework"
+OR "LLM agent*" OR "LM agent*" OR "language agent*" OR "AI agent*" OR "computer agent*"
+OR "multi-agent" OR "tool-use agent" OR "coding agent" OR "software engineering agent"
+OR "computer-use agent" OR "GUI agent" OR "web agent" OR "multi-agent framework"
+OR "agent orchestration" OR "LLM orchestration"
+
+LLM block: "large language model" OR LLM OR "foundation model" OR "language model agent"
+
+Validation: known-item set of 12 canonical papers (`data/raw/search_log.md`). v1 strings:
+3/12 on arXiv. v2 strings: 11/12 on arXiv (11,834 hits vs 4,030). The remaining item
+(ReAct, arXiv:2210.03629, whose abstract never says "agent") is reached by backward
+snowballing, which is part of the protocol. Recall is re-measured at search freeze on the
+full 30-item known-item set.
 
 ## 7. Study records
 Rayyan for blinded dual screening; ASReview active learning for screener 1 with a stated
@@ -196,3 +212,4 @@ Reporting follows RAISE guidance.
 ## Amendments
 | Date | Section | Change | Reason |
 |---|---|---|---|
+| 2026-09-16 | 6 | Harness block broadened (v2): add `harness`, "LLM agent*", "LM agent*", "language agent*", "AI agent*", "computer agent*", "multi-agent"; replace bare `orchestration` with "agent orchestration"/"LLM orchestration" | Registered validation rule (known-item recall < 90%) triggered on the test run: v1 recall 3/12, v2 11/12. Applied before screening; to be filed as a registration update on OSF |
