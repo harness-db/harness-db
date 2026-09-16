@@ -1,0 +1,320 @@
+{
+  "id": "openhands",
+  "name": "OpenHands",
+  "version_label": "v1.16.0 (Agent Canvas) + software-agent-sdk v1.44.0",
+  "aliases": ["OpenDevin", "OpenHands Agent SDK", "Agent Canvas"],
+  "urls": {
+    "paper": "https://arxiv.org/abs/2407.16741",
+    "repo": "https://github.com/All-Hands-AI/OpenHands",
+    "docs": "https://docs.openhands.dev/"
+  },
+  "papers": ["p-openhands-2024"],
+  "coding": {
+    "system_prompt_style": {
+      "value": "dynamically_composed",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/agent/base.py:356-364@322dec7d (static system prompt built from a typed section registry for the preset, or a Jinja template via render_template); base.py:372-380@322dec7d (template kwargs resolved at runtime: SOUL.md identity, enable_browser from the tool list); base.py:517-522@322dec7d (a dynamic tier assembled from agent_context is appended to the system message)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Two-tier prompt: a cacheable static tier composed from registered sections (security policy, tool-dependent sections) plus a dynamic tier carrying repo/user skills and MEMORY.md indexes (context/memory.py:1-9). Goes beyond simple templating."
+    },
+    "env_context_strategy": {
+      "value": "agent_driven_navigation",
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/preset/default.py:55-59@322dec7d (default tools: terminal, file_editor, task_tracker; no retrieval tool); software-agent-sdk/openhands-tools/openhands/tools/file_editor/definition.py:151-157@322dec7d (view/create/str_replace/insert/undo_edit)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No BM25/embedding retrieval or file-tree summary. glob and grep tools exist (openhands-tools/openhands/tools/glob, grep) but are not in the default preset. Repo-level context that is injected comes from user-authored .openhands/ skills and MEMORY.md (context/memory.py:3-4), which we code under long-term memory, not repo context."
+    },
+    "context_compaction": {
+      "value": ["summarize", "tool_output_pruning"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/context/condenser/llm_summarizing_condenser.py:522-526@322dec7d (default_condenser returns LLMSummarizingCondenser 'used by the default agent and sub-agents'); llm_summarizing_condenser.py:38,48-51@322dec7d (RollingCondenser with max_size=240, keep_first=2); software-agent-sdk/openhands-tools/openhands/tools/preset/default.py:103-105@322dec7d (default agent gets the condenser with a separate 'condenser' LLM usage id); software-agent-sdk/openhands-tools/openhands/tools/terminal/definition.py:192-195@322dec7d (maybe_truncate(... truncate_after=MAX_CMD_OUTPUT_SIZE))",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Summarization is LLM-driven and on by default; agent.py:684-687 emits a Condensation event before the next step. Command output is truncated per tool call. NoOpCondenser and PipelineCondenser are alternatives (context/condenser/no_op_condenser.py:7, pipeline_condenser.py:7)."
+    },
+    "observation_format": {
+      "value": ["raw_text", "screenshots"],
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/terminal/definition.py:199@322dec7d (llm_content.append(TextContent(text=truncated_text))); software-agent-sdk/openhands-tools/openhands/tools/browser_use/definition.py:95-116@322dec7d (to_llm_content returns TextContent plus ImageContent when screenshot_data is present)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Screenshots only with the browser toolset (environment-dependent, see tool_count). Paper Sec. 2.2 lists 'HTML, DOM, accessibility tree, screenshot' for the 2024 BrowserGym runtime; at the pinned SDK version the browser tool is browser-use based and no a11y-tree observation was found in openhands-tools/openhands/tools/browser_use/definition.py."
+    },
+    "tool_call_format": {
+      "value": ["native_function_calling", "xml_tags"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/llm/llm.py:517-520@322dec7d (native_tool_calling: bool = True 'Whether to use native tool calling'); software-agent-sdk/openhands-sdk/openhands/sdk/tool/tool.py:737-760@322dec7d (to_openai_tool builds ChatCompletionToolParam type='function'); software-agent-sdk/openhands-sdk/openhands/sdk/llm/mixins/fn_call_converter.py:1-6,49,85@322dec7d (non-native fallback injects prompts and parses '<function=name>...</function>')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default is native function calling; the tag-based fallback (xml_tags) is used when native_tool_calling=False. No code-as-action at the pinned version (the 2024 CodeAct agent executed Python via IPython; at v1.44.0 code runs through the terminal/file tools)."
+    },
+    "tool_count": {
+      "value": 5,
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/tool/defaults.py:17-21@322dec7d (DEFAULT_EXEC_TOOL_NAMES = ('terminal', 'file_editor', 'task_tracker')); software-agent-sdk/openhands-sdk/openhands/sdk/tool/builtins/__init__.py:44@322dec7d (BUILT_IN_TOOLS = [FinishTool, ThinkTool]); software-agent-sdk/openhands-tools/openhands/tools/preset/default.py:55-63@322dec7d",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Deterministic default = 3 exec tools + 2 built-ins. tool/defaults.py:24-32 states the browser toolset is 'Not part of the deterministic default' and is injected by the serving layer when Chromium is present; BrowserToolSet expands to 14 tools (browser_use/definition.py:175-751), giving 19. TaskToolSet (sub-agents) is gated on enable_sub_agents=False (default.py:39,64-67). Other shipped but non-default tools: apply_patch, ask_oracle, delegate, gemini, glob, grep, planning_file_editor, task, tom_consult, workflow, InvokeSkillTool, SwitchLLMTool, VisionInspectTool, plus any MCP tools. See manual ambiguity B2."
+    },
+    "edit_primitive": {
+      "value": ["search_replace", "whole_file_rewrite", "line_range_edit", "unified_diff"],
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/file_editor/definition.py:151-157,165@322dec7d (commands view, create, str_replace, insert, undo_edit; 'The undo_edit command will revert the last edit'); software-agent-sdk/openhands-tools/openhands/tools/apply_patch/definition.py:124-125@322dec7d ('Apply unified text patches to files in the workspace. Input must start with *** Begin Patch and end with *** End Patch')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default file_editor gives search_replace (str_replace), whole-file content on create, and line-addressed insert. apply_patch (non-default) uses the OpenAI '*** Begin Patch' format, which the tool itself calls a unified text patch; coded as unified_diff, see manual ambiguity B3."
+    },
+    "tool_schema_source": {
+      "value": ["auto_generated", "mcp"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/tool/schema.py:193-199@322dec7d (to_mcp_schema: full_schema = cls.model_json_schema() from the Pydantic Action model); software-agent-sdk/openhands-sdk/openhands/sdk/tool/tool.py:737-760@322dec7d (to_openai_tool); software-agent-sdk/openhands-sdk/openhands/sdk/mcp/client.py:8,24@322dec7d (MCPClient on fastmcp) and mcp/definition.py:26,50@322dec7d (MCPToolAction/MCPToolObservation); agent/base.py:136@322dec7d (mcp_config field on AgentBase)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Schemas are generated from typed Pydantic Action classes (field descriptions are hand-written inside the code, but the JSON schema is derived automatically). MCP servers contribute their own schemas."
+    },
+    "protocol_standardization": {
+      "value": ["mcp", "other"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/mcp/client.py:8@322dec7d (from fastmcp import Client as AsyncMCPClient); software-agent-sdk/openhands-sdk/pyproject.toml:11@322dec7d (fastmcp>=3.0.0); software-agent-sdk/openhands-sdk/openhands/sdk/agent/acp_agent.py:1-6@322dec7d ('The Agent Client Protocol (ACP) lets OpenHands power conversations using ACP-compatible servers (Claude Code, Gemini CLI, etc.)')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "'other' = ACP (Agent Client Protocol) used to host third-party agents. No A2A (grep -rli '\\ba2a\\b' openhands-sdk/openhands/sdk -> 0 hits)."
+    },
+    "loop_primitives": {
+      "value": ["react", "event_driven", "generate_test_repair"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/agent/agent.py:637-653,680-689,720@322dec7d (step: prepare messages from the event view, call make_llm_completion, execute resulting tool calls); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py:1892-1900@322dec7d (run(): 'Runs the conversation until the agent finishes'); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/event_store.py:30-49@322dec7d (EventLog: thread- and process-safe event storage) and conversation/state.py:82@322dec7d (ConversationState is the event stream); software-agent-sdk/openhands-sdk/openhands/sdk/critic/base.py:20-24,39@322dec7d (IterativeRefinementConfig: 'Conversation.run() will automatically retry the task if the critic score is below the threshold'); paper Sec. 2.1: 'the event stream, which is a chronological collection of past actions and observations'",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "react + event_driven are the default loop. generate_test_repair is the closest value for the opt-in critic-driven iterative refinement (critic default None, agent/base.py:282) and the judge-audited goal runner (conversation/goal/controller.py:88); the verifier is an LLM critic, not test execution."
+    },
+    "planning_granularity": {
+      "value": "explicit_plan_object",
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/task_tracker/definition.py:42-51@322dec7d (TaskTrackerAction with command 'view'|'plan' and task_list: list[TaskItem]); software-agent-sdk/openhands-tools/openhands/tools/preset/default.py:58@322dec7d (TaskTrackerTool in default tools)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Plan is a structured task list maintained by the model through a tool. A 'planning' preset with a PLAN.md-only editor also ships (planning_file_editor/definition.py:1,30)."
+    },
+    "multi_agent_topology": {
+      "value": "single",
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/preset/default.py:39,64-67@322dec7d (enable_sub_agents: bool = False; TaskToolSet appended only when enabled); software-agent-sdk/openhands-tools/openhands/tools/delegate/definition.py:13-20@322dec7d (DelegateAction commands 'spawn', 'delegate')",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default configuration is a single agent. With enable_sub_agents or the delegate tool the topology is orchestrator_workers: the main agent spawns sub-agents as LocalConversations and delegates tasks (delegate/impl.py:33-48,74-75). Paper Sec. 2.4 describes AgentDelegateAction. See manual ambiguity C3/C4."
+    },
+    "delegation_mechanism": {
+      "value": "none",
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/preset/default.py:39,64-67@322dec7d (sub-agent toolset off by default); software-agent-sdk/openhands-tools/openhands/tools/delegate/impl.py:33-48,132@322dec7d (DelegateExecutor keeps _sub_agents: dict[str, LocalConversation] and _spawn_agents)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default has no delegation; opt-in mechanism is subagent_spawn (delegate tool / TaskToolSet / sdk/subagent registry). See manual ambiguity C3/C4."
+    },
+    "human_in_loop": {
+      "value": ["on_permission", "configurable"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/security/confirmation_policy.py:27-61@322dec7d (AlwaysConfirm, NeverConfirm, ConfirmRisky(threshold, confirm_unknown)); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py:1895-1898@322dec7d ('In confirmation mode: First call: creates actions but doesn't execute them, stops and waits; Second call: executes pending actions'); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/state.py:123@322dec7d (confirmation_policy default NeverConfirm())",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default policy is NeverConfirm (no HITL); confirmation per tool call is enabled by setting AlwaysConfirm or ConfirmRisky (risk from the LLM security analyzer). No plan-approval or completion-review gate found."
+    },
+    "short_term_state": {
+      "value": "structured_task_state",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/conversation/state.py:82,102-123,192@322dec7d (ConversationState: persistence_dir, max_iterations, execution_status, confirmation_policy, stats, plus the event log); software-agent-sdk/openhands-tools/openhands/tools/task_tracker/definition.py:42-51@322dec7d (structured task_list maintained by the default task_tracker tool)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "State is a typed object over an event stream, not just a message list."
+    },
+    "long_term_memory": {
+      "value": ["file_notes", "skill_library"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/context/memory.py:1-9@322dec7d ('Two-tier persistent-memory loader. Reads the agent-maintained MEMORY.md indexes -- ~/.openhands/memory/ (user tier) and <workspace>/.openhands/memory/ (project tier)'); software-agent-sdk/openhands-sdk/openhands/sdk/skills/__init__.py:10@322dec7d ('load_user_skills - Load skills from ~/.openhands/skills/'); skills/installed.py:33,50@322dec7d (installed skills dir; SKILL.md required)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No vector store or episodic DB found in openhands-sdk."
+    },
+    "state_persistence": {
+      "value": "full_resume",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/conversation/state.py:458-471@322dec7d ('Create a new conversation state or resume from persistence ... Restored conversation: The provided Agent is validated against the persisted agent'); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py:255-256,296-297@322dec7d (persistence_dir / FileStore for conversation state and EventLog)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "base_state.json plus an events/ directory allow a conversation to be reloaded and continued; stats are preserved (state.py:555-556)."
+    },
+    "self_verification": {
+      "value": ["llm_judge"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/critic/base.py:57-60@322dec7d (CriticBase: 'A critic is a function that takes in a list of events'); critic/base.py:20-39@322dec7d (IterativeRefinementConfig with success_threshold, max_iterations, example APIBasedCritic); software-agent-sdk/openhands-sdk/openhands/sdk/agent/base.py:282@322dec7d (critic: CriticBase | None, default None)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Critic is opt-in (default None); shipped critics: agent_finished, empty_patch, pass_critic, and an API-based critic model (critic/impl/). Test execution and linting happen only if the model chooses to run them through the terminal; no harness-enforced test or lint gate."
+    },
+    "retry_policy": {
+      "value": "none",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/agent/base.py:282@322dec7d (critic default None, so no refinement loop); software-agent-sdk/openhands-sdk/openhands/sdk/agent/critic_mixin.py:79,101-104@322dec7d (refinement continues after FinishAction until config.max_iterations)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Opt-in IterativeRefinementConfig gives fixed_n (max_iterations) gated by a score threshold. LLM API retries (llm.py:347-350: num_retries=5, exponential wait) are transport retries, not task retries."
+    },
+    "rollback": {
+      "value": "snapshot",
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/file_editor/definition.py:165@322dec7d ('The undo_edit command will revert the last edit made to the file at path'); file_editor/definition.py:151-157@322dec7d (undo_edit in the command literal)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Model-invocable per-file undo; the sdk/git module only computes diffs/changes (git/git_diff.py:53 get_git_diff) and does not reset the repo. Coded like SWE-agent's undo_edit for consistency; see manual ambiguity E3."
+    },
+    "termination_condition": {
+      "value": ["model_declared", "max_steps", "cost_cap", "stall_detection"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/agent/agent.py:202-227,345-372@322dec7d (FinishTool action ends the run; later calls discarded); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py:217,2009-2027@322dec7d (max_iteration_per_run=500; 'Agent reached maximum iterations limit', code MaxIterationsReached); local_conversation.py:235,466-467,683-696,2001-2007@322dec7d (max_budget_per_run 'Hard cost ceiling (USD)', MaxBudgetReached); local_conversation.py:218,725-727@322dec7d (stuck_detection=True; StuckDetector.is_stuck -> status STUCK) and conversation/stuck_detector.py:24-33@322dec7d",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Budget cap is off by default (None). Stuck detection covers repeating action-observation/error cycles, monologue, alternating patterns and context-window errors. No token-count termination."
+    },
+    "cost_controls": {
+      "value": ["token_budget", "caching", "model_routing"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py:235,466-467@322dec7d (max_budget_per_run: float | None; 'Hard cost ceiling (USD) for a run'); software-agent-sdk/openhands-sdk/openhands/sdk/llm/llm.py:496-498@322dec7d (caching_prompt: bool = True 'Enable caching of prompts'); software-agent-sdk/openhands-sdk/openhands/sdk/llm/router/impl/multimodal.py:13,30@322dec7d (MultimodalRouter 'Select LLM based on multimodal content and token limits'); software-agent-sdk/openhands-sdk/openhands/sdk/tool/builtins/switch_llm.py:22-25@322dec7d (SwitchLLMAction to a named profile)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Budget is USD-denominated (see manual ambiguity F2). Prompt caching is on by default; routing (RouterLLM, SwitchLLMTool, fallback_strategy llm.py:624-628) is opt-in."
+    },
+    "timeouts": {
+      "value": ["per_tool"],
+      "evidence": "software-agent-sdk/openhands-tools/openhands/tools/terminal/definition.py:106-109@322dec7d (timeout: float | None 'Sets a maximum time limit (in seconds) for running the command ... the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds')",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No wall-clock per-run timeout found in conversation/impl/local_conversation.py (grep 'timeout' -> only remote HTTP and ACP prompt timeouts at :1576,:1740); run length is bounded by iterations and budget instead."
+    },
+    "execution_isolation": {
+      "value": "subprocess",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/conversation/conversation.py:126@322dec7d (workspace: str | Path | LocalWorkspace | RemoteWorkspace = 'workspace/project'); software-agent-sdk/openhands-sdk/openhands/sdk/workspace/local.py:9,47@322dec7d (LocalWorkspace.execute_command via openhands.sdk.utils.command.execute_command) and utils/command.py:82@322dec7d (subprocess.Popen); OpenHands/README.md:64-66@64c126965 ('Option 1: Without a Sandbox ... This runs the agent-server directly on the machine you're installing on')",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default of both the SDK Conversation and the Agent Canvas quickstart is local execution. Container (DockerWorkspace, openhands-workspace/openhands/workspace/docker/workspace.py:53; apptainer), remote (RemoteWorkspace/RemoteAPIWorkspace) and cloud workspaces are supported. Paper Sec. 2.2: 'For each task session, OpenHands spins up a securely isolated docker container sandbox' describes the 2024 default. See manual ambiguity G1."
+    },
+    "filesystem_access": {
+      "value": "full",
+      "evidence": "OpenHands/README.md:66@64c126965 ('This runs the agent-server directly on the machine you're installing on — the agent will have full access to your filesystem!')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Inside a DockerWorkspace access is full within the container. No path scoping or read-only mode found in openhands-sdk/openhands/sdk/workspace."
+    },
+    "network_policy": {
+      "value": "open",
+      "evidence": "software-agent-sdk/openhands-workspace/openhands/workspace/docker/workspace.py:119-122@322dec7d (network: str | None 'Connect a container to the specified Docker network' -- selects a network, no egress restriction); software-agent-sdk/openhands-sdk/openhands/sdk/workspace/local.py:17,47@322dec7d (LocalWorkspace runs on the host network)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No allowlist or network-off mode implemented in the pinned repos."
+    },
+    "permission_model": {
+      "value": "none",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/conversation/state.py:123@322dec7d (confirmation_policy: ConfirmationPolicyBase = NeverConfirm()); software-agent-sdk/openhands-agent-server/openhands/agent_server/models.py:153@322dec7d (confirmation_policy default NeverConfirm()); software-agent-sdk/openhands-sdk/openhands/sdk/security/analyzer.py:15-27@322dec7d (SecurityAnalyzerBase.security_risk(action)); security/llm_analyzer.py:10-21@322dec7d (LLMSecurityAnalyzer uses the LLM's own risk assessment); agent/agent.py:437@322dec7d (llm_security_analyzer=True default in system prompt kwargs)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default: nothing gates tool calls. Opt-in: AlwaysConfirm = per_call_prompt; ConfirmRisky + a SecurityAnalyzer (LLM risk prediction, GraySwan Cygnal API, ToolShield) = policy_engine; PreToolUse hooks (hooks/types.py:12) can block. See manual ambiguity G4."
+    },
+    "tracing": {
+      "value": "opentelemetry",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/observability/laminar.py:64-69,95@322dec7d ('Initialize Laminar if the environment variables are set ... OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4317/v1/traces'; from lmnr import Instruments, Laminar); software-agent-sdk/openhands-sdk/pyproject.toml:23@322dec7d (lmnr>=0.7.56); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/event_store.py:30-49@322dec7d (EventLog persisted event JSON)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "OTLP export via Laminar is enabled only when env vars are set; the structured event log (structured_traces) is always on. Coded the highest level available."
+    },
+    "replayability": {
+      "value": "partial",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/conversation/state.py:458-461@322dec7d (resume from persisted state and events); software-agent-sdk/openhands-sdk/openhands/sdk/event/resume_transcript.py:1-8@322dec7d ('replay the SDK's durable event history as the opening user message — a bootstrap-prompt resume')",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "The durable event log lets a run be reconstructed and continued, but there is no deterministic re-execution of tool calls; no dedicated replay runner found."
+    },
+    "eval_hooks": {
+      "value": "none",
+      "evidence": "grep -rli 'swebench|swe-bench|benchmark' software-agent-sdk/openhands-sdk/openhands/sdk at 322dec7d matches only context/condenser/llm_summarizing_condenser.py; OpenHands/README.md:146@64c126965 lists the repos of the product family (no benchmark repo among them)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Paper Sec. 4 (Table 2) described an integrated evaluation framework over 15 benchmarks in the 2024 codebase; at the pinned version evaluation lives outside the two pinned repos."
+    },
+    "guardrails": {
+      "value": ["input_filters", "output_filters", "action_policies"],
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/agent/agent.py:655-662@322dec7d (last user message blocked by a UserPromptSubmit hook -> conversation FINISHED); software-agent-sdk/openhands-sdk/openhands/sdk/conversation/secret_registry.py:143@322dec7d (mask_secrets_in_output) and software-agent-sdk/openhands-agent-server/openhands/agent_server/_secret_redaction.py:1-5@322dec7d ('Redaction helpers that keep secrets out of exported artifacts'); software-agent-sdk/openhands-sdk/openhands/sdk/security/analyzer.py:15-27@322dec7d and confirmation_policy.py:43-61@322dec7d (risk-based action gating); hooks/types.py:12-13@322dec7d (PreToolUse/PostToolUse hooks); security/grayswan/analyzer.py:1-3@322dec7d (GraySwan Cygnal API analyzer)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Action gating is opt-in (default NeverConfirm); secret masking and hook infrastructure are built in."
+    },
+    "target_domain": {
+      "value": ["swe", "web", "general_tool_use"],
+      "evidence": "software-agent-sdk/README.md:30@322dec7d ('a set of Python and REST APIs for building agents that work with code'); software-agent-sdk/openhands-tools/openhands/tools/browser_use/definition.py:776@322dec7d (BrowserToolSet); software-agent-sdk/openhands-sdk/openhands/sdk/mcp/definition.py:26@322dec7d (MCPToolAction for arbitrary MCP tools); paper title 'OpenHands: An Open Platform for AI Software Developers as Generalist Agents'",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": ""
+    },
+    "open_source": {
+      "value": "yes",
+      "evidence": "software-agent-sdk/LICENSE:1@322dec7d (MIT License); OpenHands/LICENSE:1@64c126965 (The MIT License (MIT)); paper Abstract: 'Released under the permissive MIT license allowing commercial use'",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": ""
+    },
+    "model_agnostic": {
+      "value": "yes",
+      "evidence": "software-agent-sdk/openhands-sdk/openhands/sdk/llm/llm.py:62,2225@322dec7d (litellm completion is the transport); software-agent-sdk/openhands-sdk/pyproject.toml:16@322dec7d (litellm>=1.93.0); OpenHands/README.md (table row 'Bring your own model ... Use with any LLM')@64c126965",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": ""
+    },
+    "primary_artifact": {
+      "value": "repo",
+      "evidence": "OpenHands/AGENTS.md:31@64c126965 (agents, tools, conversations, events live in OpenHands/software-agent-sdk); software-agent-sdk/README.md:14@322dec7d (links a separate SDK tech report arXiv:2511.03690)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "arXiv:2407.16741 (v1 2024-07-23, v3 2025-04-18) documents the 2024 event-stream architecture; the pinned 2026 code has been re-architected into the SDK, so the repos are primary."
+    },
+    "first_release_date": {
+      "value": "2024-04-16",
+      "evidence": "git tag 0.3.0 -> 4b4bc15fdbe0b4603f68eb0ed635355c476fa4ce, committer date 2024-04-16 (All-Hands-AI/OpenHands, earliest tag; read 2026-09-16)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Repository created 2024-03-13 (gh api repos/All-Hands-AI/OpenHands .created_at) as OpenDevin; first tagged release 0.3.0. See manual ambiguity M5."
+    },
+    "pinned_version": {
+      "value": "OpenHands v1.16.0 @ 64c1269655012698bc66538967989996191beb6c (2026-08-27) + software-agent-sdk v1.44.0 @ 322dec7d777497e376f81e093ed1eb0196bbbb39 (2026-08-27)",
+      "evidence": "OpenHands: git describe --tags -> v1.16.0, git log -1 --format=%cs -> 2026-08-27; OpenHands/config/defaults.json:4@64c126965 ('agentServer': '1.44.0'); software-agent-sdk: git describe --tags -> v1.44.0, openhands-sdk/pyproject.toml:3@322dec7d (version = '1.44.0')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "The OpenHands repo at v1.16.0 is the Agent Canvas frontend (TypeScript); the harness proper is the agent-server/SDK version it pins. Evidence strings are prefixed with the repo name to disambiguate. See manual ambiguity M6."
+    },
+    "stars": {
+      "value": 88161,
+      "evidence": "gh api repos/All-Hands-AI/OpenHands --jq .stargazers_count -> 88161 on 2026-09-16",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "The SDK repo OpenHands/software-agent-sdk had 1123 stars on the same date; the flagship repo is used."
+    }
+  },
+  "coded_at": "2026-09-16",
+  "notes": "Worked example coded by LLM pre-fill (Claude), NOT human-verified. Unit of analysis spans two repos: All-Hands-AI/OpenHands v1.16.0 (64c126965, Agent Canvas frontend) which pins openhands-agent-server 1.44.0, so agent behaviour is coded from OpenHands/software-agent-sdk v1.44.0 (322dec7d). Evidence paths are prefixed 'OpenHands/' or 'software-agent-sdk/'. Cells describe the default configuration (get_default_agent / Conversation defaults) and list config-reachable alternatives in note. Paper quotes are from arXiv:2407.16741 and describe the 2024 architecture; where the paper and pinned code disagree (sandbox default, browser observations, evaluation framework, CodeAct), the code is coded and the paper claim goes in note."
+}

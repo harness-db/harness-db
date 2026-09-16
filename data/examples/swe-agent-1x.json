@@ -1,0 +1,321 @@
+{
+  "id": "swe-agent-1x",
+  "name": "SWE-agent",
+  "version_label": "1.x (v1.1.0)",
+  "aliases": ["SWE-agent 1.0", "sweagent"],
+  "urls": {
+    "paper": "https://arxiv.org/abs/2405.15793",
+    "repo": "https://github.com/SWE-agent/SWE-agent",
+    "docs": "https://swe-agent.com/latest/"
+  },
+  "papers": ["p-sweagent-2024"],
+  "supersedes": "swe-agent-0x",
+  "coding": {
+    "system_prompt_style": {
+      "value": "templated",
+      "evidence": "sweagent/agent/agents.py:570@0f3acaf (system_msg = Template(self.templates.system_template).render(**self._get_format_dict())); config/default.yaml:6-7@0f3acaf",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Jinja2 template rendered once at setup from config (command_docs, env_variables, problem_statement fields available). In the default config the system template has no variables; the task-specific variables ({{working_dir}}, {{problem_statement}}) live in instance_template (config/default.yaml:8-20). Not dynamically re-composed per step."
+    },
+    "env_context_strategy": {
+      "value": "agent_driven_navigation",
+      "evidence": "config/default.yaml:9-22@0f3acaf (instance template gives only {{working_dir}} and instructs '1. As a first step, it might be a good idea to find and read code relevant to the <pr_description>'); tools/edit_anthropic/config.yaml:10@0f3acaf (`view` command of str_replace_editor)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No retrieval or file-tree summary is injected. Opt-in helpers: filemap (tools/edit_anthropic/bin/str_replace_editor:491-503 shows a condensed 'filemap' of long Python files when USE_FILEMAP=true, which default.yaml:39 sets) and the search bundle (tools/search/config.yaml: find_file/search_dir/search_file, not in default config). Paper Sec. 3 describes the 0.x search/navigation commands."
+    },
+    "context_compaction": {
+      "value": ["tool_output_pruning"],
+      "evidence": "sweagent/agent/agents.py:691-694@0f3acaf (observation truncated to templates.max_observation_length, default 100_000 chars at agents.py:79); sweagent/agent/history_processors.py:77-78,138@0f3acaf (LastNObservations replaces old observations with 'Old environment output: (N lines omitted)')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default config (config/default.yaml:60-62) enables only the cache_control history processor; LastNObservations and ClosedWindowHistoryProcessor (history_processors.py:179) are opt-in. No summarization. Paper Sec. 3: 'observations preceding the last 5 are each collapsed into a single line' describes the 0.x default."
+    },
+    "observation_format": {
+      "value": ["raw_text"],
+      "evidence": "sweagent/agent/agents.py:661-666@0f3acaf (observation appended as a plain string history item with message_type 'observation'); config/default.yaml:28-30@0f3acaf (next_step_template 'OBSERVATION:\\n{{observation}}')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Shell output text only; no JSON, screenshots or trees."
+    },
+    "tool_call_format": {
+      "value": ["native_function_calling", "json_in_text", "xml_tags", "shell_only"],
+      "evidence": "config/default.yaml:58-59@0f3acaf (parse_function: type: function_calling); sweagent/tools/parsing.py:367-368@0f3acaf (FunctionCallingParser 'Expects the model response to be a LiteLLM tool call'); parsing.py:444-445 (JsonParser); parsing.py:168,225 (XMLThoughtActionParser, XMLFunctionCallingParser); parsing.py:109-117 (ThoughtActionParser: command in backticks)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default is native function calling (exactly one tool call per turn, parsing.py:431-438). The other parsers are selectable via agent.tools.parse_function.type without code changes. All tool calls are ultimately rendered to a shell command line executed in the sandbox (parsing.py:418-426), so 'shell_only' also describes the execution path."
+    },
+    "tool_count": {
+      "value": 3,
+      "evidence": "config/default.yaml:33-37,57@0f3acaf (bundles: tools/registry, tools/edit_anthropic, tools/review_on_submit_m; enable_bash_tool: true); sweagent/tools/tools.py:157-159@0f3acaf (builtin bash command added when enable_bash_tool); tools/registry/config.yaml:1@0f3acaf (tools: {}); tools/edit_anthropic/config.yaml:2@0f3acaf (str_replace_editor); tools/review_on_submit_m/config.yaml:2@0f3acaf (submit)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Counted as tool definitions exposed to the model in the default config: bash, str_replace_editor, submit. The repo ships 13 bundles under tools/ with 17 tool definitions in total (goto, open, create, scroll_up, scroll_down, edit x3, insert, find_file, search_dir, search_file, filemap, exit_forfeit, submit x2, str_replace_editor); bash exposes the whole shell but counts as one."
+    },
+    "edit_primitive": {
+      "value": ["search_replace", "whole_file_rewrite", "line_range_edit"],
+      "evidence": "tools/edit_anthropic/config.yaml:22-24@0f3acaf (str_replace_editor commands: view, create, str_replace, insert, undo_edit); tools/edit_anthropic/config.yaml:15-18@0f3acaf (old_str must match exactly one occurrence); tools/windowed_edit_linting/config.yaml:3-6@0f3acaf ('edit <start_line>:<end_line>')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default config: search_replace (str_replace), whole_file_rewrite (create emits full file text for a new file), line-addressed insert (insert_line). line_range_edit proper is the opt-in windowed_edit_linting bundle (0.x-style). windowed_edit_rewrite and windowed_edit_replace bundles also shipped. No unified-diff or AST-aware editing."
+    },
+    "tool_schema_source": {
+      "value": ["hand_written"],
+      "evidence": "tools/edit_anthropic/config.yaml:2-55@0f3acaf (signature, docstring, arguments with type/description/enum written by hand in YAML); sweagent/tools/commands.py:131-160@0f3acaf (get_function_calling_tool converts the YAML Command into an OpenAI-style function schema)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Schemas are declared by hand in bundle config.yaml; the JSON function schema is a mechanical rendering of that declaration, not derived from code signatures. No MCP/OpenAPI."
+    },
+    "protocol_standardization": {
+      "value": ["none"],
+      "evidence": "sweagent/tools/tools.py:161-173@0f3acaf (commands come only from local bundles); grep -rli 'mcp|a2a' sweagent/ at 0f3acaf matches only sweagent/frontend/package-lock.json (hash strings)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Tools are shell executables uploaded into the container (tools.py:247-255); no MCP/A2A client."
+    },
+    "loop_primitives": {
+      "value": ["react", "multi_attempt"],
+      "evidence": "sweagent/agent/agents.py:1001-1010@0f3acaf (query model, parse thought+action, handle_action); agents.py:1240-1242@0f3acaf (while not step_output.done: step()); agents.py:226,397-400@0f3acaf (RetryAgent: after submit, rloop.retry() starts a new attempt); paper Sec. 3: 'At each step, SWE-agent generates a thought and a command, then incorporates the feedback from the command's execution (ReAct)'",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default agent type is 'default' (single ReAct loop). multi_attempt requires agent.type: retry with a ScoreRetryLoop/ChooserRetryLoop (reviewer.py:180-217). Per-step best-of-n action sampling is also available (action_sampler.py:96-153)."
+    },
+    "planning_granularity": {
+      "value": "implicit",
+      "evidence": "config/default.yaml:21-27@0f3acaf ('Follow these steps to resolve the issue: 1. ... 5. ...' and 'Your thinking should be thorough'); sweagent/agent/agents.py:1176-1188@0f3acaf (trajectory step stores thought/action/observation only; no plan field)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Planning happens in free-text 'thought' guided by a fixed 5-step recipe in the prompt; no plan object is parsed or tracked."
+    },
+    "multi_agent_topology": {
+      "value": "single",
+      "evidence": "sweagent/agent/agents.py:216-223@0f3acaf (get_agent_from_config: only 'default' and 'retry' agent types); agents.py:412@0f3acaf (class DefaultAgent)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "RetryAgent runs sequential attempts of the same single agent plus a reviewer model call; not a multi-agent topology."
+    },
+    "delegation_mechanism": {
+      "value": "none",
+      "evidence": "sweagent/agent/agents.py:216-223@0f3acaf (no sub-agent or handoff agent types); sweagent/tools/tools.py:151-175@0f3acaf (commands are shell tools only)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": ""
+    },
+    "human_in_loop": {
+      "value": ["none"],
+      "evidence": "sweagent/agent/agents.py:1240-1242@0f3acaf (run loop executes every step until done without confirmation); sweagent/agent/models.py:324-326@0f3acaf (HumanModel: 'Model that allows for human-in-the-loop' replaces the LM entirely)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No permission prompt, plan approval, or completion review gate. The 'human'/'human_thought' model types (config/human/human.yaml) let a person type every action instead of the LM; this is human-as-model, not human-in-the-loop over an LM."
+    },
+    "short_term_state": {
+      "value": "conversation_only",
+      "evidence": "sweagent/agent/agents.py:509-520@0f3acaf (messages = history filtered and passed through history processors); agents.py:952@0f3acaf (step.state = tools.get_state(env), a small dict of env variables rendered into the observation template)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "The only extra state is the per-step 'state' dict produced by bundle state commands (e.g. open file, working dir), which is templated into the observation text; no scratchpad or task object."
+    },
+    "long_term_memory": {
+      "value": ["none"],
+      "evidence": "sweagent/agent/agents.py:530-565@0f3acaf (setup builds history from system template, static demonstrations and instance template only; nothing read from previous runs)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Demonstrations (agents.py:576-579) are static few-shot trajectories chosen in config, not memory written by the agent."
+    },
+    "state_persistence": {
+      "value": "none",
+      "evidence": "sweagent/agent/agents.py:1240-1242@0f3acaf (.traj written after every step) ; sweagent/run/run_batch.py:83@0f3acaf (redo_existing: bool = False, i.e. completed instances are skipped, not resumed)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Per-step trajectory files exist but there is no code path to resume an interrupted run from them; run_replay (sweagent/run/run_replay.py) re-executes actions from scratch. Closest value is 'none'; see manual ambiguity D3."
+    },
+    "self_verification": {
+      "value": ["self_critique", "linters_typecheck", "llm_judge"],
+      "evidence": "config/default.yaml:37,40-56@0f3acaf (review_on_submit_m: first submit returns the diff plus a checklist 'Please carefully follow the steps below to help review your changes ... Run the submit command again to confirm'); tools/windowed_edit_linting/bin/edit:95-112@0f3acaf (flake8 before/after edit; new errors -> undo_edit); sweagent/agent/reviewer.py:375,434-448@0f3acaf (Reviewer scores a submission with an LM)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default config ships only the submit-time self-review (self_critique). Lint-on-edit (linters_typecheck) and LM reviewer (llm_judge) are opt-in bundles/configs. Test execution is left to the model via bash (the prompt asks it to write and rerun a reproduction script, default.yaml:23-25) and is not enforced by the harness. Paper Sec. 3: 'we integrate a code linter into the edit function'."
+    },
+    "retry_policy": {
+      "value": "none",
+      "evidence": "sweagent/agent/agents.py:1221-1242@0f3acaf (DefaultAgent.run: single attempt, loop ends at first done); sweagent/agent/reviewer.py:180-190,200-209@0f3acaf (ChooserRetryLoopConfig/ScoreRetryLoopConfig with max_attempts, accept_score, cost_limit; only used by agent.type: retry)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Default is a single attempt. Opt-in RetryAgent gives fixed_n (max_attempts) or score-gated retries (accept_score). Separately, max_requeries=3 (agents.py:150-153) re-queries the model on format/blocklist/syntax errors within a step; that is a step-level requery, not a task retry."
+    },
+    "rollback": {
+      "value": "snapshot",
+      "evidence": "tools/edit_anthropic/bin/str_replace_editor:632-639@0f3acaf (undo_edit pops the previous file text from _file_history and rewrites the file); tools/edit_anthropic/config.yaml:13@0f3acaf ('The undo_edit command will revert the last edit made to the file at path')",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Model-invocable per-file undo backed by an in-tool history stack. Harness-level reset between retry attempts is git-based (sweagent/environment/swe_env.py:155-161: git checkout base_commit && git clean -fdq) but only with agent.type: retry. See manual ambiguity E3."
+    },
+    "termination_condition": {
+      "value": ["model_declared", "cost_cap", "max_steps", "max_tokens"],
+      "evidence": "tools/review_on_submit_m/bin/submit:44-46@0f3acaf (prints <<SWE_AGENT_SUBMISSION>>) and sweagent/agent/agents.py:842-862@0f3acaf (handle_submission sets done=True); sweagent/agent/models.py:632-637@0f3acaf (per_instance_cost_limit -> InstanceCostLimitExceededError) with agents.py:1138-1142 (exit_cost autosubmit); models.py:639-642@0f3acaf (per_instance_call_limit -> InstanceCallLimitExceededError); models.py:667-669@0f3acaf (input tokens > max_input_tokens -> ContextWindowExceededError) with agents.py:1131-1135 (exit_context)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "max_steps is expressed as an API-call cap (per_instance_call_limit, default 0 = off). max_tokens here is the context-window guard, not a cumulative token budget. Additional exits: total execution time (agents.py:977-978), repeated command timeouts (agents.py:929-934), repeated format errors (agents.py:1167-1174), exit_forfeit tool. No stall/loop detection on repeated actions. Paper Sec. 4: per-instance budget $4."
+    },
+    "cost_controls": {
+      "value": ["token_budget", "caching"],
+      "evidence": "sweagent/agent/models.py:73-78@0f3acaf (per_instance_cost_limit, total_cost_limit, per_instance_call_limit); config/default.yaml:60-62@0f3acaf (history_processors: cache_control, last_n_messages: 2) and sweagent/agent/history_processors.py:225-233@0f3acaf (CacheControlHistoryProcessor adds cache_control marks for Anthropic prompt caching)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Budget is denominated in USD (litellm cost), not tokens; coded as token_budget as the closest value (see manual ambiguity F2). models.py:113-117 'fallbacks' is provider failover, not cost-based routing."
+    },
+    "timeouts": {
+      "value": ["per_tool", "per_run"],
+      "evidence": "sweagent/tools/tools.py:123-132@0f3acaf (execution_timeout: int = 30 'Timeout for executing commands in the environment'; total_execution_timeout: int = 1800 'Timeout for executing all commands ... will stop the agent for the next step')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "per_run limit counts cumulative command execution time, not wall-clock; enforced at agents.py:977-978."
+    },
+    "execution_isolation": {
+      "value": "container",
+      "evidence": "sweagent/environment/swe_env.py:27-30@0f3acaf (deployment default_factory=lambda: DockerDeploymentConfig(image='python:3.11', ...)); paper App. A.2: 'SWE-agent also uses Docker containers to ensure reproducible and safe execution'",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Execution is delegated to the SWE-ReX runtime (swe-rex>=1.2.0, pyproject.toml:60), which also offers local, Modal and Fargate deployments selectable via env.deployment.type."
+    },
+    "filesystem_access": {
+      "value": "full",
+      "evidence": "sweagent/environment/swe_env.py:187-188@0f3acaf (bash session started with /root/.bashrc; commands run as the container user); sweagent/tools/tools.py:243-244@0f3acaf (harness writes /root/.swe-agent-env and /root/state.json inside the container)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Unrestricted inside the container (root); host filesystem is not mounted by default. 'full' is coded relative to the sandbox; see manual ambiguity G2."
+    },
+    "network_policy": {
+      "value": "open",
+      "evidence": "sweagent/environment/swe_env.py:27-30@0f3acaf (DockerDeploymentConfig created without any network option); swe_env.py:155-161@0f3acaf (reset runs 'git fetch' inside the container, which requires egress); grep -rn network sweagent/ at 0f3acaf returns 0 hits",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No egress policy is implemented; the container uses Docker's default network."
+    },
+    "permission_model": {
+      "value": "static_allowlist",
+      "evidence": "sweagent/tools/tools.py:28-48@0f3acaf (ToolFilterConfig.blocklist: vim, vi, emacs, nano, nohup, gdb, less, tail -f, python -m venv, make); tools.py:50-71@0f3acaf (blocklist_standalone, block_unless_regex); tools.py:334-348@0f3acaf (should_block_action)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "This is a static BLOCKlist (everything not blocked is allowed), not an allowlist; coded as the closest value. See manual ambiguity G4."
+    },
+    "tracing": {
+      "value": "structured_traces",
+      "evidence": "sweagent/agent/agents.py:1176-1189@0f3acaf (each TrajectoryStep records action, observation, response, thought, execution_time, state, query, extra_info); agents.py:738-746@0f3acaf (save_trajectory writes .traj JSON with trajectory, history, info); sweagent/utils/log.py:93-113@0f3acaf (add_file_handler at TRACE level)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Full model queries are stored per step; plus plain log files. No OpenTelemetry."
+    },
+    "replayability": {
+      "value": "partial",
+      "evidence": "sweagent/run/run_replay.py:1-8@0f3acaf ('Replay a trajectory file ... We will take all actions in the trajectory and execute them in an environment'); sweagent/agent/models.py:186@0f3acaf (ReplayModelConfig)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Actions are re-executed in a fresh container; environment outputs are not guaranteed identical, so not deterministic."
+    },
+    "eval_hooks": {
+      "value": "built_in",
+      "evidence": "sweagent/run/hooks/swe_bench_evaluate.py:19,42@0f3acaf (class SweBenchEvaluate(RunHook) invoking 'sb-cli'); sweagent/run/run_batch.py:223-226@0f3acaf (hook added when instances.evaluate is set)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "SWE-bench evaluation is wired into batch runs via a run hook; other benchmarks are not built in."
+    },
+    "guardrails": {
+      "value": ["action_policies"],
+      "evidence": "sweagent/tools/tools.py:36-65@0f3acaf (blocklist of interactive/unsafe commands); sweagent/agent/agents.py:1091-1097@0f3acaf (BashIncorrectSyntaxError -> requery with shell_check_error_template, command not executed); tools/windowed_edit_linting/bin/edit:109-119@0f3acaf (edit reverted on new lint errors)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "No input or output content filters; agents.py:1086-1090 only reacts to provider-side ContentPolicyViolationError by resampling."
+    },
+    "target_domain": {
+      "value": ["swe"],
+      "evidence": "README.md:14-15@0f3acaf ('SWE-agent enables your language model of choice ... to autonomously use tools to fix issues in real GitHub repositories'); paper title 'SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering'",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "README.md:16 also advertises the EnIGMA cybersecurity-CTF configuration and coding challenges (config/coding_challenge.yaml); the core harness is SWE-focused."
+    },
+    "open_source": {
+      "value": "yes",
+      "evidence": "LICENSE:1@0f3acaf (MIT License)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": ""
+    },
+    "model_agnostic": {
+      "value": "yes",
+      "evidence": "sweagent/agent/models.py:66-69@0f3acaf (GenericAPIModelConfig: 'The model will be served with the help of the litellm library'); README.md:14@0f3acaf ('your language model of choice')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Paper Sec. 4: 'Although our ACI was developed for GPT-4 Turbo, we show that it is portable to a different LM'."
+    },
+    "primary_artifact": {
+      "value": "repo",
+      "evidence": "README.md:10@0f3acaf (paper linked from repo); sweagent/__init__.py:15@0f3acaf (__version__ = '1.1.0', a rewrite released 2025-02-13 after the paper's last revision 2024-11-11 per arXiv:2405.15793)",
+      "confidence": "medium",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "The NeurIPS-era paper describes SWE-agent 0.x (windowed editor, ReAct in backticks). The 1.x line is documented only by the repo and docs site, so the repo is the primary artifact for this system row."
+    },
+    "first_release_date": {
+      "value": "2025-02-13",
+      "evidence": "git tag v1.0.0 -> 8ed382c1af1a21f63410b9a0cda14759e64b49c0, committer date 2025-02-13 (SWE-agent/SWE-agent, read 2026-09-16)",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Date of the first 1.x release, since this row is the 1.x line. Project's first tag v0.1.0 -> acdab0eb, 2024-04-05; paper v1 on arXiv 2024-05-06. See manual ambiguity M5."
+    },
+    "pinned_version": {
+      "value": "v1.1.0 @ 0f3acafacabc0def8cc76b4e48acb4b6cf302cb9 (2025-05-22)",
+      "evidence": "git describe --tags at checkout -> v1.1.0; git log -1 --format=%cs v1.1.0 -> 2025-05-22; sweagent/__init__.py:15@0f3acaf (__version__ = '1.1.0')",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": "Latest tag before 2026-08-31 (next tag after v1.1.0 does not exist as of 2026-09-16)."
+    },
+    "stars": {
+      "value": 20340,
+      "evidence": "gh api repos/SWE-agent/SWE-agent --jq .stargazers_count -> 20340 on 2026-09-16",
+      "confidence": "high",
+      "not_reported": false,
+      "coder": "llm-prefill",
+      "note": ""
+    }
+  },
+  "coded_at": "2026-09-16",
+  "notes": "Worked example coded by LLM pre-fill (Claude), NOT human-verified. Pinned to SWE-agent v1.1.0 (0f3acaf). Cells describe the shipped default config (config/default.yaml, selected by sweagent/run/common.py:292) and list config-reachable alternatives in note. Paper quotes are from arXiv:2405.15793 (HTML v3) and describe the 0.x line; where paper and code disagree, the code at the pinned commit is coded and the paper claim goes in note."
+}
