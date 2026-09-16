@@ -4,8 +4,13 @@ Status: draft. This file mirrors the OSF pre-registration. Once registered, add 
 DOI and timestamp here and do not edit the registered sections; log amendments below.
 
 OSF project: https://osf.io/vkjer/ (private, created 2026-09-16)
-OSF registration draft: https://osf.io/registries/drafts/6aaac0b75b653a0a162519ab (Generalized Systematic Review Registration v6; submit after the harness definition and search strings are final)
-Registered on: _pending_
+OSF registration: https://osf.io/ab2wn/ (Generalized Systematic Review Registration v6, embargoed)
+Registered on: 2026-09-16 18:12 UTC, before any searching or screening
+Registration DOI: _minted by OSF when the registration is approved; add here_
+
+The registered protocol is the text of the 61 registration responses at that timestamp. Sections below
+are the working copy; any change after 2026-09-16 that affects the registered content is logged under
+Amendments and, if material, filed as a registration update on OSF.
 
 ## 1. Title
 The Anatomy of Agent Harnesses: A Systematic Review, Unified Taxonomy, and Coded Dataset
