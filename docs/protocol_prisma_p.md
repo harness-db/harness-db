@@ -4,9 +4,10 @@ Status: draft. This file mirrors the OSF pre-registration. Once registered, add 
 DOI and timestamp here and do not edit the registered sections; log amendments below.
 
 OSF project: https://osf.io/vkjer/ (private, created 2026-09-16)
-OSF registration: https://osf.io/ab2wn/ (Generalized Systematic Review Registration v6, embargoed)
+OSF registration: https://osf.io/ab2wn/ (Generalized Systematic Review Registration v6; approved 2026-09-16; embargoed until 2026-10-31, to be ended early on arXiv posting)
 Registered on: 2026-09-16 18:12 UTC, before any searching or screening
-Registration DOI: _minted by OSF when the registration is approved; add here_
+Registration DOI: _minted by OSF when the embargo ends; add here_
+Registration update 1 (search strings v2): filed 2026-09-16 as schema response 6aaaf3afc098c3275558de31, pending contributor approval
 
 The registered protocol is the text of the 61 registration responses at that timestamp. Sections below
 are the working copy; any change after 2026-09-16 that affects the registered content is logged under
