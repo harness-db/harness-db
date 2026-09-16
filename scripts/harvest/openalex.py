@@ -86,6 +86,26 @@ def build_query(with_structure: bool = False) -> str:
     return q
 
 
+
+def _openalex_api_key() -> str | None:
+    """OPENALEX_API_KEY from the environment or the repo's .env (never committed)."""
+    import os
+    if os.environ.get("OPENALEX_API_KEY"):
+        return os.environ["OPENALEX_API_KEY"]
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("OPENALEX_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'") or None
+    return None
+
+
+def _auth() -> dict[str, str]:
+    """Request-time auth params; kept out of build_params so --resume checkpoints still match."""
+    key = _openalex_api_key()
+    return {"api_key": key} if key else {}
+
+
 def build_params(query: str, since: str, until: str, mode: str, cs: str) -> dict[str, Any]:
     filters = [f"from_publication_date:{since}", f"to_publication_date:{until}"]
     if CS_FILTERS[cs]:
@@ -156,7 +176,7 @@ def iter_works(
     interrupted run can continue with ``--resume``."""
     p = {**params, "per-page": PER_PAGE, "sort": "cited_by_count:desc", "select": SELECT}
     while cursor:
-        data = client.get_json(API, params={**p, "cursor": cursor})
+        data = client.get_json(API, params={**p, "cursor": cursor, **_auth()})
         total = int(data.get("meta", {}).get("count", 0))
         results = data.get("results", [])
         for w in results:
@@ -169,7 +189,7 @@ def iter_works(
 
 
 def count(client: HttpClient, params: dict[str, Any]) -> int:
-    data = client.get_json(API, params={**params, "per-page": 1, "select": "id"})
+    data = client.get_json(API, params={**params, "per-page": 1, "select": "id", **_auth()})
     return int(data.get("meta", {}).get("count", 0))
 
 
