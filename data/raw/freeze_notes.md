@@ -294,3 +294,54 @@ would otherwise merge them): `data/raw/arxiv_v3.jsonl` (12,205), `data/raw/acl_v
 ## 11. Decision: v3' adopted (orchestrator, 2026-09-16 ~20:50 UTC)
 
 LLM block waived only for 7 strong terms: "agent harness*", "agentic harness*", "coding agent*", "agent scaffold*", "agentic scaffold*", "software engineering agent*", "web agent*" (dropped "GUI agent*" and "computer-use agent*", which carried most sampled noise). Added records appended to canonical arxiv/acl/openreview files with query_used suffix ' | v3prime strong-term waiver': arxiv +593, acl +30, openreview +68. GitHub not re-filtered (no README cache; noted limitation). S2/OpenAlex unchanged (structure block).
+
+## 11. Phase 2 close-out — survey bibliographies snowballed (2026-09-16, 20:48–21:00 UTC)
+
+On the user's request to finish every open Phase 2 item (execution plan §1, "Phase 2 — Search and
+retrieval"), the checklist was re-audited against the repository state after the orchestrator's
+v3' freeze (arXiv 11,835 / ACL 1,393 / OpenReview 1,754 re-harvested; dedupe 27,588; search_log.md
+and the protocol amendment written; frozen copies refreshed for every file):
+
+| Phase 2 item | status |
+|---|---|
+| Harvesting scripts (S1) | done (freeze run, sections 1–3) |
+| Snowball seeds: 4 competitor surveys' reference lists + awesome-lists, forward + backward | Guo (2606.20683) and Rombaut (2604.03515) via S2 (section 5); awesome-lists (section 6); **Li et al. and Meng et al. bibliographies were still missing** (not on S2) → done here |
+| Grey sources: lab tech reports, HAL, benchmark leaderboards | done by another task: `grey.jsonl` (48 vendor docs) and `leaderboards.jsonl` (3,946 rows over GAIA, SWE-bench, OSWorld, WebArena, Terminal-Bench, HAL, τ-bench, τ²-bench; GAIA excluded from candidates by `dedupe.py`) |
+| Deduplicate | re-run here after the survey snowball |
+| Freeze the search: date, queries, raw hit counts per source | `search_log.md` (orchestrator) + addendum here |
+| Export `data/raw/candidates.csv` | re-exported here: **27,747** |
+
+### Survey bibliographies (`scripts/harvest/survey_refs.py`, new)
+
+PDF sources: Li et al. — `https://raw.githubusercontent.com/picrew/LLM-Harness/main/docs/main.pdf`
+(3,482,446 bytes, identical to `api2.openreview.net/pdf?id=eONq7FdiHa` fetched with the OpenReview
+login); Meng et al. — `Gloriaameng/Awesome-Agent-Harness/Agent_Harness_for_LLM_Agents__A_Survey__v4.pdf`
+(19,427,862 bytes; preprints.org answers 403 to every download path). Both cached in `data/raw/cache/`.
+
+Parsing: `pypdf` text → last "References" heading → entries (Meng: `[n]` markers; Li: author-year
+entries ending in a year or "Accessed <date>.", URL-only continuation lines merged back) → arXiv id,
+DOI, URLs, GitHub repo, heuristic title (sentence after the author list; pypdf's glued
+"agents.InInternational" / "harness.arXiv" boundaries repaired). Resolution on S2: `POST /paper/batch`
+for arXiv/DOI ids, then `/paper/search/match` on the title, accepted only at rapidfuzz ratio ≥ 85.
+
+| survey | entries | arXiv ids | repos | id-resolved | title lookups → accepted | S2 papers / repos / other written | outside window |
+|---|---:|---:|---:|---:|---:|---|---:|
+| Li et al. (250) | 250 | 58 | 72 | 58/58 | 119 → 51 | 107 / 72 / 69 | 2 |
+| Meng et al. (170) | 170 | 30 (+2 DOI) | 9 | 32/32 | 127 → 59 | 88 / 9 / 70 | 3 |
+| total | 420 | | | | | **415** | 5 |
+
+Output `data/raw/snowball_surveys.jsonl` (415; `source = s2_snowball` for the 195 resolved papers,
+`survey_refs` for 81 repos and 139 blog/doc references); 266 S2 requests (18 transient 429s, all
+recovered); 20:53:39–20:58:44 UTC. Frozen: `data/raw/frozen/snowball_surveys.jsonl.gz` (171,946 B).
+
+Known-item recall with the survey bibliographies: `snowball_surveys` alone 11/48; union unchanged
+at **46/48** (missing 2607.10113, 2609.17394).
+
+Dedupe (`python scripts/dedupe.py --include-snowball`, 20:59 UTC): 50,724 raw → **27,747
+candidates** (+159 vs 27,588; 122 clusters are cited only by the two surveys); merges doi 7,440 ·
+arxiv_id 15,589 · title_exact 22,436 · title_fuzzy 142. The previous `candidates.csv` (27,588) is
+kept in the scratchpad as `candidates_before_surveys.csv`.
+
+Not done / for the orchestrator: no commit was made (nothing in the plan asks the harvesting task
+to commit); `search_log.md` received an addendum section only (the orchestrator's freeze text was
+not edited). Nothing else in the Phase 2 checklist remains open.

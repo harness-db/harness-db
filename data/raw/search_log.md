@@ -261,7 +261,8 @@ file: `data/raw/frozen/` (also uploaded to the OSF project https://osf.io/vkjer/
 | OpenReview | 1,754 | 1,686 + 68 (v3'); 70,268 submissions scanned, 11 venues |
 | ACL Anthology | 1,393 | 1,363 + 30 (v3') |
 | GitHub | 1,361 | 3,228 hits, 2,555 repos, README-filtered |
-| Snowball | 11,289 | 11 seeds |
+| Snowball | 11,289 | 11 seeds via Semantic Scholar |
+| Survey reference lists | 415 | Li et al. and Meng et al. bibliographies parsed from PDF (not on S2); 195 papers, 81 repos, 139 other |
 | Awesome-lists | 822 | 3 catalogs |
 | Grey (vendor docs) | 48 | |
 | Leaderboards | 3,946 | 251 non-GAIA systems enter candidates |
@@ -288,9 +289,61 @@ candidates written: 27588 -> C:\Users\Bhaskar\Pictures\Research\harness-db\data\
 
 ## Known-item recall (48 ids, data/raw/known_items.txt)
 - Search sources only: 39/48 (81%).
-- With snowball and awesome-lists: **46/48 (96%)**, above the registered 90% threshold.
+- With snowball, survey reference lists and awesome-lists: **46/48 (96%)**, above the registered 90% threshold.
 - Missing: 2607.10113 (skills-library survey; no harness term) and 2609.17394 (dated 2026-09-15, outside the window).
 
 ## Next
-Screening starts from `data/raw/candidates.csv` (27,588 rows): Rayyan import + ASReview prioritisation (screener 1), full random
+Screening starts from `data/raw/candidates.csv` (27,747 rows after the survey-reference snowball; see addendum below): Rayyan import + ASReview prioritisation (screener 1), full random
 order (screener 2), LLM third vote in a separate column.
+
+## Addendum 2026-09-16 20:53–20:59 UTC: backward snowballing from the two surveys S2 does not index
+
+Protocol section 5 requires backward snowballing from the competitor surveys. Two of them have no
+Semantic Scholar record (checked with `/paper/search/match` and the relevance search), so
+`s2.py --snowball` could not reach their bibliographies:
+Li et al., *Agent Harness Engineering: A Survey* (OpenReview eONq7FdiHa) and Meng et al., *Agent
+Harness for Large Language Model Agents: A Survey* (Preprints.org 202604.0428). Their PDFs were taken
+from the companion repositories (`picrew/LLM-Harness/docs/main.pdf`, byte-identical to the OpenReview
+PDF; `Gloriaameng/Awesome-Agent-Harness/Agent_Harness_for_LLM_Agents__A_Survey__v4.pdf`), cached in
+`data/raw/cache/`, and their reference sections parsed by `scripts/harvest/survey_refs.py`:
+
+```
+python scripts/harvest/survey_refs.py --since 2022-10-01 --until 2026-08-31 --out data/raw/snowball_surveys.jsonl
+```
+
+| survey | reference entries | with arXiv id | GitHub repos | S2 resolved by id | title lookups → accepted (fuzz ≥ 85) | written: S2 papers / repos / other refs | outside window |
+|---|---:|---:|---:|---:|---:|---|---:|
+| Li et al. 2026 (author-year list) | 250 | 58 | 72 | 58/58 | 119 → 51 | 107 / 72 / 69 | 2 |
+| Meng et al. 2026 (numbered list) | 170 | 30 (+2 DOI) | 9 | 32/32 | 127 → 59 | 88 / 9 / 70 | 3 |
+| **total** | **420** | | | | | **415 records** (195 `s2_snowball` papers, 81 repos + 139 blog/doc references as `survey_refs`) | 5 |
+
+266 S2 requests, 0 failures. `query_used = snowball:references:openreview:eONq7FdiHa` /
+`snowball:references:preprints:202604.0428`; `extra.resolved` records whether S2 matched by id,
+by title (with the fuzz ratio) or not at all.
+
+Known-item recall with the survey bibliographies added: unchanged at **46/48** (the 11 known items
+the two bibliographies cite were all already in the candidate set); still missing 2607.10113 and
+2609.17394.
+
+Dedupe re-run (`python scripts/dedupe.py --include-snowball`, 20:59 UTC), same settings:
+
+| source | raw hits | after dedupe | unique to source |
+|---|---:|---:|---:|
+| arxiv | 11835 | 11784 | 4736 |
+| acl | 1393 | 1393 | 350 |
+| openreview | 1754 | 1699 | 599 |
+| s2 | 6744 | 6468 | 403 |
+| openalex | 14812 | 8966 | 3172 |
+| github | 1361 | 1360 | 1237 |
+| awesome | 822 | 798 | 273 |
+| grey | 48 | 48 | 43 |
+| leaderboard | 251 | 241 | 201 |
+| s2_snowball (snowball.jsonl + resolved survey refs) | 11484 | 11324 | 7255 |
+| survey_refs (repos + unresolved refs) | 220 | 208 | 122 |
+| **total** | **50724** | **27747** | |
+
+merges: doi 7440 · arxiv_id 15589 · title_exact 22436 · title_fuzzy 142.
+**Candidates: 27,747** (was 27,588; +159 clusters, of which 122 are references only the two
+surveys cite) → `data/raw/candidates.csv`. Frozen copy: `data/raw/frozen/snowball_surveys.jsonl.gz`
+(171,946 bytes). Phase 2 checklist item "snowball seeds: the 4 competitor surveys' reference lists"
+is now complete for all four surveys (Guo and Rombaut via S2 on 2026-09-16 20:00 UTC, Li and Meng here).
