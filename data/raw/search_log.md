@@ -209,3 +209,24 @@ Secondary observations for the freeze:
 * arXiv, ACL Anthology, GitHub: complete, not capped.
 * `data/raw/cache/anthology+abstracts.bib.gz` (42 MB) must be git-ignored by the maintainer
   (see `scripts/harvest/README.md`).
+
+## Addendum 2026-09-16 19:08 UTC: OpenReview re-run with login
+
+OpenReview harvested successfully once `OPENREVIEW_USERNAME`/`OPENREVIEW_PASSWORD` were set (anonymous access is blocked by a Cloudflare challenge). v1 strings, regex on title+abstract. Submissions scanned per venue: ICLR 2023 3,792 (0 matched), 2024 7,404 (6), 2025 11,672 (55), 2026 19,814 (265); NeurIPS 2023 3,395 (3), 2024 4,236 (8), 2025 5,540 (37); ICML 2023 1,828 (0), 2024 2,610 (6), 2025 3,422 (14), 2026 6,555 (89). Total 70,268 submissions scanned, 483 matched, 80 requests.
+
+Dedupe re-run with OpenReview included:
+
+```
+| source | raw hits | after dedupe | unique to source |
+|---|---:|---:|---:|
+| arxiv | 4030 | 3991 | 777 |
+| acl | 420 | 420 | 99 |
+| openreview | 483 | 472 | 148 |
+| s2 | 5000 | 4825 | 772 |
+| openalex | 5000 | 3797 | 1127 |
+| github | 1361 | 1360 | 1360 |
+| **total** | 16294 | 8506 | |
+
+merges: {'doi': 2703, 'arxiv_id': 5335, 'title_exact': 7497, 'title_fuzzy': 53}
+candidates written: 8506 -> C:\Users\Bhaskar\Pictures\Research\harness-db\data\raw\candidates.csv
+```
