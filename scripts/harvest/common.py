@@ -39,17 +39,25 @@ CACHE_DIR = RAW_DIR / "cache"
 
 DEFAULT_SINCE = "2022-10-01"
 DEFAULT_UNTIL = "2026-08-31"
-DEFAULT_MAX_RECORDS = 5000
+DEFAULT_MAX_RECORDS = 0  # 0 = unlimited (freeze run); the test run used 5000
 
 USER_AGENT = "harness-db-harvest/0.1 (https://github.com/harness-db/harness-db; mailto:gurrambhaskar.ai@gmail.com)"
 CONTACT_EMAIL = "gurrambhaskar.ai@gmail.com"
 
-#: Harness block, verbatim from the protocol. ``*`` marks a wildcard (``scaffold*``).
+#: Harness block, verbatim from the protocol (v2, 2026-09-16; docs/protocol_prisma_p.md
+#: section 6 and the Amendments table). ``*`` marks a wildcard (``scaffold*``, ``agent*``).
 HARNESS_TERMS: tuple[str, ...] = (
     "agent harness",
+    "harness",
     "agent scaffold*",
     "agentic framework",
     "agent framework",
+    "LLM agent*",
+    "LM agent*",
+    "language agent*",
+    "AI agent*",
+    "computer agent*",
+    "multi-agent",
     "tool-use agent",
     "coding agent",
     "software engineering agent",
@@ -57,7 +65,8 @@ HARNESS_TERMS: tuple[str, ...] = (
     "GUI agent",
     "web agent",
     "multi-agent framework",
-    "orchestration",
+    "agent orchestration",
+    "LLM orchestration",
 )
 
 #: LLM block, verbatim from the protocol.
@@ -68,7 +77,9 @@ LLM_TERMS: tuple[str, ...] = (
     "language model agent",
 )
 
-#: Optional structure block (precision). Not applied in the test run; kept for reference.
+#: Optional structure block (precision only; protocol section 6: "optional structure block for
+#: precision on the two largest sources"). ANDed in when a script is run with
+#: ``--with-structure-block``; in the freeze run that flag is used on S2 and OpenAlex only.
 STRUCTURE_TERMS: tuple[str, ...] = (
     "tool call*",
     "function call*",
@@ -87,16 +98,20 @@ ARXIV_CATEGORIES: tuple[str, ...] = ("cs.AI", "cs.CL", "cs.SE", "cs.LG")
 def expand_wildcards(term: str) -> list[str]:
     """Expand a protocol term with a trailing ``*`` into explicit variants.
 
-    Sources whose query language has no phrase-internal wildcard (arXiv, S2, OpenAlex)
-    get ``"agent scaffold"`` and ``"agent scaffolding"`` instead of ``"agent scaffold*"``.
-    Terms without ``*`` are returned unchanged. The expansion is documented in
-    ``data/raw/search_log.md``.
+    Sources whose query language has no phrase-internal wildcard (S2) get every variant;
+    sources that stem server-side (arXiv, OpenAlex) take only the first one (the stem).
+    ``scaffold*`` -> ``scaffold``, ``scaffolding``, ``scaffolds``; ``agent*`` -> ``agent``,
+    ``agents``; ``call*`` -> ``call``, ``calls``, ``calling``. Terms without ``*`` are
+    returned unchanged. The expansion is documented in ``scripts/harvest/README.md``.
     """
     if not term.endswith("*"):
         return [term]
     stem = term[:-1]
-    variants = [stem, stem + "ing", stem + "s"]
-    return variants
+    if stem.endswith("agent"):
+        return [stem, stem + "s"]
+    if stem.endswith("call"):
+        return [stem, stem + "s", stem + "ing"]
+    return [stem, stem + "ing", stem + "s"]
 
 
 def _term_regex(term: str) -> str:
@@ -127,11 +142,16 @@ def block_regex(terms: Iterable[str]) -> re.Pattern[str]:
 
 HARNESS_RE: re.Pattern[str] = block_regex(HARNESS_TERMS)
 LLM_RE: re.Pattern[str] = block_regex(LLM_TERMS)
+STRUCTURE_RE: re.Pattern[str] = block_regex(STRUCTURE_TERMS)
 
 
-def matches_blocks(text: str) -> bool:
-    """True if ``text`` matches the harness block AND the LLM block."""
-    return bool(HARNESS_RE.search(text)) and bool(LLM_RE.search(text))
+def matches_blocks(text: str, with_structure: bool = False) -> bool:
+    """True if ``text`` matches the harness block AND the LLM block (AND, optionally, the
+    structure block)."""
+    ok = bool(HARNESS_RE.search(text)) and bool(LLM_RE.search(text))
+    if ok and with_structure:
+        ok = bool(STRUCTURE_RE.search(text))
+    return ok
 
 
 # --------------------------------------------------------------------------------------
@@ -337,14 +357,17 @@ class HttpClient:
 
 
 class JsonlWriter:
-    """Append-free writer: truncates the target on open, one JSON object per line.
+    """Writer that truncates the target on open (or appends with ``append=True``, in which
+    case the ids already in the file are loaded so they are not written twice), one JSON
+    object per line. ``count`` counts records written by this writer only.
 
     In ``count_only`` mode nothing is written but records are still counted.
     """
 
-    def __init__(self, path: Path | str | None, count_only: bool = False) -> None:
+    def __init__(self, path: Path | str | None, count_only: bool = False, append: bool = False) -> None:
         self.path = Path(path) if path else None
         self.count_only = count_only or self.path is None
+        self.append = append
         self.count = 0
         self._fh = None
         self._seen: set[str] = set()
@@ -352,7 +375,9 @@ class JsonlWriter:
     def __enter__(self) -> Self:
         if not self.count_only and self.path is not None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self._fh = self.path.open("w", encoding="utf-8")
+            if self.append and self.path.exists():
+                self._seen = {r["id"] for r in read_jsonl(self.path)}
+            self._fh = self.path.open("a" if self.append else "w", encoding="utf-8")
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -384,7 +409,8 @@ def read_jsonl(path: Path | str) -> Iterator[dict[str, Any]]:
 # --------------------------------------------------------------------------------------
 
 
-def build_parser(source: str, description: str) -> argparse.ArgumentParser:
+def build_parser(source: str, description: str, structure_block: bool = False) -> argparse.ArgumentParser:
+    """Common CLI. ``structure_block=True`` adds ``--with-structure-block`` (S2, OpenAlex)."""
     p = argparse.ArgumentParser(description=description)
     p.add_argument("--since", default=DEFAULT_SINCE, help="inclusive start date YYYY-MM-DD")
     p.add_argument("--until", default=DEFAULT_UNTIL, help="inclusive end date YYYY-MM-DD")
@@ -401,6 +427,12 @@ def build_parser(source: str, description: str) -> argparse.ArgumentParser:
         help=f"cap on records written per source (0 = unlimited; default {DEFAULT_MAX_RECORDS})",
     )
     p.add_argument("--log-level", default="INFO")
+    if structure_block:
+        p.add_argument(
+            "--with-structure-block",
+            action="store_true",
+            help="AND the optional structure block (STRUCTURE_TERMS) into the query (precision)",
+        )
     return p
 
 

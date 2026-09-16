@@ -34,6 +34,7 @@ from typing import Any
 from common import (
     HARNESS_TERMS,
     LLM_TERMS,
+    STRUCTURE_TERMS,
     HttpClient,
     HttpError,
     JsonlWriter,
@@ -73,8 +74,11 @@ def block_query(terms: Iterable[str], plurals: dict[str, str] | None = None) -> 
     return "(" + " | ".join(parts) + ")"
 
 
-def build_query() -> str:
-    return f"{block_query(HARNESS_TERMS)} + {block_query(LLM_TERMS, LLM_PLURALS)}"
+def build_query(with_structure: bool = False) -> str:
+    q = f"{block_query(HARNESS_TERMS)} + {block_query(LLM_TERMS, LLM_PLURALS)}"
+    if with_structure:
+        q += f" + {block_query(STRUCTURE_TERMS)}"
+    return q
 
 
 def paper_to_record(p: dict[str, Any], query: str, source_prefix: str = "s2") -> Record:
@@ -156,10 +160,35 @@ def to_s2_id(seed: str) -> str:
     return seed
 
 
-def _paginated(client: HttpClient, url: str, params: dict[str, Any]) -> Iterator[dict[str, Any]]:
+def match_title(client: HttpClient, title: str, log: logging.Logger) -> str | None:
+    """Resolve a paper title to an S2 paperId via ``/paper/search/match`` (None if absent)."""
+    resp = client.get(f"{API}/paper/search/match", params={"query": title, "fields": "paperId,title,year"})
+    if resp.status_code == 404:
+        log.warning("title not found on S2: %r", title)
+        return None
+    if resp.status_code != 200:
+        raise HttpError(f"title match HTTP {resp.status_code}: {resp.text[:200]}")
+    data = (resp.json().get("data") or [None])[0]
+    if not data:
+        return None
+    log.info("title %r -> %s (%r, %s)", title, data["paperId"], data.get("title"), data.get("year"))
+    return data["paperId"]
+
+
+S2_OFFSET_CEILING = 10000  # S2 rejects offset + limit >= 10000 on citations/references
+
+
+def _paginated(client: HttpClient, url: str, params: dict[str, Any], truncated: list[bool] | None = None) -> Iterator[dict[str, Any]]:
+    """Offset pagination. S2 only exposes the first 9,999 citations/references of a paper;
+    when that ceiling is reached the iteration stops and ``truncated[0]`` is set to True."""
     offset = 0
     while True:
-        page = client.get_json(url, params={**params, "offset": offset, "limit": SNOWBALL_PAGE})
+        limit = min(SNOWBALL_PAGE, S2_OFFSET_CEILING - 1 - offset)
+        if limit <= 0:
+            if truncated is not None:
+                truncated[0] = True
+            break
+        page = client.get_json(url, params={**params, "offset": offset, "limit": limit})
         yield from page.get("data", [])
         nxt = page.get("next")
         if nxt is None:
@@ -172,16 +201,23 @@ def snowball(
     seed_ids: Iterable[str],
     log: logging.Logger,
     directions: tuple[str, ...] = ("citations", "references"),
+    stats: dict[str, dict[str, Any]] | None = None,
 ) -> Iterator[Record]:
-    """Forward (citations) and backward (references) snowballing from seed papers."""
+    """Forward (citations) and backward (references) snowballing from seed papers.
+
+    ``stats[seed][direction]`` receives the number of papers listed by S2 (before the date
+    filter) and ``stats[seed]["error"]`` any failure message.
+    """
     for seed in seed_ids:
         sid = to_s2_id(seed)
+        st = stats.setdefault(seed, {"s2_id": sid}) if stats is not None else {}
         for direction in directions:
             key = "citingPaper" if direction == "citations" else "citedPaper"
             url = f"{API}/paper/{sid}/{direction}"
             n = 0
+            trunc = [False]
             try:
-                for item in _paginated(client, url, {"fields": FIELDS}):
+                for item in _paginated(client, url, {"fields": FIELDS}, trunc):
                     paper = item.get(key) or {}
                     if not paper.get("paperId"):
                         continue
@@ -192,6 +228,11 @@ def snowball(
                     yield rec
             except HttpError as exc:
                 log.error("snowball %s %s failed: %s", seed, direction, exc)
+                st["error"] = f"{direction}: {exc}"
+            st[direction] = n
+            if trunc[0]:
+                st[f"{direction}_truncated_at_s2_ceiling"] = True
+                log.warning("seed %s: %s truncated at S2's %d-result ceiling", seed, direction, S2_OFFSET_CEILING)
             log.info("seed %s: %d %s", seed, n, direction)
 
 
@@ -213,9 +254,10 @@ def _s2_api_key() -> str | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = build_parser("s2", __doc__.split("\n\n")[0])
+    p = build_parser("s2", __doc__.split("\n\n")[0], structure_block=True)
     p.add_argument("--snowball", nargs="*", metavar="ID", help="seed ids (arXiv/DOI/S2)")
     p.add_argument("--snowball-file", help="file with one seed id per line")
+    p.add_argument("--snowball-title", nargs="*", metavar="TITLE", help="seed papers looked up by exact title (/paper/search/match)")
     args = p.parse_args(argv)
     log = setup_logging(args.log_level)
     api_key = _s2_api_key()
@@ -227,34 +269,70 @@ def main(argv: list[str] | None = None) -> int:
     if args.snowball_file:
         seeds += [ln.strip() for ln in Path(args.snowball_file).read_text().splitlines() if ln.strip() and not ln.startswith("#")]
 
-    if seeds:
+    title_seeds: dict[str, str | None] = {}
+    for t in args.snowball_title or []:
+        pid = match_title(client, t, log)
+        title_seeds[t] = pid
+        if pid:
+            seeds.append(pid)
+
+    if seeds or title_seeds:
         written = 0
+        stats: dict[str, dict[str, Any]] = {}
+        listed = 0
         with JsonlWriter(args.out, count_only=args.count_only) as w:
-            for rec in snowball(client, seeds, log):
+            for rec in snowball(client, seeds, log, stats=stats):
+                listed += 1
                 if within(rec.date, args.since, args.until):
                     w.write(rec)
             written = w.count
-        print_summary("s2_snowball", {"seeds": seeds, "written": written, "requests": client.requests_made, "out": None if args.count_only else args.out})
+        print_summary(
+            "s2_snowball",
+            {
+                "seeds": seeds,
+                "title_seeds": title_seeds,
+                "per_seed": stats,
+                "listed_total": listed,
+                "written": written,
+                "date_window": f"{args.since}:{args.until}",
+                "error": "; ".join(f"{k}: {v['error']}" for k, v in stats.items() if v.get("error")) or None,
+                "requests": client.requests_made,
+                "out": None if args.count_only else args.out,
+            },
+        )
         return 0
 
-    query = build_query()
+    query = build_query(args.with_structure_block)
     log.info("query: %s", query)
     total: int | None = None
     written = 0
     capped = False
     error: str | None = None
+    counts: dict[str, int | None] = {}
+    # Always record the hit count of harness AND llm alone and (if used) with the structure block.
+    for name, q in (("both", build_query(False)), ("both_structure", build_query(True))):
+        if name == "both_structure" and not args.with_structure_block:
+            continue
+        try:
+            counts[name] = count_only(client, q, args.since, args.until)
+            log.info("%s: %s hits", name, counts[name])
+        except HttpError as exc:
+            log.error("count %s failed: %s", name, exc)
+            counts[name] = None
     try:
         if args.count_only:
-            total = count_only(client, query, args.since, args.until)
+            total = counts.get("both_structure" if args.with_structure_block else "both")
         else:
             with JsonlWriter(args.out) as w:
-                for tot, paper in bulk_search(client, query, args.since, args.until, log):
-                    total = tot
-                    if args.max_records and w.count >= args.max_records:
-                        capped = True
-                        break
-                    w.write(paper_to_record(paper, query))
-                written = w.count
+                try:
+                    for tot, paper in bulk_search(client, query, args.since, args.until, log):
+                        total = tot
+                        if args.max_records and w.count >= args.max_records:
+                            capped = True
+                            break
+                        w.write(paper_to_record(paper, query))
+                finally:
+                    written = w.count  # also on failure: partial output is real
     except HttpError as exc:
         error = str(exc)
         log.error("harvest aborted: %s", exc)
@@ -263,7 +341,8 @@ def main(argv: list[str] | None = None) -> int:
         {
             "query": query,
             "params": {"fieldsOfStudy": "Computer Science", "publicationDateOrYear": f"{args.since}:{args.until}", "sort": "citationCount:desc"},
-            "counts": {"both": total},
+            "with_structure_block": args.with_structure_block,
+            "counts": {**counts, "harvest_total": total},
             "written": written,
             "capped": capped,
             "max_records": args.max_records,

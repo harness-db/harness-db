@@ -5,8 +5,13 @@ Each protocol term is searched in title (``ti:``) and abstract (``abs:``). arXiv
 backend stems, so ``"agent scaffold*"`` is issued as ``"agent scaffold"`` (matches
 "scaffolding"/"scaffolds") and ``LLM`` matches ``LLMs``.
 
-Pagination: 200 results per page, 3 s between requests (arXiv API policy). Per-block counts
-(harness only, LLM only, both) are always reported.
+Pagination: 200 results per page, 3 s between requests (arXiv API policy). The arXiv API
+fails (HTTP 500/503, empty pages) when ``start`` goes beyond roughly 10,000 results, so the
+submittedDate window is split recursively into slices of at most ``SLICE_MAX`` results
+(``--slice-max``, default 2000) and each slice is paginated on its own. ``--resume`` appends
+to an existing output file (ids already present are skipped) so an interrupted run can be
+continued from the start date of the slice that was cut (see the ``slices`` list in the
+summary). Per-block counts (harness only, LLM only, both) are always reported.
 
 Usage:
     python scripts/harvest/arxiv.py --since 2022-10-01 --until 2026-08-31 \
@@ -21,6 +26,7 @@ import sys
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import date, timedelta
 
 from common import (
     ARXIV_CATEGORIES,
@@ -41,6 +47,7 @@ from common import (
 API_URL = "http://export.arxiv.org/api/query"
 PAGE_SIZE = 200
 MIN_INTERVAL = 3.0  # seconds between requests (arXiv policy)
+SLICE_MAX = 2000  # max results per date slice (deep paging past ~10k fails on the arXiv API)
 NS = {
     "atom": "http://www.w3.org/2005/Atom",
     "os": "http://a9.com/-/spec/opensearch/1.1/",
@@ -75,6 +82,10 @@ def date_clause(since: str, until: str) -> str:
 
 def category_clause(cats: tuple[str, ...] = ARXIV_CATEGORIES) -> str:
     return "(" + " OR ".join(f"cat:{c}" for c in cats) + ")"
+
+
+def both_query(since: str, until: str) -> str:
+    return f"{block_query(HARNESS_TERMS)} AND {block_query(LLM_TERMS)} AND {category_clause()} AND {date_clause(since, until)}"
 
 
 def build_queries(since: str, until: str) -> dict[str, str]:
@@ -151,6 +162,7 @@ def entry_to_record(entry: ET.Element, query: str) -> Record:
 def iter_records(
     client: HttpClient, query: str, max_records: int, log: logging.Logger
 ) -> Iterator[Record]:
+    """Paginate one query (no slicing). Used per date slice by ``iter_sliced``."""
     start = 0
     total: int | None = None
     empty_pages = 0
@@ -174,11 +186,40 @@ def iter_records(
             break
 
 
+def iter_sliced(
+    client: HttpClient,
+    since: str,
+    until: str,
+    max_records: int,
+    log: logging.Logger,
+    slice_max: int = SLICE_MAX,
+    slices: list[dict[str, object]] | None = None,
+) -> Iterator[Record]:
+    """Split ``[since, until]`` recursively until every slice has <= ``slice_max`` results,
+    then paginate each slice with ``iter_records``. ``slices`` collects (since, until, total)."""
+    q = both_query(since, until)
+    total = fetch_page(client, q, 0, 1).total
+    d0, d1 = date.fromisoformat(since), date.fromisoformat(until)
+    if total > slice_max and d0 < d1:
+        mid = d0 + (d1 - d0) / 2
+        log.info("slice %s..%s has %d > %d results; splitting", since, until, total, slice_max)
+        yield from iter_sliced(client, since, mid.isoformat(), max_records, log, slice_max, slices)
+        yield from iter_sliced(client, (mid + timedelta(days=1)).isoformat(), until, max_records, log, slice_max, slices)
+        return
+    if slices is not None:
+        slices.append({"since": since, "until": until, "total": total})
+    log.info("slice %s..%s: %d results", since, until, total)
+    if total:
+        yield from iter_records(client, q, max_records, log)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = build_parser("arxiv", __doc__.split("\n\n")[0])
+    p.add_argument("--slice-max", type=int, default=SLICE_MAX, help="max results per submittedDate slice")
+    p.add_argument("--resume", action="store_true", help="append to --out (ids already present are skipped); combine with --since <start of the interrupted slice>")
     args = p.parse_args(argv)
     log = setup_logging(args.log_level)
-    client = HttpClient(min_interval=MIN_INTERVAL, logger=log)
+    client = HttpClient(min_interval=MIN_INTERVAL, max_retries=8, backoff_base=10.0, logger=log)
     queries = build_queries(args.since, args.until)
 
     counts: dict[str, int | None] = {}
@@ -193,10 +234,13 @@ def main(argv: list[str] | None = None) -> int:
     written = 0
     capped = False
     error: str | None = None
+    slices: list[dict[str, object]] = []
     if not args.count_only:
-        with JsonlWriter(args.out, count_only=False) as w:
+        with JsonlWriter(args.out, count_only=False, append=args.resume) as w:
+            if args.resume:
+                log.info("resuming: %d ids already in %s", len(w._seen), args.out)
             try:
-                for rec in iter_records(client, queries["both"], args.max_records, log):
+                for rec in iter_sliced(client, args.since, args.until, args.max_records, log, args.slice_max, slices):
                     if args.max_records and w.count >= args.max_records:
                         capped = True
                         break
@@ -212,6 +256,9 @@ def main(argv: list[str] | None = None) -> int:
         {
             "queries": queries,
             "counts": counts,
+            "slices": slices,
+            "slice_max": args.slice_max,
+            "resume": args.resume,
             "written": written,
             "capped": capped,
             "max_records": args.max_records,
