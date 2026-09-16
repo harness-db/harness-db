@@ -3,7 +3,8 @@
 Status: draft. This file mirrors the OSF pre-registration. Once registered, add the OSF
 DOI and timestamp here and do not edit the registered sections; log amendments below.
 
-OSF registration: _pending_
+OSF project: https://osf.io/vkjer/ (private, created 2026-09-16)
+OSF registration draft: https://osf.io/registries/drafts/6aaac0b75b653a0a162519ab (Generalized Systematic Review Registration v6; submit after the harness definition and search strings are final)
 Registered on: _pending_
 
 ## 1. Title
