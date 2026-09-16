@@ -36,6 +36,7 @@ from common import (
     HARNESS_TERMS,
     LLM_TERMS,
     REPO_ROOT,
+    STRONG_TERMS,
     HttpClient,
     HttpError,
     JsonlWriter,
@@ -218,6 +219,8 @@ def main(argv: list[str] | None = None) -> int:
     log = setup_logging(args.log_level)
     client = HttpClient(min_interval=MIN_INTERVAL, max_retries=3, logger=log)
     query = f"regex(title+abstract) harness={list(HARNESS_TERMS)} AND llm={list(LLM_TERMS)}"
+    if args.waive_llm_on_strong:
+        query += f" OR strong={list(STRONG_TERMS)}"
 
     creds = credentials()
     tokens: dict[str, str | None] = {}
@@ -240,16 +243,19 @@ def main(argv: list[str] | None = None) -> int:
         for v in venues:
             inv, total, notes, err = harvest_venue(client, v, tokens, log)
             matched = 0
+            strong_added = 0
             for n in notes:
                 c = n.get("content") or {}
                 text = f"{_val(c, 'title') or ''}\n{_val(c, 'abstract') or ''}"
-                if matches_blocks(text):
+                if matches_blocks(text, waive_llm_on_strong=args.waive_llm_on_strong):
                     matched += 1
+                    if not matches_blocks(text):
+                        strong_added += 1
                     if args.max_records and w.count >= args.max_records:
                         capped = True
                         continue
                     w.write(note_to_record(n, v, query))
-            per_venue[v.group] = {"invitation": inv, "submissions": total, "matched": matched, "error": err}
+            per_venue[v.group] = {"invitation": inv, "submissions": total, "matched": matched, "strong_added": strong_added, "error": err}
         written = w.count
     failed = [g for g, r in per_venue.items() if r["error"]]
     print_summary(
@@ -261,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
             "written": written,
             "capped": capped,
             "max_records": args.max_records,
+            "waive_llm_on_strong": args.waive_llm_on_strong,
             "error": f"{len(failed)}/{len(per_venue)} venues failed: {failed[0] if failed else ''} ... ({per_venue[failed[0]]['error'] if failed else ''})" if failed else None,
             "requests": client.requests_made,
             "out": None if args.count_only else args.out,

@@ -38,6 +38,10 @@ from common import (
 )
 
 SOURCE_PRIORITY = {"arxiv": 0, "acl": 1, "openreview": 2, "s2": 3, "openalex": 4, "github": 5}
+# Leaderboard families whose entries are an open submission log (arbitrary names, no harness).
+# They stay in data/raw/leaderboards.jsonl for the outcomes table but never enter candidates.csv.
+EXCLUDED_LEADERBOARDS = {"GAIA"}
+
 COLUMNS = ["id", "title", "abstract", "year", "venue", "url", "source", "sources_all", "arxiv_id", "doi"]
 
 
@@ -63,6 +67,8 @@ def load_records(raw_dir: Path, include_snowball: bool) -> list[dict[str, Any]]:
         if "snowball" in path.stem and not include_snowball:
             continue
         for r in read_jsonl(path):
+            if r.get("source") == "leaderboard" and r.get("query_used") in EXCLUDED_LEADERBOARDS:
+                continue  # open submission logs, not harness systems; kept in leaderboards.jsonl for results
             r["_file"] = path.name
             recs.append(r)
     return recs

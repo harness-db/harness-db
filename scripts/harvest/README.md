@@ -21,6 +21,14 @@ python scripts/harvest/<source>.py --since 2022-10-01 --until 2026-08-31 \
   freeze run; the test run used 5000). Sources that exceed a cap are fetched in citation-count
   order (S2, OpenAlex) so the cap keeps the most-cited works; the cap is recorded in the summary
   and in `search_log.md`.
+* `--waive-llm-on-strong` (measurement of **proposal v3**, default off, not part of the protocol):
+  a record that contains a *strong* harness term (`common.STRONG_TERMS`: `"agent harness*"`,
+  `"agentic harness*"`, `"coding agent*"`, `"agent scaffold*"`, `"agentic scaffold*"`,
+  `"software engineering agent*"`, `"computer-use agent*"`, `"GUI agent*"`, `"web agent*"`) is
+  kept even when the LLM block does not match, i.e. `(HARNESS AND LLM) OR STRONG`. Honoured by
+  `arxiv.py` (query becomes `((H AND L) OR S) AND cats AND dates`), `acl.py`, `openreview.py`
+  and `github.py` (local regexes); ignored by `s2.py` and `openalex.py`. Measured at the freeze
+  into `data/raw/*_v3.jsonl` scratch files (see `data/raw/freeze_notes.md`, "v3 measurement").
 * `--with-structure-block` (S2 and OpenAlex only) ANDs the protocol's optional structure block
   (`common.STRUCTURE_TERMS`: `"tool call*" OR "function call*" OR "control loop" OR "context
   management" OR memory OR sandbox OR verification OR retry OR planning`) into the query. Both

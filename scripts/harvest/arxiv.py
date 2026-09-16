@@ -32,6 +32,7 @@ from common import (
     ARXIV_CATEGORIES,
     HARNESS_TERMS,
     LLM_TERMS,
+    STRONG_TERMS,
     HttpClient,
     HttpError,
     JsonlWriter,
@@ -84,8 +85,15 @@ def category_clause(cats: tuple[str, ...] = ARXIV_CATEGORIES) -> str:
     return "(" + " OR ".join(f"cat:{c}" for c in cats) + ")"
 
 
-def both_query(since: str, until: str) -> str:
-    return f"{block_query(HARNESS_TERMS)} AND {block_query(LLM_TERMS)} AND {category_clause()} AND {date_clause(since, until)}"
+def both_query(since: str, until: str, waive_llm_on_strong: bool = False) -> str:
+    core = f"{block_query(HARNESS_TERMS)} AND {block_query(LLM_TERMS)}"
+    if waive_llm_on_strong:  # proposal v3: (H AND L) OR STRONG
+        core = f"(({core}) OR {block_query(STRONG_TERMS)})"
+    return f"{core} AND {category_clause()} AND {date_clause(since, until)}"
+
+
+def strong_query(since: str, until: str) -> str:
+    return f"{block_query(STRONG_TERMS)} AND {category_clause()} AND {date_clause(since, until)}"
 
 
 def build_queries(since: str, until: str) -> dict[str, str]:
@@ -97,6 +105,8 @@ def build_queries(since: str, until: str) -> dict[str, str]:
         "harness_block": f"{h} AND {tail}",
         "llm_block": f"{l} AND {tail}",
         "both": f"{h} AND {l} AND {tail}",
+        "strong_only": strong_query(since, until),
+        "both_or_strong": both_query(since, until, True),
     }
 
 
@@ -194,17 +204,18 @@ def iter_sliced(
     log: logging.Logger,
     slice_max: int = SLICE_MAX,
     slices: list[dict[str, object]] | None = None,
+    waive_llm_on_strong: bool = False,
 ) -> Iterator[Record]:
     """Split ``[since, until]`` recursively until every slice has <= ``slice_max`` results,
     then paginate each slice with ``iter_records``. ``slices`` collects (since, until, total)."""
-    q = both_query(since, until)
+    q = both_query(since, until, waive_llm_on_strong)
     total = fetch_page(client, q, 0, 1).total
     d0, d1 = date.fromisoformat(since), date.fromisoformat(until)
     if total > slice_max and d0 < d1:
         mid = d0 + (d1 - d0) / 2
         log.info("slice %s..%s has %d > %d results; splitting", since, until, total, slice_max)
-        yield from iter_sliced(client, since, mid.isoformat(), max_records, log, slice_max, slices)
-        yield from iter_sliced(client, (mid + timedelta(days=1)).isoformat(), until, max_records, log, slice_max, slices)
+        yield from iter_sliced(client, since, mid.isoformat(), max_records, log, slice_max, slices, waive_llm_on_strong)
+        yield from iter_sliced(client, (mid + timedelta(days=1)).isoformat(), until, max_records, log, slice_max, slices, waive_llm_on_strong)
         return
     if slices is not None:
         slices.append({"since": since, "until": until, "total": total})
@@ -240,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.resume:
                 log.info("resuming: %d ids already in %s", len(w._seen), args.out)
             try:
-                for rec in iter_sliced(client, args.since, args.until, args.max_records, log, args.slice_max, slices):
+                for rec in iter_sliced(client, args.since, args.until, args.max_records, log, args.slice_max, slices, args.waive_llm_on_strong):
                     if args.max_records and w.count >= args.max_records:
                         capped = True
                         break
@@ -259,6 +270,7 @@ def main(argv: list[str] | None = None) -> int:
             "slices": slices,
             "slice_max": args.slice_max,
             "resume": args.resume,
+            "waive_llm_on_strong": args.waive_llm_on_strong,
             "written": written,
             "capped": capped,
             "max_records": args.max_records,

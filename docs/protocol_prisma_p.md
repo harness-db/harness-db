@@ -179,6 +179,14 @@ OR "agent orchestration" OR "LLM orchestration"
 
 LLM block: "large language model" OR LLM OR "foundation model" OR "language model agent"
 
+Amendment 2 (v3', 2026-09-16, before screening): the LLM block is waived when a strong harness term is present
+("agent harness*", "agentic harness*", "coding agent*", "agent scaffold*", "agentic scaffold*", "software engineering agent*",
+"web agent*"), because 2026 harness papers frequently omit "LLM"/"large language model". Applied to arXiv, ACL and
+OpenReview; not to Semantic Scholar/OpenAlex (structure block) nor GitHub (README cache unavailable).
+
+Search frozen 2026-09-16 (20:50 UTC): 50,309 raw records, 27,588 candidates after dedupe. Known-item recall (48 ids):
+81% search-only, 96% with one round of snowballing and the curated lists (threshold 90%). Full record: `data/raw/search_log.md`.
+
 Validation: known-item set of 12 canonical papers (`data/raw/search_log.md`). v1 strings:
 3/12 on arXiv. v2 strings: 11/12 on arXiv (11,834 hits vs 4,030). The remaining item
 (ReAct, arXiv:2210.03629, whose abstract never says "agent") is reached by backward
@@ -213,4 +221,5 @@ Reporting follows RAISE guidance.
 ## Amendments
 | Date | Section | Change | Reason |
 |---|---|---|---|
+| 2026-09-16 | 6 | Amendment 2: LLM block waived for 7 strong harness terms (v3'); search frozen the same day at 27,588 candidates, recall 46/48 | 8 known 2026 harness papers matched the harness block but not the LLM block; measured on arXiv (+963 records at ~30% clearly relevant for the 9-term form; 7-term form adopted, +593) |
 | 2026-09-16 | 6 | Harness block broadened (v2): add `harness`, "LLM agent*", "LM agent*", "language agent*", "AI agent*", "computer agent*", "multi-agent"; replace bare `orchestration` with "agent orchestration"/"LLM orchestration" | Registered validation rule (known-item recall < 90%) triggered on the test run: v1 recall 3/12, v2 11/12. Applied before screening; to be filed as a registration update on OSF |

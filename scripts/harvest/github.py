@@ -34,6 +34,8 @@ from typing import Any
 from common import (
     LLM_RE,
     LLM_TERMS,
+    STRONG_RE,
+    STRONG_TERMS,
     JsonlWriter,
     RateLimiter,
     Record,
@@ -195,6 +197,9 @@ def main(argv: list[str] | None = None) -> int:
     capped = False
     stats = {"unique_repos": len(repos), "readme_missing": 0, "llm_match": 0}
     query_desc = f"gh search {bases} stars:>{args.min_stars} created:{args.since}..{args.until}; README/description ~ LLM block {list(LLM_TERMS)}"
+    if args.waive_llm_on_strong:
+        query_desc += f" OR strong block {list(STRONG_TERMS)}"
+    stats["strong_added"] = 0
     if not args.count_only and not error:
         with JsonlWriter(args.out) as w:
             for i, (name, repo) in enumerate(sorted(repos.items(), key=lambda kv: -(kv[1].get("stargazers_count") or 0)), 1):
@@ -207,7 +212,11 @@ def main(argv: list[str] | None = None) -> int:
                     stats["readme_missing"] += 1
                     readme = ""
                 text = (repo.get("description") or "") + "\n" + readme
-                if LLM_RE.search(text):
+                keep = bool(LLM_RE.search(text))
+                if not keep and args.waive_llm_on_strong and STRONG_RE.search(text):
+                    keep = True
+                    stats["strong_added"] += 1
+                if keep:
                     stats["llm_match"] += 1
                     if args.max_records and w.count >= args.max_records:
                         capped = True
@@ -226,6 +235,7 @@ def main(argv: list[str] | None = None) -> int:
             "written": written,
             "capped": capped,
             "max_records": args.max_records,
+            "waive_llm_on_strong": args.waive_llm_on_strong,
             "error": error,
             "requests": gh.calls,
             "out": None if args.count_only else args.out,

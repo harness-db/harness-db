@@ -92,6 +92,22 @@ STRUCTURE_TERMS: tuple[str, ...] = (
     "planning",
 )
 
+#: Proposal v3 (measured at search freeze, NOT part of the protocol unless the Amendments
+#: table says so): "strong" harness terms whose presence waives the LLM block
+#: (``--waive-llm-on-strong``). Deliberately excludes bare ``harness`` (test/wiring harness
+#: noise) and ``multi-agent`` / ``AI agent*`` / ``LLM agent*`` (too broad or already imply LLM).
+STRONG_TERMS: tuple[str, ...] = (
+    "agent harness*",
+    "agentic harness*",
+    "coding agent*",
+    "agent scaffold*",
+    "agentic scaffold*",
+    "software engineering agent*",
+    "computer-use agent*",
+    "GUI agent*",
+    "web agent*",
+)
+
 ARXIV_CATEGORIES: tuple[str, ...] = ("cs.AI", "cs.CL", "cs.SE", "cs.LG")
 
 
@@ -109,6 +125,8 @@ def expand_wildcards(term: str) -> list[str]:
     stem = term[:-1]
     if stem.endswith("agent"):
         return [stem, stem + "s"]
+    if stem.endswith("harness"):
+        return [stem, stem + "es"]
     if stem.endswith("call"):
         return [stem, stem + "s", stem + "ing"]
     return [stem, stem + "ing", stem + "s"]
@@ -143,12 +161,17 @@ def block_regex(terms: Iterable[str]) -> re.Pattern[str]:
 HARNESS_RE: re.Pattern[str] = block_regex(HARNESS_TERMS)
 LLM_RE: re.Pattern[str] = block_regex(LLM_TERMS)
 STRUCTURE_RE: re.Pattern[str] = block_regex(STRUCTURE_TERMS)
+STRONG_RE: re.Pattern[str] = block_regex(STRONG_TERMS)
 
 
-def matches_blocks(text: str, with_structure: bool = False) -> bool:
+def matches_blocks(text: str, with_structure: bool = False, waive_llm_on_strong: bool = False) -> bool:
     """True if ``text`` matches the harness block AND the LLM block (AND, optionally, the
-    structure block)."""
+    structure block). With ``waive_llm_on_strong`` (proposal v3) a text that contains a
+    strong harness term (``STRONG_RE``) is accepted even when the LLM block does not match:
+    ``(HARNESS and LLM) or STRONG``."""
     ok = bool(HARNESS_RE.search(text)) and bool(LLM_RE.search(text))
+    if not ok and waive_llm_on_strong:
+        ok = bool(STRONG_RE.search(text))
     if ok and with_structure:
         ok = bool(STRUCTURE_RE.search(text))
     return ok
@@ -427,6 +450,13 @@ def build_parser(source: str, description: str, structure_block: bool = False) -
         help=f"cap on records written per source (0 = unlimited; default {DEFAULT_MAX_RECORDS})",
     )
     p.add_argument("--log-level", default="INFO")
+    p.add_argument(
+        "--waive-llm-on-strong",
+        action="store_true",
+        help="proposal v3 (measurement only): accept records that contain a strong harness term "
+        "(common.STRONG_TERMS) even if the LLM block does not match; honoured by arxiv, acl, "
+        "openreview and github, ignored by s2 and openalex",
+    )
     if structure_block:
         p.add_argument(
             "--with-structure-block",

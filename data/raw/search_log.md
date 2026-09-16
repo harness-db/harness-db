@@ -230,3 +230,67 @@ Dedupe re-run with OpenReview included:
 merges: {'doi': 2703, 'arxiv_id': 5335, 'title_exact': 7497, 'title_fuzzy': 53}
 candidates written: 8506 -> C:\Users\Bhaskar\Pictures\Research\harness-db\data\raw\candidates.csv
 ```
+
+---
+
+# SEARCH FREEZE — 2026-09-16 (run 19:47–20:50 UTC)
+
+**Status: FROZEN.** Window 2022-10-01 to 2026-08-31. No caps. This section supersedes the test-run sections above.
+Full run details, commands, retries and the v3 measurement: `data/raw/freeze_notes.md`. Frozen gzipped copies of every raw
+file: `data/raw/frozen/` (also uploaded to the OSF project https://osf.io/vkjer/ storage under `frozen-harvest-2026-09-16/`).
+
+## Final query (protocol section 6, amendments 1 and 2)
+- Harness block v2 (amendment 1) AND LLM block; on Semantic Scholar and OpenAlex additionally AND the structure block.
+- Amendment 2 (v3'): the LLM block is waived when a strong harness term is present: "agent harness*", "agentic harness*",
+  "coding agent*", "agent scaffold*", "agentic scaffold*", "software engineering agent*", "web agent*". Applied to arXiv, ACL,
+  OpenReview (local regex; GitHub not re-filtered, README cache unavailable; S2/OpenAlex unchanged). Measured before adoption:
+  the broader 9-term waiver added 963 arXiv records at ~30% clearly relevant / ~38% clearly irrelevant on a 40-record sample,
+  with the noise concentrated in "GUI agent*" and "computer-use agent*"; the 7-term form keeps all 8 recovered known items.
+- Snowballing: one round of references + citations from 11 seeds via Semantic Scholar (ReAct citers truncated at S2's 9,999 ceiling).
+- Curated lists: Picrew/awesome-agent-harness (368), Gloriaameng/Awesome-Agent-Harness (158), ggjy/Awesome-Agent-Engineering (296).
+- Grey: 48 vendor/lab documentation records; leaderboards (SWE-bench, HAL, OSWorld, WebArena, Terminal-Bench, GAIA, tau-bench,
+  tau2-bench) — 3,946 records kept for the outcomes table; only 251 distinct non-GAIA systems enter candidates (GAIA's open
+  submission log excluded by `EXCLUDED_LEADERBOARDS`).
+
+## Raw records per source (frozen)
+| source | records | notes |
+|---|---:|---|
+| arXiv | 11,835 | 11,242 (v2, complete) + 593 (v3' waiver) |
+| Semantic Scholar | 6,744 | structure block; 20,019 without it |
+| OpenAlex | 14,812 | structure block; 40,607 without it; complete with API key |
+| OpenReview | 1,754 | 1,686 + 68 (v3'); 70,268 submissions scanned, 11 venues |
+| ACL Anthology | 1,393 | 1,363 + 30 (v3') |
+| GitHub | 1,361 | 3,228 hits, 2,555 repos, README-filtered |
+| Snowball | 11,289 | 11 seeds |
+| Awesome-lists | 822 | 3 catalogs |
+| Grey (vendor docs) | 48 | |
+| Leaderboards | 3,946 | 251 non-GAIA systems enter candidates |
+
+## Dedupe (DOI -> arXiv id -> exact normalised title -> rapidfuzz >= 95)
+| source | raw hits | after dedupe | unique to source |
+|---|---:|---:|---:|
+| arxiv | 11835 | 11784 | 4744 |
+| acl | 1393 | 1393 | 350 |
+| openreview | 1754 | 1699 | 599 |
+| s2 | 6744 | 6468 | 403 |
+| openalex | 14812 | 8966 | 3172 |
+| github | 1361 | 1360 | 1238 |
+| awesome | 822 | 798 | 358 |
+| grey | 48 | 48 | 43 |
+| leaderboard | 251 | 241 | 201 |
+| s2_snowball | 11289 | 11236 | 7218 |
+| leaderboards | 0 | 0 | 0 |
+| snowball | 0 | 0 | 0 |
+| **total** | 50309 | 27588 | |
+
+merges: {'doi': 7333, 'arxiv_id': 15439, 'title_exact': 22185, 'title_fuzzy': 138}
+candidates written: 27588 -> C:\Users\Bhaskar\Pictures\Research\harness-db\data\raw\candidates.csv
+
+## Known-item recall (48 ids, data/raw/known_items.txt)
+- Search sources only: 39/48 (81%).
+- With snowball and awesome-lists: **46/48 (96%)**, above the registered 90% threshold.
+- Missing: 2607.10113 (skills-library survey; no harness term) and 2609.17394 (dated 2026-09-15, outside the window).
+
+## Next
+Screening starts from `data/raw/candidates.csv` (27,588 rows): Rayyan import + ASReview prioritisation (screener 1), full random
+order (screener 2), LLM third vote in a separate column.

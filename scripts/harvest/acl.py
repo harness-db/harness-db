@@ -29,6 +29,8 @@ from common import (
     HARNESS_TERMS,
     LLM_RE,
     LLM_TERMS,
+    STRONG_RE,
+    STRONG_TERMS,
     HttpClient,
     HttpError,
     JsonlWriter,
@@ -228,10 +230,12 @@ def main(argv: list[str] | None = None) -> int:
     log = setup_logging(args.log_level)
     client = HttpClient(min_interval=0.5, timeout=300, logger=log)
     query = f"regex(title+abstract) harness={list(HARNESS_TERMS)} AND llm={list(LLM_TERMS)}"
+    if args.waive_llm_on_strong:
+        query += f" OR strong={list(STRONG_TERMS)}"
 
     error: str | None = None
     written = capped = False
-    stats = {"entries_total": 0, "in_year_range": 0, "harness_only": 0, "llm_only": 0, "both": 0, "no_abstract": 0}
+    stats = {"entries_total": 0, "in_year_range": 0, "harness_only": 0, "llm_only": 0, "both": 0, "strong": 0, "strong_added": 0, "no_abstract": 0}
     since_y, until_y = args.since[:4], args.until[:4]
     try:
         path = download(client, Path(args.cache_dir), args.refresh, log)
@@ -252,7 +256,13 @@ def main(argv: list[str] | None = None) -> int:
                 h, l = bool(HARNESS_RE.search(text)), bool(LLM_RE.search(text))
                 stats["harness_only"] += h
                 stats["llm_only"] += l
-                if h and l:
+                strong = bool(STRONG_RE.search(text))
+                stats["strong"] += strong
+                keep = h and l
+                if not keep and strong and args.waive_llm_on_strong:
+                    keep = True
+                    stats["strong_added"] += 1
+                if keep:
                     stats["both"] += 1
                     if args.max_records and w.count >= args.max_records:
                         capped = True
@@ -271,6 +281,7 @@ def main(argv: list[str] | None = None) -> int:
             "written": written,
             "capped": capped,
             "max_records": args.max_records,
+            "waive_llm_on_strong": args.waive_llm_on_strong,
             "error": error,
             "out": None if args.count_only else args.out,
         },
