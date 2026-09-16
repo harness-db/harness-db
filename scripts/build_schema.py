@@ -96,7 +96,7 @@ def build(dims_doc: dict) -> dict:
 
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://github.com/bhaskargurram-ai/harness-db/schema/harness_db.schema.json",
+        "$id": "https://github.com/harness-db/harness-db/schema/harness_db.schema.json",
         "title": "HARNESS-DB systems",
         "description": (f"Generated from schema/dimensions.json (schema_version "
                         f"{dims_doc['schema_version']}). Do not edit by hand."),
