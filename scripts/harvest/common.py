@@ -41,8 +41,8 @@ DEFAULT_SINCE = "2022-10-01"
 DEFAULT_UNTIL = "2026-08-31"
 DEFAULT_MAX_RECORDS = 5000
 
-USER_AGENT = "harness-db-harvest/0.1 (https://github.com/bhaskargurram-ai/harness-db; mailto:bhaskargurram.g123@gmail.com)"
-CONTACT_EMAIL = "bhaskargurram.g123@gmail.com"
+USER_AGENT = "harness-db-harvest/0.1 (https://github.com/bhaskargurram-ai/harness-db; mailto:gurrambhaskar.ai@gmail.com)"
+CONTACT_EMAIL = "gurrambhaskar.ai@gmail.com"
 
 #: Harness block, verbatim from the protocol. ``*`` marks a wildcard (``scaffold*``).
 HARNESS_TERMS: tuple[str, ...] = (

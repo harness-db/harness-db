@@ -52,7 +52,7 @@ AND submittedDate:[202210010000 TO 202608312359]
 + ("large language model" | "large language models" | LLM | LLMs | "foundation model" | "foundation models" | "language model agent")
 ```
 
-**OpenAlex** (`scripts/harvest/openalex.py`, `/works`, `mailto=bhaskargurram.g123@gmail.com`, cursor pagination 200/page, `sort=cited_by_count:desc`)
+**OpenAlex** (`scripts/harvest/openalex.py`, `/works`, `mailto=gurrambhaskar.ai@gmail.com`, cursor pagination 200/page, `sort=cited_by_count:desc`)
 
 ```
 filter=from_publication_date:2022-10-01,to_publication_date:2026-08-31,concepts.id:C41008148,
