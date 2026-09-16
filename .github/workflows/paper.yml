@@ -1,0 +1,32 @@
+name: paper
+
+on:
+  push:
+    branches: [main]
+    paths: ["paper/**", ".github/workflows/paper.yml"]
+  pull_request:
+    paths: ["paper/**"]
+  workflow_dispatch:
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compile ACM (main.tex) and TMLR (main_tmlr.tex)
+        uses: xu-cheng/latex-action@v3
+        with:
+          working_directory: paper
+          root_file: |
+            main.tex
+            main_tmlr.tex
+          latexmk_use_xelatex: false
+          args: -pdf -interaction=nonstopmode -halt-on-error
+      - name: Upload PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-review-pdfs
+          path: |
+            paper/main.pdf
+            paper/main_tmlr.pdf
+          retention-days: 90
