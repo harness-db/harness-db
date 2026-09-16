@@ -25,6 +25,7 @@ Usage (search):
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -199,13 +200,28 @@ def snowball(
 # --------------------------------------------------------------------------------------
 
 
+def _s2_api_key() -> str | None:
+    """S2_API_KEY from the environment or the repo's .env (never committed)."""
+    if os.environ.get("S2_API_KEY"):
+        return os.environ["S2_API_KEY"]
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("S2_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'") or None
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     p = build_parser("s2", __doc__.split("\n\n")[0])
     p.add_argument("--snowball", nargs="*", metavar="ID", help="seed ids (arXiv/DOI/S2)")
     p.add_argument("--snowball-file", help="file with one seed id per line")
     args = p.parse_args(argv)
     log = setup_logging(args.log_level)
-    client = HttpClient(min_interval=MIN_INTERVAL, logger=log)
+    api_key = _s2_api_key()
+    headers = {"x-api-key": api_key} if api_key else None
+    log.info("Semantic Scholar API key: %s", "present" if api_key else "absent (shared unauthenticated pool)")
+    client = HttpClient(min_interval=MIN_INTERVAL, logger=log, headers=headers)
 
     seeds: list[str] = list(args.snowball or [])
     if args.snowball_file:
