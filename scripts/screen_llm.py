@@ -206,13 +206,13 @@ def _api_cost(model: str, usage: Any) -> float:
     return (cin * p["in"] + cout * p["out"] + cr * p["cache_read"] + cw * p["cache_write"]) / 1e6
 
 
-def vote_batch_api(client: Any, model: str, system: str, batch: list[dict[str, str]]) -> BatchResult:
+def vote_batch_api(client: Any, model: str, system: str, batch: list[dict[str, str]], effort: str = "low") -> BatchResult:
     resp = client.messages.create(
         model=model,
         max_tokens=4096,
         system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user_prompt(batch)}],
-        output_config={"effort": "low", "format": {"type": "json_schema", "schema": VOTE_SCHEMA}},
+        output_config={"effort": effort, "format": {"type": "json_schema", "schema": VOTE_SCHEMA}},
     )
     if resp.stop_reason == "refusal":
         raise RuntimeError(f"refusal: {getattr(resp, 'stop_details', None)}")
@@ -239,11 +239,19 @@ def find_claude_exe() -> str | None:
     return str(real) if real.exists() else shim
 
 
-def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[dict[str, str]]) -> BatchResult:
+def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[dict[str, str]], effort: str | None = None) -> BatchResult:
     cmd = [exe, "-p", "--output-format", "json", "--model", model, "--no-session-persistence", "--tools", "", "--system-prompt-file", str(system_file), "--json-schema", json.dumps(VOTE_SCHEMA)]
+    if effort:
+        cmd += ["--effort", effort]
     proc = subprocess.run(cmd, input=user_prompt(batch), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900, check=False)
     if proc.returncode != 0:
-        raise RuntimeError(f"claude exited {proc.returncode}: {(proc.stderr or proc.stdout)[:300]}")
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        try:  # Claude Code reports usage-limit / API errors as a JSON envelope with a human-readable result
+            env = json.loads(proc.stdout)
+            detail = f"{env.get('subtype')} api_error_status={env.get('api_error_status')} result={str(env.get('result'))[:400]}"
+        except (json.JSONDecodeError, TypeError):
+            pass
+        raise RuntimeError(f"claude exited {proc.returncode}: {detail[:600]}")
     d = json.loads(proc.stdout)
     if d.get("is_error") or d.get("subtype") != "success":
         raise RuntimeError(f"claude result {d.get('subtype')}: {str(d.get('result'))[:300]}")
@@ -286,6 +294,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model", default=None, help="api: claude-sonnet-5 (default); claude-code: opus (default) | sonnet | full id")
     p.add_argument("--batch-size", type=int, default=20)
     p.add_argument("--workers", type=int, default=1, help="parallel batches")
+    p.add_argument("--effort", default=None, help="thinking effort: low|medium|high (api default low; claude-code default = CLI default)")
+    p.add_argument("--max-consecutive-failures", type=int, default=5, help="stop the run (it is resumable) after this many batches fail permanently in a row, e.g. a usage-window limit")
     p.add_argument("--limit", type=int, default=0, help="stop after N new records (0 = all)")
     p.add_argument("--dry-run", type=int, default=0, metavar="N", help="vote on N random records into a separate file and report cost")
     p.add_argument("--seed", type=int, default=20260917)
@@ -313,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
         tmpdir = None
 
         def run_batch(batch: list[dict[str, str]]) -> BatchResult:
-            return vote_batch_api(client, model, system, batch)
+            return vote_batch_api(client, model, system, batch, args.effort or "low")
     else:
         exe = find_claude_exe()
         if not exe:
@@ -325,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
         log.info("claude-code backend: %s, model alias %r", exe, model)
 
         def run_batch(batch: list[dict[str, str]]) -> BatchResult:
-            return vote_batch_claude_code(exe, model, system_file, batch)
+            return vote_batch_claude_code(exe, model, system_file, batch, args.effort)
 
     with open(args.candidates, encoding="utf-8", newline="") as fh:
         rows = list(csv.DictReader(fh))
@@ -349,7 +359,8 @@ def main(argv: list[str] | None = None) -> int:
     log.info("%d records to vote in %d batches (%d candidates, %d already done, %d workers)", len(todo), len(batches), len(rows), len(done), args.workers)
 
     new_file = args.dry_run or not out.exists() or out.stat().st_size == 0
-    n = tokens_in = tokens_out = cache_read = cache_write = failed = 0
+    n = tokens_in = tokens_out = cache_read = cache_write = failed = consecutive_failures = 0
+    aborted = False
     spent = 0.0
     models: set[str] = set()
     t0 = time.time()
@@ -360,12 +371,21 @@ def main(argv: list[str] | None = None) -> int:
         futures = {pool.submit(with_retries, (lambda b=b: run_batch(b)), log, f"batch {i + 1}/{len(batches)}"): b for i, b in enumerate(batches)}
         for k, fut in enumerate(as_completed(futures), 1):
             batch = futures[fut]
+            if fut.cancelled():
+                continue  # cancelled after the consecutive-failure stop; left for the next resume
             try:
                 res = fut.result()
             except (RuntimeError, ValueError, OSError, json.JSONDecodeError) as exc:  # raised by with_retries after the last attempt
                 failed += len(batch)
-                log.error("batch of %d records failed permanently: %s", len(batch), str(exc)[:200])
+                consecutive_failures += 1
+                log.error("batch of %d records failed permanently: %s", len(batch), str(exc)[:600])
+                if consecutive_failures >= args.max_consecutive_failures and not aborted:
+                    aborted = True
+                    log.error("%d consecutive permanent failures (usage limit?): cancelling the remaining batches; re-run later to resume", consecutive_failures)
+                    for f in futures:
+                        f.cancel()
                 continue
+            consecutive_failures = 0
             per_in, per_out, per_cost = round(res.tokens_in / len(batch)), round(res.tokens_out / len(batch)), res.cost_usd / len(batch)
             for r, v in zip(batch, res.votes, strict=True):
                 w.writerow([r["id"], v["vote"], v["reason"][:200], v["decision_step"], res.model, PROMPT_VERSION, per_in, per_out, f"{per_cost:.6f}"])
@@ -384,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
     per_record = spent / n if n else 0.0
     secs = time.time() - t0
     summary = {
-        "backend": args.backend, "records_voted": n, "records_failed": failed, "batches": len(batches), "workers": args.workers, "model": sorted(models) or [model], "prompt_version": PROMPT_VERSION,
+        "backend": args.backend, "effort": args.effort, "batch_size": args.batch_size, "aborted_on_consecutive_failures": aborted, "records_voted": n, "records_failed": failed, "batches": len(batches), "workers": args.workers, "model": sorted(models) or [model], "prompt_version": PROMPT_VERSION,
         "tokens_in": tokens_in, "tokens_out": tokens_out, "cache_read": cache_read, "cache_write": cache_write,
         "cost_usd": round(spent, 4), "cost_note": "Anthropic list-price equivalent; with --backend claude-code this is consumed as subscription usage, not billed",
         "cost_per_record_usd": round(per_record, 6), "extrapolated_cost_all_candidates_usd": round(per_record * len(rows), 2),
