@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HARNESS-Review title screening</title>
+<meta name="description" content="Single-file human title/abstract screening page for the HARNESS-Review triage queue. Works from file://, no network, no build.">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1c1f24; --muted: #5d6470; --line: #d9dde3;
+    --accent: #2457c5; --ok: #1e7f4f; --bad: #b3261e; --warn: #9a6400; --chip: #eef1f5;
+    --key: #e6e9ee; --focus: #8fb0ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a; --panel: #1d2026; --ink: #e8eaee; --muted: #a0a7b3; --line: #343941;
+      --accent: #7ea2ff; --ok: #5fcf8f; --bad: #ff7b72; --warn: #e6b450; --chip: #262a31;
+      --key: #2c3139; --focus: #4d6fc9;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a; --panel: #1d2026; --ink: #e8eaee; --muted: #a0a7b3; --line: #343941;
+    --accent: #7ea2ff; --ok: #5fcf8f; --bad: #ff7b72; --warn: #e6b450; --chip: #262a31;
+    --key: #2c3139; --focus: #4d6fc9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 16px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .bar h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; }
+  .bar .grow { flex: 1 1 120px; }
+  .progress { height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .progress > div { height: 100%; background: var(--accent); width: 0%; transition: width .2s; }
+  .stat { color: var(--muted); font-size: 13px; }
+  select, button, input[type=file] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .chip { background: var(--chip); border-radius: 999px; padding: 1px 9px; font-size: 12px; }
+  .chip.conflict { color: var(--bad); } .chip.unsure { color: var(--warn); } .chip.verify_exclude, .chip.verify_include { color: var(--accent); }
+  h2 { font-size: 20px; line-height: 1.3; margin: 4px 0 10px; }
+  h2 a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--muted); }
+  h2 a:hover { border-bottom-color: var(--accent); }
+  .abstract { white-space: pre-wrap; margin: 0 0 14px; }
+  .abstract.empty { color: var(--muted); font-style: italic; }
+  .votes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  @media (max-width: 600px) { .votes { grid-template-columns: 1fr; } }
+  .vote { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+  .vote b { text-transform: uppercase; letter-spacing: .03em; font-size: 12px; }
+  .vote.include b { color: var(--ok); } .vote.exclude b { color: var(--bad); } .vote.unsure b { color: var(--warn); }
+  .vote .model { color: var(--muted); font-size: 12px; }
+  .decision { margin-top: 12px; font-size: 14px; }
+  .decision .include { color: var(--ok); } .decision .exclude { color: var(--bad); } .decision .unsure { color: var(--warn); }
+  .keys { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .keys button { display: flex; gap: 8px; align-items: center; padding: 8px 12px; }
+  kbd { background: var(--key); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 7px; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+  .modal.open { display: flex; }
+  .modal .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; max-width: 420px; width: 100%; }
+  .modal .box h3 { margin: 0 0 10px; font-size: 16px; }
+  .modal .box button { display: flex; gap: 10px; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; }
+  .tools { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  textarea { width: 100%; min-height: 120px; margin-top: 10px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: none; }
+  textarea.open { display: block; }
+  .notice { margin-top: 12px; color: var(--muted); font-size: 13px; }
+  .empty-state { text-align: center; padding: 40px 10px; color: var(--muted); }
+  .help { font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .sr { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>HARNESS-Review title screening</h1>
+    <label class="stat">Filter
+      <select id="filter" aria-label="Filter by sample type">
+        <option value="">all sample types</option>
+        <option value="conflict">conflict</option>
+        <option value="unsure">unsure</option>
+        <option value="verify_exclude">verify_exclude</option>
+        <option value="verify_include">verify_include</option>
+      </select>
+    </label>
+    <label class="stat"><input type="checkbox" id="hideDecided" checked> hide decided</label>
+    <span class="grow"></span>
+    <span class="stat" id="counter">no queue loaded</span>
+    <button id="themeBtn" title="Toggle dark/light">Theme</button>
+  </div>
+  <div class="progress" aria-hidden="true"><div id="progressFill"></div></div>
+</header>
+
+<main>
+  <div id="loader" class="card">
+    <p><b>Queue not loaded.</b> This page reads <code>data/screening/human_queue.js</code> (written by <code>scripts/screen_triage.py</code>) from the folder next to <code>screening/</code>. If your browser blocked it, pick <code>human_queue.json</code> here:</p>
+    <input type="file" id="queueFile" accept=".json,application/json">
+  </div>
+
+  <div id="view" class="card" style="display:none">
+    <div class="meta" id="meta"></div>
+    <h2 id="title"></h2>
+    <p class="abstract" id="abstract"></p>
+    <div class="votes" id="votes"></div>
+    <div class="decision" id="decision"></div>
+    <div class="keys">
+      <button data-key="y"><kbd>y</kbd> include</button>
+      <button data-key="n"><kbd>n</kbd> exclude</button>
+      <button data-key="u"><kbd>u</kbd> unsure / full text</button>
+      <button data-key="s"><kbd>s</kbd> skip</button>
+      <button data-key="b"><kbd>b</kbd> back</button>
+    </div>
+    <p class="help">Keyboard: y / n / u / s / b. After <kbd>n</kbd>, press 1-5 for the exclusion code, <kbd>Esc</kbd> to cancel. Every keystroke is saved in this browser (localStorage); export regularly.</p>
+  </div>
+
+  <div id="done" class="card empty-state" style="display:none">All records in this filter are decided. Change the filter, untick "hide decided", or export.</div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="tools">
+      <button id="exportBtn">Export decisions.csv</button>
+      <button id="copyBtn">Show / copy CSV text</button>
+      <label>Merge existing decisions.csv <input type="file" id="importFile" accept=".csv,text/csv"></label>
+      <button id="clearBtn" title="Removes every decision stored in this browser">Clear local decisions</button>
+    </div>
+    <textarea id="csvText" readonly aria-label="CSV text of all decisions"></textarea>
+    <p class="notice" id="notice"></p>
+  </div>
+</main>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="box">
+    <h3 id="modalTitle">Exclusion code (press 1-5, Esc to cancel)</h3>
+    <button data-code="1"><kbd>1</kbd> out_of_scope (no loop, no actions, component, framework without default, benchmark only, embodied, date)</button>
+    <button data-code="2"><kbd>2</kbd> no_harness_description (system named, too little detail)</button>
+    <button data-code="3"><kbd>3</kbd> duplicate_system (same system-version already covered)</button>
+    <button data-code="4"><kbd>4</kbd> not_retrievable</button>
+    <button data-code="5"><kbd>5</kbd> other (language, retracted, ...)</button>
+  </div>
+</div>
+
+<script src="../data/screening/human_queue.js"></script>
+<script>
+(function () {
+  'use strict';
+  var STORE_KEY = 'harness_review_screen_decisions_v1';
+  var THEME_KEY = 'harness_review_screen_theme';
+  var CODES = { '1': 'out_of_scope', '2': 'no_harness_description', '3': 'duplicate_system', '4': 'not_retrievable', '5': 'other' };
+  var DECISION_LABEL = { include: 'include', exclude: 'exclude', unsure: 'unsure / needs full text' };
+
+  var queue = [];          // all records
+  var order = [];          // indices into queue matching the current filter
+  var pos = 0;             // position in `order`
+  var history = [];        // visited positions for "back"
+  var decisions = {};      // record_id -> {d, r, t}
+  var pendingExclude = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---- storage --------------------------------------------------------------------------
+  function loadStore() {
+    try { var raw = localStorage.getItem(STORE_KEY); if (raw) decisions = JSON.parse(raw) || {}; } catch (e) { decisions = {}; }
+  }
+  function saveStore() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(decisions)); }
+    catch (e) { setNotice('Warning: localStorage unavailable; export before closing this page.'); }
+  }
+  function setNotice(msg) { $('notice').textContent = msg; }
+
+  // ---- theme ----------------------------------------------------------------------------
+  function applyTheme(t) { if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
+  try { applyTheme(localStorage.getItem(THEME_KEY) || ''); } catch (e) {}
+  $('themeBtn').addEventListener('click', function () {
+    var cur = document.documentElement.getAttribute('data-theme');
+    var dark = cur ? cur === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = dark ? 'light' : 'dark';
+    applyTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+  });
+
+  // ---- queue loading --------------------------------------------------------------------
+  function setQueue(payload) {
+    queue = (payload && payload.records) || [];
+    $('loader').style.display = queue.length ? 'none' : '';
+    setNotice('Queue loaded: ' + queue.length + ' records' + (payload.generated_at ? ' (generated ' + payload.generated_at + ')' : '') + '.');
+    rebuild(true);
+  }
+  $('queueFile').addEventListener('change', function (ev) {
+    var f = ev.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { try { setQueue(JSON.parse(r.result)); } catch (e) { setNotice('Could not parse JSON: ' + e.message); } };
+    r.readAsText(f);
+  });
+  function tryLoad() {
+    if (window.HUMAN_QUEUE) { setQueue(window.HUMAN_QUEUE); return; }
+    if (window.fetch && location.protocol !== 'file:') {
+      fetch('../data/screening/human_queue.json').then(function (r) { return r.json(); }).then(setQueue).catch(function () {});
+    }
+  }
+
+  // ---- filtering & navigation -----------------------------------------------------------
+  function rebuild(resetPos) {
+    var f = $('filter').value, hide = $('hideDecided').checked;
+    order = [];
+    for (var i = 0; i < queue.length; i++) {
+      var rec = queue[i];
+      if (f && rec.sample_type !== f) continue;
+      if (hide && decisions[rec.record_id]) continue;
+      order.push(i);
+    }
+    if (resetPos || pos >= order.length) pos = 0;
+    render();
+  }
+  $('filter').addEventListener('change', function () { history = []; rebuild(true); });
+  $('hideDecided').addEventListener('change', function () { history = []; rebuild(true); });
+
+  function counts() {
+    var f = $('filter').value, total = 0, done = 0;
+    for (var i = 0; i < queue.length; i++) {
+      if (f && queue[i].sample_type !== f) continue;
+      total++; if (decisions[queue[i].record_id]) done++;
+    }
+    return { total: total, done: done };
+  }
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function render() {
+    var c = counts();
+    $('counter').textContent = c.done + ' / ' + c.total + ' decided' + (order.length ? ' | showing ' + (pos + 1) + ' of ' + order.length : '');
+    $('progressFill').style.width = (c.total ? (100 * c.done / c.total) : 0) + '%';
+    if (!queue.length) { $('view').style.display = 'none'; $('done').style.display = 'none'; return; }
+    if (!order.length) { $('view').style.display = 'none'; $('done').style.display = ''; return; }
+    $('done').style.display = 'none'; $('view').style.display = '';
+    var rec = queue[order[pos]];
+    var meta = $('meta'); meta.textContent = '';
+    meta.appendChild(el('span', 'chip ' + rec.sample_type, rec.sample_type));
+    meta.appendChild(el('span', 'chip', rec.tier + (rec.tier_rule ? ' · ' + rec.tier_rule.split(':')[0] : '')));
+    meta.appendChild(el('span', null, (rec.year || 'n.d.') + ' · ' + rec.source));
+    meta.appendChild(el('span', null, rec.record_id));
+    var t = $('title'); t.textContent = '';
+    if (rec.url) { var a = el('a', null, rec.title || '(no title)'); a.href = rec.url; a.target = '_blank'; a.rel = 'noopener'; t.appendChild(a); }
+    else t.textContent = rec.title || '(no title)';
+    var ab = $('abstract');
+    if (rec.abstract) { ab.textContent = rec.abstract; ab.className = 'abstract'; }
+    else { ab.textContent = 'No abstract in the record.'; ab.className = 'abstract empty'; }
+    var v = $('votes'); v.textContent = '';
+    [[rec.vote_1, rec.model_1, rec.reason_1], [rec.vote_2, rec.model_2, rec.reason_2]].forEach(function (x) {
+      var box = el('div', 'vote ' + (x[0] || ''));
+      box.appendChild(el('b', null, x[0] || 'no vote'));
+      box.appendChild(el('span', 'model', ' ' + (x[1] || '')));
+      box.appendChild(el('div', null, x[2] || ''));
+      v.appendChild(box);
+    });
+    var d = decisions[rec.record_id], dd = $('decision'); dd.textContent = '';
+    if (d) {
+      dd.appendChild(el('span', null, 'Your decision: '));
+      dd.appendChild(el('b', d.d, DECISION_LABEL[d.d] + (d.r ? ' (' + d.r + ')' : '')));
+      dd.appendChild(el('span', null, ' at ' + d.t));
+    } else dd.appendChild(el('span', null, 'No decision yet.'));
+  }
+
+  function advance() {
+    history.push(pos);
+    if ($('hideDecided').checked) { rebuild(false); }   // decided record drops out; pos now points at the next one
+    else { pos = Math.min(pos + 1, order.length - 1); render(); }
+  }
+  function decide(kind, reason) {
+    if (!order.length) return;
+    var rec = queue[order[pos]];
+    decisions[rec.record_id] = { d: kind, r: reason || '', t: new Date().toISOString() };
+    saveStore();
+    advance();
+  }
+  function skip() { if (!order.length) return; history.push(pos); pos = (pos + 1) % order.length; render(); }
+  function back() {
+    if (history.length) { pos = history.pop(); }
+    else if (pos > 0) { pos--; }
+    else return;
+    if ($('hideDecided').checked && history.length === 0) { $('hideDecided').checked = false; rebuild(false); }
+    if (pos >= order.length) pos = Math.max(order.length - 1, 0);
+    render();
+  }
+
+  // ---- keys ------------------------------------------------------------------------------
+  function openModal() { pendingExclude = true; $('modal').classList.add('open'); }
+  function closeModal() { pendingExclude = null; $('modal').classList.remove('open'); }
+  function handleKey(k) {
+    if (pendingExclude) {
+      if (CODES[k]) { closeModal(); decide('exclude', CODES[k]); }
+      else if (k === 'escape') closeModal();
+      return;
+    }
+    if (k === 'y') decide('include');
+    else if (k === 'n') openModal();
+    else if (k === 'u') decide('unsure');
+    else if (k === 's') skip();
+    else if (k === 'b') back();
+  }
+  document.addEventListener('keydown', function (ev) {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    var tag = (ev.target && ev.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    var k = ev.key.toLowerCase();
+    if (['y', 'n', 'u', 's', 'b', '1', '2', '3', '4', '5', 'escape'].indexOf(k) >= 0) { ev.preventDefault(); handleKey(k); }
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.keys button'), function (b) { b.addEventListener('click', function () { handleKey(b.getAttribute('data-key')); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#modal button'), function (b) { b.addEventListener('click', function () { handleKey(b.getAttribute('data-code')); }); });
+  $('modal').addEventListener('click', function (ev) { if (ev.target === $('modal')) closeModal(); });
+
+  // ---- CSV export / import ----------------------------------------------------------------
+  function csvField(s) { s = String(s == null ? '' : s); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function toCSV() {
+    var rows = ['record_id,human_decision,exclusion_reason,decided_at'];
+    Object.keys(decisions).sort().forEach(function (id) {
+      var d = decisions[id];
+      rows.push([id, d.d, d.r || '', d.t].map(csvField).join(','));
+    });
+    return rows.join('\n') + '\n';
+  }
+  function parseCSV(text) {
+    var rows = [], row = [], field = '', inQ = false, i, ch;
+    for (i = 0; i < text.length; i++) {
+      ch = text[i];
+      if (inQ) { if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; } else field += ch; }
+      else if (ch === '"') inQ = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(field); rows.push(row); row = []; field = ''; }
+      else field += ch;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(function (r) { return r.length > 1 || (r.length === 1 && r[0] !== ''); });
+  }
+  $('exportBtn').addEventListener('click', function () {
+    var blob = new Blob([toCSV()], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'decisions.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    setNotice('Exported ' + Object.keys(decisions).length + ' decisions to decisions.csv (save it as data/screening/decisions.csv).');
+  });
+  $('copyBtn').addEventListener('click', function () {
+    var ta = $('csvText'); ta.value = toCSV(); ta.classList.toggle('open'); if (ta.classList.contains('open')) { ta.focus(); ta.select(); }
+  });
+  $('importFile').addEventListener('change', function (ev) {
+    var f = ev.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var rows = parseCSV(r.result); if (!rows.length) { setNotice('Empty CSV.'); return; }
+      var head = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+      var ci = head.indexOf('record_id'), cd = head.indexOf('human_decision'), cr = head.indexOf('exclusion_reason'), ct = head.indexOf('decided_at');
+      if (ci < 0 || cd < 0) { setNotice('CSV needs record_id and human_decision columns.'); return; }
+      var added = 0, kept = 0;
+      for (var i = 1; i < rows.length; i++) {
+        var id = rows[i][ci], d = (rows[i][cd] || '').trim().toLowerCase(), t = ct >= 0 ? rows[i][ct] : '';
+        if (!id || !DECISION_LABEL[d]) continue;
+        var cur = decisions[id];
+        if (cur && cur.t && t && cur.t >= t) { kept++; continue; }   // keep the newer decision
+        decisions[id] = { d: d, r: cr >= 0 ? (rows[i][cr] || '') : '', t: t || new Date().toISOString() };
+        added++;
+      }
+      saveStore(); rebuild(false);
+      setNotice('Merged ' + added + ' decisions from ' + f.name + (kept ? ' (' + kept + ' local decisions were newer and kept)' : '') + '.');
+    };
+    r.readAsText(f);
+  });
+  $('clearBtn').addEventListener('click', function () {
+    if (!window.confirm('Remove all ' + Object.keys(decisions).length + ' decisions stored in this browser? Export first if you need them.')) return;
+    decisions = {}; saveStore(); history = []; rebuild(true); setNotice('Local decisions cleared.');
+  });
+
+  loadStore();
+  tryLoad();
+  rebuild(true);
+})();
+</script>
+</body>
+</html>
