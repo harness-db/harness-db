@@ -1,8 +1,8 @@
 # Title/abstract triage report
 
-Generated 2026-09-17 21:25 UTC by `scripts/screen_triage.py` (seed 20260917).
+Generated 2026-09-18 02:48 UTC by `scripts/screen_triage.py` (seed 20260917).
 
-Candidates: 27,747. First votes present: 27,747. Second votes present: 4,320 (second-vote coverage among non-T0 records: 4,296 of 27,688).
+Candidates: 27,747. First votes present: 27,747. Second votes present: 27,647 (second-vote coverage among non-T0 records: 27,588 of 27,688).
 
 ## Tiers
 
@@ -14,20 +14,20 @@ Candidates: 27,747. First votes present: 27,747. Second votes present: 4,320 (se
 | T0 | leaderboard_bare_model_name | 6 | exclude | 0 |
 | T0 | empty_title | 1 | exclude | 0 |
 | **T0 total** | | **59** | | **0** |
-| T1 | both_exclude | 1,798 | exclude | 57 |
-| **T1 total** | | **1,798** | | **57** |
-| T2 | both_include | 565 | include | 36 |
-| **T2 total** | | **565** | | **36** |
-| T3 | include_vs_exclude | 52 | - | 52 |
-| **T3 total** | | **52** | | **52** |
-| T4 | R4_human_hedge | 1,512 | - | 1,512 |
-| T4 | R4a_both_negative | 147 | exclude | 4 |
-| T4 | R4_human_leaderboard_record | 75 | - | 75 |
-| T4 | R4_human_unresolved | 107 | - | 107 |
-| T4 | R4b_include_plus_unsure_no_negative | 40 | include | 0 |
-| **T4 total** | | **1,881** | | **1,698** |
-| pending | second_vote_missing | 23,392 | - | 0 |
-| **pending total** | | **23,392** | | **0** |
+| T1 | both_exclude | 7,687 | exclude | 230 |
+| **T1 total** | | **7,687** | | **230** |
+| T2 | both_include | 4,686 | include | 249 |
+| **T2 total** | | **4,686** | | **249** |
+| T3 | include_vs_exclude | 384 | - | 384 |
+| **T3 total** | | **384** | | **384** |
+| T4 | R4_human_hedge | 11,197 | - | 11,197 |
+| T4 | R4a_both_negative | 1,297 | exclude | 54 |
+| T4 | R4_human_leaderboard_record | 156 | - | 156 |
+| T4 | R4_human_unresolved | 1,746 | - | 1,746 |
+| T4 | R4b_include_plus_unsure_no_negative | 435 | include | 15 |
+| **T4 total** | | **14,831** | | **13,168** |
+| pending | second_vote_missing | 100 | - | 0 |
+| **pending total** | | **100** | | **0** |
 
 Rule definitions:
 
@@ -47,34 +47,34 @@ Rule definitions:
 
 | sample_type | n |
 |---|---:|
-| unsure | 1,694 |
-| verify_exclude | 61 |
-| conflict | 52 |
-| verify_include | 36 |
-| **total** | **1,843** |
+| unsure | 13,099 |
+| conflict | 384 |
+| verify_exclude | 284 |
+| verify_include | 264 |
+| **total** | **14,031** |
 
-At 15 s per title/abstract decision: 7.7 h; at 30 s: 15.4 h.
+At 15 s per title/abstract decision: 58.5 h; at 30 s: 116.9 h.
 
 ## Projection at full coverage
 
-Per-record rates on the 4,296 two-vote records: human title decision 42.9%, auto-forward to full text 14.1%, auto-exclude 45.3%.
+Per-record rates on the 27,588 two-vote records: human title decision 50.9%, auto-forward to full text 18.6%, auto-exclude 32.6%.
 
-- Pending records now: 23,392. The running second pass targets 21,480 records (17,184 still to come); 6,208 records (first vote by the fallback model) need a further Opus pass to get two different-model votes.
-- Projected human title decisions: 1,843 now + 7,372 when the second pass completes = **9,215**; + 2,663 more if every pending record gets a second vote = 11,878 (~66 h at 20 s each).
-- Projected records forwarded to full text: 605 now + ~3,294 from pending records + whatever the human forwards.
+- Pending records now: 100. The running second pass targets 21,480 records (0 still to come); 100 records (first vote by the fallback model) need a further Opus pass to get two different-model votes.
+- Projected human title decisions: 14,031 now + 0 when the second pass completes = **14,031**; + 51 more if every pending record gets a second vote = 14,082 (~78 h at 20 s each).
+- Projected records forwarded to full text: 5,121 now + ~19 from pending records + whatever the human forwards.
 
 ## Model-model agreement on the overlap
 
-n = 4,320 records with two different-model votes.
+n = 27,647 records with two different-model votes.
 
-- 3-class (include / exclude / unsure): kappa = 0.622, observed agreement = 0.765
-- binarised (exclude vs forward = include or unsure): kappa = 0.714, observed agreement = 0.857
+- 3-class (include / exclude / unsure): kappa = 0.564, observed agreement = 0.716
+- binarised (exclude vs forward = include or unsure): kappa = 0.616, observed agreement = 0.821
 
 | vote_1 \ vote_2 | exclude | include | unsure |
 |---|---:|---:|---:|
-| exclude | 1,820 | 38 | 190 |
-| include | 14 | 566 | 116 |
-| unsure | 377 | 279 | 920 |
+| exclude | 7,720 | 200 | 1,777 |
+| include | 184 | 4,694 | 1,043 |
+| unsure | 2,790 | 1,856 | 7,383 |
 
 ## T0 records (all listed so the human can eyeball the hard rules)
 
@@ -144,48 +144,48 @@ n = 4,320 records with two different-model votes.
 
 | record_id | title | vote_1 / reason | vote_2 / reason |
 |---|---|---|---|
-| s2:5bee1c50741e027e106d770a2b95e46c54d6ab4c | A Survey of LLM-based Agents: Theories, Technologies, Applications and | unsure: Survey of LLM-based agents; discusses existing systems. | exclude: General survey of LLM agent theories/technologies, no specific harness named. |
-| s2_snowball:dc584ac95b0ebc138030300a3e62f23279f4a754 | On Coordinating LLMs and Platform Knowledge for Software Modernization | unsure: COLLMS framework for coordinating LLMs with platform knowledge is a proposal; no loop described. | exclude: Conceptual framework proposal for coordinating LLM services, no concrete harness system. |
-| arxiv:2402.15116 | Large Multimodal Agents: A Survey | unsure: Survey of large multimodal agents; discusses existing systems. | unsure: Survey of multimodal agents, no single named harness system. |
-| arxiv:2410.08224 | A Survey of Spatio-Temporal EEG data Analysis: from Models to Applicat | unsure: Survey of EEG analysis; discusses existing work. | exclude: Survey of EEG data analysis methods, unrelated to agent harnesses. |
-| s2_snowball:2985af7568176c4c229e552cb0acaaf3502432df | Computational Experiments Meet Large Language Model Based Agents: A Su | unsure: Survey on LLM agents and computational experiments; discusses existing systems. | unsure: Survey/perspective on LLM agents in computational experiments, discusses existing systems. |
-| s2_snowball:58f34f8786e878a55242a5b0bb8bad9a018f67da | Agent Design Pattern Catalogue: A Collection of Architectural Patterns | unsure: Architectural pattern catalogue from literature review; discusses existing systems, deferred to full text. | exclude: Pattern catalogue survey of architectures, not a specific named system. |
-| s2_snowball:993159b86a19ad1310423f35918adfab30b6c10e | Large Model-Based Agents: State-of-the-Art, Cooperation Paradigms, Sec | unsure: Survey of LM agents; discusses existing systems, deferred to step 10. | unsure: Survey discussing multiple LM agent systems, no single named system described. |
-| arxiv:2407.04622 | On scalable oversight with weak LLMs judging strong LLMs | exclude: Studies debate and consultancy oversight protocols; no actions executed outside the model. | unsure: Studies debate/consultancy protocols evaluating existing LLM systems, not a new harness. |
-| s2_snowball:5aacf780ec16a29bdbe283a14f5a9e6b7e1f292d | AI Agents Under Threat: A Survey of Key Security Challenges and Future | unsure: Security survey of AI agents; discusses existing systems only. | unsure: Survey of security threats to AI agents, discusses existing systems generally. |
-| arxiv:2406.12952 | SWT-Bench: Testing and Validating Real-World Bug-Fixes with Code Agent | unsure: SWT-Bench benchmark evaluating code agents on test generation; evaluates existing systems. | unsure: SWT-Bench benchmark evaluating existing code agents like SWE-Agent, no new harness. |
+| arxiv:2501.13381 | Do as We Do, Not as You Think: the Conformity of Large Language Models | unsure: BenchForm conformity benchmark for LLM multi-agent interaction; evaluation study. | unsure: Benchmark BenchForm evaluates existing multi-agent systems for conformity, no new harness clearly described. |
+| s2_snowball:ac610f55db9fdb276121b086e5ced3c1fa4590f1 | DeepStress: Stress-Testing Deep Search Agents | unsure: DeepStress is a stress-testing framework evaluating existing search agents with a synthetic retrieval environm | unsure: Stress-testing framework evaluating existing search agents, not itself a described harness. |
 | s2_snowball:9d6fc78aba8a2a36009a5278ce953085d8fa80be | OdorAgent: Generate Odor Sequences for Movies Based on Large Language  | unsure: OdorAgent pairs an LLM with a text-image model to match odors to video; no loop described. | exclude: Single-pass generation of odor sequences, no iterative multi-step loop described. |
-| arxiv:2411.07690 | World Models: The Safety Perspective | unsure: Survey of world models safety; surveys go to full text. | exclude: Survey of World Models safety, no named harness system. |
-| acl:su-etal-2024-language | Language Agents: Foundations, Prospects, and Risks | exclude: Tutorial proposal discussing language agents conceptually; no system. | unsure: Tutorial/survey discussing language agents conceptually, no single system named. |
-| arxiv:2406.00936 | A Survey of Useful LLM Evaluation | unsure: Survey of LLM evaluation; discusses existing work. | exclude: Survey proposing evaluation framework, no named harness system described. |
-| awesome:gloriaameng:c556f44d6180 | What's Missing in Autonomous Research? A Systematization of Systems, B | unsure: Survey that systematizes autonomous research systems; it only discusses existing systems. | unsure: Survey of autonomous research systems, discusses existing systems. |
-| arxiv:2408.06361 | Large Language Model Agent in Financial Trading: A Survey | unsure: Survey of LLM trading agents; discusses existing systems. | unsure: Survey of LLM trading agents, no single named harness system described in abstract. |
-| s2_snowball:25ae2fce719c6f6f0b09de1e0f917a7b719e5e99 | The Landscape of Emerging AI Agent Architectures for Reasoning, Planni | unsure: Survey of agent architectures; only discusses existing systems, routed to step 10. | unsure: Survey of AI agent architectures discussing multiple existing systems, not one named system. |
-| arxiv:2406.13605 | Nicer Than Humans: How do Large Language Models Behave in the Prisoner | unsure: Studies how existing LLMs play the iterated Prisoner's Dilemma; an evaluation study, so it goes to full text. | exclude: Studies LLM game behavior, no harness system described. |
-| s2_snowball:5e675742ad455c57a6734d7959eeff635b25589e | A Survey on Complex Tasks for Goal-Directed Interactive Agents | unsure: Survey of interactive agent tasks and environments; discusses existing work. | exclude: Survey compiling tasks/environments for evaluating agents, no specific harness named. |
-| arxiv:2401.14295 | Demystifying Chains, Trees, and Graphs of Thoughts | unsure: Survey/taxonomy of chain, tree, graph of thoughts prompting; discusses existing systems. | unsure: Survey/taxonomy of prompting structures, discusses existing systems not a single named harness. |
-| arxiv:2402.01801 | Large Language Models for Time Series: A Survey | unsure: Survey of LLMs for time series; discusses existing methods. | exclude: Survey of LLMs for time series analysis, no named harness system. |
-| s2_snowball:05f4f076a8f277f46dff9b6abc3feff1fcf31ff5 | SWE-Bench+: Enhanced Coding Benchmark for LLMs | unsure: Empirical analysis of SWE-bench quality using SWE-agent results; evaluates existing systems. | unsure: Analysis of SWE-bench dataset quality, discusses existing systems not new harness. |
-| s2_snowball:c8b18682965ff9dccc0130dab3d679f78cefa617 | A Survey on Large Language Models for Code Generation | unsure: Survey of LLMs for code generation; discusses existing work. | exclude: Survey of LLMs for code generation, no named harness system with loop. |
-| arxiv:2403.18105 | Large Language Models for Education: A Survey and Outlook | unsure: Survey of LLMs in education; only discusses existing systems. | exclude: Survey of LLM applications in education, no specific harness system named. |
-| arxiv:2406.13261 | BeHonest: Benchmarking Honesty in Large Language Models | exclude: Honesty benchmark for LLMs; no agent or harness. | unsure: Benchmark for honesty evaluation, no named harness system described. |
+| s2:c4a9a392ce6b34a66aba95aa3096c1ad9af4c098 | RAG-Driven Memory Architectures in Conversational LLMs—A Literature Re | unsure: Literature review of memory architectures; discusses existing systems, deferred to full text. | exclude: Literature review of memory architectures, no named system described. |
+| arxiv:2604.02211 | Multi-Agent Video Recommenders: Evolution, Patterns, and Open Challeng | unsure: Survey tracing evolution of multi-agent video recommender frameworks, discusses existing systems only. | unsure: Survey of multi-agent video recommenders (MACRec, Agent4Rec); discusses existing systems, so it goes to step 1 |
+| s2_snowball:86de12d65a14fc10f88c97bc08ecf790f38a79ee | LocationReasoner: Evaluating LLMs on Real-World Site Selection Reasoni | unsure: Benchmark with sandbox tools evaluating ReAct/Reflexion; evaluates existing systems. | unsure: Benchmark evaluating existing agentic strategies like ReAct; no new named harness. |
+| s2:e131a11ad907023f655f22a4fae2b2a6f2db96f7 | Reasoning and Planning with Large Language Models in Code Development | unsure: Survey/tutorial on LLMs for code development; discusses existing systems only. | unsure: Survey discussing LLM code development techniques, no single named harness system described. |
+| arxiv:2505.07078 | Can LLM-based Financial Investing Strategies Outperform the Market in  | unsure: FINSABER backtesting framework evaluating existing LLM strategies; evaluation record. | exclude: FINSABER is a backtesting evaluation framework for existing strategies, not a harness system itself. |
+| s2_snowball:e850a1255941cadd93e08715bc56e1cbf26523c1 | Large Language Models for Ontology Engineering: A Systematic Literatur | unsure: Systematic literature review of 36 papers on LLMs for ontology engineering with zero/few-shot prompting; revie | unsure: Systematic literature review of LLM use in ontology engineering across many papers, no single system. |
+| arxiv:2410.18529 | Instructional Text Across Disciplines: A Survey of Representations, Do | unsure: Survey of instructional text literature; discusses existing work only. | exclude: Survey of instructional text literature, discusses no single system. |
+| openalex:W7202139240 | Agent-to-Agent Communication | unsure: Synthesis/review of agent communication evidence; discusses existing systems. | exclude: Survey/analysis of agent-to-agent communication research, no named harness system. |
+| openalex:W7130943401 | Agentic AI: Concepts, Architectures, Frameworks, and Challenges | unsure: Survey comparing existing frameworks; goes to step 10. | exclude: Survey/beginner's guide to agentic AI frameworks, no single named system. |
+| s2_snowball:980cc964c8bfdcd9670265e1dcbb08f9c41749a7 | A Survey of Foundation Model-Powered Recommender Systems: From Feature | unsure: Survey of foundation-model recommenders including agentic systems. | exclude: Survey of recommender system paradigms, no named harness. |
+| arxiv:2605.18583 | Overeager Coding Agents: Measuring Out-of-Scope Actions on Benign Task | unsure: Benchmark evaluating existing coding agent products, not a new harness description. | unsure: OverEager-Bench evaluates existing harnesses (Claude Code, OpenHands, Codex CLI, Gemini CLI). Benchmark/evalua |
+| openalex:W7161588025 | Inference-Time Control for Trustworthy Large Language Models | unsure: Survey unifying inference-time control techniques including multi-agent orchestration; discusses existing meth | exclude: Survey/framework unifying inference-time trustworthy techniques, not a single named harness system. |
+| arxiv:2606.26627 | Agents That Know Too Much: A Data-Centric Survey of Privacy in LLM Age | unsure: Survey of privacy in LLM agents; discusses existing systems, routed to step 10. | unsure: Survey of privacy risks in LLM agents; discusses existing systems, no new harness named. |
+| s2_snowball:85ffc00f667e01b22160d4617e7b374ff0324ae4 | Engineering Trustworthy Agentic AI for Critical Systems | unsure: Survey of agentic-AI trustworthiness mechanisms and domains; discusses existing systems, so protocol routes it | unsure: Survey of trustworthiness across domains, discusses existing systems generally, not one harness. |
+| arxiv:2510.12750 | VQArt-Bench: A semantically rich VQA Benchmark for Art and Cultural He | exclude: VQA benchmark built by generation pipeline; no executed actions loop. | unsure: Benchmark paper using multi-agent pipeline for dataset generation, not a described agent harness. |
+| arxiv:2406.00252 | Towards Rationality in Language and Multimodal Agents: A Survey | unsure: Survey of rational language agents; discusses existing systems, goes to step 10. | unsure: Survey of language/multimodal agents, no single named harness system. |
+| arxiv:2509.18420 | Instruction-Following Evaluation in Function Calling for Large Languag | unsure: Function-calling benchmark IFEval-FC; single-call evaluation, sent to step 10. | exclude: Benchmark for function calling instruction adherence, no harness system described. |
+| openalex:W7201867232 | VATA Consolidated Findings: DSC Infrastructure Taxonomy and the AOS De | exclude: Security research report cataloguing vulnerabilities in others' systems, not a named harness. | unsure: Security report on vulnerabilities in existing agent frameworks and MCP servers. It only evaluates existing sy |
+| s2_snowball:5cf6037bff960ed954cb4237e9d2512d66bdf39c | Time to REFLECT: Can We Trust LLM Judges for Evidence-based Research A | unsure: Meta-evaluation benchmark for LLM judges of research agents, not itself a described harness. | unsure: Meta-evaluation benchmark for LLM judges of research agents; evaluates existing systems, needs step-10 full-te |
+| arxiv:2604.24645 | K-MetBench: A Multi-Dimensional Benchmark for Fine-Grained Evaluation  | unsure: K-MetBench is an exam-grounded evaluation benchmark over 55 models; protocol routes evaluation-only records to | exclude: A benchmark evaluating models on meteorology tasks, no named agent harness system. |
+| s2:503f8f4d27757cdc2cb2910e17a5ef6f336219a8 | The dark side of autonomous intelligence: a survey on data leakage and | unsure: Survey discussing existing agentic AI systems' privacy risks, not a new harness. | unsure: Survey of data leakage in agentic AI; discusses existing systems, routed to full-text step 10. |
+| arxiv:2606.00288 | Model-Native Computing Architecture: Envisioning Future System Archite | exclude: Conceptual survey/vision paper, no named system implementing harness. | unsure: Visionary survey mapping computer architecture onto agent stacks; no new system, goes to step 10. |
 
 ## R4b rule includes (random 15 for audit)
 
 | record_id | title | vote_1 / reason | vote_2 / reason |
 |---|---|---|---|
-| survey_refs:openreview:eONq7FdiHa:188 | CREATOR: Tool Creation for Disentangling Abstract and Concrete Reasoni | unsure: CREATOR creates and executes tools with rectification; iterative loop not clearly stated. | include: CREATOR disentangles tool creation and execution, actions executed and fed back. |
-| s2_snowball:b0c3e3b974bea918d0972038f1606026c8736730 | dIR - Discrete Information Retrieval: Conversational Search over Unstr | unsure: dIR text-to-SQL retrieval; optional multi-step conversational agent, loop not clearly described. | include: dIR uses multi-step reasoning conversational agent querying via text-to-SQL tool execution. |
-| s2:4a75ee7e27388976c6e84ede5ff2b110c5b05736 | Multi-Agent Approach to Political Discourse Translation: From Large La | unsure: MAGIC-PTF multi-agent translation pipeline; no clear tool execution beyond agent text exchange. | include: Named MAGIC-PTF system with multiple specialized agents performing multi-stage translation loop. |
-| s2_snowball:2ebcc7ea5a284a18968a515dc2c88ebb9e3af52b | ChatGraph: Chat with Your Graphs | unsure: ChatGraph generates API chains; iterative execution feedback not described. | include: ChatGraph generates and executes chains of graph analysis APIs based on LLM reasoning. |
-| arxiv:2404.11964 | From Language Models to Practical Self-Improving Computer Agents | unsure: Minimal querying loop with terminal access that self-augments tools; loop and actions clear but no named syste | include: Named self-improving computer agent with querying loop and executed tool actions. |
-| openalex:W7110530286 | apex™ | include: apex agent performs actions on user's PC with memory and multi-agent loop. | unsure: apex named system but description vague on tool execution loop, tool-free architecture mentioned. |
 | s2_snowball:1c259361caa85c2d95a7d04e5e42fa98693da85b | Large Language Models as Evolutionary Optimizers | unsure: LMEA iterative LLM crossover with external evaluation; optimizer loop rather than tool-using agent, borderline | include: LMEA iteratively instructs LLM in evolutionary loop selecting/evaluating solutions across generations. |
-| survey_refs:preprints:202604.0428:69 | BabyAGI | include: BabyAGI: task-creating, executing, prioritizing LLM agent loop, 2023. | unsure: BabyAGI named system but minimal abstract detail to confirm loop/action test. |
-| acl:zhang-etal-2024-mabc | mABC: Multi-Agent Blockchain-inspired Collaboration for Root Cause Ana | unsure: mABC multi-agent RCA workflow with step limits; tool execution against system not explicit. | include: mABC multi-agent system with workflow loop and voting collaboration for RCA tasks. |
-| arxiv:2410.24032 | Navigating the Unknown: A Chat-Based Collaborative Interface for Perso | unsure: CARE multi-agent chat interface; tool execution with feedback not evident. | include: CARE named multi-agent LLM system with iterative interface loop and tool use. |
-| survey_refs:openreview:eONq7FdiHa:156 | yoheinakajima/babyagi | include: BabyAGI task-driven autonomous agent loop creating and executing tasks. | unsure: BabyAGI citation only, minimal detail but named system known to be a harness. |
-| arxiv:2410.02829 | LLMs May Not Be Human-Level Players, But They Can Be Testers: Measurin | unsure: Game-testing framework using LLM agents in Wordle and Slay the Spire; its harness is unnamed. | include: LLM agent framework plays games (Wordle, Slay the Spire) via iterative action loop with environment. |
-| arxiv:2405.14751 | AGILE: A Novel Reinforcement Learning Framework of LLM Agents | unsure: RL training framework, but describes agent with memory, tools, reflection loop. | include: Named system AGILE wraps LLM with tools, memory, expert consultation in iterative loop. |
-| arxiv:2403.08337 | LLM-Assisted Light: Leveraging Large Language Model Capabilities for H | include: LLM-Assisted Light: LLM uses perception and decision tools to control traffic signals in simulation. | unsure: Traffic signal LLM framework with tools; loop/action structure not fully clear. |
-| openalex:W4401006767 | PEAR: A Knowledge-guided Autonomous Pipeline for Ptychography Enabled  | unsure: PEAR abstract preview; multi-LLM ptychography workflow, tool execution loop not clearly described. | include: PEAR is a named multi-agent system automating ptychography experiments with tool use. |
+| acl:zhang-etal-2026-evohyper | EvoHyper: Evolving Hypergraph Topologies for Unified Collaboration in  | unsure: EvoHyper evolves agent communication hypergraph; abstract shows message passing and memory but no externally e | include: Named multi-agent framework with controller editing hypergraph topology during task execution loop. |
+| openalex:W7203442841 | SCU5.0 Beta Release: Security Hardening, Asynchronous Optimization, an | include: SCU5.0 beta release describes fixes and hardening of the same conversational agent platform as SCU3.0. | unsure: SCU5.0 release notes list security and async fixes for an agent platform; the abstract does not describe the a |
+| arxiv:2511.20940 | Chatty-KG: A Multi-Agent AI System for On-Demand Conversational Questi | unsure: Chatty-KG generates SPARQL via agent pipeline; iterative loop with execution feedback not stated. | include: Multi-agent system generating and executing SPARQL queries against knowledge graphs iteratively. |
+| arxiv:2506.17784 | AnyMAC: Cascading Flexible Multi-Agent Collaboration via Next-Agent Pr | unsure: Multi-agent communication framework; abstract doesn't mention tools or executed actions with feedback. | include: Named multi-agent system with sequential loop selecting next agent/context, actions executed and fed back. |
+| github:TIGER-AI-Lab/TheoremExplainAgent | TIGER-AI-Lab/TheoremExplainAgent | unsure: Agent generates Manim videos; code execution feedback loop not stated in snippet. | include: TheoremExplainAgent is a named system generating and verifying video explanations via tool use. |
+| github:yilewang/llm-for-zotero | yilewang/llm-for-zotero | include: Named research agent system for Zotero library with tool-executing loop. | unsure: Named 'research agent system' for Zotero, but README excerpt gives no evidence of multi-step tool-calling loop |
+| github:chaitin/MonkeyCode | chaitin/MonkeyCode | unsure: AI coding platform with task management; README excerpt doesn't show agent loop details. | include: Named AI coding platform with task/model management implying tool-executing agent loop. |
+| arxiv:2601.15153 | How to Build AI Agents by Augmenting LLMs with Codified Human Expert D | unsure: Unnamed visualization agent with classifier, RAG code generation and codified expert rules; abstract does not  | include: Named agent system with RAG, classifier, and code generation in an executed loop. |
+| openreview:lNmZrawUMu | AlphaAgentEvo: Evolution-Oriented Alpha Mining via Self-Evolving Agent | unsure: Agentic RL training for alpha mining with tool calls; harness change uncertain. | include: AlphaAgentEvo agent performs tool calls and iterative self-evolution loop for alpha mining. |
+| s2:e48ac2e745cd18852bee31fc68fef6e1497b56ec | An Intelligent Fault Diagnosis Method for Catenary Based on AI Agent a | unsure: LLM agent orchestrates knowledge graph retrieval; multi-step loop not explicit. | include: AI Agent dynamically queries knowledge graph via RAG, orchestrating multi-source data retrieval and fusion loo |
+| s2_snowball:8b2d6308af43aadb3c7ccdec9431be0a995b5579 | Agentic AI for Disease-Aware Adaptive Multi-Omics Embedding: A Proof o | unsure: Unnamed plan-act-verify agent; LLM use not explicit in abstract. | include: Agent plans, acts, and verifies in self-refining loop selecting normalization and embedding methods based on o |
+| s2:da284361714b8d732c1c3bcbadb917a86a267058 | Evidence-Grounded Multi-Agent Planning Support for Urban Carbon Govern | unsure: Four specialized RAG agents for carbon governance; abstract reads as a staged pipeline, not clearly a model-dr | include: Multi-agent system with four specialized agents performing retrieval and generation tasks iteratively. |
+| s2:b44f55195d6f5024f174546698ddd9fffee8f043 | AI Agents: Agent GPT | unsure: Describes existing AgentGPT system generally; discussion rather than new system. | include: Agent GPT named system, plans and executes multi-step tasks using tools/APIs iteratively. |
+| arxiv:2508.14123 | AI Agents for Photonic Integrated Circuit Design Automation | unsure: PhIDO multi-agent PIC design framework; iterative tool-execution loop not explicit in abstract. | include: Named PhIDO multi-agent framework converts requests to layouts via LLM loop. |
