@@ -23,8 +23,8 @@ Outputs:
 
 Tiers (applied in order; the first that fires wins):
     T0  hard rule, no model needed (date, bare model name on a leaderboard, non-English, no title)
-    T1  both models exclude                     -> exclude; 3 % verification sample to the human
-    T2  both models include                     -> full text; 5 % verification sample to the human
+    T1  both models exclude                     -> exclude; verification sample (amendment 3, 200 excludes in total)
+    T2  both models include                     -> full text; verification sample (amendment 3, 200 includes in total)
     T3  include vs exclude                      -> human (conflict)
     T4  at least one unsure                     -> rule R4 (see `apply_r4`); rest to the human
     T5  a tiebreak vote exists                  -> rule T5 (see `apply_t5`): the tiebreak decides unless
@@ -61,9 +61,12 @@ from kappa import cohen_kappa
 
 SEED = 20260917
 TIEBREAK_SEED = 20260916      # separate hash stream for the T5 verification sample
-VERIFY_EXCLUDE_RATE = 0.03   # T1 (both exclude) and R4a (rule exclude)
-VERIFY_INCLUDE_RATE = 0.05   # T2 (both include) and R4b (rule include)
-VERIFY_TIEBREAK_RATE = 0.03  # T5 automatic decisions (include and exclude alike)
+# Verification sample sized to protocol amendment 3 (n = 400, stratified 200 / 200): rates are the
+# stratum target divided by the size of the automatically decided pool at full coverage
+# (17,817 automatic excludes, 9,114 automatic includes; T1/T2/T4/T5 pooled, T0 hard rules excluded).
+VERIFY_TARGET_PER_STRATUM = 200
+VERIFY_EXCLUDE_RATE = VERIFY_TARGET_PER_STRATUM / 17817   # every automatic exclude (T1, R4a, T5)
+VERIFY_INCLUDE_RATE = VERIFY_TARGET_PER_STRATUM / 9114    # every automatic include (T2, R4b, T5)
 TIERS = ["T0", "T1", "T2", "T3", "T4", "T5", "pending"]
 WINDOW_START_YEAR = 2022     # criterion (c): first public release 2022-10-01 .. 2026-08-31
 WINDOW_START_YYMM = "2210"   # arXiv id month prefix of the window start
@@ -316,7 +319,7 @@ def assign_tiers(cands: pd.DataFrame, votes1: pd.DataFrame, votes2: pd.DataFrame
         elif r["vote_3"] in ("include", "exclude"):
             tier = "T5"
             auto, rule = apply_t5(v1_, v2_, r["vote_3"], r["confidence_3"])
-            if auto and sample_hash(r["record_id"], TIEBREAK_SEED) < VERIFY_TIEBREAK_RATE:
+            if auto and sample_hash(r["record_id"], TIEBREAK_SEED) < (VERIFY_EXCLUDE_RATE if auto == "exclude" else VERIFY_INCLUDE_RATE):
                 need, sample = 1, f"verify_{auto}"
             elif not auto:
                 need, sample = 1, "tiebreak"
@@ -391,7 +394,7 @@ def build_report(df: pd.DataFrame, kap: dict, n_second_pass_target: int | None) 
           f"    - `R4b_include_plus_unsure_no_negative`: one `include` (decision_step none) + one `unsure` whose reason has no negative signal -> forwarded to full text; a {VERIFY_INCLUDE_RATE:.0%} verification sample goes to the human.",
           "    - `R4_human_unresolved`: everything else (unsure+unsure without two clean negatives, exclude at step 8 + unsure, include + unsure with a negative signal): human.",
           ("- T5 (a tiebreak vote exists; checked before T1-T4): the records T3/T4 had sent to the human as `conflict` / `unsure` got a decisive third vote (`scripts/screen_llm.py --mode tiebreak`, prompt ta-v2-tiebreak-2026-09-17, include/exclude only, with a confidence high/medium/low). A prior vote supports the tiebreak when it is the same vote and opposes it when it is the other definite vote; `unsure` does neither. The human gets the record iff no two of the three votes agree on include or exclude (`T5_human_three_way_split`: include / exclude / unsure), or the tiebreak is low-confidence and contradicts a definite prior vote (`T5_human_low_confidence_contradiction`); sample type `tiebreak`. Otherwise the tiebreak decides: `T5_majority_include` / `T5_majority_exclude` (a prior vote agrees with it) or `T5_tiebreak_include` / `T5_tiebreak_exclude` (both priors were unsure); "
-          f"a {VERIFY_TIEBREAK_RATE:.0%} verification sample of the automatic decisions (hash(seed {TIEBREAK_SEED}, record_id)) goes to the human as `verify_include` / `verify_exclude`."),
+          f"a verification sample of the automatic decisions (same per-stratum rates as T1/T2: {VERIFY_EXCLUDE_RATE:.2%} of excludes, {VERIFY_INCLUDE_RATE:.2%} of includes) (hash(seed {TIEBREAK_SEED}, record_id)) goes to the human as `verify_include` / `verify_exclude`."),
           "- `pending`: the second vote is not available yet (or came from the same model as the first); re-run after the second pass advances.",
           ""]
     # human workload

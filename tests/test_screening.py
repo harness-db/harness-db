@@ -87,7 +87,7 @@ def test_verification_sample_is_deterministic_and_near_rate():
     v2 = [vote(r, "exclude", step="1", model="claude-sonnet-5") for r in ids]
     df = run(cands, v1, v2)
     sampled = set(df.index[df.needs_human == 1])
-    assert 0.02 * n < len(sampled) < 0.04 * n
+    assert 0.5 * st.VERIFY_EXCLUDE_RATE * n < len(sampled) < 1.5 * st.VERIFY_EXCLUDE_RATE * n
     assert (df.loc[list(sampled), "human_sample_type"] == "verify_exclude").all()
     # same records are sampled when only a subset of the coverage is present (re-runnable)
     half = ids[: n // 2]
@@ -303,7 +303,7 @@ def test_t5_verification_sample_near_rate():
               [vote3(r, "exclude") for r in ids])
     assert (df.tier == "T5").all() and (df.auto_decision == "exclude").all()
     sampled = df[df.needs_human == 1]
-    assert 0.02 * n < len(sampled) < 0.04 * n and (sampled.human_sample_type == "verify_exclude").all()
+    assert 0.5 * st.VERIFY_EXCLUDE_RATE * n < len(sampled) < 1.5 * st.VERIFY_EXCLUDE_RATE * n and (sampled.human_sample_type == "verify_exclude").all()
 
 
 def test_tiebreak_item_formatting():
