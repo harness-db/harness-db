@@ -1,0 +1,1320 @@
+record_id: arxiv:2410.19245
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2410.19245
+fetched_title: MaCTG: Multi-Agent Collaborative Thought Graph for Automatic Programming
+fetched_at: 2026-09-18T19:00:17Z
+
+MaCTG: Multi-Agent Collaborative Thought Graph for Automatic
+Programming
+Zixiao Zhao
+University of Auckland
+Auckland, New Zealand
+zixiao.zhao@auckland.ac.nz
+Jing Sun
+University of Auckland
+Auckland, New Zealand
+jing.sun@auckland.ac.nz
+Zhe Hou
+Griffith University
+Brisbane, Australia
+z.hou@griffith.edu.au
+Zhiyuan Wei
+Beijing Institute of Technology
+Beijing, China
+weizhiyuan@bit.edu.cn
+Cheng-Hao Cai
+Suzhou Industrial Park Monash
+Research Institute of Science and
+Technology
+Suzhou, Jiangsu, China
+Cheng-Hao.Cai@monash.edu
+Miao Qiao
+University of Auckland
+Auckland, New Zealand
+miao.qiao@auckland.ac.nz
+Jin Song Dong
+National University of Singapore
+Singapore
+dcsdjs@nus.edu.sg
+Abstract
+With the rapid advancement of Large Language Models (LLMs),
+LLM-based approaches have demonstrated strong problem-solving
+capabilities across various domains. However, in automatic pro-
+gramming, a single LLM is typically limited to function-level code
+generation, while multi-agent systems composed of multiple LLMs
+often suffer from inefficient task planning. This lack of structured co-
+ordination can lead to cascading hallucinations, where accumulated
+errors across agents result in suboptimal workflows and excessive
+computational costs. To overcome these challenges, we introduce
+MaCTG (Multi-Agent Collaborative Thought Graph), a novel multi-
+agent framework that employs a dynamic graph structure to facil-
+itate precise task allocation and controlled collaboration among
+LLM agents. MaCTG autonomously assigns agent roles based on
+programming requirements, dynamically refines task distribution
+through context-aware adjustments, and systematically verifies
+and integrates project-level code, effectively reducing hallucina-
+tion errors and improving overall accuracy. MaCTG enhances cost-
+effectiveness by implementing a hybrid LLM deployment, where
+proprietary models handle complex reasoning, while open-source
+models are used for routine coding and validation tasks. To evaluate
+MaCTG’s effectiveness, we applied it to traditional image process-
+ing auto-programming tasks, achieving a state-of-the-art accuracy
+of 94.44%. Additionally, by leveraging its hybrid LLM configuration,
+MaCTG significantly reduced operational costs by 89.09% compared
+to existing multi-agent frameworks, demonstrating its efficiency,
+scalability, and real-world applicability. Our project can be found
+at https://github.com/MaCTG2025/MaCTG.
+This work is licensed under a Creative Commons Attribution 4.0 International License.
+ICSE ’26, Rio de Janeiro, Brazil
+©2026 Copyright held by the owner/author(s).
+ACM ISBN 979-8-4007-2025-3/26/04
+https://doi.org/10.1145/3744916.3773221
+CCS Concepts
+•Software and its engineering → Automatic programming;•
+Computing methodologies→ Multi-agent systems;Natural
+language processing.
+Keywords
+Automatic Programming, Generative AI, Large Language Models
+ACM Reference Format:
+Zixiao Zhao, Jing Sun, Zhe Hou, Zhiyuan Wei, Cheng-Hao Cai, Miao Qiao,
+and Jin Song Dong. 2026. MaCTG: Multi-Agent Collaborative Thought
+Graph for Automatic Programming. In2026 IEEE/ACM 48th International
+Conference on Software Engineering (ICSE ’26), April 12–18, 2026, Rio de
+Janeiro, Brazil.ACM, New York, NY, USA, 13 pages. https://doi.org/10.1145/
+3744916.3773221
+1 Introduction
+Since the release of OpenAI’s ChatGPT service in 2022 [ 29], re-
+search on Large Language Models (LLMs) has advanced rapidly,
+leading to the development of various frameworks that demonstrate
+fundamental problem-solving capabilities [33, 43, 47]. In the field
+of software engineering, numerous LLM-based studies and prod-
+ucts have shown that, when trained on large-scale programming
+datasets, LLMs can learn both the syntax of programming languages
+and the logical structure of code, enabling them to perform prelim-
+inary code generation [8, 41, 52]. However, LLMs remain highly
+constrained when generating large-scale, complex software sys-
+tems. Current models are primarily limited to function-level code
+generation and struggle with project-level software development,
+where multiple interdependent components must be designed, im-
+plemented, and integrated seamlessly [13]. A major limitation of
+LLMs in large-scale software generation is their inability to ef-
+fectively plan, coordinate, and verify code consistency across an
+entire project. LLMs operate on limited context windows, making
+it difficult to maintain coherence between different parts of a large
+arXiv:2410.19245v3 [cs.SE] 29 Aug 2026
+
+ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil Zhao et al.
+software system. Furthermore, without structured high-level task
+planning and iterative refinement, LLMs often produce inconsis-
+tent, redundant, or incompatible code segments, requiring extensive
+human intervention to ensure correctness.
+To address these challenges, some studies have proposed multi-
+agent systems where multiple LLMs collaborate by taking on spe-
+cialised roles—such as project planning, code implementation, test-
+ing, and documentation—to tackle complex software projects [16,
+34, 40]. However, these top-down cascading approaches often over-
+simplify complex software engineering tasks. Individual agents
+are still burdened with single-level, isolated responsibilities, lead-
+ing to cascading hallucinations, where errors accumulate through-
+out the hierarchy due to the lack of global oversight and verifi-
+cation mechanisms. Moreover, existing multi-agent frameworks
+frequently rely exclusively on proprietary LLMs, further exacer-
+bating cost constraints and limiting accessibility. The lack of open,
+adaptable models and the prolonged iterative debugging process
+significantly increase the resource demands of these tools, making
+them impractical for scalable, real-world software development.
+Addressing these critical limitations requires a structured, adaptive,
+and cost-effective approach to LLM-driven software engineering.
+In this paper, we introduce the Multi-agent Collaborative Thought
+Graph (MaCTG), an advanced multi-agent framework built on a dy-
+namic graph structure to enhance auto-programming capabilities.
+Unlike traditional multi-agent systems with static roles and fixed
+task assignments, MaCTG dynamically determines the number and
+roles of agents required for a given programming task, ensuring flex-
+ibility and adaptability. To optimise workload distribution, MaCTG
+employs a two-dimensional task decomposition approach. First,
+horizontal decomposition breaks tasks into smaller, manageable
+components, reducing the burden on individual agents. Second,
+vertical cascading structures agents in a level-oriented hierarchy,
+ensuring logical task execution and systematic code generation. For
+effective agent communication, MaCTG integrates a context-aware
+refinement mechanism, inspired by graph-of-thought reasoning [6],
+to dynamically adjust task planning and coordination. This ensures
+precise control over each agent’s responsibilities, minimising redun-
+dancy and improving overall efficiency. During the implementation
+phase, MaCTG applies a backwards validation workflow, which
+iteratively verifies and refines agent outputs, ultimately leading
+to the seamless assembly of project-level code. This structured
+approach—dynamic agent configuration, adaptive task planning,
+and multi-level verification—effectively mitigates cascading hallu-
+cinations, enhancing software reliability and accuracy. Addition-
+ally, MaCTG employs a hybrid model configuration, integrating
+proprietary models (DeepSeek-V3 [ 10]) with a locally deployed
+open-source model (Qwen2.5-Coder-7B [38]). This combination op-
+timises performance and cost-efficiency, ensuring scalability while
+reducing reliance on proprietary models. By balancing high-level
+reasoning and routine coding tasks, MaCTG offers a practical and
+cost-effective solution for large-scale software development.
+To assess the effectiveness of MaCTG in automatic programming
+for complex projects, we selected a traditional image-processing
+scenario as a case study. For this evaluation, we developed the
+BCVPP dataset, comprising 90 projects across three levels of auto-
+matic programming tasks. This dataset provides a comprehensive
+benchmark for testing the capabilities of auto-programming tools
+in real-world applications. Using the BCVPP dataset, we conducted
+a detailed comparative analysis of open-source LLMs, proprietary
+LLMs (and tools), and other multi-agent systems. MaCTG achieved
+an execution accuracy of 94.44%, surpassing competing approaches.
+Furthermore, by leveraging its hybrid LLM configuration, MaCTG
+reduced operational costs by 89.09% compared to existing multi-
+agent frameworks, highlighting its efficiency, scalability, and prac-
+tical applicability in software development.
+The key contributions of this work are as follows: 1) We propose
+MaCTG, a novel multi-agent framework utilising a dynamic graph
+structure with context-aware planning adjustment and multi-scale
+code refinement, enabling more effective collaboration for complex
+automatic programming tasks. 2) We introduce a hybrid LLM config-
+uration combining proprietary models for complex reasoning with
+open-source models for routine tasks, significantly improving cost-
+efficiency while maintaining performance. 3) We develop BCVPP, a
+benchmark dataset for evaluating automatic programming frame-
+works in image processing, and conduct a detailed comparative
+analysis of LLM-based frameworks in complex project-level tasks.
+The remainder of this paper is organised as follows. Section 2
+reviews related work on automatic programming and existing ap-
+proaches. Section 3 details the workflow of MaCTG, including its
+multi-agent collaborative thought graph structure and multi-scale
+validation and assembly process. Section 4 describes the experi-
+mental setup, covering the BCVPP dataset construction and the
+evaluation of MaCTG’s performance against state-of-the-art meth-
+ods. Section 5 concludes by summarising key contributions and
+proposing future research directions.
+2 Related work
+In this section, we provide background on the auto-programming
+tasks and methods, particularly agent-based solutions.
+2.1 Automatic programming
+The concept of automatic programming dates back to the 1950s
+when it was primarily considered a compilation problem — trans-
+lating formal specifications into implementations [5]. Over time,
+this evolved into generating domain-specific languages from task
+descriptions [22, 25, 35]. By the 2010s, advancements in natural
+language processing (NLP) based on deep learning introduced algo-
+rithms leveraging RNNs and LSTMs [49], enabling initial natural
+language to programming language translation. The Transformer
+architecture [39] revolutionized this field, spurring development of
+tools like CodeBERT [15] and establishing foundations for LLMs
+such as CodeLlama [ 37] and StarCoder [ 24]. The increasing ac-
+curacy and scalability of these models have enabled applications
+extending beyond code generation, including program repair and
+bug detection, as demonstrated by LLM4PR [7] and InterFix [20].
+Despite these advancements, the ability of a single LLM to tackle
+complex project-level programming tasks remains constrained.
+These tasks require nuanced understanding, effective task planning
+and integration across modules—capabilities that current LLMs
+struggle to achieve due to limitations in the scope of training data
+and architectural design. This gap has motivated the exploration of
+agent-based frameworks and advanced prompt engineering tech-
+niques to extend the potential of LLMs in automatic programming.
+
+MaCTG: Multi-Agent Collaborative Thought Graph for Automatic Programming ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil
+Planners
+Agent Roles in
+MaCTG
+User Input:
+{development
+project}
+Function Code
+Test Code
+Project Module plan Function plan
+Program
+Function 1
+Function 2
+...
+Function 1
+Function 2
+...
+Signature 1
+Signature 2
+...
+Function
+code
+Function
+code
+Module
+code
+Module
+code*
+Project
+program
+1. Dynamic Module Decomposition 2. Dynamic Function Decomposition 3. Function Plan Refinement 4. Coding
+5. Function Validation7. Module Validation8. Project Assembly
+Agents' Collaborative Workflow
+Coder
+(Qwen2.5-Coder)
+Tester
+(Qwen2.5-Coder)
+Executers
+Module
+Leader
+(DeepSeek-V3)
+Function
+Coordinator
+(DeepSeek-V3)
+Team
+Leader
+(DeepSeek-V3)
+Function codeModule code
+Module 1
+Module 2
+...
+Requirement
+Analysis
+Function
+code*
+Pass Run
+testFail
+Refinement
+Function
+code*
+6. Module Assembly
+Function
+code*
+Same
+validation as
+Step 5
+Same
+assembly as
+Step 6
+Execution
+Validation
+Planning
+Assembly
+Figure 1: MaCTG’s collaborative workflow of four phases: Planning, Execution, Validation and Assembly
+2.2 Agent-based solutions in auto-programming
+The code that LLMs can generate through a single round of dialogue
+is often relatively simple and lacks the complexity required for auto-
+programming tasks. To address this limitation, frameworks have
+been developed that use an LLM as an AI agent, enhanced with
+specific interaction strategies [40, 44]. For instance, ToolCoder [51]
+and CodeAgent [50] enhance LLM capabilities by integrating API
+search, format checkers, and code interpreters.
+Beyond individual agent enhancement, researchers have pro-
+posed multi-agent systems for collaborative programming [ 40].
+CAMEL [ 23] provides basic Q&A communication mechanisms
+among agent roles. ChatDev [34] assigns distinct roles to agents
+with cascading conversation strategies. AgentCoder [17] enhances
+testing agent functionality, while MetaGPT [16] integrates SOPs
+from human software engineering. However, these frameworks
+rely on rigid, vertical stage-level task division with limited collab-
+oration, resulting in restricted modularity and adaptability. The
+recent Manus framework [2] assigns agents to detailed stages for
+end-to-end problem-solving; however, it was not publicly avail-
+able for evaluation during this study. Other approaches like SWE-
+Agent [46] and AutoCodeRover [ 53] focus on bug fixing rather
+than modular code generation, while OpenAgents [45] targets LLM
+tool invocation rather than collaborative programming. Despite
+these advancements, most existing multi-agent systems operate
+sequentially with one active agent per stage, placing high demands
+on individual agents and limiting effectiveness in complex task
+management.
+3 Methodology
+In this section, we detail the structure and workflow of MaCTG.
+Section 3.1 describes the multi-agent configuration, Section 3.2
+focuses on the structured planning workflow and context-aware
+adjustments, and Section 3.3 covers the multi-level validation and
+assembly, emphasising their roles in ensuring output reliability.
+The overall architecture of MaCTG is illustrated in Figure 1,
+comprising four distinct phases:Planning, Execution, Valida-
+tion, and Assembly. ThePlanningphase begins with the Team
+Leader, who analyses project requirements, decomposes tasks into
+modules, and assigns them to Module Leaders. Instead of work-
+ing in isolation, Module Leaders collaborate closely, refining task
+scopes and ensuring cross-module consistency under the Team
+Leader’s supervision. Through structured context-sharing, they
+align dependencies and interactions before passing refined func-
+tion plans to Function Coordinators. Function Coordinators further
+structure these plans, generating precise function signatures while
+maintaining synchronisation with Module Leaders. In theExecution
+phase, Coders implement the code according to these specifications,
+continuously interacting with Function Coordinators to ensure cor-
+rectness and adaptability. TheValidationphase involves Testers,
+who work closely with Coders to develop and execute test cases.
+Errors are identified and iteratively refined through a structured
+feedback loop, where Coders, guided by Function Coordinators,
+resolve issues before advancing to theAssemblyphase. During as-
+sembly, validated functions are integrated into complete modules
+by Function Coordinators, followed by additional validation before
+
+ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil Zhao et al.
+final integration by the Team Leader. Throughout this structured
+workflow, real-time collaboration between agents ensures adapt-
+ability, minimises errors, and maintains overall system integrity.
+MaCTG’s multi-agent collaboration mechanism dynamically ad-
+justs code generation strategies, optimises expertise distribution,
+and enhances project-level automation through seamless agent in-
+teraction. By integrating structured planning, iterative validation,
+and coordinated execution, MaCTG delivers scalable, reliable, and
+high-quality software development.
+3.1 Agents in MaCTG framework
+3.1.1 Agent specification.MaCTG incorporates five distinct types
+of agents: Team Leader, Module Leader, Function Coordinator,
+Coder, and Tester. The first three roles—Team Leader, Module Leader,
+and Function Coordinator—are collectively referred to asPlanners,
+as they are responsible for task decomposition, high-level valida-
+tion, and structured assembly within the workflow. In contrast, the
+Coder and Tester, known asExecutors, focus solely on function-
+level implementation and validation.
+Providing clear and unambiguous definitions for each agent is
+essential to ensure their understanding of their roles within the
+overall workflow, particularly when tackling complex tasks such
+as automatic programming [16]. To define the Planner roles, we
+followed a structured approach by defining each role’s hierarchical
+placement first, then specifying their interactions with superior
+and subordinate agents, simultaneously outlining their input, out-
+put, and execution scope. Additionally, each role also has unique
+specifications to avoid errors and enhance performance. ForTeam
+Leader, we prompt it to minimise the number of modules during
+Planning to minimise complexity and redundancy. In the Assembly
+phase, the Team Leader is prompted to reference existing mod-
+ules rather than redefining them, reducing duplication and token
+usage.Module Leadermanages function decomposition within a
+module. We require it to ensure logical coherence and execution
+order to facilitate seamless plan propagation to the Function Coordi-
+nator.Function Coordinatorgenerates function signatures based on
+function plans. It is demanded to include explicit dependency decla-
+rations to streamline implementation and prevent missing imports.
+When correcting function code during the validation phase, instruc-
+tions for Coders are required to be structured item-by-item rather
+than in unstructured descriptions, improving correction accuracy.
+For the Executor roles, definitions focus primarily on coding
+constraints:Codersmust strictly adhere to declared dependencies
+in function signatures to prevent missing imports or broken module
+references.Testersmust use the unittest module for function valida-
+tion, correctly importing tested functions while ensuring cleanup
+operations do not delete essential source files (e.g., input images).
+By establishing clear specifications for both Planners and Execu-
+tors, the framework ensures seamless collaboration among agents,
+enhancing the efficiency and effectiveness of the overall workflow.
+3.1.2 Hybrid agent employment.Another critical aspect of agent
+configuration is the selection of the base model. Proprietary models,
+such as Claude [3], GPT [1] and DeepSeek [11]1, typically exhibit
+1DeepSeek R1 and V3, while open-source, are categorized as proprietary models in this
+study due to their large-scale architecture, which makes local deployment impractical,
+necessitating API-based access.
+Project:
+License plate
+recognition
+User Input
+I think this project can be divided
+into three modules:
+1. IMAGE_PREPROCESSING
+2. PLATE_DETECTION
+3. PLATE_RECOGNITION
+So I need three Module Leaders.
+Team
+Leader
+System
+Initialising * 3 ..... Done!
+System
+Next Agent Node --
+Module Leader 1:
+Figure 2: Dynamic Module Leader configuration: Module
+Leaders are only initialised after the Team Leader determines
+the module decomposition.
+superior comprehension and generation capabilities due to their
+larger scale and broader training datasets. These attributes make
+proprietary models particularly suitable for managing overarch-
+ing tasks that require high-level reasoning and adaptability [ 18].
+In contrast, open-source LLMs, while generally smaller in scale
+and trained on more domain-specific datasets, are well-suited for
+handling smaller, context-specific tasks with targeted precision.
+To capitalise on these complementary strengths, MaCTG adopts a
+hybrid model strategy. In our implementation, we utilise DeepSeek-
+V3 as the base model for the Planner roles, and the open-source
+model Qwen2.5-Coder-7B [38] for the Executors. This configuration
+is designed to balance performance and cost-effectiveness with the
+following rationale:Planners:DeepSeek-V3 was selected due to its
+state-of-the-art capabilities and is the most recently released model
+at the time of this study. Its advanced reasoning ability ensures
+effective task decomposition, structured planning, and inter-agent
+coordination. Meanwhile, the competitive pricing compared with
+other proprietary models makes it ideal for MaCTG’s implemen-
+tation.Executors:The Coder and Tester roles focus exclusively
+on detailed programming tasks, guided by highly specific and well-
+structured prompts. As such, the capability requirements for these
+roles are comparatively lower. For these tasks, we utilise Qwen2.5-
+Coder, a novel open-source model optimised for code generation,
+providing adequate performance without any API cost.
+By combining proprietary models for high-level tasks with open-
+source models for more granular operations, this approach ensures
+that the MaCTG framework maintains high performance while
+simultaneously reducing overall system costs.
+3.1.3 Dynamic multi-agent structure.In the Plan & Execute work-
+flow, agents are dynamically initialised as needed. Figure 2 illus-
+trates an example configuration of the Module Leaders. At the start
+of the project, only the Team Leader exists as an agent in MaCTG.
+The Team Leader performs the initial module planning based on the
+user’s input. Once the module plan is finalised, the Module Leaders
+are initialised and added to the agent graph. This dynamic initiali-
+sation process continues at subsequent levels; Coders are activated
+
+MaCTG: Multi-Agent Collaborative Thought Graph for Automatic Programming ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil
+Project
+Requirements
+Module 1
+Plan
+Module 2
+Function
+Plan
+Module 2
+Plan
+Module 1
+Function
+Plan
+Module 3
+Function
+Plan
+Module 3
+Plan
+Module 1
+Function
+Signatures
+Module 2
+Function
+Signatures
+Module 3
+Function
+Signatures
+Supervised
+Adjustment
+Think-twice
+Context Sharing
+Project
+Requirements
+Module 1
+Plan
+Structures
+Coding
+Requirements
+Project
+Requirements
+Structures
+Coding
+Requirements
+Input
+Reasoning Process
+Input
+Reasoning Process
+a) Vanilla Multi-
+agent system
+without Reasoning
+b) Multi-agent system with
+individual Reasoning
+c) Multi-agent Collaborative
+Thought Graph Reasoning
+Figure 3: Comparison of Multi-agent planning process
+to implement functions only after the Function Coordinator has
+defined the function signatures.
+The adoption of horizontal, multi-agent task decomposition
+at each planning step—rather than relying on a single agent, as
+seen in other multi-agent frameworks—addresses the issue of self-
+consistency in an individual agent’s thought process. In a single-
+agent process, hallucinations in one part of a plan can cascade,
+adversely affecting the entire workflow. In contrast, MaCTG’s de-
+sign allows peer agents to independently re-examine and validate
+plans at every level, introducing opportunities for verification and
+correction. This collaborative structure effectively mitigates the
+risk of cascading hallucinations, enhancing the overall robustness
+and reliability of the framework.
+3.2 Collaborative graph reasoning protocol
+3.2.1 Multi-agent collaborative thought graph.Recent advances in
+structured reasoning include Chain of Thought (CoT) [ 42], Tree
+of Thoughts (ToT) [47], and Graph of Thoughts (GoT) [6], which
+introduced dynamic optimisation across reasoning paths. Inspired
+by these strategies, we aim to integrate structured reasoning into
+multi-agent workflows to enhance task coordination and execution.
+Classical multi-agent systems adopt a cascaded structure (Fig-
+ure 3a), where LLM-driven agents lack reasoning capabilities and
+rely solely on prompts to advance tasks. An improvement is to
+incorporate reasoning into each agent (Figure 3b), allowing indi-
+vidual agents to autonomously generate path reasoning and derive
+their respective results. However, this local reasoning approach has
+a critical limitation: agents prone to overthinking may unneces-
+sarily split straightforward programming tasks into overly subtle
+sub-functions, increasing dependencies and ultimately amplifying
+implementation difficulties and hallucinations.
+To mitigate these issues, MaCTG restructures reasoning as a
+collaborative process within an integrated graph-based multi-agent
+system. As illustrated in Figure 3c, MaCTG employs a directed graph
+structure where each node represents a discrete thought process
+handled by a separate agent. Rather than assigning reasoning tasks
+to individual agents, reasoning MaCTG emerges from structured
+inter-agent collaboration through directed edges that facilitate: (1)
+an agent’s think-twice process for internal extension, (2) context
+sharing among peer agents to maintain coherence, and (3) super-
+vised adjustment through leader-subordinate interactions to ensure
+overall consistency. By distributing reasoning across all agents and
+limiting each agent’s focus to a well-defined subtask, MaCTG signif-
+icantly reduces cognitive overload and prevents overthinking. This
+collaborative approach simplifies each agent’s decision-making,
+minimising redundant decomposition while effectively reducing
+hallucinations and improving execution reliability.
+To formalise our approach, we use the following definitions to
+better illustrate CTG:
+Definition 1 (Collaborative Thought Graph):A CTG is a
+directed acyclic graph𝐺=(𝑉,𝐸,𝐶,Φ)where:
+•𝑉={𝑣 𝑗
+𝑖|𝑖∈levels,𝑗∈agents at level𝑖} represents the set of
+agent nodes, where each𝑣𝑗
+𝑖 corresponds to a specific agent
+at level𝑖;
+•𝐸⊆𝑉×𝑉 represents directed dependency relationships
+between agents, capturing both hierarchical supervision and
+peer collaboration;
+•𝐶 : 𝑉→S maps each agent node to its current context
+state, whereS denotes the context space containing task
+specifications, intermediate results, and shared knowledge;
+•Φ :𝑉×S→S represents context update functions that
+define how agents process contextual information.
+Definition 2 (Context Propagation):For an agent 𝑣𝑗
+𝑖 ∈𝑉 , the
+context update follows:
+𝐶(𝑣 𝑗
+𝑖)=Φ(𝑣 𝑗
+𝑖,A({𝐶(𝑣 𝑙
+𝑘)|(𝑣𝑙
+𝑘,𝑣 𝑗
+𝑖)∈𝐸}))(1)
+
+ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil Zhao et al.
+Module No.1:
+IMAGE_PREPROCESSING
+Module
+Leader 1
+Module No.2:
+PLATE_DETECTION
+Task: Load image +
+Grayscale conversion
+Module
+Leader 2
+Task: Hough line
+detection ...
+Initial Planning
+Module
+Leader 1
+Function(s):
+1. load_image
+Module Input:
+str (Path)
+Module Output:
+PIL.Image
+Module
+Leader 2
+Function(s):
+1. binarise_img
+2. canny_edge
+...
+Module Input:
+numpy.array
+Module Output:
+numpy.array
+Think-twice Refinement
+Inconsistency
+Figure 4: Agent planning error: Separate planning procedure
+leads to inconsistencies between modules.
+whereA is an aggregation function that combines contexts from
+predecessor agents, and Φ(𝑣𝑗
+𝑖,·) represents the agent-specific con-
+text processing that incorporates both received context and the
+agent’s local thoughts. In practice, the aggregation functionA is
+implemented as a structured dictionary that organises peer agents’
+plans by module names and descriptions, enabling systematic access
+to relevant contextual information. The context update function
+Φ is operationalised through agent-specific prompt templates that
+instruct the LLM on how to integrate the aggregated context with
+the agent’s current task.
+Building upon this formal framework, we now detail how MaCTG
+implements the three key coordination mechanisms through struc-
+tured planning workflows and context-aware adjustments.
+3.2.2 Two-step planning and potential planning error.In the actual
+task flow, following the principles of ReAct [ 48], we decompose
+the planning process of an agent into two sequential steps: initial
+planning and think-twice extension.
+During the initial planning phase, each agent at level𝑖 is assigned
+a subset of the overall task set𝑇𝑖, denoted as𝑇𝑗
+𝑖 for agent𝑣𝑗
+𝑖 . The
+agent then generates a preliminary plan based on its tasks:
+𝑃𝑗(0)
+𝑖 =𝐹 init(𝑇𝑗
+𝑖)(2)
+where𝐹init represents the agent’s own reasoning process used to
+generate a preliminary plan. Then, in the think-twice extension
+phase, each agent extends its preliminary plan into a structured
+and comprehensive form before passing it to the next level:
+𝐶(1)(𝑣𝑗
+𝑖)=Φ 𝑡ℎ𝑖𝑛𝑘(𝑣𝑗
+𝑖,𝐶(0)(𝑣𝑗
+𝑖))(3)
+𝑃𝑗(1′)
+𝑖 =𝐹 ext(𝑃𝑗(0)
+𝑖 ,𝐶(1)(𝑣𝑗
+𝑖))(4)
+where𝐶(0)(𝑣𝑗
+𝑖) contains the initial task assignment𝑇𝑗
+𝑖 , Φ𝑡ℎ𝑖𝑛𝑘 up-
+dates the context through internal reasoning, and 𝐹ext generates
+the final plan using the enriched context, ensuring the generated
+plan follows the expected format and maintains logical coherence.
+However, despite this two-step reasoning process, a fundamental
+limitation remains if agents operate in isolation: an agent’s extended
+plan depends only on its assigned task subset and local context,
+without considering dependencies across agents at the same level:
+𝑃𝑗(1′)
+𝑖 =𝐹 ext(𝐹init(𝑇𝑗
+𝑖),𝐶𝑙𝑜𝑐𝑎𝑙(𝑣𝑗
+𝑖)),where𝑇 𝑗
+𝑖 ⊥𝑇 𝑘
+𝑖 ,∀𝑘≠𝑗(5)
+where𝐶𝑙𝑜𝑐𝑎𝑙(𝑣𝑗
+𝑖) represents isolated context without peer informa-
+tion, potentially leading to contextual inconsistencies across differ-
+ent plans. These inconsistencies manifest in two key ways: discrep-
+ancies in intermediate variable types across plans and overlapping
+or redundant function plans among multiple agents working in
+parallel. As illustrated in Figure 4, taking the Team Leader–Module
+Leader structure as an example, after the Team Leader defines the
+scope of each module, the module descriptions are distributed in-
+dividually to multiple Module Leaders for further planning. Since
+each module leader only focuses on its own assigned module, this
+independent execution may create hallucinations in the generated
+plan, leading to mismatches in the definition of intermediate vari-
+ables and ultimately making the generated program unusable.
+To address these issues, we introduce a context-aware planning
+adjustment strategy, which enhances inter-agent coordination and
+ensures consistency across plans.
+3.2.3 Context-aware planning adjustment.The purpose of context-
+aware planning adjustment is to provide each agent with a com-
+prehensive view of the evolving context, thereby enabling dynamic
+revision of its preliminary plan and resolution of potential incon-
+sistencies. This methodology mirrors real-world software develop-
+ment workflows, in which each subgroup devises an initial plan and
+iteratively refines it based on the contributions of peer subgroups.
+In MaCTG, this process is realised through two sequential steps:
+context sharingandsupervised adjustment.
+Context sharing:The context-sharing mechanism facilitates
+communication among agents at the same hierarchical level. After
+an agent generates its initial plan, it receives the confirmed plans of
+its peers during the "think-twice" process, thereby obtaining a com-
+prehensive understanding of the overall context. Mathematically,
+this is expressed as:
+𝐶𝑝𝑒𝑒𝑟𝑠(𝑣𝑗
+𝑖)=A 𝑝𝑒𝑒𝑟({𝐶(1)(𝑣𝑘
+𝑖)|𝑘≠𝑗,𝑣 𝑘
+𝑖 ∈same level})(6)
+𝐶(2)(𝑣𝑗
+𝑖)=Φ 𝑐𝑜𝑛𝑡𝑒𝑥𝑡(𝑣𝑗
+𝑖,𝐶(1)(𝑣𝑗
+𝑖)∪𝐶 𝑝𝑒𝑒𝑟𝑠(𝑣𝑗
+𝑖))(7)
+whereA𝑝𝑒𝑒𝑟 aggregates contextual information from peer agents,
+and Φ𝑐𝑜𝑛𝑡𝑒𝑥𝑡 updates the agent’s context by incorporating peer
+insights to resolve interface inconsistencies and avoid redundant
+functionality.
+Then, the extended plan of agent𝑣 𝑗
+𝑖 at level𝑖is corrected as:
+𝑃𝑗(1)
+𝑖 =𝐹 ext
+
+𝑃𝑗(0)
+𝑖 ,𝐶(2)(𝑣𝑗
+𝑖)
+
+(8)
+Supervised adjustment:Supervised adjustment requires interac-
+tion between an agent and its superior agent. Upon finalising its
+plan, an agent submits its output to its leader for validation and
+further adjustment:
+𝐶𝑙𝑒𝑎𝑑𝑒𝑟(𝑣𝑗
+𝑖)=A ℎ𝑖𝑒𝑟𝑎𝑟𝑐ℎ𝑖𝑐𝑎𝑙(𝐶(2)(𝑣𝑝𝑎𝑟𝑒𝑛𝑡(𝑗)
+𝑖−1 ))(9)
+𝐶(𝑓𝑖𝑛𝑎𝑙)(𝑣𝑗
+𝑖)=Φ 𝑠𝑢𝑝𝑒𝑟𝑣𝑖𝑠𝑒(𝑣𝑗
+𝑖,𝐶(2)(𝑣𝑗
+𝑖)∪𝐶 𝑙𝑒𝑎𝑑𝑒𝑟(𝑣𝑗
+𝑖))(10)
+
+MaCTG: Multi-Agent Collaborative Thought Graph for Automatic Programming ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil
+Vvvvvvvvvvvvvvvvvvv
+Context sharingModule
+Leader 2
+Task: Hough line
+detection ...
+Function(s):
+1. load_image
+Module Input:
+str (Path)
+Module Output:
+PIL.Image
+Module
+Leader 1
+Module No.2:
+PLATE_DETECTION
+Function(s):
+1. binarise_img
+2. canny_edge
+...
+Module Input:
+PIL.Image
+Module Output:
+numpy.array
+Consistent
+Team
+Leader
+Supervised
+adjustment
+The types are
+consistent now.
+Better put param type
+in definitions.
+...
+Function(s):
+1. binarise_img:(in:
+PIL.Image, out:
+np.array)
+...
+Figure 5: Context-aware planning adjustment: Context shar-
+ing mitigates the inter-module inconsistency; Supervised
+adjustment further reinforces structured communication.
+where𝑣𝑝𝑎𝑟𝑒𝑛𝑡(𝑗)
+𝑖−1 represents the leader agent,Aℎ𝑖𝑒𝑟𝑎𝑟𝑐ℎ𝑖𝑐𝑎𝑙 extracts
+relevant guidance from the leader’s context, and Φ𝑠𝑢𝑝𝑒𝑟𝑣𝑖𝑠𝑒 ensures
+alignment with global objectives and corrects lower-level inconsis-
+tencies.
+Finally, the supervisor-adjusted plan is expressed as:
+𝑃𝑗(𝑓𝑖𝑛𝑎𝑙)
+𝑖 =𝐹 sup_adjust
+
+𝑃𝑗(1)
+𝑖 ,𝐶(𝑓𝑖𝑛𝑎𝑙)(𝑣𝑗
+𝑖)
+
+(11)
+Figure 5 illustrates how context-aware planning adjustment ad-
+dresses inconsistencies in intermediate variable types between mod-
+ules. By obtaining a clear understanding of the output types from
+preceding modules through context sharing, the current Module
+Leader can adhere to these contextual requirements during its "think
+twice" process, thereby avoiding variable-type conflicts. Addition-
+ally, supervised adjustment enables the Team Leader to enforce
+stringent standards on function specifications, providing a more
+coherent plan for subsequent developmental stages.
+In automatic programming tasks, the quality of the prompt is a
+critical factor influencing the accuracy and reliability of the gen-
+erated code [21]. Through the two-step context-aware planning
+adjustment process applied to each planner agent, MaCTG sys-
+tematically translates natural language project requirements into
+coherent function signatures, which serve as structured prompts
+for coder agents during the implementation phase. By predefining
+function inputs, outputs, and dependencies with precision, this ap-
+proach enhances code correctness and minimises inconsistencies
+in execution. This planning strategy ensures that individual agents
+operate within a well-structured framework, where context shar-
+ing mitigates hallucinations, and supervised adjustment further
+clarifies the plan before execution, leading to a more reliable and
+efficient automatic programming workflow.
+3.3 Multi-scale code validation and assembly
+For automatic programming tasks, the essence of program quality
+lies in the accuracy of the code. In addition to enhancing code
+requirement descriptions during the Plan & Execute process, we
+have designed a multi-scale validation and assembly strategy to fix
+code vulnerabilities and prevent the propagation of errors.
+Function code validation and module assembly:After a
+well-structured planning process, Coder agents implement the
+lowest-level function code. At the finest granularity of the system,
+these functions must be rigorously validated before being integrated
+into larger modules. To ensure correctness, a Tester agent—guided
+by the Function coordinator—generates and executes test cases
+tailored to the function code. During validation, both the function
+and test code are mounted into a predefined Docker container pre-
+configured with all dependencies required for image processing in
+Python. Test execution follows a fixed command, ensuring stan-
+dardised output collection. If a failure occurs, the traceback output
+pinpoints the exact line and cause of the error. The Function Coor-
+dinator then analyses the test results, diagnosing potential issues in
+the implementation. If necessary, it provides refinement guidance
+to the Coder, ensuring failures are addressed iteratively. Once all
+assigned functions are validated, the Function Coordinator aggre-
+gates them into a cohesive module, ensuring structural consistency
+before propagating upward for higher-level validation.
+Module validation and project assembly:After the Module
+Leader receives the assembled module code, it then validates the
+module through a higher-scope test code, checking for inconsisten-
+cies in function dependencies, and modular data flow. The overall
+module validation process is consistent with that of function val-
+idation. If discrepancies arise, it then generates the modification
+ideas for the Function Coordinator to revise the module code be-
+fore resubmitting it for approval. Following module validation, the
+Team Leader integrates all verified modules into the final project
+codebase, ensuring a seamless connection between modules.
+This multi-scale validation and assembly process progressively
+refines correctness, mitigates inconsistencies, and prevents struc-
+tural flaws, leading to a functional and coherent program output.
+4 Evaluation
+To thoroughly investigate the effectiveness of MaCTG, we formulate
+the following research questions:
+RQ1: How does the dynamic graph-based multi-agent frame-
+work perform in auto-programming tasks?
+RQ2: How does the performance of MaCTG compare to
+other auto-programming methods?
+RQ3: How do context-aware planning adjustment and
+multi-level code validation reduce hallucinations and im-
+prove accuracy?
+RQ4: How does MaCTG’s collaborative reasoning strategy
+enhance performance compared to multi-agent systems with
+independent agent reasoning?
+RQ5: How does a hybrid configuration of proprietary and
+open-source LLMs improve cost-efficiency?
+
+ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil Zhao et al.
+4.1 Benchmarking dataset
+We focus on project-level code generation rather than existing
+benchmarks like HumanEval [9] and MBPP [4], which target single-
+function generation, or SWE-bench [ 19], which focuses on bug-
+fixing in existing codebases. These benchmarks do not evaluate
+the multi-agent collaboration and project-level planning capabil-
+ities that MaCTG is designed to address. To our knowledge, no
+existing open datasets systematically evaluate auto-programming
+methods on complex, multi-module code generation tasks. To miti-
+gate this gap, we compiled a test set of image-processing-related
+projects named BCVPP (Basic Computer Vision Python Program-
+ming). The primary objective of our project is to apply MaCTG to
+auto-programming in medical image processing, where precise and
+efficient code generation is essential for clinical applications 2. At
+this stage, we have selected the natural image processing domain
+as a case study due to the availability of publicly accessible coding
+questions, enabling reproducible and comparative assessments.
+BCVPP focuses on fundamental Python image processing projects,
+specifically within the scope of classical image algorithms. The
+dataset comprises a total of 90 projects, which are divided into 30
+simple projects, 50 medium projects, and 10 hard projects, defined
+as follows: Simple projects provide explicit instructions within the
+project descriptions, clearly specifying what should be generated.
+Medium projects typically feature unclear connections between
+components, challenging methods to interpret inter-module depen-
+dencies and resolve integration issues autonomously. Hard projects
+present only high-level, vague requirements with minimal guidance,
+requiring methods to interpret necessary implementation details.
+Below are some sample projects of categories inside BCVPP:
+Simple:Given an RGB image ("./test_image.png"), split it into three
+separate images, one for each channel (R, G, B) and save them as
+separate PNG files: "red_channel.png", "green_channel.png" and
+"blue_channel.png".(This task provides explicit step-by-step instruc-
+tions with clear channel split specifications.)
+Medium:Given an image ("./test_image.png"), perform Canny edge
+detection (th=100, 200), identify the enclosed regions, and fill these
+regions with green while keeping the edges, then save the final
+image as "filled_regions.png".(While individual operations are speci-
+fied, the connections between edge detection, region identification, and
+color filling require interpretation of how to integrate these modules.)
+Hard:Given an input image ("./Phantom.png"), apply projection
+analysis to the image and save the output as "transformed.png".
+Then apply reconstruction to the transformed image and save the
+output as "reconstructed.png".(This task requires methods to inter-
+pret vague CT image processing and determine appropriate projection
+and reconstruction approaches without explicit guidance.)
+As a classic library for traditional image algorithms, numerous
+online courses and project repositories offer examples based on
+OpenCV. After evaluating various sources, we selected the beginner-
+oriented GitHub repository "OpenCV_Projects" [36] as the primary
+source of test data. This repository, with over 340 stars and around
+55 OpenCV-related problems, was chosen because its content is
+widely accepted by developers and offers an appropriate difficulty
+2While our initial focus is on medical imaging, the MaCTG framework is designed to
+be adaptable, allowing it to be extended to general-purpose code generation across
+various domains.
+level. We selected 30 projects from this repository, which are classi-
+fied assimpleclass.
+While simple projects are useful for initial validation, testing
+MaCTG’s performance on project-level tasks requires projects that
+involve the integration of multiple modules. Unfortunately, such
+projects are typically found in real-world industrial scenarios and
+are rarely available in open-source repositories. To fill this gap, we
+utilised the OpenAI-o1 [30] model to generate 100 moderately com-
+plex projects by combining elements from the 30 simple projects.
+However, during the calibration process, we discovered that many
+of these generated projects lacked coherent and logical relationships
+between the modules, leading to confusing project descriptions —
+for example, a case where a key-point detection module is followed
+by an unrelated histogram equalisation. After reviewing and filter-
+ing these projects, we finalised 50mediumprojects.
+To further challenge the capabilities of MaCTG and other auto-
+matic programming methods, we sought to include more difficult
+projects. We enabled the “deep-research” tool in OpenAI-o1 to
+search for and generate 10hardtask ideas that push the limits in
+two key ways. First, these projects are inherently more complex,
+requiring a greater number of modules and demanding a higher
+level of expertise. Second, unlike the clear instructions found in sim-
+pler projects, these projects offer only vague descriptions—typically
+providing just the input image and target requirements—forcing
+the methods to infer the necessary steps on their own.
+In BCVPP, all requirements follow a standardised format: input
+image, expected operations, and expected outputs. For single-LLM
+baselines, we append the instruction “Write a set of Python code to
+finish the project. ” For agent-based methods, including ours, only
+the raw requirement is provided, allowing each method to interpret
+and decompose the task autonomously. This setup ensures a fair
+and consistent comparison across all approaches.
+4.2 Evaluation metric & configuration
+Our objective is to use the BCVPP dataset to evaluate various meth-
+ods’ ability to automate programming in the image processing
+domain. For each project𝑝, given an input image𝐼𝑚𝑔𝑝 and process-
+ing requirement, each method generates algorithm code Φ𝑝𝑟𝑜𝑗𝑒𝑐𝑡
+to meet the requirement. The code is executed to produce output,
+and we verify whether it matches the expected outcome𝑂𝑢𝑡𝑝𝑢𝑡𝑒𝑥𝑝 .
+This process is represented by:
+𝑂𝑢𝑡𝑝𝑢𝑡←Φ 𝑝𝑟𝑜𝑗𝑒𝑐𝑡(𝐼𝑚𝑔𝑝)(12)
+𝑂𝑢𝑡𝑝𝑢𝑡𝑒𝑥𝑝←Φ𝑠𝑎𝑚𝑝𝑙𝑒(𝐼𝑚𝑔𝑝)(13)
+𝐴𝑐𝑐𝑝 =
+(
+1, 𝑂𝑢𝑡𝑝𝑢𝑡=𝑂𝑢𝑡𝑝𝑢𝑡 𝑒𝑥𝑝
+0, 𝑂𝑢𝑡𝑝𝑢𝑡≠𝑂𝑢𝑡𝑝𝑢𝑡 𝑒𝑥𝑝
+(14)
+The overall accuracy of each method on a𝑝 is represented as𝐴𝑐𝑐𝑝,𝑖
+for the𝑖-th generated solution, with𝐴𝑐𝑐𝑝,𝑖 = 1if the output matches
+the expected outcome, and0otherwise. To determine 𝐴𝑐𝑐𝑝,𝑖, we
+execute the generated code and compare its output to the ground-
+truth result. If the automated comparison fails but the generated
+code (1) executes successfully, (2) follows the task requirements, and
+(3) produces outputs of the expected type and format, we manually
+inspect the result to verify correctness, as differences may arise
+from valid library choices (e.g., OpenCV vs. Scikit-image) rather
+than implementation errors. Summing across𝑛 generated solutions
+
+MaCTG: Multi-Agent Collaborative Thought Graph for Automatic Programming ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil
+gives𝑐𝑝 = ˝𝑛
+𝑖=1𝐴𝑐𝑐𝑝,𝑖, which is used in thePass@kmetric:
+𝑃𝑎𝑠𝑠@𝑘= E
+𝑝∈projects
+"
+1−
+𝑛−𝑐 𝑝
+𝑘
+
+𝑛
+𝑘
+
+#
+(15)
+where𝑛 is the total number of generated outputs per project and
+𝑘 is the number of samples considered in Pass@k. To assess both
+initial problem-solving ability and reduce LLM output variance, we
+reportPass@1andPass@5in our experiments.
+The evaluation was performed on an Ubuntu 22.04 server equipped
+with an AMD Ryzen Threadripper PRO 3995WX CPU (64 cores),
+252GB RAM, and 2 NVIDIA RTX A6000 GPUs (48GB VRAM each).
+4.3 Experimental results
+4.3.1 Performance of MaCTG.Table 1 presents the performance
+of various automatic programming tools on the BCVPP dataset,
+with the last row reporting the results of MaCTG with all func-
+tionalities fully activated. Forsimpletasks, which typically require
+only one module, the graph structure of MaCTG naturally con-
+verges into a sparse tree or even a linear chain structure. In these
+cases, the impact of MaCTG’s planning optimisation strategy is
+relatively limited; however, its multi-scale verification mechanism
+remains highly effective in reducing code errors. As a result, MaCTG
+achieves the highest accuracy (90.00% Pass@1, 100.00% Pass@5)
+in this category, demonstrating robust performance across mul-
+tiple generation attempts. Formedium-difficulty tasks, MaCTG’s
+planning and evaluation strategies are fully leveraged. Planner
+agents ensure a precise decomposition from modules to functions,
+allowing Executor agents to implement code with greater reliabil-
+ity. MaCTG attains strong performance (78.00% Pass@1, 92.00%
+Pass@5), demonstrating the effectiveness of its structured multi-
+agent workflow in handling moderate complexity. Forhardtasks,
+where problem statements lack explicit guidance, MaCTG’s col-
+laborative reasoning strategy proves advantageous. Its systematic
+planning capability, supported by inter-hierarchy and peer-agent
+collaboration, enables it to maintain robust task structuring even
+in complex scenarios. MaCTG achieves impressive results (80.00%
+Pass@1, 90.00% Pass@5), underscoring its adaptability in challeng-
+ing programming tasks where multiple generation attempts reveal
+the framework’s underlying capability.
+Answer to RQ1: MaCTG exhibits strong adaptability in auto-
+programming tasks. Its collaborative reasoning strategies improve
+subtask decomposition, and the multi-scale validation mechanism
+ensures high coding accuracy, achieving an overall 94.44% accu-
+racy in handling auto-programming challenges.
+In comparison with other auto-programming frameworks, large
+open-source models achieve moderate performance, with most
+reaching 50-60% Pass@1 accuracy and 60-70% Pass@5 accuracy.
+An exception is CodeLLaMA-Instruct [37], which, due to its older
+architecture and lower-quality training data, lags behind its coun-
+terparts. Notably, LLaMa3.3 [ 26], Qwen2.5 [ 38] and LLaMA-3.2-
+Vision [14] all reach around 60% Pass@1 accuracy, with Pass@5
+results showing marginal improvement (60-67%), indicating per-
+formance saturation. These models perform well on simple and
+medium tasks but struggle with more complex problems, suggest-
+ing that even relatively large-scale models lack an effective task
+decomposition mechanism, limiting their ability to break down
+complex programming challenges. These observations further high-
+light the advantages of MaCTG’s Plan&Execute workflow, which
+is specifically designed to address such difficulties through struc-
+tured task decomposition and adaptive execution. Proprietary tools
+and models clearly demonstrate the strongest overall performance
+among all baselines, with most achieving 60-75% Pass@1 and 75-90%
+Pass@5 accuracy. The superior scale and quality of their training
+data contribute to their success across all difficulty levels. In con-
+trast, multi-agent frameworks, ChatDev [34] and MetaGPT [16],
+which rely on the OpenAI API, exhibit weaker results, primarily be-
+cause they assign all tasks within a stage to a single agent, making
+complex contexts overly challenging and increasing the likelihood
+of hallucinations. Statistical analysis confirms that MaCTG’s im-
+provements over these baselines are highly significant for most
+comparisons, with only DeepSeek-R1 showing non-significant dif-
+ferences (p = 0.344), indicating its genuine strength as a baseline.
+This validates that MaCTG’s superior performance results from
+architectural advantages rather than random variation.
+To quantify MaCTG’s effectiveness in reducing hallucination, we
+conducted a failure case analysis comparing the best-performing
+method in each category to MaCTG. Failure causes were grouped
+into five categories: 1) missing steps, 2) invented steps, and 3) incor-
+rect step instructions represent hallucinations during the planning
+phase, where models fail to adhere to specified requirements, while
+4) syntax and 5) computational errors represent hallucinations dur-
+ing the coding phase, where models generate plausible but incorrect
+code implementations. The failure distribution is summarised in
+Figure 6, where𝑃𝑙𝑎𝑛 and𝐶𝑜𝑑𝑒 indicate the total number of plan-
+ning and coding phase failures, respectively. MaCTG demonstrates
+superior overall accuracy and remarkable reduction of hallucina-
+tions in both phases. This demonstrates the effectiveness of the
+CTG framework in reducing planning-phase hallucinations and
+the multi-scale validation in preventing coding-phase hallucina-
+tions, providing comprehensive error mitigation throughout the
+automatic programming workflow.
+Qwen-2.5 DeepSeek-R1 ChatDev-4o MaCTG
+0
+5
+10
+15
+20
+Plan: 22
+Code: 7
+Plan: 7
+Code: 3
+Plan: 17
+Code: 5
+Plan: 2
+Code: 3
+7
+1 1 1
+5
+2
+7
+0
+10
+4
+9
+1
+5
+0 0 0
+2 3
+5
+3
+Failure Count
+Missing Steps Invented Steps
+Incorrect Step Instr. Syntax Error
+Comp. Error
+Figure 6: Failure statistics by error type. Missing Steps, In-
+vented Steps, and Incorrect Step Instr represent planning
+failures (Plan), while Syntax and Comp Errors are coding
+failures (Code).
+
+ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil Zhao et al.
+Table 1: Comparison of auto-programming methodologies
+Pass@1 Pass@5
+Simple Medium Hard Overall Simple Medium Hard Overall Sig.
+Open-source models
+CodeLLaMA-Instruct-70B [37]30.00% 28.00% 20.00% 26.67% 40.00% 40.00% 20.00% 37.78% ***
+LLaMA3.3-70B [28]70.00% 60.00% 30.00% 60.00% 76.67% 66.00% 40.00% 66.67% ***
+Qwen2.5-72B [38]86.67% 54.00% 20.00% 61.11% 86.67% 62.00% 40.00% 67.78% ***
+LLaMA3.2-Vision-90B [27]63.33% 66.00% 10.00% 58.89% 66.67% 74.00% 30.00% 66.67% ***
+Proprietary tools and models
+Copilot Workspace [12]80.00% 50.00% 30.00% 57.77% 86.67% 70.00% 50.00% 73.33% **
+OpenAI-o1-2024-12-17 [31]80.00% 62.00% 60.00% 67.78% 93.33% 74.00% 80.00% 81.11% *
+OpenAI-o3-mini-2025-01-31 [32]83.33% 54.00% 50.00% 63.33% 90.00% 72.00% 60.00% 76.78% ***
+Claude3.7-sonnet [3]76.67% 62.00% 40.00% 64.44% 80.00% 74.00% 70.00% 75.56% ***
+DeepSeek-R1 [11]83.33% 72.00% 50.00% 73.33% 93.33% 88.00% 80.00% 88.89% n.s.
+Multi-agent frameworks using OpenAI API
+ChatDev with GPT-3.5 (default) [34]53.33% 24.00% 0.00% 31.11% 70.00% 34.00% 20.00% 44.44% ***
+Chatdev with GPT-4o [34]70.00% 54.00% 30.00% 56.67% 83.33% 74.00% 60.00% 75.56% ***
+MetaGPT with GPT-4o [16]53.33% 44.00% 20.00% 44.44% 60.00% 52.00% 30.00% 52.22% ***
+Ours
+MaCTG without multi-scale evaluation73.33% 56.00% 20.00% 57.77% 83.33% 68.00% 30.00% 68.89% ***
+MaCTG without Think-twice extension86.67% 52.00% 30.00% 61.11% 93.33% 68.00% 50.00% 74.44% ***
+MaCTG without context-aware planning adjustment76.67% 62.00% 30.00% 63.33% 83.33% 66.00% 40.00% 68.89% ***
+MaCTG without any graph-based message passing76.67% 44.00% 20.00% 52.22% 83.33% 60.00% 30.00% 64.44% ***
+MaCTG with independent reasoning replacing CTG70.00% 32.00% 30.00% 44.44% 76.67% 40.00% 30.00% 51.11% ***
+MaCTG (with DeepSeek-V3 & Qwen2.5-Coder-7B)90.00% 78.00% 80.00% 83.33% 100.00% 92.00% 90.00% 94.44%–
+Statistical significance (Sig.) vs. MaCTG on Pass@5 using McNemar’s test: ***: p<0.001, **: p<0.01, *: p<0.05, n.s.: not significant, –: reference method.
+Answer to RQ2: MaCTG outperforms both open-source and pro-
+prietary methods across various difficulties. While open-source
+showed limitations on difficult problems, MaCTG’s planning strat-
+egy and evaluation process proved highly effective. Compared
+to other multi-agent frameworks, MaCTG achieved superior re-
+sults in decomposing complex tasks. Additionally, failure analysis
+reveals that MaCTG significantly reduces hallucination errors,
+demonstrating more reliable code generation.
+4.3.2 Ablation study.To assess the contributions of MaCTG’s key
+architectural components, we conducted an ablation study by sys-
+tematically disabling individual mechanisms.
+Multi-scale validationshowed significant impact across all
+difficulty levels, especially on hard tasks (90%→ 30%), with overall
+Pass@5 accuracy dropping from 94.44% to 68.89%. This mecha-
+nism plays a crucial role in ensuring execution reliability by sys-
+tematically detecting and correcting errors before they propagate
+through the system. RemovingThink-twice extensioncaused
+moderate degradation (94.44%→ 74.44% overall Pass@5). Without
+it, agents proceed with incomplete plans, leading to insufficient task
+decomposition and suboptimal code structure. DisablingContext-
+aware planning adjustmentreduced overall Pass@5 performance
+from 94.44% to 68.89%, with significant drops on medium (92%
+→ 66%) and hard tasks (90% → 40%). This mechanism prevents
+inconsistencies between functions and modules, ensuring agents
+operate with awareness of each other’s outputs.Collaborative
+Thought Graph frameworkevaluation involved removing all
+graph-based message passing while retaining the hierarchical struc-
+ture. Planners operating in isolation resulted in 30% performance
+degradation, demonstrating that graph-based collaboration is es-
+sential for preventing hallucinations and maintaining coordination.
+Answer to RQ3: The ablation study reveals that multi-scale vali-
+dation systematically prevents error propagation, while CTG en-
+sures inter-module consistency. Their combination demonstrates
+that structured collaboration with runtime validation is essential
+for reliable automatic programming.
+We further evaluated collaborative versus independent reason-
+ing by replacing Planner agents with individual reasoning models
+and removing graph-based message passing, creating a framework
+where each agent operates in isolation. Results in the second-to-last
+row of Table 1 show substantial performance degradation (94.44%
+→ 51.11% overall Pass@5), demonstrating that independent reason-
+ing leads to critical coordination failures. Agents operating inde-
+pendently lack awareness of peer activities, resulting in incorrect
+cross-module references.
+Answer to RQ4: MaCTG’s collaborative reasoning offers advan-
+tages over independent reasoning by mitigating inconsistencies
+and enhancing global task coherence. Through collaboration,
+agents maintain interdependent awareness, ensuring logical con-
+sistency and seamless integration across modules.
+4.3.3 Cost-efficiency analysis.A key limitation of multi-agent sys-
+tems is their cost, particularly when relying on proprietary models.
+
+MaCTG: Multi-Agent Collaborative Thought Graph for Automatic Programming ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil
+0 1 2 3 4 5 6 7 8 9
+40
+60
+80
+ChatDev (GPT-3.5)
+ChatDev (GPT-4o)
+MetaGPT (GPT-4o)MaCTG (Indep.)
+MaCTG
+(DSV3+Qwen2.5)
+MaCTG (GPT-4o+Qwen2.5)
+MaCTG (DSV3+Mistral)
+MaCTG (GPT-3.5+Qwen2.5)
+MaCTG (GPT-3.5+Claude3.7)
+Cost ($)
+Pass@1 Accuracy (%)
+Figure 7: Cost-efficiency comparison of multi-agent systems.
+To provide a more intuitive comparison of the trade-off between
+cost and accuracy, we visualise each method as a point in Figure 7.
+Among these frameworks, ChatDev incurred the highest cost due
+to redundant inter-agent communication, exceeding $5 even with
+GPT-3.5, with costs increasing by over 34% when using GPT-4o.
+MetaGPT reduced costs compared to ChatDev through refined
+agent roles and optimised prompts, yet its cost remained high.
+To comprehensively evaluate cost-efficiency, we tested MaCTG
+under various hybrid configurations, combining different propri-
+etary and open-source LLMs for Planner and Executor agents,
+including GPT-4o+Qwen2.5-7B, DeepSeek-V3+Mistral-7B, GPT-
+3.5+Claude3.7 and GPT-3.5+Qwen2.5-7B. Using independent rea-
+soning incurs more reasoning token consumption due to over-
+thinking, even when there are fewer interactions among agents.
+Leveraging collaborative reasoning and an optimal mix of mod-
+els, MaCTG achieved an 89.09% reduction in cost compared to
+standard multi-agent settings, while maintaining high accuracy.
+Answer to RQ5: MaCTG’s collaboration strategy combined with
+hybrid configuration improves cost efficiency by assigning com-
+plex planning tasks to different proprietary models for better
+reasoning and basic coding tasks to open-source models to re-
+duce expenses. This approach greatly reduces the costs compared
+with other multi-agent frameworks.
+4.4 Reasoning Trace Analysis
+To provide insights into how MaCTG’s collaborative framework
+reduces hallucinations in practice, we present a detailed reasoning
+trace from a representative hard-level project in our BCVPP dataset.
+Case Study - License Plate Recognition System.Typically,
+we examine this project requiring three modules: image preprocess-
+ing, plate detection, and character recognition. This case illustrates
+how MaCTG’s collaborative reasoning prevents algorithmic hallu-
+cination that commonly occurs in multi-agent systems.
+Baseline Failure (ChatDev-4o):ChatDev’s Programmer agent,
+when tasked with implementing the detection module, stated:"For
+simplicity, let’s assume the license plate is at a fixed position"and
+implemented hard-coded cropping coordinates instead of actual
+detection algorithms. Since ChatDev lacks mechanisms for other
+agents to review and challenge this oversimplified assumption, the
+Programmer agent directly began coding based on this incorrect
+plan without validation from peers or supervisors.
+MaCTG Correction Process:Step 1 - Think-Twice Planning:
+The Module Leader for plate detection initially considers various
+approaches, including Hough line detection and contour detection,
+before settling on a preliminary plan.Step 2 - Context Sharing:Peer
+Module Leaders exchange functional requirements: ML1 (Prepro-
+cessing): "Outputs Gaussian filtered greyscale image for robust con-
+tour detection", ML3 (Recognition): "Requires accurately cropped
+plate regions with clear texts". Upon receiving these specifications,
+the detection ML recognises that the preprocessing module is de-
+signed to support contour detection, and the recognition module
+needs an accurate plate region. Therefore, the fixed-position ap-
+proach would violate both the preprocessing design and recognition
+requirements. The Module Leader then commits to contour-based
+detection to properly utilise the inter-module coordination.Step 3
+- Supervised Adjustment:Team Leader validates the overall work-
+flow: "Detection module correctly utilises preprocessing output for
+dynamic plate localisation - approved. "
+Result:MaCTG generated a complete implementation using
+OpenCV’s contour detection for robust plate localisation, while
+ChatDev produced a hallucinated non-functional system that only
+works for images with plates at predetermined positions.
+4.5 Threats to validity
+Despite its advantages, MaCTG has certain limitations: 1) Execution
+Speed: Reliance on locally deployed open-source models for Execu-
+tors limits inference speed, and multi-scale validation involving
+iterative refinement increases runtime compared to single-model ap-
+proaches. However, execution time remains comparable to ChatDev
+and faster than independent reasoning. 2) Stability: The dynamic
+agent structure introduces planning variability, as collaborative
+reasoning may lead to minor variations in generated plans. 3) Gen-
+eralisation: MaCTG currently focuses on image processing tasks.
+While the framework is generalisable, extending to other domains
+may require minor modifications to prompts, execution tools, and
+validation procedures.
+5 Conclusion
+In this work, we introduce MaCTG, a graph-based collaborative
+multi-agent framework for automated programming. By incorporat-
+ing context-aware planning adjustment and a multi-scale validation,
+MaCTG effectively reduces hallucinations and ensures structured
+project-level development. Its hybrid LLM configuration optimises
+computational cost by strategically allocating tasks between propri-
+etary and open-source models. Experimental evaluations demon-
+strate that MaCTG outperforms other methods, achieving higher
+accuracy across varying task complexities.
+Future research will focus on optimising execution efficiency
+and improving stability to further advance MaCTG’s applicabil-
+ity in real-world auto-programming. With continued refinement,
+the collaborative thought graph framework has the potential to
+tackle even more complex programming challenges, supporting
+developers and researchers in building reliable automated solutions.
+
+ICSE ’26, April 12–18, 2026, Rio de Janeiro, Brazil Zhao et al.

@@ -1,0 +1,1154 @@
+record_id: arxiv:2608.09524
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2608.09524
+fetched_title: STAIR: Effective Incident Response Using an End-to-End Agentic Planning Framework
+fetched_at: 2026-09-18T19:00:00Z
+
+STAIR: Effective Incident Response Using an
+End-to-End Agentic Planning Framework
+Hanlin Jiang∗, Jionghao Huang†, Shaofei Li∗, Bojia Yu†, Peng Jiang†, Yuxin Ren‡, Ning Jia‡, Yao Guo∗, Ding Li∗
+∗Key Laboratory of High Confidence Software Technologies, Peking University, Ministry of Education
+†Southeast University
+‡Huawei Technologies Co., Ltd.
+Abstract—Incident response planning is critical for restor-
+ing compromised software systems after cyberattacks. Common
+practice relies on expert-driven playbooks that encode fixed
+response procedures, but these static workflows struggle to adapt
+to evolving incident states, changing recovery objectives, and
+execution feedback. Recent LLM-based planners and tool-using
+agents improve automation, yet they remain unstable in long-
+horizon response because they lack a unified basis for maintaining
+incident state, aligning actions with the current recovery stage,
+and reusing historical experience.
+We present STAIR, an end-to-end agentic planning framework
+for incident response. The framework maintains the current inci-
+dent as Graph-as-State, uses a Stage Router to dispatch planning
+to stage-specialized agents, and retrieves historical experiences
+to guide action selection. An Execution Harness executes actions,
+returns feedback to update the incident state, and validates action
+effects for future experience reuse. Across 100 Docker-based
+cyber ranges, our framework achieves a normalized defense score
+of 0.94 and improves over the strongest baseline by 9.5%.
+I. INTRODUCTION
+Incident response is a software-intensive operational work-
+flow for handling confirmed or suspected intrusions in modern
+production environments [1], [2]. It aims to investigate the
+incident, contain the threat, preserve evidence, remove attacker
+footholds, harden vulnerable entry points, and restore affected
+services [3], [4]. As enterprise software environments grow in
+scale and complexity, incident response has become a critical
+workflow across SOC [5], EDR [6], SIEM [7], [8], and SOAR
+systems [7], [9]: detection exposes potential risk, but the
+eventual damage depends heavily on whether the response
+is timely, accurate, and operationally safe [2], [10]. Incorrect
+or delayed response may allow attacks to spread, prolong
+service downtime, destroy evidence, or introduce additional
+disruption [11], [12]. Improving the automation and decision
+quality of incident response is therefore an important problem
+for software security operations [13].
+Incident response planning is the decision layer of this oper-
+ational workflow: it determines which response action should
+be executed next according to the current incident progress.
+Effective incident response planning requires both the current
+incident state and historical response experience [1], [11].
+Whether an action is appropriate depends on the recovery
+stage, affected assets, available evidence, prior actions, and
+execution feedback [14], [15]. In practice, security teams rely
+on analyst expertise and expert-written playbooks to manage
+this complexity: analysts track incident progress during re-
+sponse, while playbooks operationalize common procedures
+for specific incident classes as reusable workflow artifacts [3],
+[9]. However, these procedures are difficult to maintain as
+attacks, environments, and business constraints evolve [4],
+[16]. When incidents deviate from existing playbooks or
+require long-horizon state reasoning, response planning still
+depends heavily on manual judgment [2], [17]. This motivates
+stronger automation that can track incident progress, organize
+historical experience, and generate response decisions under
+operational constraints.
+To reduce manual maintenance cost and improve response
+capability for complex incidents, recent studies have intro-
+duced LLMs into incident response automation [18], [19].
+LLM planners use the language understanding and reasoning
+capability of LLMs to generate response plans or next actions
+from alerts, logs, and incident context [10], [20]. LLM agents
+further incorporate tool use and environmental feedback, al-
+lowing the model to observe execution results and adjust
+subsequent decisions during response [13], [21], [22]. RL-
+based planners optimize response strategies using environment
+feedback or cyber-range rewards [23], [24]. Compared with
+static playbooks, these methods can handle more open-ended
+incident descriptions, richer contextual information, and longer
+response chains, making them an important direction for
+incident response automation [25], [26].
+Despite these advances, existing methods still struggle
+to maintain stable decisions over long-horizon response
+chains [27], with only an average defense score of 0.59 on
+complex incidents in our evaluation. LLM planners lack ex-
+plicit multi-stage state updates [28], LLM agents rely heavily
+on online interaction traces, and RL-based planners often learn
+from coarse rewards that do not precisely capture recovery
+progress [29]. As a result, these methods either lose track
+of the evolving incident state, mix response objectives across
+stages, fail to reuse validated historical actions, or optimize
+execution-level signals rather than response effects. The root
+cause is the lack of a workflow-level decision substrate that
+connects the evolving incident state, the current response stage,
+execution feedback, and validated historical action effects
+throughout the response loop.
+To address these limitations, we propose STAIR, an end-
+to-end agentic planning framework for incident response. Our
+arXiv:2608.09524v1 [cs.CR] 10 Aug 2026
+
+key insight is that response planning should be grounded in
+a shared evolving incident state, organized by the current
+recovery stage, and guided by validated historical response
+experience. Rather than relying on a monolithic agent to ex-
+plore a long interaction trace, the framework first assesses the
+current recovery stage from the incident state and then invokes
+the corresponding stage-specialized agent. The selected agent
+generates the next structured response action using stage-
+scoped memory, historical experience, and the tool capabilities
+appropriate for the current response objective.
+Realizing this insight requires addressing three challenges.
+First, the system must maintain a unified incident state from
+alerts, logs, environmental evidence, response actions, and ex-
+ecution feedback; we address this with Graph-as-State (GAS),
+which organizes machines, artifacts, attack behaviors, response
+actions, and execution results in the same graph structure.
+Second, historical actions become reusable experience only
+after their real effects are validated; the Execution Harness
+evaluates the post-action environment with incident-specific
+profiles, and the Experience Database retains effective actions
+and high-risk actions as structured experience records. Third,
+response planning must align the next action with the cur-
+rent recovery stage, historical experience, and executable tool
+constraints; the Stage-Specialized Agent Planner uses a Stage
+Router to select the current recovery stage and dispatches the
+corresponding agent to generate a bounded response action.
+We implement a prototype that supports graph-based
+state management, experience retrieval, stage-specialized LLM
+planning, and bounded tool execution over 33 response capa-
+bilities. We construct an incident response benchmark dataset
+consisting of 100 Docker-based closed-loop cyber ranges and
+use it to evaluate the framework. The framework achieves a
+normalized overall defense score of 0.94 and improves over
+the strongest baseline by 9.5%. Our code is available [30].
+In summary, this paper makes three main contributions.
+•We formulate incident response planning as a state-
+driven, stage-aware, and experience-supported workflow
+automation problem for live software systems.
+•We design STAIR, an end-to-end agentic planning frame-
+work that combines GAS, experience reuse, stage-
+specialized multi-agent planning, and execution-feedback
+updates.
+•We implement and evaluate the framework on 100 cyber
+ranges, achieving a normalized overall defense score of
+0.94 and a 9.5% improvement over the strongest baseline.
+II. BACKGROUND
+A. Incident Response Planning
+Incident response is a multi-stage operational process for
+mitigating cyberattacks and restoring affected software sys-
+tems [1], [11], [13]. Standard guidance organizes incident
+handling into stages such as containment, assessment, preser-
+vation, eviction, hardening, and restoration [3], [4]. These
+stages reflect different operational objectives, and planning
+decisions change as the incident progresses and the runtime
+environment evolves.
+TABLE I
+CAPABILITY COMPARISON OF INCIDENT RESPONSE AUTOMATION
+PARADIGMS.
+Method LLM
+Incident
+State
+Stage
+Planning
+Historical
+Experience
+Playbooks [40]–[42]✗ ✗△✓
+LLM planner [11], [17], [18]✓△ △✗
+LLM agents [13], [43]✓△✗ ✗
+RL-based planner [14], [26]✓ ✗ ✗△
+Our method✓ ✓ ✓ ✓
+Legend.✓: explicitly supported;△: partially supported;✗: not a primary capability.
+Incident State: explicit maintenance of evolving incident state. Stage Planning: use of
+response stage to organize action selection. Historical Experience: reuse of prior response
+experience.
+Incident response planning is the decision-making layer of
+this workflow. A suitable next action depends on the current in-
+cident state, the response stage, and prior response experience.
+The incident state captures attacker activities, affected assets,
+evidence, and previous response results; the response stage
+identifies the current operational focus; and prior experience
+provides practical references about effective or risky actions
+in similar incidents. Therefore, incident response planning is
+a multi-stage decision process that must continuously adapt to
+evolving state.
+As enterprise systems grow in scale and attacks become
+more complex, response automation becomes increasingly
+necessary. Human analysts can make flexible decisions, but
+high alert volume and long response chains impose substantial
+operational burden [2], [5]. Effective automation must support
+not only action generation, but also state tracking, stage
+alignment, and feedback-grounded action selection.
+B. Agentic Workflow Automation
+LLM agents extend language models from one-shot gener-
+ation to interactive task execution. An agent selects actions
+according to the task goal, context, and available tools, then
+adjusts later decisions based on execution feedback [31]–[33].
+This paradigm has been adopted in software engineering work-
+flows such as repository modification, bug fixing, testing, and
+operations-oriented automation, where agents gather context,
+invoke tools, and validate results [34]–[36]. Recent multi-agent
+and memory-augmented workflows further improve complex
+task automation through role specialization and long-context
+preservation [37]–[39].
+Incident response shares this agentic workflow structure, but
+operates over live software systems rather than static software
+artifacts. A responder must inspect runtime environments,
+execute response actions, observe their effects, and revise
+subsequent decisions. Moreover, an action is valuable only
+if it advances the current recovery stage without introducing
+service disruption or other side effects. This makes incident
+response a natural but more demanding target for agentic
+automation: it requires explicit incident-state modeling, stage-
+aware planning, and action-effect validation.
+
+C. Limitations of Existing Methods
+Static playbooks [40]–[42] encode expert response expe-
+rience into predefined tasks, conditions, and tool invocations,
+making the process clear and auditable. However, their runtime
+behavior largely follows predefined logic, making it difficult
+to adapt subsequent actions to evolving incident state and
+observed execution effects. Although some playbooks are
+organized around response phases, they do not dynamically
+infer the current recovery stage from incident evolution.
+AI-based incident response methods improve flexibility, as
+shown in Table I.LLM planners[11], [17], [18] generate
+or evaluate response plans from alerts, logs, and incident
+context. However, they usually carry incident state as textual
+context, without a stable mechanism for maintaining multi-
+stage recovery progress, which can lead to repeated state
+reconstruction or actions weakly aligned with the current
+stage [10], [11], [21].
+LLM agents[10], [13], [22] improve closed-loop response
+through tool execution and feedback observation. Yet their
+incident understanding mainly depends on online interaction
+traces, making long-horizon response prone to repeated ex-
+ploration and unstable objectives. Although agentic software
+engineering methods show the value of role specialization
+and memory for complex workflows [37], [38], [44], existing
+incident response agents provide limited support for organizing
+runtime incident state, response stage, and historical action
+effects as reusable decision evidence [13], [21].
+RL-based planners[23], [24] learn response policies from
+environment feedback and can absorb cross-scenario expe-
+rience into model parameters. However, their effectiveness
+depends heavily on reward design [23], [26]; when rewards
+are coarse-grained, the learned policy may optimize action
+executability or surface-level progress rather than actions that
+advance multi-stage recovery [23], [25].
+Overall, existing methods provide procedural experience,
+plan generation, runtime interaction, feedback-driven learning,
+and agentic workflow support. However, they still lack a
+unified planning basis that connects evolving incident state,
+current response stage, and validated historical action effects.
+Incident response automation therefore requires a planning
+approach that connects state, stage, and experience throughout
+the response process.
+III. OVERVIEW
+A. Insight and Challenges
+We observe that the common limitation of existing incident
+response automation methods is the lack of a workflow-level
+decision foundation that connects the evolving incident state,
+the current response stage, and validated historical action
+effects. Response planning requires continuous understanding
+of incident progress, explicit identification of the current
+recovery objective, and reuse of historical actions whose
+effects have been validated. However, existing methods usually
+scatter these factors across textual contexts, interaction traces,
+static procedures, or model parameters, making long-horizon
+response prone to state loss, stage-objective mismatch, and
+weak experience reuse.
+Based on this observation, our key insight is that effective
+incident response planning should maintain a shared evolving
+incident state, use the current recovery stage to organize agent
+specialization, and reuse historical experience only after action
+effects are validated. The shared state provides a stable factual
+basis, the recovery stage defines the current planning scope,
+and validated experience provides reusable response patterns
+and risk constraints.
+Based on this insight, we identify three key challenges.
+Challenge 1: Incident State Construction.During incident
+response, new response actions and execution results contin-
+uously change the understanding of the incident. For LLM-
+based response systems, incident states are often maintained
+through textual contexts or interaction traces, making critical
+state information easy to lose in long-running processes. The
+key challenge is how to construct a continuously updated
+incident state representation that provides a reliable foundation
+for subsequent stage identification and response planning.
+Challenge 2: Response Effect Validation.Historical response
+records contain abundant actions and execution feedback, but
+raw interaction trajectories do not directly represent reusable
+experience. A successfully executed action does not neces-
+sarily indicate that the response objective has been advanced
+and may even introduce new risks. The key challenge is how
+to understand action effects from real execution outcomes and
+construct historical experiences associated with incident states,
+allowing future planning to leverage effective operations and
+avoid risky actions.
+Challenge 3: Stage-Aware Response Planning.Even with in-
+cident states and historical experiences, response planning still
+needs to determine appropriate response directions according
+to the current incident progress. Different response stages have
+different response objectives and action constraints, and di-
+rectly planning over the complete incident context may reduce
+the alignment between actions and current response objectives.
+The key challenge is how to organize stage-aware planning
+based on incident states, enabling agents to leverage stage
+information and historical experiences to generate appropriate
+response actions.
+B. Architecture Overview
+We realize incident response as a state-driven and
+experience-supported multi-stage agentic response workflow.
+As shown in Fig. 1, the framework maintains an evolving
+incident state through the Incident State Manager, constructs
+response knowledge from historical incidents through the
+Experience Database, and generates stage-specific response
+actions through the Stage-Specialized Agent Planner. The
+Execution Harness executes generated actions and collects
+feedback to update the incident state and experience database,
+forming a continuously evolving response loop.
+Incident State Manager (§IV-A).It maintains the evolving
+incident state during response by organizing information from
+SOC alerts and subsequent response processes into a GAS
+
+Current Incident
+Inputs
+SOC Alerts
+Logs
+Incident
+Description
+System
+Topology
+§4.1 Incident State Manager
+Alert / Evidence Parser
+Entity & Edge Alignment
+State Construction & Update
+Graph-as-State
+(GAS)
+Machine
+Artifact
+Defender
+Attack actions
+Response actions
+§4.3 Stage-Specialized Agent Planner
+Stage Router
+Output:
+current stage ��,
+recovery focus ��
+Six-stage Agent Pool
+�퐶표푛�푛 ������� �푃푟���푟� �퐸� �퐻푟�푛 �푅���표푟�
+Selected Agent �푯풂풓
+shared GAS ��,
+recovery focus ��
+hardening memory
+��
+퐻
+retrieved experiences
+��
++ / ��
+−
+hardening tools
+퐶퐻
+Output:
+Structured Response Action �
+§4.4 Execution Harness
+Action Schema Check
+Bounded Tool Executor
+Profile-based Effect
+Evaluation
+Live Environment
+Range
+Hosts / services
+Files / processes
+Network firewall
+Validation checks
+
+incident state, stage, action,
+effect label, feedback summary
+validated actions
+that led to recovery process
+
+risky actions
+that should be avoided
+Query: ( ��, Hardening )
+Rank by state similarity
+State flow
+Experience flow
+GAS
+GAS
+§4.2 Experience Database
+Experience Records Effective Experience ��
++
+High-risk Experience ��
+−
+state
+update
+experience
+update
+Stage-Compatible
+Experience Retrieval
+shared GAS ��,
+stage definitions �
+Planning context
+Return: ��
++ / ��
+−
+Fig. 1. The workflow of the proposed agentic incident response framework.
+representation. Serving as the shared context for all response
+agents, GAS provides the foundation for stage assessment,
+experience retrieval, and response planning.
+Experience Database (§IV-B).It organizes response expe-
+riences by associating executed actions with incident states,
+response stages, execution feedback, and evaluated recovery
+effects. According to the current incident state, it retrieves rel-
+evant experiences and provides agents with action references
+and potential risk warnings during planning.
+Stage-Specialized Agent Planner (§IV-C).It performs stage-
+aware multi-agent response planning based on the current
+incident state and historical experiences. We assign specialized
+agents to different response stages, where each agent performs
+stage-specific reasoning based on the shared GAS and related
+experiences from the Experience Database.
+Execution Harness (§IV-D).It connects response planning
+with the execution environment by executing generated actions
+and collecting execution feedback. The feedback updates the
+incident state, while the recovery effects are incorporated into
+the Experience Database to support future response planning.
+IV. DESIGN
+A. Incident State Manager
+To addressChallenge 1, we design the Incident State
+Manager to maintain a persistent and evolving incident state
+for response planning. Specifically, we represent the incident
+as GAS, which unifies SOC alerts, environmental evidence,
+response actions, and execution feedback into a structured state
+representation. Unlike textual contexts or interaction traces
+that require repeated reconstruction of incident progress, GAS
+continuously preserves the evolution of attack impact, defense
+actions, and recovery progress, providing the state foundation
+for subsequent stage assessment, experience retrieval, and
+response planning.
+GAS represents the incident stateG t at response steptas
+an attributed graph:
+Gt = (Vt,Et,At),(1)
+whereVt denotes response-relevant entities,Et denotes behav-
+ioral relations formed during the incident, andA t stores node-
+and edge-level attributes. Different from recording isolated
+observations, GAS captures how attacker behaviors affect the
+environment and how defense actions change the incident state
+within the same representation.
+Specifically, GAS models three categories of entities in-
+volved in incident response:
+Vt =V t,M∪Vt,A∪Vt,D,(2)
+whereV t,M ,V t,A, andV t,D denote machine, artifact, and
+defender nodes, respectively. Machine and artifact nodes rep-
+resent affected runtime entities and incident-related objects,
+while defender nodes represent response actors that perform
+mitigation actions.
+The edges in GAS describe the behavioral relations among
+these entities:
+Et =E t,atk∪Et,rsp,(3)
+whereE t,atk captures attack behaviors reconstructed from
+SOC alerts and subsequent evidence, andE t,rsp captures
+response actions performed during incident handling. Each
+edgee= (u,v,η)records a concrete incident behavior,
+whereu,v∈V t denote the source and target nodes, andη
+stores attributes including behavior type, stage information,
+and contextual metadata. Through these relations, GAS jointly
+represents attack progression and response evolution in a
+unified incident state.
+
+The State Manager initializes the incident stateG 0 from
+the initial SOC alert. Instead of preserving the alert as raw
+text, the initialization process extracts entities, behavioral
+relations, and relevant metadata, and encodes them into GAS
+nodes, edges, and attributes. This process transforms partial
+alert observations into a structured incident state that can be
+continuously updated during response.
+During response, the State Manager updates GAS through
+incremental state merging. After a response action is executed,
+the action and its execution feedback are incorporated into
+GAS: the action is recorded as a response edge, while the
+execution result is reflected in the attributes of related nodes
+and edges. Through this update process, GAS preserves not
+only performed actions but also the resulting changes in the
+current incident environment, enabling agents to maintain
+continuous state awareness throughout the response process.
+To maintain state consistency during incremental updates,
+the State Manager performs entity and behavior align-
+ment when incorporating new observations. New entities are
+matched with existing nodes when they refer to the same
+runtime object, and repeated behaviors are merged by updating
+existing edge attributes while preserving necessary historical
+evidence. The maintained GAS is then provided to downstream
+modules as the shared incident context for response-stage
+assessment and experience-guided action planning.
+B. Experience Database
+To addressChallenge 2, we design the Experience Database
+to enable reliable reuse of historical response knowledge.
+Historical responses contain valuable actions and execution
+feedback, but raw trajectories cannot directly guide future
+planning because a successfully executed action does not
+necessarily indicate effective recovery. Therefore, we trans-
+form historical response processes into structured experience
+records by associating each response action with the incident
+state before execution and the recovery effect after execution.
+These experiences enable agents to retrieve relevant response
+references under similar incident conditions and consider both
+effective actions and potential risks during planning.
+To represent these experiences, we define a unified tuple
+format. For a candidate response action, the experience record
+is defined as:
+xi = (Gi,ai,yi,fi),(4)
+whereG i denotes the incident state before the action,a i
+denotes the executed response action,y i denotes the action-
+effect label, andf i denotes the execution feedback. The
+tuple captures the applicable incident condition, the performed
+action, and the recovery effect produced by the action. Each
+retained record also stores lightweight metadata, such as the
+response stage, for downstream retrieval and analysis.
+To generate experience records with reliable effect labels,
+we perform incident-specific recovery effect evaluation. For
+each incident, we construct an evaluation profile that specifies
+recovery objectives, validation conditions, and potential side-
+effect constraints. After a response action is executed, the
+probe in the Execution Harness enters the target environment
+and checks environment changes according to the predefined
+validation conditions in the profile. Based on these evalua-
+tions, candidate actions are labeled as effective, high-risk, or
+ineffective for experience construction.
+The labeled records are then organized into the Experience
+Database. It retains effective and high-risk actions while
+excluding ineffective ones, and instantiates retained records
+asx i = (G i,ai,yi,fi). Experiences under similar incident
+conditions are further aggregated by merging records with
+similar incident states, target objects, and action types, where
+high-risk outcomes take precedence over effective outcomes.
+During response planning, the Experience Database re-
+trieves relevant experiences from historical records. Given the
+current incident state and recovery stage, it first filters stage-
+compatible records and then ranks them by similarity with
+the current GAS. The retrieved experiences are partitioned
+according to their effect labels into a positive experience
+setE +
+t and a negative experience setE −
+t . TheE +
+t provides
+validated response references, while theE −
+t provides warnings
+about potentially harmful actions.
+C. Stage-Specialized Agent Planner
+To addressChallenge 3, we design the Stage-Specialized
+Agent Planner to organize response planning as a stage-aware
+multi-agent decision process. The planner uses the recovery
+stage as both the dispatch signal and the planning scope:
+the Stage Router infers the current stage and recovery focus
+from GAS, the Experience Database retrieves stage-compatible
+experience, and the selected stage agent generates a structured
+response action using stage memory, experience guidance, and
+stage-scoped tools.
+Stage Router.The Stage Router converts the current incident
+state into a multi-agent dispatch signal. Following the incident
+response lifecycle described in §II, we define the recovery
+stage space as:
+S={CONTAINMENT,ASSESSMENT,PRESERVATION,
+EVICTION,HARDENING,RESTORATION}.(5)
+CONTAINMENTblocks attacker spread and control; ASSESS-
+MENTconfirms impact scope and affected assets; PRESERVA-
+TIONprotects forensic evidence; EVICTIONremoves attacker
+footholds; HARDENINGfixes vulnerable entry points and
+configuration weaknesses; and RESTORATIONrestores service
+availability and user access.
+At each response stept, the Stage Router reads the GAS
+Gt, the stage definitionsS, and the output schema to infer
+zt = (s t,ρt). Here,s t ∈ Sdenotes the recovery stage to
+advance, andρt denotes the concrete recovery focus under that
+stage, such as an uncontained attack path, an evidence object to
+preserve, or a persistence item to remove. The selected stagest
+is also used to retrieve stage-compatible experiences from the
+Experience Database. We denote the stage-specialized agents
+asA={A σ|σ∈S}, whereA σ is responsible for planning
+under stageσ. Givenz t, the planner invokesA st to generate
+the next response action.
+
+Stage-Specialized Multi-Agent Planning.The selected agent
+Ast performs response planning with a stage-scoped context.
+This context consists of a shared part and a stage-specific part:
+the shared part is the current GASG t, while the stage-specific
+part includes the recovery focusρ t, the working memoryM st
+t ,
+the retrieved experiences(E +
+t ,E−
+t ), the stage experience skill
+Kst, and the tool subsetC st. In this way, all agents reason
+over the same incident facts, but their decisions remain stage
+specific.
+The stage working memory preserves within-stage continu-
+ity. For stageσ, we define
+Mσ
+t ={(a τ,oτ )|s τ =σ,τ <t},
+wherea τ is the previous response action in stageσ, ando τ
+is the corresponding execution feedback. WhenA σ is invoked
+again,M σ
+t is included in its planning context, allowing the
+agent to remember previous attempts, failed feedback, and
+local progress within the same stage. Raw attempt traces are
+not directly shared across different stage agents; execution
+results that change the incident state are written into GAS
+and become shared incident facts for all agents. This separates
+within-stage continuity from cross-stage state sharing.
+Each stage agentA σ is equipped with a stage experience
+skillK σ, which specifies how retrieved experiences are in-
+terpreted under stageσ. GivenE +
+t andE −
+t ,K σ converts
+effective actions into reusable response patterns and risky cases
+into stage-specific risk checks. Across stages,K σ follows
+different experience-use criteria, such as information gain
+for assessment, evidence integrity for preservation, removal
+effectiveness for eviction, root-cause mitigation for hardening,
+and service continuity for restoration. At each response step
+t,A st usesK st to adapt applicable response patterns to the
+current GAS and recovery focus, and to discard candidates
+that match high-risk cases.
+The tool capability is also scoped by stage. We denote the
+global tool catalog asC, and the tool subset exposed to stage
+σasC σ⊆C. Each stage agent receives tools aligned with its
+response objective: diagnostic tools for assessment, evidence-
+preservation tools for preservation, isolation and access-control
+tools for containment, cleanup tools for eviction, patching
+and configuration tools for hardening, and service recovery
+and validation tools for restoration. This stage-scoped tool
+space constrains each agent to generate actions within the
+capabilities appropriate for the current response stage.
+Based on the stage-scoped context,A st outputs a struc-
+tured response actiona t = (T t,Pt,Rt), whereT t ∈ Cst
+is the selected tool or response script,P t is the argument
+set satisfying the tool schema, andR t records the rationale
+for the selection. The action is then sent to the Execution
+Harness for validation and execution. Execution feedback
+updates GAS, and evaluated recovery effects are incorporated
+into the Experience Database for subsequent planning.
+D. Execution Harness
+The Execution Harness connects planned actions with the
+execution environment in the agentic response loop. It receives
+ATTACK EVENTS
+DEFENSE EVENTS
+/search.php
+/var/www/html/data/app.db
+/var/log/apache2/access.logroute request
+sensitive data read
+request logged
+SQLi probe: always-true payload
+validate service;
+result: available 200
+deploy_web_access_control;
+result: success
+preserve artifact; result: success
+deploy rule; result: success
+block_query_patterns.conf
+Attack
+Edge
+Existing Response
+Edge
+New Response
+Edge
+Attack Events
+Defense Events
+kali
+web-server
+HTTP access
+exposed service
+apache2:80
+Response Executor
+collect and search logs;
+result: searched patterns
+Fig. 2. GAS snapshot and hardening update in the running example.
+the generated actiona t, validates it against the tool schema,
+and grounds it into a concrete security tool or response script
+according to the tool catalog. After execution, the harness re-
+turns execution feedback, including execution status, outputs,
+and environment observations.
+The harness produces two downstream updates. For GAS,
+the executed action is written as a new response-action edge,
+and the execution feedback is recorded in the attributes of
+the edge and related nodes, see §IV-A. For the Experience
+Database, the harness further evaluates the post-action envi-
+ronment according to the incident-specific profile, obtains the
+recovery effect label, and combines the pre-action incident
+state, the executed action, the effect label, and the feedback
+summary into a candidate experience record, see §IV-B.
+E. Running Example
+We use a Web SQL injection incident to illustrate
+one closed-loop response step grounded in GAS, stage-
+specialized planning, tool execution, and experience update.
+The incident involves an attacker hostkaliand a vic-
+tim hostweb-server. The attacker probes the public
+/search.phpendpoint with an always-true payload and
+replays aUNION SELECTquery to read sensitive records
+fromapp.db. Figure 2 shows the GAS snapshot around the
+hardening step, including the reconstructed attack chain, prior
+response actions, and the new hardening response edges.
+At this step, the Stage Router selects HARDENINGas the
+stage to advance, with the recovery focus of blocking the
+observed SQL injection replay. The hardening agent plans with
+the shared GAS, stage working memory, retrieved experiences,
+and hardening tools. The positive experience suggests adapting
+a query-blocking pattern, while the negative experience warns
+against shutting down the Web service. Figure 3 shows the
+action-generation prompt formed from the recovery stage,
+recovery focus, stage-scoped context, retrieved experiences,
+hardening tool set, and output schema.
+Given this prompt, the hardening agent uses its stage
+experience skill to adapt the blocking pattern to the affected
+endpoint and outputsdeploy_web_access_control.
+
+Compressed Action Generation Prompt
+### Current recovery stages t:
+HARDENING
+### Recovery focusρ t:
+Block the observed SQL injection replay against the search endpoint while
+preserving Web service availability.
+### Stage-scoped context:
+Shared GAS.kali→/search.php: SQLi probe/replay; /search.php→app.db:
+sensitive data read; access.log records UNION SELECT payload; previous
+responses collected and preserved access.log/app.db.
+Stage memory.Prior hardening attempts: None.
+### Retrieved experiences:
+PositiveE +
+t .SQLi query blocking: EFFECTIVE; blocking malicious query
+patterns stopped replay of UNION SELECT payloads.
+NegativeE −
+t .Service shutdown: HIGHRISK; stopping the Web service removed
+the attack surface but violated service continuity.
+### Hardening tool setC H:
+Available operation: deploy_web_access_control.
+Required arguments: block patterns, test query strings, execution target.
+Available operation: ...
+### Output schema:
+Return one action with tool, operation, arguments, and reason.
+Fig. 3. Compressed action-generation prompt for the hardening step in the
+running example.
+The Execution Harness validates the action, grounds it
+into the corresponding response script, and executes it on
+web-server. As shown in Figure 2, execution feedback
+is written back to GAS as response-action edges from the
+defender node to the affected endpoint, configuration artifact,
+and service. The related artifact state is updated by marking
+block_query_patterns.confas present.
+The step is also converted into a candidate experience
+record. Using the evaluation profile, the harness confirms
+that the replay is blocked, the blocking rule is present, and
+the Web service remains reachable. The action is labeled as
+EFFECTIVE, and the pre-action GAS, response stage, executed
+action, effect label, and feedback summary are stored as
+reusable experience for future SQL injection incidents.
+V. IMPLEMENTATION
+The main pipeline is implemented in Python 3.12.12 and
+contains about 21.03 KLOC of code. It supports graph-based
+state management, experience retrieval, stage-specialized LLM
+planning, and bounded tool execution.
+(a) GAS is implemented as a graph-state runtime that main-
+tains node, edge, and attribute records for the evolving incident
+state. For planning, GAS is serialized into a compact stage-
+scoped context according to the selected stage and recovery
+focus; this only reduces prompt length and retrieval noise,
+while the maintained state remains the full GAS.
+(b) The Experience Database stores persistent records con-
+taining the pre-action incident state, response stage, executed
+action, effect label, and feedback summary. The database is
+constructed offline from labeled historical response trajectories
+produced by the Execution Harness. Retrieval first filters
+records by the current stage and then ranks stage-compatible
+records by state similarity. The vector index is built from
+NumPy.npyvectors generated bystella_en_1.5B_v5,
+with cosine similarity over serialized GAS states.
+(c) The Stage-Specialized Agent Planner usesdeepseek-
+v4-proas the default LLM backend. It implements the Stage
+Router, six stage agents, stage working memories, experience
+skills, and stage tool subsets. The experience skills are im-
+plemented as stage-specific instruction templates, and planner
+outputs are constrained to structured response actions.
+(d) The Execution Harness exposes 33 bounded response
+capabilities, covering log/artifact collection, host/service in-
+spection, network/firewall control, cleanup, and service restart.
+It validates generated actions against tool schemas, executes
+them in Docker 24.0.7 and containerlab 0.74.3 cyber ranges,
+and returns unified execution feedback for GAS updates.
+For effect labeling, each incident uses an incident-specific
+evaluation profile generated by a profile-generation skill; the
+profile is used only by the harness for post-action validation
+and is not exposed to the planner or written into GAS.
+VI. EVALUATION
+We evaluate whether our framework improves closed-loop
+incident response in cyber-range environments. The evaluation
+focuses on system-level response quality: maintaining incident
+state, selecting stage-aligned actions, reusing validated experi-
+ence, and improving response outcomes under the same tools
+and action budget as the baselines. We focus on four research
+questions:
+•RQ1: End-to-End Effectiveness.Does the full framework
+improve closed-loop incident response compared with ex-
+isting baselines?
+•RQ2: Robustness under Incident Complexity.Does the
+framework maintain response quality as incident complexity
+increases?
+•RQ3: Component Attribution.How does response quality
+degrade when the state, experience, and stage-specialized
+planning components are progressively removed?
+•RQ4: Experience Reuse.Can the Experience Database
+transfer validated response experience to held-out incident
+variants?
+A. Experimental Setup
+Cyber-range benchmark.We build a closed-loop incident
+response benchmark based on Docker [45] and Contain-
+erlab [46] to evaluate long-horizon response in executable
+environments. The benchmark contains 100 cases covering
+application exploits, credential attacks, propagation, service
+misuse, and heterogeneous multi-protocol incidents. Across
+these cases, the benchmark spans 20 attack families, 12
+MITRE ATT&CK tactics, and 39 ATT&CK techniques. Each
+case contains a recoverable range topology, an executable
+attack playbook, defender-visible telemetry sources, a response
+action schema, and an incident-specific evaluation profile.
+The attack playbook is used to instantiate the compromised
+environment, while the evaluation profile is used for effect
+labeling and final scoring; neither is exposed to the planner.
+
+Train/test split.We split the 100 cases into 70 training ranges
+and 30 held-out test ranges. The training ranges are used for
+framework calibration and Experience Database construction.
+All main results are reported on held-out test ranges, and test
+trajectories are not written back to the Experience Database.
+The test set includes 14 seen-family variants and 6 previously
+unseen families, where variants change attack parameters,
+artifacts, service configurations, and topology details.
+Complexity grouping.For RQ2, we group held-out cases
+into Low, Medium, and High complexity tiers according to
+structural incident characteristics, including the number of
+attack vectors, involved protocols or services, and required
+cross-host or cross-stage state reconciliation. This grouping is
+used only for analysis and is hidden from the evaluated agents.
+As a sanity check, the tiers also correspond to increasing
+response horizons for a general Claude Code agent, indicating
+that higher-tier cases require longer multi-step investigation,
+mitigation, and validation.
+Test protocol.All methods use the same topology, attack re-
+play, action schema, tool set, Execution Harness, step budget,
+and hidden evaluation profiles. Each trial starts from a clean
+topology snapshot, replays the hidden attack, and exposes
+only defender-visible observations such as alerts, logs, service
+statuses, and reachable hosts. Generated actions are validated
+and executed by the Execution Harness, which returns execu-
+tion status, tool outputs, and environment observations. A run
+stops when the response completes or reaches the step budget.
+Hidden evaluation profiles score recovery, attack blocking,
+service continuity, collateral damage, and replay resilience;
+they are not exposed to the planner or written into GAS.
+B. Baselines
+Baseline selection.We compare with three representative
+baselines adapted to our benchmark: LLM Planner, SecLoop,
+and Claude-Code Agent, covering offline planning, reward-
+driven automation, and open-ended agentic interaction.
+LLM Planner.We implement LLM Planner following prior
+LLM-based incident response planning work [11]. Since it
+outputs textual response actions, we use a frontier-LLM-based
+Action Router to map them to our structured response capabil-
+ities. Unmapped or invalid actions are treated as unexecutable.
+The router only performs schema grounding and does not
+access hidden profiles or execution feedback.
+SecLoop.We implement SecLoop following its reward-driven
+execution-grounded setting [26]. Since no trained checkpoint
+is released, we reproduce its training process on our training
+ranges. Evaluation is conducted only on held-out test ranges,
+and test trajectories are not used for training.
+Claude Code Agent.We use Claude Code as the open-ended
+agentic baseline [43]. It interacts with the live environment
+through the same response tools and continues planning from
+execution feedback. We instantiate it with Claude Opus 4.7 and
+DeepSeek V4 Pro, denoted CC-Opus 4.7 and CC-DeepSeek
+V4 Pro. It does not use GAS, the Experience Database, or the
+Stage-Specialized Agent Planner.
+C. RQ1: End-to-End Effectiveness
+Protocol and metrics.RQ1 evaluates end-to-end response
+quality on held-out test ranges. We report macro-averaged
+results and use Overall Defense Score (ODS) as the primary
+metric:
+ODS = 0.40·Recovery + 0.30·AttackSup
++ 0.15·AESR + 0.15·SCS. (6)
+Recovery measures remediation and restoration, AttackSup
+measures active attacker-objective suppression, AESR mea-
+sures action executability, and SCS measures service conti-
+nuity. We also report replay resilience and efficiency metrics,
+including ReattackBlk, ReplayObjSucc, TTR, and ActProg.
+Results.Table II shows that our framework achieves the best
+overall response quality. Compared with the strongest baseline,
+CC-DeepSeek V4 Pro, our framework improves ODS from
+0.8589 to 0.9409 and Recovery from 0.7835 to 0.8834, with
+relative gains of 9.5% and 12.8%. It also achieves perfect
+AttackSup, ReattackBlk, and SCS, and reduces ReplayObj-
+Succ to 0. The gain over Claude Code agents shows that tool
+interaction alone is insufficient: without persistent incident
+state, stage-specialized planning, and validated experience
+reuse, agents may execute useful local actions but leave replay
+conditions unresolved. LLM Planner performs worse because
+textual plans are not grounded in runtime feedback or state
+updates, while SecLoop tends to favor executable and low-
+risk assessment-like actions that do not advance later recovery
+stages. Overall, the results show that closed-loop response
+benefits from connecting state maintenance, stage-specialized
+planning, experience reuse, and bounded execution.
+D. RQ2: Robustness under Incident Complexity
+Protocol and metrics.RQ2 evaluates whether the framework
+remains stable as incident complexity increases. We group
+held-out ranges into Low, Medium, and High tiers by structural
+characteristics, including attack vectors, involved protocols or
+services, and required cross-host or cross-stage state recon-
+ciliation. As a sanity check, these tiers also correspond to
+longer response horizons: the average TTR of CC-Opus 4.7
+increases from 8.9 steps in Low to 19.8 in Medium and 38.6
+in High. We compare ODS and AttackSup across the three
+tiers, measuring overall defense quality and sustained attack-
+objective suppression.
+Results.Figure 4 shows that our framework degrades the least
+as complexity increases. From Low to High, its ODS drops
+by only 6.1%, compared with 8.8% for CC-DeepSeek V4
+Pro, 20.2% for CC-Opus 4.7, and 33.4% for LLM Planner.
+It also maintains AttackSup of 1.0000 across all tiers, while
+CC-DeepSeek V4 Pro and CC-Opus 4.7 drop to 0.833 and
+0.667 in High-complexity cases, and LLM Planner fails to
+suppress attacker objectives in the High tier.
+These results indicate that complex incidents require more
+than longer tool interaction. As response chains grow, agents
+must preserve state over more entities, evidence sources, attack
+paths, and unresolved recovery objectives. Claude Code agents
+can observe execution feedback, but their planning mainly
+
+TABLE II
+END-TO-END INCIDENT RESPONSE PERFORMANCE ON HELD-OUT RANGES.
+Method ODS↑Recovery↑ReattackBlk↑AttackSup↑ReplayObjSucc↓AESR↑SCS↑TTR↓ActProg↑
+Our Method0.9409 0.8834 1.0000 1.0000 0.0000 0.9167 1.000018.40000.3171
+CC-Opus 4.70.7989 0.6993 0.8667 0.8667 0.1333 0.8194 0.9089 22.4000 0.1248
+CC-DeepSeek V4 Pro0.8589 0.7835 0.9333 0.9333 0.0667 0.8250 0.9447 18.8000 0.1382
+LLM Planner0.5329 0.4766 0.4333 0.3333 0.5667 0.7806 0.8344 12.4000 0.2583
+SecLoop0.1590 0.0400 0.1000 0.0000 0.9000 0.2000 0.7533 1.0000 0.2000
+Low Medium High
+Scenario Category
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Overall Defense Score
+0.966 0.962
+0.9070.923
+0.865 0.842
+0.942
+0.809
+0.752
+0.659
+0.626
+0.439
+0.150 0.150
+0.265
+(a) Overall Defense Score (ODS)
+Low Medium High
+Scenario Category
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Attack Suppression Score
+1.000 1.000 1.0001.000 1.000
+0.833
+1.000 1.000
+0.6670.667
+0.500
+0.0000.000 0.000 0.000
+(b) Attack Suppression Score
+Our Method CC+DeepSeek CC+Opus 4.7 LLM-Planner SecLoop
+Fig. 4. Attack suppression and overall defense score across attack scenario
+complexity tiers. Low, Medium, and High correspond to the dataset partition
+defined by attack scenario complexity.
+follows the current interaction trace, making them prone to
+repeated local checks or unresolved attacker capabilities in
+longer runs. Our framework is more stable because GAS
+preserves affected entities, attack behaviors, response actions,
+and unresolved conditions, while the Stage-Specialized Agent
+Planner keeps action generation aligned with the current
+recovery stage.
+E. RQ3: Component Attribution
+Protocol and ablations.RQ3 evaluates how the core com-
+ponents contribute to response quality through cumulative
+ablations. We use cumulative rather than independent ablations
+because the components are structurally dependent: the Expe-
+rience Database is indexed by GAS, and the Stage-Specialized
+Agent Planner uses both GAS and retrieved experience. We
+compare four settings: Full(G+P+E), whereGdenotes
+GAS,Pdenotes the Stage-Specialized Agent Planner, and
+Edenotes the Experience Database; w/oE, which removes
+experience retrieval; w/oE+G, which further replaces GAS
+with textual observations and recent action history; and w/o
+E+G+P, which further removes stage-specialized planning.
+CDR denotes Collateral Damage Rate, measuring service-
+impacting side effects introduced by response actions.
+Results.Table III shows a clear degradation as components
+are progressively removed. Full achieves 0.9409 ODS and
+0.8834 Recovery; w/oEdrops to 0.8250 ODS and 0.7926
+Recovery; w/oE+Gfurther drops to 0.6889 ODS and 0.6326
+Recovery; and w/oE+G+Preaches only 0.6031 ODS and
+0.5348 Recovery. This trend indicates that the full gain comes
+from the joint workflow built from state, experience, and stage-
+specialized planning, rather than from a single component.
+The ablations expose different failure modes. Removing the
+Experience Database reduces access to validated positive and
+high-risk cases, causing SCS to drop from 1.0000 to 0.7000
+and CDR to rise from 0 to 0.3000. Removing GAS further
+reduces AttackSup from 1.0000 to 0.5333 and ReattackBlk to
+0.7333, showing that textual observations and recent history
+cannot reliably preserve handled entities, remaining attack
+paths, and unresolved recovery conditions. Removing the
+Stage-Specialized Agent Planner further degrades response
+quality because action generation no longer benefits from stage
+dispatch, stage memory, or stage-scoped tools.
+Although later ablations have shorter TTR and higher Act-
+Prog, they also have much worse ODS, Recovery, ReattackBlk,
+and AttackSup. Thus, shorter trajectories or more locally
+progressive actions do not imply better incident recovery.
+Overall, the results show that GAS, the Experience Database,
+and the Stage-Specialized Agent Planner are complementary
+components for safe and durable response.
+F . RQ4: Experience Reuse
+Protocol and metrics.RQ4 evaluates whether historical ex-
+periences constructed from training ranges transfer to held-out
+incident variants. At test time, the planner can retrieve positive
+and negative experiences from the Experience Database, but
+test trajectories are not written back. We compare the full
+system with w/oE, and further separate seen-family variants
+from previously unseen families.
+Results.Table III shows that removing the Experience
+Database reduces ODS from 0.9409 to 0.8250 and Recovery
+from 0.8834 to 0.7926. ReattackBlk and AttackSup both drop
+from 1.0000 to 0.9333, and ReplayObjSucc increases from 0
+to 0.0667. SCS also drops from 1.0000 to 0.7000, while CDR
+
+TABLE III
+CUMULATIVE COMPONENT ATTRIBUTION ON HELD-OUT RANGES. G, P,ANDEDENOTEGAS, STAGE-SPECIALIZEDAGENTPLANNER,AND THE
+EXPERIENCEDATABASE.
+Method ODS↑Recovery↑ReattackBlk↑AttackSup↑ReplayObjSucc↓SCS↑CDR↓TTR↓ActProg↑
+Full (G+P+E)0.9409 0.8834 1.0000 1.0000 0.0000 1.0000 0.000018.4000 0.3171
+w/o E 0.8250 0.7926 0.9333 0.9333 0.0667 0.7000 0.3000 16.6000 0.3371
+w/o E+G 0.6889 0.6326 0.7333 0.5333 0.2667 1.0000 0.0000 10.8000 0.3832
+w/o E+G+P 0.6031 0.5348 0.4733 0.4367 0.3333 0.8945 0.0800 7.400 0.4237
+Retrieved Experience Record
+Stage.RESTORATION.
+State.SMTP propagation variant on a mail-relay host, with prior
+propagation artifacts removed and clean-state validation still pending.
+Action.Run clean-state validation on the affected mail-relay host
+(validate_clean_state).
+Effect.EFFECTIVE: recovery closure with preserved service
+continuity (SCS=1.0000,CDR=0.0000).
+Feedback Summary.Deep spool artifacts are absent, and the
+mail-relay daemon remains present and reachable.
+Guidance.When adapting this experience, validate both artifact
+cleanup and daemon availability before closing restoration.
+Fig. 5. Retrieved experience record that helps complete restoration-stage
+validation in a held-out SMTP propagation variant.
+rises from 0 to 0.3000. These results show that retrieved expe-
+riences help the planner select actions that advance recovery
+while avoiding high-risk actions that may disrupt services.
+Experience reuse is stronger on seen-family variants but still
+useful on unseen families. The Experience Database brings a
+14.7% ODS gain on seen-family variants and an 8.2% gain on
+previously unseen families. This indicates that the database is
+not simply replaying training trajectories; it transfers response
+patterns through similar incident states, recovery stages, and
+validated action effects.
+Figure 5 shows a restoration-stage record retrieved for a
+held-out SMTP propagation variant. Without this experience,
+the planner removes the obvious propagation artifacts but tends
+to omit clean-state validation, leaving deeper spool artifacts or
+mail-relay availability unchecked. The retrieved record pro-
+vides a validated recovery pattern: after artifact cleanup, run
+validate_clean_stateand verify both spool-artifact
+absence and mail-relay daemon presence. By adapting this pat-
+tern to the current host and service configuration, the planner
+completes the missing validation step and closes restoration.
+This case illustrates that the database provides effect-validated
+recovery patterns that help the planner complete steps that are
+easy to miss from the current interaction trace alone.
+G. Summary of Findings
+Overall, the evaluation shows that our framework improves
+incident response by connecting state maintenance, stage-
+specialized planning, validated experience reuse, and bounded
+execution. The full system achieves the best end-to-end de-
+fense quality on held-out ranges, remains more stable as
+incident complexity increases, and degrades consistently when
+the dependent components are progressively removed. The ex-
+perience analysis further shows that retrieved records provide
+transferable recovery patterns and risk constraints rather than
+replaying historical trajectories. These results support our main
+claim that long-horizon incident response benefits from a state-
+and experience-grounded multi-agent workflow.
+VII. DISCUSSION
+Stateful and Stage-Specialized Response.The main im-
+plication of this work is that agentic incident response re-
+quires more than giving LLMs access to tools. Without an
+explicit incident state and recovery-stage control, long-horizon
+response can still degenerate into local exploration over the
+current interaction trace. By maintaining the incident as GAS,
+dispatching planning to stage-specialized agents, and reusing
+effect-validated experience, our framework shifts agentic re-
+sponse from open-ended tool interaction to a stateful workflow
+organized around recovery progress.
+Controllability in Real Deployment.Deploying agentic in-
+cident response in enterprise environments raises risk-control
+concerns because response actions often involve host isolation,
+access-control changes, cleanup, or service restart [1], [33].
+Our framework reduces this risk by constraining agents to
+structured actions, stage-scoped tool subsets, and bounded
+execution through the Execution Harness. It also stores high-
+risk historical actions in the Experience Database, turning
+past side effects into retrievable risk constraints during plan-
+ning. In practice, these mechanisms can be combined with
+organization-specific approval policies so that high-impact
+actions remain subject to human review.
+Scope and Limitations.The framework is most useful for
+long-horizon, multi-stage incidents where the incident state
+evolves over time and historical response experience is trans-
+ferable. For low-risk and stable one-step tasks, static play-
+books or rule-based workflows may remain simpler and more
+cost-effective. Real-world deployment still requires handling
+organization-specific asset names, log formats, tool capabili-
+ties, and recovery profiles. Future work should improve cross-
+environment state alignment, experience-retrieval generaliza-
+tion, recovery-stage robustness, and approval mechanisms for
+SOC workflows.
+VIII. CONCLUSION
+This paper presents an end-to-end agentic planning frame-
+work for incident response. The framework models inci-
+dent response planning as a stateful, stage-specialized, and
+
+experience-supported workflow automation problem. It main-
+tains the current incident as GAS, retrieves effect-validated
+response experience, dispatches planning to stage-specialized
+agents, and uses the Execution Harness to feed execution
+results back into the response loop. Evaluation on 100 closed-
+loop cyber ranges shows that the proposed workflow im-
+proves end-to-end response quality over representative plan-
+ning, reward-driven, and agentic baselines.

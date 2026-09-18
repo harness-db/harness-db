@@ -1,0 +1,1045 @@
+record_id: arxiv:2312.00326
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2312.00326
+fetched_title: Agent-OM: Leveraging LLM Agents for Ontology Matching
+fetched_at: 2026-09-18T19:09:03Z
+
+Agent-OM: Leveraging LLM Agents for Ontology Matching
+Zhangcheng Qiang
+Australian National University
+Canberra, ACT, Australia
+qzc438@gmail.com
+Weiqing Wang
+Monash University
+Melbourne, VIC, Australia
+teresa.wang@monash.edu
+Kerry Taylor
+Australian National University
+Canberra, ACT, Australia
+kerry.taylor@anu.edu.au
+ABSTRACT
+Ontology matching (OM) enables semantic interoperability be-
+tween different ontologies and resolves their conceptual hetero-
+geneity by aligning related entities. OM systems currently have
+two prevailing design paradigms: conventional knowledge-based
+expert systems and newer machine learning-based predictive sys-
+tems. While large language models (LLMs) and LLM agents have
+revolutionised data engineering and have been applied creatively
+in many domains, their potential for OM remains underexplored.
+This study introduces a novel agent-powered LLM-based design
+paradigm for OM systems. With consideration of several specific
+challenges in leveraging LLM agents for OM, we propose a generic
+framework, namely Agent-OM (Agent for Ontology Matching), con-
+sisting of two Siamese agents for retrieval and matching, with a set
+of OM tools. Our framework is implemented in a proof-of-concept
+system. Evaluations of three Ontology Alignment Evaluation Ini-
+tiative (OAEI) tracks over state-of-the-art OM systems show that
+our system can achieve results very close to the long-standing best
+performance on simple OM tasks and can significantly improve the
+performance on complex and few-shot OM tasks.
+PVLDB Reference Format:
+Zhangcheng Qiang, Weiqing Wang, and Kerry Taylor. Agent-OM:
+Leveraging LLM Agents for Ontology Matching. PVLDB, 18(3): 516 - 529,
+2024.
+doi:10.14778/3712221.3712222
+PVLDB Artifact Availability:
+The source code, data, and/or other artifacts have been made available at
+https://github.com/qzc438/ontology-llm.
+1 INTRODUCTION
+Large language models (LLMs) are pre-trained with an enormous
+corpus of common knowledge and therefore have powerful gen-
+erative capabilities. Despite the success of using LLMs in a wide
+range of applications, leveraging LLMs for downstream tasks still
+has several challenges. (1) LLMs are pre-trained models that do
+not capture late-breaking information. (2) LLM hallucinations are
+often observed in domain-specific tasks and hamper their reliabil-
+ity. LLMs often generate unsound responses that are syntactically
+sound but factually incorrect [ 33]. (3) LLMs are good models of
+linguistic competence, but have shown limited capabilities in non-
+linguistic tasks, such as planning and routing. LLMs were originally
+This work is licensed under the Creative Commons BY-NC-ND 4.0 International
+License. Visit https://creativecommons.org/licenses/by-nc-nd/4.0/ to view a copy of
+this license. For any use beyond those covered by this license, obtain permission by
+emailing info@vldb.org. Copyright is held by the owner/author(s). Publication rights
+licensed to the VLDB Endowment.
+Proceedings of the VLDB Endowment, Vol. 18, No. 3 ISSN 2150-8097.
+doi:10.14778/3712221.3712222
+designed for sequential question answering (QA), but most real-
+world tasks are designed with complex logic and do not follow a
+straightforward single path [73].
+To overcome the limitations of LLM customisation for down-
+stream tasks, LLM-based autonomous agents have become a promi-
+nent research area. In the field of artificial intelligence (AI), the no-
+tion of agents was first introduced in the famous Turing Test [72], re-
+ferring to intelligent computational entities that can display human-
+like behaviours. Such AI agents have fallen short of human-level
+capabilities, as they can only act on simple and heuristic policy func-
+tions learnt from constrained environments and they lack efficient
+central control to simulate the human learning process [76]. LLMs,
+with remarkable success in demonstrating autonomy, reactivity,
+pro-activeness, and social ability, have attracted growing research
+efforts aiming to construct AI agents, so-called LLM agents [80].
+The core concept of LLM agents is to employ the LLM as a
+controller rather than as a predictive model only (a.k.a. Model as
+a Service). LLM agents extend LLM capabilities with advanced
+planning, memory, and pluggable tools, and allow LLMs to com-
+municate with open-world knowledge [ 79]. (1) Planning breaks
+down a complex task into simpler and more manageable subtasks.
+LLMs can also receive feedback on plans and perform reflection and
+refinement. The most practical technique used for LLM planning is
+chain-of-thought (CoT) [78]. (2) Tools allow LLMs to call external re-
+sources for additional information. They are often invoked by LLM
+actions. (3) Memory provides context to inherently stateless LLMs,
+including short-term memory and long-term memory. Short-term
+memory can be considered as context information obtained from
+planning and tools via in-context learning (ICL) [10]. Long-term
+memory often uses database storage with retrieval-augmented gen-
+eration (RAG) [39] to retain information. Unlike fine-tuning, where
+models need to be retrained to learn new context data, ICL/RAG in-
+stead augments the LLM prompts with new information. ICL/RAG
+is more scalable for working with dynamic information. Almost
+90% of use cases can be achieved by ICL/RAG-based search and
+retrieval [47]. A recent paper [59] demonstrates that RAG surpasses
+fine-tuning across a diversity of knowledge-intensive tasks.
+Ontology matching (OM) is a classic alignment task, aiming to
+find possible correspondences between a pair of ontologies [ 20].
+OM systems are developed to automate the matching process. There
+are two dominant design paradigms for OM systems: traditional
+knowledge-based OM systems that implement pre-defined logic
+and expert knowledge; and more recent learning-based OM systems
+that transform the matching task into machine-enhanced learning
+and prediction. The former expert systems require extensive expert
+knowledge, while the latter predictive systems need extensive high-
+quality data to train the model. The prevalence of LLMs and LLM
+agents has driven many successful domain-specific applications.
+However, in the context of OM, using LLMs and LLM agents is
+arXiv:2312.00326v28 [cs.AI] 21 Jun 2026
+
+currently under-explored. Leveraging LLMs and LLM agents for
+OM tasks is not an intuitive task; the challenges will be presented
+in the Related Work section.
+This paper introduces a novel agent-powered LLM-based design
+paradigm for OM systems. We propose a generic framework and
+implement it with a proof-of-concept system. The system extends
+LLM capabilities beyond general QA, offering a powerful problem
+solver for OM tasks. The system includes tools that facilitate infor-
+mation retrieval, entity matching, and memory storage. The system
+is compared to state-of-the-art OM systems, achieving considerable
+matching performance improvements across three Alignment Eval-
+uation Initiative (OAEI) [53] tracks. Specifically, this paper makes
+the following contributions:
+• We introduce a new agent-powered LLM-based design paradigm
+for OM systems and propose a novel Agent-OM framework. It
+consists of the following key components:
+– A LLM acts as a central “brain” to link different modules and
+instruct their functions via prompt engineering;
+–A pair of planning modules use CoT for OM decomposition;
+– A set of OM tools use ICL/RAG to mitigate LLM hallucinations;
+– A shared memory module uses dialogue and hybrid data storage
+to support the search and retrieval of entity mappings.
+• We implement our proposed Agent-OM framework in a proof-
+of-concept system. The system deals with several critical down-
+stream challenges in leveraging LLM agents for OM, such as cost-
+effective entity information retrieval, matching candidate selection,
+and search-based matching functions.
+• The experimental results of the system show that Agent-OM
+achieves results very close to the best long-standing performance on
+simple OM tasks and significantly improves matching performance
+on complex and few-shot OM tasks.
+An ontology contains classes, properties, and individuals. In this
+study, we consider only classes and properties, and individuals are
+excluded. Possible logical relations between classes (respectively
+properties) can be equivalence (≡) and subsumption (either⊆𝑜𝑟⊇ ).
+In this study, we only consider the logical relation of equivalence
+(≡) between classes and properties.
+The rest of the paper is organised as follows. Section 2 reviews
+related work. We illustrate the design of our agent-powered LLM-
+based OM framework in Section 3 and present implementation
+details in Section 4. Section 5 and 6 evaluate the system, with a
+discussion in Section 7. We discuss the limitations and future work
+in Section 8 and 9, respectively. Section 10 concludes the paper.
+2 RELATED WORK
+OM is typically a non-trivial but essential alignment task for data
+integration, information sharing, and knowledge discovery [ 69].
+While matching is a prerequisite for interoperating applications
+with heterogeneous ontologies, OM systems are designed to au-
+tomate the matching process. The conventional approach using
+knowledge-based OM systems, such as LogMap [ 34, 35], Agree-
+mentMakerLight (AML) [22, 23], and FCA-Map [40, 87] has been
+shown to be precise and effective. However, it is resource-hungry
+and labour-intensive. It is often difficult to find domain experts to
+evaluate the matches, and any group of experts may not be able to
+cover all domain concepts that an expert system requires. A new
+approach uses machine learning (ML), implemented in systems
+such as BERTMap [27] and LogMap extension LogMap-ML [ 12].
+ML-based OM systems employ the concept of training and test-
+ing in ML, using ontology entities as features for model training
+or fine-tuning and then using the model to predict additional cor-
+respondences. Specifically, the leading system BERTMap uses a
+common language model originating from natural language pro-
+cessing (NLP) (i.e. BERT [16]).
+Although ML-based approaches have shown a significant im-
+provement in matching performance, their training-testing par-
+adigm is not feasible for LLMs. The number of parameters used
+in LLMs is much larger than those of common language models.
+This means retraining the entire LLM is usually infeasible, and
+fine-tuning such a large model requires a number of samples that
+may be infeasibly large for OM. A survey in [89] implies that 1000
+is a reasonable number of training samples to fine-tune GPT-3 [10],
+but generally speaking, a domain ontology has only around 100-
+200 entities. Furthermore, currently some LLMs are only accessible
+through a web service. This means that training or fine-tuning
+LLMs risks leaking sensitive information, while synthetic data, on
+the other hand, makes it difficult to ensure training quality.
+Early studies using LLMs for OM can be found in [28] and [52].
+Both works use a purely prompt-based approach. The prompts are
+structured as a binary question: given an entity from the source
+ontology and an entity from the target ontology, the LLMs perform
+a classification task to determine whether these two entities are
+identical or not. A similar approach is also used in OLaLa [31] and
+LLMs4OM [24], but their candidate generation is integrated with
+the embedding extractor models. The authors of [ 2] explore the
+potential of using LLMs for complex ontology OM challenges.
+LLM agents were introduced in AutoGPT [67] and BabyAGI [50].
+The recent release of OpenAI GPTs [55], Microsoft Copilot [45], and
+Copilot Studio [46] has sparked interest in LLM agents. Building ap-
+plications with LLM agents allows users to build their own custom
+GPTs to support custom business scenarios. In ontology-related
+tasks, LLM-driven agents have shown impressive performance in
+automating manual activities in the broader task of ontology en-
+gineering. These works pay attention to the use of conversational
+dialogue to enhance the agent’s capabilities with human feedback.
+While this is suitable for tasks that require humans to be in the
+loop, such as collecting competency questions in ontology engi-
+neering [85] or validating extended terms in ontology learning [6],
+modern OM seeks to automate a complex task with minimal human
+intervention. Contrasting with these works, our aim is to design
+a new infrastructure that is able to instruct LLM agents to use
+planning to decompose a complex task into steps and to use tools
+to facilitate automated matching (a.k.a. function calling), instead
+of purely using agent-based conversational dialogue, even when
+specialised as ontology-oriented dialogue like [60, 86].
+We introduce our novel agent-powered LLM-based design para-
+digm for OM systems. We have two generic agents; each one is self-
+contained and designed to instruct LLMs to use extensive planning,
+memory, and tools, thus unlocking their generative capabilities
+to handle various types of OM tasks in different contexts. Mean-
+while, as a key enabler for precise decision-making, we also limit
+the current LLM’s flaws in hallucination, context understanding,
+and non-linguistic reasoning. Several OM-related tools have been
+
+created for this purpose. These tools enable LLM agents to simulate
+a traditional OM system, automating the entire matching process
+without human intervention. The overall infrastructure offers high
+scalability and allows extensive customisation. To the best of our
+knowledge, this study is the first to introduce an LLM-agent-based
+framework for OM tasks.
+3 MATCHING WITH LLM AGENTS
+Given a source ontology (𝑂𝑠) and a target ontology (𝑂𝑡 ), OM aims
+to find an alignment (A) that contains a set of pair-matched entities
+{(𝑒𝑖,𝑒𝑗)|𝑒𝑖 ∈𝑂 𝑠,𝑒𝑗 ∈𝑂 𝑡}. A classical matching process has two
+main steps: retrieval and matching. The retrieval step involves
+retrieving internal information from the ontology itself (𝑅𝑖𝑛𝑡 ) and
+external information from a domain-specific thesaurus (𝑅𝑒𝑥𝑡 ). The
+matching step involves selecting the matching candidates (𝑀𝑠𝑒𝑙 ),
+running the matching algorithms (𝑀𝑎𝑙𝑔), and refining the matching
+results (𝑀𝑟𝑒𝑓 ). A classical OM can be formulated as:
+𝑅𝑖𝑛𝑡⇒𝑅 𝑒𝑥𝑡⇒𝑀𝑠𝑒𝑙⇒𝑀 𝑎𝑙𝑔⇒𝑀𝑟𝑒𝑓 (1)
+Figure 1 shows the architecture ofAgent-OM, our agent-powered
+LLM-based OM framework. It retains the original input and out-
+put of the classical OM but modularises the two main steps with
+autonomous LLM agents, namely Retrieval Agent (𝐴𝑔𝑒𝑛𝑡_𝑅) and
+Matching Agent (𝐴𝑔𝑒𝑛𝑡_𝑀 ). We call these two LLM agents “Siamese”
+because they have their own planning modules and related tools
+but share memory. The memory is responsible for storing the in-
+formation retrieved from the Retrieval Agent (𝑅𝑠𝑡𝑜 ) and facilitating
+the search of the stored information by the Matching Agent (𝑀𝑠𝑒𝑎 ).
+Therefore, an agent-based OM is formulated as:
+𝐴𝑔𝑒𝑛𝑡_𝑅(𝑅𝑖𝑛𝑡⇒𝑅𝑒𝑥𝑡⇒𝑅𝑠𝑡𝑜)⇒𝐴𝑔𝑒𝑛𝑡_𝑀 (𝑀𝑠𝑒𝑎⇒𝑀𝑠𝑒𝑙⇒𝑀𝑎𝑙𝑔⇒𝑀𝑟𝑒 𝑓)
+(2)
+For each autonomous agent, the workflow is described as fol-
+lows. The planning module decomposes a complex task into several
+subtasks and defines the order of subtasks and tools to be invoked.
+The plan is stored in the dialogue and passed to the LLMs. LLMs
+then invoke the tools to perform the subtasks. The tools may com-
+municate with each other, with intermediate results stored in the
+dialogue. The tools can also access the database via the CRUD
+(create, read, update, and delete) functions provided. The entire
+workflow is driven by LLM prompts. We use solid lines to show
+the actual workflow controlled by the LLMs, and dotted lines to
+show the implicit link between a subtask and its corresponding tool
+activated by the LLMs.
+3.1 Retrieval Agent
+The Retrieval Agent is responsible for extracting entities from the
+ontologies, eliciting their metadata and ontology context informa-
+tion, and storing them in the hybrid database. For each entity ex-
+tracted from the source and target ontologies, the planning module
+generates the instruction for retrieving the relevant information and
+feeding it into the LLMs to invoke the corresponding retrieval tools.
+The tools used in the Retrieval Agent include Metadata Retriever,
+Syntactic & Lexical & Semantic Retriever, and Hybrid Database
+Store with Content Embedder, described as follows.
+Figure 1: Architecture of Agent-OM. All components are exe-
+cuted twice, once for each of the source and target ontologies,
+apart from the matching merger tool that combines the re-
+sults from each pass.
+• Metadata Retriever (𝑅𝑖𝑛𝑡 ): The metadata retriever collects the
+metadata of the input entity from the ontology, including itscate-
+gory(i.e. either from thesourceontology or from thetargetontol-
+ogy) andtype(i.e.classorproperty).
+• Syntactic Retriever (𝑅𝑖𝑛𝑡 ): The syntactic retriever is responsible
+for providing a unified text preprocessing result. A common text
+preprocessing pipeline consists of tokenisation, normalisation, stop
+words removal, and stemming/lemmatisation [43]. According to
+our previous study in [ 64], only tokenisation and normalisation
+help both matching completeness and correctness. The other two
+pipeline methods, stop words removal and stemming/lemmatisa-
+tion, could cause unwanted false mappings. For this reason, our
+syntactic retriever considers only tokenisation and normalisation.
+We select white spaces to separate the words so that the outputs
+are short sentences that are easier for LLMs to interpret.
+• Lexical Retriever (𝑅𝑖𝑛𝑡 &𝑅𝑒𝑥𝑡 ): We consider three key aspects
+of the entity’s lexical information: the general meaning (𝑅𝑒𝑥𝑡 ), the
+context meaning (𝑅𝑒𝑥𝑡 ), and the content meaning ( 𝑅𝑖𝑛𝑡 ). In OM
+tasks, the general meaning is traditionally generated from Wiki-
+data [74] or similar corpus-based knowledge bases (KBs). As LLMs
+are trained from these KBs, we use the prompt “What is the mean-
+ing of {entity_name}?” for the same function. However, using only
+the general meaning is not sufficient. Using the context constraint
+“Context: {context}” is effective in domain-specific tasks. Popular
+GPT-based domain applications, such as LawGPT [88] and Medi-
+calGPT [75], use similar approaches. Additionally, we also retrieve
+content information from rdfs:label, rdfs:comment, and other
+annotation properties, where the ontology creators may add com-
+ments or explanations. These are also useful for retrieving the
+meaning of the entity.
+
+• Semantic Retriever (𝑅𝑖𝑛𝑡 ): The entity’s semantic information in-
+cludes its basic triple-based relations and more complex logic-based
+axioms. In this study, we only consider triple-based relations that
+can be verbalised into a more natural language-like presentation
+via a prompt-based verbalisation tool. Such verbalisation tools are
+not capable of handling complex logic-based axioms. These func-
+tions can only be achieved with external packages, such as OWL
+Verbaliser [36], Sydney OWL Syntax [15], and the DeepOnto [29]
+verbalisation module [30].
+• Hybrid Database Store with Content Embedder (𝑅𝑠𝑡𝑜 ): We use a
+hybrid database system consisting of a traditional relational data-
+base and an advanced vector database. Entity metadata, such as the
+entity’s category and type, are stored in the traditional relational
+database. In contrast, natural language-based content information,
+such as the entity’s syntactic, lexical, and semantic information, is
+vectorised via a text embedding model and then stored in the vector
+database to enable similarity search based on relative distance in
+the vector space. A unique key links these two databases.
+3.2 Matching Agent
+The Matching Agent is responsible for finding possible correspon-
+dences, ranking and refining the results according to different cri-
+teria, and selecting the best matching candidate. For each entity
+extracted from the ontologies, the planning module generates the
+instruction for the matching types to be considered and feeds it into
+the LLMs to invoke the corresponding matching tools. The planning
+module first selects the source ontology as a starting point, extract-
+ing the entities from the ontology. Then, different matchers perform
+syntactic, lexical, or semantic matching functions to find the best
+match for the input entity, using a hybrid database search across
+the relational and vector databases. A predicted mapping is based
+on a summarised profile measure of syntactic matching, lexical
+matching, and semantic matching, with matching validation. The
+same procedure applies to the target ontology as a starting point,
+and the results of the common matching candidates are combined.
+The tools used in the Matching Agent include Hybrid Database
+Search, Metadata Matcher, Syntactic & Lexical & Semantic Matcher,
+Matching Summariser, Matching Validator, and Matching Merger,
+described as follows.
+• Hybrid Database Search ( 𝑀𝑠𝑒𝑎 ): The hybrid database search
+serves as an interface for the database accessible by the Metadata
+Matcher and Syntactic & Lexical & Semantic Matcher.
+• Metadata Matcher (𝑀𝑠𝑒𝑙 ): Given an input entity, the metadata
+matcher collects the category and type of the input entity from the
+relational database.
+• Syntactic & Lexical & Semantic Matcher (𝑀𝑠𝑒𝑙 ): Given an input
+entity, the syntactic & lexical & semantic matchers search for similar
+syntactic/lexical/semantic information respectively in the vector
+database using cosine similarity, defined for entitiesAandBas:
+𝑆𝐶(A,B)= A·B
+∥A∥∥B∥ =
+˝𝑛
+𝑖=1 A𝑖 B𝑖
+√︃˝𝑛
+𝑖=1 A2
+𝑖·
+√︃˝𝑛
+𝑖=1 B2
+𝑖
+(3)
+An extended search in the relational database is then used to
+filter the results based on the entity’s metadata.
+• Matching Summariser (𝑀𝑎𝑙𝑔): We use reciprocal rank fusion
+(RRF) [13] to summarise the matching results. Viewing each of
+the syntactic, lexical, and semantic descriptions as a document, the
+purpose of reciprocal rank is to accumulate the inverse of the ranks
+𝑟 of documents𝑑 over three ranking results from syntactic, lexical,
+and semantic matching, defined as:
+𝑅𝑅𝐹(𝑑∈𝐷)=
+∑︁
+𝑟∈𝑅
+1
+𝑘+𝑟(𝑑) (4)
+𝑘 is a constant parameter that is conventionally set to 0 as we
+do here. This ensures that the formula most highly rewards the
+most highly-ranked entities. In our case, we are evaluating each
+entity that occurs in the top@k of each of the three rankings (i.e.
+syntactic matching, lexical matching, and semantic matching), and
+combining their results as an overall matching summary.
+• Matching Validator (𝑀𝑟𝑒𝑓 ): Validation is a critical step in min-
+imising LLM hallucinations, as illustrated in SelfCheckGPT [ 42].
+We also apply this method to the summarised results. We ask the
+LLM a binary question “Question: Is {entity_name} equivalent to
+{matching_entity_name}? Context: {context} Answer the question
+within the context. Answer yes or no. Give a short explanation. ” to
+check whether the predicted entity is equivalent to the input entity
+in the provided context. For computational efficiency, we iterate the
+comparison from rank 1 to𝑛 and select the highest-ranked match
+with a "yes" answer for the matching merger.
+• Matching Merger (𝑀𝑟𝑒𝑓 ): The matching merger is responsible for
+combining the results from a search of the source ontology and a
+search of the target ontology. In this study, we select only the corre-
+spondences found on both sides. As an agent-based system, this can
+be extended to use multi-agent negotiation via the correspondence
+inclusion dialogue [60].
+4 IMPLEMENTATION DETAILS
+We implement our design of the framework in a proof-of-concept
+system. The components and their implementation are as follows:
+• LLMs: Our system supports a wide range of LLMs, including
+OpenAI GPT [57], Anthropic Claude [3], Meta Llama [44], Alibaba
+Qwen [1], Google Gemma [26], and ChatGLM [84]. We select 10
+models for this study. 4 models are API-accessed commercial LLMs,
+while the other 6 are open-source LLMs. Table 1 gives the details.
+For API-accessed LLMs, we include two models of different sizes
+for each family of models. For open-source LLMs, we select models
+with similar sizes (7-9 billion parameters) from different families.
+They are accessed via the Ollama library [54].
+• Planning: We select the LangChain library [38]. The library pro-
+vides a wide range of agents. We select the tool calling agent (a.k.a.
+function calling agent). At the time of writing, the LangChain li-
+brary only supports this type of agent used with commercial API-
+accessed LLMs. To extend our framework to open-source LLMs, we
+employ the similar concept of “chain” to simulate the tool calling
+agent for open-source LLMs.
+• Memory: (1) Short-term memory: We use a conversational dia-
+logue to store the original intermediate output of each operating
+process, with no map-reduce applied. (2) Long-term memory: We
+select a hybrid database consisting of a traditional relational data-
+base and an advanced vector database. PostgreSQL [63] supports a
+standalone integration of the traditional relational database and the
+extended vector database using pgvector [62]. We select OpenAI
+
+Table 1: Details of LLMs used in the study.
+Family Model Size Version
+GPT gpt-4o N/A gpt-4o-2024-05-13
+gpt-4o-mini N/A gpt-4o-mini-2024-07-18
+Claude claude-3-sonnet N/A claude-3-sonnet-20240229
+claude-3-haiku N/A claude-3-haiku-20240307
+Llama llama-3-8b* 4.7 GB Ollama Model ID: 365c0bd3c000
+llama-3.1-8b* 4.9 GB Ollama Model ID: 46e0c10c039e
+Qwen qwen-2-7b* 4.4 GB Ollama Model ID: dd314f039b9d
+qwen-2.5-7b* 4.7 GB Ollama Model ID: 845dbda0ea48
+Gemma gemma-2-9b* 5.4 GB Ollama Model ID: ff02c3702f32
+GLM glm-4-9b* 5.5 GB Ollama Model ID: 5b699761eca5
+* Open-source LLM (retrieved December 1, 2024).
+embedding models [56] for the content embedding in the vector
+database. Alternatives are Google Vertex AI Embeddings [25] or
+Sentence-BERT [66], but the dimension of the embedding changes
+between different embedding models.
+• Tools: To demonstrate the flexibility of our framework, we present
+the usage of prompt-based tools and programming-based tools,
+as well as the tools that combine a mixture of prompt-based and
+programming-based tools.
+4.1 Ontology Naming Conventions
+In this work, the termentityis a general expression for ontology
+classes or properties (without specifying which). We useentity
+urito mean a fully expanded class name or property name with
+respect to its prefix. We useentity nameto mean a class name
+or property name without its prefix. For example, theentity uri
+is “http://cmt#ProgramCommitteeChair” and theentity nameis
+“ProgramCommitteeChair”.
+Naming conventions for entities fall into two types: the name has
+a natural language meaning (Type 1); or the name is a code (Type
+2). We observe that LLMs can perform well with meaningful en-
+tity names (e.g. ProgramCommitteeChair and Chair_PC). Often in
+larger biomedical ontologies, entities are codes and their meaning-
+ful descriptions are in their labels or comments (e.g. MA_0000270
+and NCI_C33736). For this type of naming convention, current
+LLMs tend to generate the wrong synthesised label or comment
+corresponding to the code. For example, LLMs can mistakenly inter-
+pret the codes “MA_0000270” and “NCI_C33736” both to be “liver”,
+while the intended meanings of these two codes are “eyelid tarsus”
+and “Tarsal_Plate”.
+To handle the variety of ontology naming conventions and stan-
+dardise their usage in LLM-based OM, we use a unified naming con-
+vention in this study. If the entity is a code, we use its label or com-
+ment instead. For example, we use “eyelid tarsus” and “Tarsal_Plate”
+instead of “MA_0000270” and “NCI_C33736”, respectively. In case
+the two ontologies reuse the same entity name, we assign a prefix
+to each entity with its serial number, category, and type. For exam-
+ple, if it were the case that “ProgramCommitteeChair” appears in
+both source and target ontologies, the unique identifier for each
+entity would be “023-Source-Class-ProgramCommitteeChair” and
+“042-Target-Class-ProgramCommitteeChair”.
+4.2 Running Example
+To demonstrate the usability of our framework, we choose the
+CMT-ConfOf alignment as a sample alignment. The CMT Ontol-
+ogy is the source ontology and the ConfOf Ontology is the target
+ontology. Both ontologies contain similar concepts related to con-
+ference organisation. The running example aims to find the best
+matching entity in the target ontology corresponding to the entity
+“http://cmt#ProgramCommitteeChair” in the source ontology.
+4.2.1 Retrieval Agent.Table 2 illustrates the tool calling in the Re-
+trieval Agent. For the entity “http://cmt#ProgramCommitteeChair”,
+the agent first calls the Metadata Retriever to find its category and
+type. Then the Syntactic Retriever is invoked, giving the output
+“program committee chair”. The agent next invokes the Lexical
+Retriever to generate a detailed description: “In the context of a
+conference, ‘ProgramCommitteeChair’ refers to... ”. The Semantic
+Retriever generates related triple relations, such as “ProgramCom-
+mitteeChair rdfs:subClassOf ProgramCommitteeMember”. These
+triples are verbalised using natural language: “The class ‘Program-
+CommitteeChair’ is a subclass of ‘ProgramCommitteeMember’. ”
+While each entity has its own syntactic, lexical, and semantic
+information, a naive approach to deciding if two entities are the
+same is to generate a binary question for every pair of entities as
+a prompt to the LLM: “Is Entity1 equivalent to Entity2? Consider
+the following: The syntactic information of Entity1 is... The lexical
+information of Entity1 is... The semantic information of Entity1 is...
+The syntactic information of Entity2 is... The lexical information
+of Entity2 is... The semantic information of Entity2 is... ” This ap-
+proach has two limitations. (1) LLMs have token limits that restrict
+the number of tokens processed for each interaction. Combining all
+the retrieved information may exceed token limits. (2) The binary
+comparison is costly because the complexity of the comparison is
+the product of the number of entities in the source ontology and the
+target ontology. We bypass these limitations by (1) using an open
+question instead and (2) storing useful information in a searchable
+database. Figure 2 shows the entity metadata and content infor-
+mation stored in the relational database and the vector database,
+respectively. On one hand, the entity’s metadata is needed to find
+an exact match. For example, “http://cmt#ProgramCommitteeChair”
+is a class in the source ontology, so the matched entity should be a
+class in the target ontology. On the other hand, content information
+including an entity’s syntactic, lexical, and semantic information
+is used for a similarity-based match because they are usually re-
+trieved as natural language, which can be more ambiguous than
+metadata. Similarity between natural language terms is commonly
+based on embedding vectors, for which the vector database enables
+fast similarity searches.
+4.2.2 Matching Agent.Table 3 demonstrates the tool calling in
+the Matching Agent. Given “http://cmt#ProgramCommitteeChair”
+from the source ontology, the matching entities found by each
+matcher are stored in the dialogue and combined using the RRF
+function. The result of the Matching Summariser is a list of predicted
+mappings. The next step is to refine the predicted mappings. The
+Matching Validator asks a binary question to compare whether the
+given entity is the same or different to the predicted matching entity
+in RRF-descending order. Because the validator receives a “yes"
+
+Table 2: Tool calling in the Retrieval Agent.
+Tool: Metadata Retriever
+Input:entity_uri = “http://cmt#ProgramCommitteeChair”
+Extract:source_or_target = “Source”, entity_type = “Class”
+Tool: Syntactic Retriever
+Input:entity_uri = “http://cmt#ProgramCommitteeChair”
+Extract:entity_name = “ProgramCommitteeChair” from entity_uri.
+Method:tokenise_and_normalise(entity_name)
+Output:entity_syntactic = “program committee chair”
+Tool: Lexical Retriever
+Input:entity_uri = “http://cmt#ProgramCommitteeChair”, context = “conference”
+Extract:entity_name = “ProgramCommitteeChair” from entity_uri.
+extra_information from annotation properties related to entity_uri.
+Prompt:Question: What is the meaning of {entity_name}? Context: {context} Extra Information: {extra_information}
+Answer the question within the context and using the extra information.
+Output:entity_lexical = “In the context of a conference, ‘ProgramCommitteeChair’ refers to... ” (AI-generated content)
+Tool: Semantic Retriever
+Input:entity_uri = “http://cmt#ProgramCommitteeChair”
+Method:generate_subgraph(entity_uri)
+Output:entity_subgraph consists of triples related to entity_uri.
+Prompt:Verbalise triples into phrases: {entity_subgraph}
+Output:entity_semantic = “The class ‘ProgramCommitteeChair’ is a subclass of ‘ProgramCommitteeMember’... ” (AI-generated content)
+Tool: Hybrid Database Store with Content Embedder
+Input:entity_uri = “http://cmt#ProgramCommitteeChair”, source_or_target = “Source”, entity_type = “Class”
+Extract:entity_id = “023-Source-Class-ProgramCommitteeChair”
+Query: Create a relational database and store entity’s metadata
+DROP TABLEIFEXISTSontology_matchingCASCADE;
+CREATE TABLEontology_matching (entity_idVARCHAR(1024)PRIMARY KEY, entity_uri TEXT, source_or_target TEXT, entity_type TEXT);
+INSERT INTOontology_matching (entity_id, entity_uri, source_or_target, entity_type)
+VALUES({entity_id}, {entity_uri}, {source_or_target}, {entity_type});
+Input: entity_syntactic = “program committee chair”, entity_lexical = “In the context of a conference, ‘ProgramCommitteeChair’ refers to... ”,
+entity_semantic = “The class ‘ProgramCommitteeChair’ is a subclass of ‘ProgramCommitteeMember’... ”,
+matching_table = "syntactic_matching/lexical_matching/semantic_matching"
+Extract: content_embedding based on entity_syntactic/entity_lexical/entity_semantic.
+Query: Create a vector database and store entity’s syntactic, lexical, and semantic information
+CREATEEXTENSION IFNOT EXISTSvector;
+DROP TABLEIFEXISTS{matching_table};
+CREATE TABLE{matching_table}
+(entity_idVARCHAR(1024)NOT NULLREFERENCES ontology_matching(entity_id), content TEXT, embedding vector(1536));
+INSERT INTO{matching_table} (entity_id, content, embedding)
+VALUES({entity_id}, {entity_syntactic}/{entity_lexical}/{entity_semantic}, {content_embedding});
+Output:One relational database table (ontology_matching) and three vector database tables (syntactic_matching, lexical_matching, and semantic_matching).
+answer for the first iteration of the entity “http://confOf#Chair_PC”,
+the Matching Agent outputs “http://confOf#Chair_PC” as the best
+matching entity found in the target ontology. The Matching Merger
+combines the results from the same procedure applied in the search
+from “http://confOf#Chair_PC” in the target ontology. These two
+terms are considered as matched entities only if the mapping can be
+found bidirectionally (i.e. “http://cmt#ProgramCommitteeChair” is
+also found to be the best matching entity in the source ontology for
+the search from “http://confOf#Chair_PC” in the target ontology).
+5 EV ALUATION
+5.1 Evaluation Criteria
+In information retrieval, a common assessment of matching tasks
+is based on comparing predicted results with the expected out-
+put. Precision and recall are used to measure the correctness and
+completeness of the matching, respectively. When adapting these
+measures to OM, the predicted results generated by the system are
+denoted Alignment (A), and the expected results provided by the
+
+Table 3: Tool calling in the Matching Agent.
+Tool: Hybrid Database Search with Metadata Matcher
+Input:entity_uri = “http://cmt#ProgramCommitteeChair”, source_or_target = “Source”
+matching_table = “syntactic_matching/lexical_matching/semantic_matching”
+Query: Find entity id
+SELECTo.entity_idFROMontology_matching o
+WHEREo.entity_uri = {entity_uri}ando.source_or_target = {source_or_target};
+Output:entity_id = “023-Source-Class-ProgramCommitteeChair”
+Query: Find entity metadata
+SELECTo.entity_type, m.embedding
+Fromontology_matching o, {matching_table} m
+WHEREo.entity_id = m.entity_idANDo.entity_id = {entity_id};
+Output:entity_type = “Class”, content_embedding = [...]
+Tool: Hybrid Database Search with Syntactic & Lexical & Semantic Matcher
+Input:content_embedding = [...], matching_table = “syntactic_matching/lexical_matching/semantic_matching”,
+similarity_threshold = 0.90, top_k = 3, source_or_target = “Source”, entity_type = “Class”
+Query: Find matching candidates
+WITH vector_matchesAS(
+SELECTentity_id, 1 - (embedding <=>'{content_embedding}')ASsimilarity
+FROM{matching_table}
+WHERE1 - (embedding <=>'{content_embedding}') >= {similarity_threshold})
+SELECTo.entity_id, v.similarityassimilarity
+FROMontology_matching o, vector_matches v
+WHEREo.entity_idIN(SELECTentity_idFROMvector_matches)
+ANDo.entity_id = v.entity_idANDo.source_or_target != {source_or_target}ANDo.entity_type = {entity_type}
+ORDER BYv.similarityDESC
+LIMIT{top_k};
+Output:matching_results = [(“syntactic_matching”, []), (“lexical_matching”, [“095-Target-Class-Chair_PC”]), (“semantic_matching”, [“103-Target-Class-
+Member_PC”, “114-Target-Class-Scholar”, “092-Target-Class-Author”])]
+Tool: Matching Summariser
+Input:matching_results = [...]
+Method:reciprocal_rank_fusion(matching_results)
+Output:matching_summary = [(1.0, [“095-Target-Class-Chair_PC”, “103-Target-Class-Member_PC”]), (0.5, [“114-Target-Class-Scholar”]), (0.33, [“092-Target-
+Class-Author”])]
+Tool: Matching Validator
+Input:entity_uri = “http://cmt#ProgramCommitteeChair”, matching_summary = [...], context = “conference”
+Extract:entity_name from entity_uri, each matching_entity_name from matching_summary.
+Prompt:Question: Is {entity_name} equivalent to {matching_entity_name}? Context: {context}
+Answer the question within the context. Answer yes or no. Give a short explanation.
+Output:best_matching_entity_id = “095-Target-Class-Chair_PC”
+“095-Target-Class-Chair_PC”: “Yes. In the context of a conference, the term ‘program committee chair’ is equivalent to ‘chair PC. ’ Both refer to the individual
+responsible for overseeing the program committee, which is tasked with organizing the conference’s academic or technical program, including the review
+and selection of submitted papers. ” (AI-generated content)
+“103-Target-Class-Member_PC”: “No. The program committee chair is not equivalent to a member of the program committee (PC). The program committee
+chair is responsible for overseeing the entire review process, coordinating the activities of the PC members, and making final decisions on the acceptance of
+submissions. In contrast, a member of the PC is primarily responsible for reviewing and evaluating submitted papers. ” (AI-generated content)
+Query: Find best matching entity
+SELECTo.entity_uriFROMontology_matching o
+WHEREo.entity_id = {best_matching_entity_id};
+Output:best_matching_entity_uri = “http://confOf#Chair_PC”
+Tool: Matching Merger
+Output:Merge the best matching entity in the source ontology for the search from “http://confOf#Chair_PC” in the target ontology.
+
+Figure 2: Storing“http://cmt#ProgramCommitteeChair”.
+domain experts are denoted Reference (R) [17]. Therefore, precision
+and recall for OM tasks are defined as:
+𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛= |𝐴∩𝑅|
+|𝐴| 𝑅𝑒𝑐𝑎𝑙𝑙= |𝐴∩𝑅|
+|𝑅| (5)
+Precision and recall are commonly combined into a single mea-
+sure F1 score, defined as:
+𝐹1𝑆𝑐𝑜𝑟𝑒= 2
+𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛−1+𝑅𝑒𝑐𝑎𝑙𝑙 −1 (6)
+5.2 Evaluation of Three OAEI Tracks
+In this section, we test our proof-of-concept system with three
+OAEI tracks containing different types of OM tasks. These include
+few-shot tasks with a small proportion of trivial correspondences
+(5.2.1 Test Case), simple tasks with a large proportion of trivial
+correspondences (5.2.2 Test Case 1 and 5.2.3 Test Case 3), complex
+tasks with a large proportion of non-trivial correspondences (5.2.2
+Test Case 2), with complex references (5.2.3 Test Case 1), or requir-
+ing domain-specific knowledge (5.2.3 Test Case 2). We report the
+evaluation metrics for the best-performing singular model gpt-4o
+and its hyperparameter settings over a single run. We ran multiple
+trials and found slight differences in the results due to the non-
+determinism of LLMs, but these differences are not significant with
+respect to the precision of the results we report. For all test cases
+in the three OAEI tracks, we select the hyperparameter settings of
+similarity_threshold = 0.90 and top@k = 3. See Section 6.2 for a
+discussion on the hyperparameter settings of Agent-OM.
+5.2.1 OAEI Conference Track.The OAEI Conference Track con-
+tains pairwise alignments for 7 small and medium-sized conference-
+related ontologies with a total of 21 matching tasks [11, 70, 71, 83].
+In each alignment, the trial correspondences that can be used to
+train the models are very limited (commonly less than 10). All
+conference ontologies in this track use the Type 1 naming conven-
+tion, where the names of classes and properties have meanings. In
+this study, we use the publicly available reference ra1-M3 as the
+reference (R), including class and property mappings.
+Figure 3 compares Agent-OM with the 15 OM systems in OAEI
+2022 and OAEI 2023. Agent-OM achieves above-average perfor-
+mance. Its overall F1 score ranks 3/13 in 2022 and 5/12 in 2023. We
+note that ra1-M3 is known to be missing valid equivalence map-
+pings. We believe that Agent-OM could achieve better performance
+over a complete reference such as ra2-M3 or rar2-M3. These are
+not publicly available at the time of writing.
+Figure 3: OAEI Conference Track Test Case.
+5.2.2 OAEI Anatomy Track.The OAEI Anatomy Track contains
+a reference alignment for the mouse anatomy and the human
+anatomy, created and evolved from [7, 9, 18, 21]. Both ontologies
+use the Type 2 naming convention, where the names of classes
+and properties are biomedical codes. We report the results of our
+evaluation in two parts: alignment with trivial correspondences
+and alignment with non-trivial correspondences.
+(1) Test Case 1: The track originally contains a large proportion
+of trivial correspondences that have the same standardised labels
+(e.g. “femoral artery” and “Femoral_Artery”). Figure 4 compares
+Agent-OM with the results of the 12 OM systems in OAEI 2022
+and OAEI 2023 for alignment with trivial correspondences. Almost
+all OM systems achieve relatively high precision and recall when
+matching with trivial correspondences. For Agent-OM, its overall
+F1 score ranks the second highest in 2022 and 2023.
+(2) Test Case 2: We remove these trivial correspondences from
+both the reference (R) and alignment (A) to focus the matching
+performance comparison on non-trivial correspondences. Figure 5
+compares Agent-OM with the results of the 12 OM systems in OAEI
+2022 and OAEI 2023 for alignment with non-trivial correspondences.
+We observe better performance by Agent-OM. The overall F1 score
+of Agent-OM is superior to the 11 OM systems including an LLM-
+based OM system OLaLa, and only behind one deep learning (DL)-
+based OM system Matcha [14], which could have benefited from
+an unusually large training set available for this case.
+5.2.3 OAEI MSE Track.The OAEI MSE Track provides reference
+alignments for ontologies in materials science and engineering [51].
+
+Figure 4: OAEI Anatomy Track Test Case 1.
+Figure 5: OAEI Anatomy Track Test Case 2.
+The track contains three test cases aligning MaterialInformation [5],
+MatOnto [32], and EMMO [19]. The MaterialInformation and Ma-
+tOnto use the Type 1 naming convention, while the EMMO uses
+the Type 2 naming convention.
+(1) Test Case 1: This test case provides a reference alignment for a
+fragment of MaterialInformation and the medium-sized MatOnto.
+The challenge of this task arises due to the reference intention-
+ally including several subsumption correspondences, when OM
+systems may mistakenly map subsumptions into equivalence rela-
+tions. Figure 6 compares Agent-OM with the results of the 4 OM
+systems in OAEI 2022 and OAEI 2023. Agent-OM achieves the best
+performance, with the highest F1 score.
+Figure 6: OAEI MSE Track Test Case 1.
+(2) Test Case 2: This test case provides a reference alignment for
+the complete MaterialInformation and the medium-sized MatOnto.
+The challenge of this task is to align many examples of specific
+terminology, abbreviations, and acronyms used in materials science.
+For example, “Au” stands for “Gold”, “Ag” stands for “Silver”, and
+“Cu” stands for “Copper”. Figure 7 compares Agent-OM with the
+results of the 4 OM systems in OAEI 2022 and OAEI 2023. Agent-
+OM achieves the best performance in precision, recall, and overall
+F1 score across the results of OAEI 2022 and OAEI 2023. We should
+expect an LLM-based matcher to have high recall on this test case
+due to its access to extensive training literature.
+Figure 7: OAEI MSE Track Test Case 2.
+(3) Test Case 3: This test case provides a reference alignment for the
+complete MaterialInformation and the medium-sized EMMO. The
+EMMO extends the upper ontology called Basic Formal Ontology
+(BFO). This means that the classes in the EMMO are somewhat
+standardised according to the BFO classes. Figure 8 compares Agent-
+OM with the results of the 4 OM systems in OAEI 2022 and OAEI
+2023. The performance of Agent-OM is competitive with the best of
+the OAEI 2022 results and in OAEI 2023 is bettered by the DL-based
+OM system Matcha.
+Figure 8: OAEI MSE Track Test Case 3.
+6 ABLATION STUDY
+6.1 System Components
+6.1.1 Architectures.We compare Agent-OM with two simpler ar-
+chitectures where the OM is much more reliant on straightforward
+LLM use. (1)LLM-Only: Given 𝑂𝑠 and𝑂𝑡 , this approach extracts
+each𝑒1∈𝑂 𝑠 and𝑒2∈𝑂 𝑡 . The matching decision is purely based
+
+on LLMs without any additional information. (2)LLM-with-Context:
+Given𝑂𝑠 and𝑂𝑡 , this approach extracts each𝑒1∈𝑂 𝑠,𝑒 2∈𝑂 𝑡 and
+their syntactic, lexical, and semantic information. The matching de-
+cision uses LLMs to determine whether two concepts are identical
+or not based on the information provided.
+The experiment is run on the CMT-ConfOf alignment demon-
+strated in Section 4.2. We use the GPT model gpt-4o. For Agent-OM,
+we choose the hyperparameter settings of similarity_threshold =
+0.90 and top@k = 3. Figure 9 compares Agent-OM withLLM-Only
+andLLM-with-Context.LLM-Onlyshows low precision and recall.
+LLM-with-Contextpartially overcomes this deficiency by providing
+additional information, but token consumption is extremely high
+without optimising the matching candidate selection. The perfor-
+mance ofLLM-with-Contextis unstable over multiple runs due to
+the effects of stochastic LLM results. Our Agent-OM architecture
+handles these challenges with tool calling agents and hybrid data-
+base searches. Note that the CMT-ConfOf alignment demonstrated
+here is a small alignment task, while Agent-OM is expected to be
+relatively more effective and efficient in large-scale OM tasks.
+Figure 9: Comparison with LLM-based architectures.
+6.1.2 LLMs.Figure 10 varies LLMs in Agent-OM on the OAEI
+Anatomy Track. In general, API-accessed models perform better
+than open-source models. The leading models, gpt-4o and claude-
+3-sonnet, are both large API-accessed models. Among open-source
+models, gemma-2-9b achieves the best performance, while llama-
+3-8b is relatively poor. Curiously, although we see improved per-
+formance with llama-3.1-8b over its previous version, qwen-2.5-7b
+does not show an advantage over its previous version. This may
+be a side effect of LLM developers optimising for tasks other than
+OM. We experimented with other LLMs derived from the Llama
+and Qwen families and generally found poor performance, possibly
+due to the fine-tuning for specific tasks.
+6.1.3 Text Embedding Models.We also test three different text em-
+beddings in [56] on the OAEI Anatomy Track. The default length of
+the embedding vector is 1536 for text-embedding-ada-002 and text-
+embedding-3-small, and 3072 for text-embedding-3-large. We do not
+observe a significant difference arising from varying the text embed-
+dings from text-embedding-3-small to text-embedding-3-large. We
+do not see that text-embedding-3-small and text-embedding-3-large
+perform better than text-embedding-ada-002.
+Figure 10: Comparison of different LLMs. API-accessed mod-
+els are shown as triangles and open-source models as circles.
+6.1.4 Hybrid Database.The use of a hybrid database unlocks the
+potential for search-based OM. We define𝑁𝑠 and𝑁𝑡 as the number
+of entities extracted from the source ontology (𝑂𝑠) and the target
+ontology (𝑂𝑡 ), respectively. In naive LLM-based OM, the match-
+ing is performed using binary questions to compare each pair of
+entities from𝑂𝑠 and𝑂𝑡 based on their relevant information. The
+complexity of the comparison is𝑁𝑠×𝑁𝑡 (for retrieval and match-
+ing). In search-based OM, we first retrieve entity information from
+𝑂𝑠 and𝑂𝑡 and store it in a hybrid database. Following our design
+and implementation in Section 3 and 4, the complexity is𝑁𝑠+𝑁𝑡
+(for retrieval) + 0 (for search) +𝑘(𝑁𝑠+𝑁𝑡) (for validation) + 0 (for
+merge). Search-based OM is cost-effective because the inequality
+(𝑘+ 1)(𝑁𝑠+𝑁𝑡)<𝑁 𝑠×𝑁𝑡 always holds in common OM task set-
+tings where𝑁𝑠,𝑁𝑡≫𝑘+ 1. We also apply two tools to reduce LLM
+hallucinations: the matching validator and the matching merger.
+6.1.5 Matching Validator.We employ a matching validator by ask-
+ing the LLM to self-check the candidate correspondences. It is
+helpful in detecting two common types of false positive mappings:
+(1) non-existent mappings and (2) counter-intuitive mappings. Fig-
+ure 11 compares precision, recall, and F1 score with and without
+validation in the three OAEI tracks we analysed. The matching
+results with validation generally achieved an improvement in pre-
+cision and F1 score, with a slight decrease in recall. This is in line
+with the findings in CoT with self-consistency (CoT-SC) [77], where
+the provision of a self-check can reduce LLM hallucinations. Our
+experiment set the hyperparameters to similarity_threshold = 0.90
+and top@k = 3, so the improvement in matching performance is
+not statistically significant, but the matching validator will have a
+great impact on performance with lower similarity thresholds and
+higher top@k values.
+6.1.6 Matching Merger.We apply a merge function 𝑂𝑠 ⇔𝑂 𝑡
+combining the results of 𝑂𝑠⇒𝑂 𝑡 and𝑂𝑠⇐𝑂 𝑡 to improve the
+matching performance. Figure 12 shows the comparison of preci-
+sion, recall, and F1 score in𝑂𝑠⇒𝑂 𝑡 ,𝑂𝑠⇐𝑂 𝑡 , and𝑂𝑠⇔𝑂 𝑡 in
+the three OAEI tracks we analysed. The merged matching results
+generally achieved a significant improvement in precision and F1
+score, with a slight decrease in recall. The results are in line with the
+findings in RAG-Fusion [65], where providing two different paths
+to perform the same matching task can reduce LLM hallucinations.
+
+Figure 11: Comparison of without/with matching validator.
+Figure 12: Comparison ofO s⇒O t,O s⇐O t, andO s⇔O t
+6.2 Hyperparameter Settings
+6.2.1 Similarity Threshold.We test the similarity threshold 𝑇∈
+[0.50, 0.55, 0.60,..., 0.90, 0.95, 1.00] in the three OAEI tracks we anal-
+ysed. The optimal similarity threshold appears to be𝑇∈[ 0.90, 0.95],
+balancing the trade-off between precision and recall, thus achieving
+a higher overall F1 score. If we consider the similarity threshold
+as the required confidence interval (CI) for candidates for equiva-
+lence matching, this setting reflects the convention of accepting a
+5-10% probability of observing values outside the estimation. The
+insensitivity of the results to the threshold value is more apparent
+in large-scale OM tasks, such as the OAEI Anatomy Track.
+6.2.2 Top@k.We also test the top@k values 𝑘∈[ 1, 2, 3,..., 8, 9, 10]
+in the three OAEI tracks we analysed. We observe that𝑘= 1and
+𝑘= 2do not provide enough candidates for the LLM to select,
+while appropriate correspondences are rarely found where𝑘> 5.
+We recommend setting𝑘∈[ 3, 4, 5] to balance the computational
+complexity and precision of the results. Note that we deal with the
+tie-break case where multiple entities have the same RRF scores. In
+such cases, the total number of entities tested may be greater than
+𝑘because these equally-scored entities share the same ranking.
+6.2.3 How to choose Similarity Threshold and Top@k?Ontologies
+are context-dependent conceptual models that follow different con-
+ventions and restrictions to reflect different application-level re-
+quirements [68]. The hyperparameter settings can be adjusted for
+each specific OM task using reference mappings to achieve an opti-
+mal result. We observe that higher similarity thresholds and lower
+top@k values could result in high precision where most of the
+trivial mappings can be found, but some more obscure true map-
+pings may be missed, lowering recall. On the other hand, lower
+similarity thresholds and higher top@k values could result in high
+recall, but the precision may be low as more false mappings are
+generated during the matching process. This indicates that the ap-
+plied matching refinements (validator and merger) would be more
+powerful in settings with lower similarity thresholds and higher
+top@k values. We found in our extensive OAEI experiments that
+threshold𝑇∈[ 0.90, 0.95] and top@k𝑘∈[ 3, 4, 5] were optimal.
+In the real-world application of Agent-OM to a matching problem
+with no reference, we advise choosing𝑇 and𝑘 within these ranges.
+7 DISCUSSION
+Google DeepMind classifies AI autonomy into 6 levels [ 49]. We
+believe that the potential of LLMs is not only as a consultant, a
+collaborator, or an expert to answer binary classification questions
+in OM tasks, but also as an agent to simulate human behaviour in
+performing OM tasks, including data preprocessing, data prepara-
+tion, data analysis, and data validation. Higher autonomy reduces
+barriers to accessing LLMs in OM tasks.
+(1) LLM-agent-based OM is more efficient than LLM-based OM.
+LLMs are computationally expensive. While LLM-based OM using
+binary classification questions has repetitive LLM prompting, LLM-
+agent-based OM leverages the vector database to store ontology
+retrieval results, reducing the financial cost of token consumption.
+(2) LLM-agent-based OM is also more effective than LLM-based
+OM. LLM-based OM is commonly observed to have limitations.
+Due to the nature of its large knowledge base, it is possible to dis-
+cover positive correspondences but also to find unavoidable false
+mappings or missing true mappings. LLMs are zero-shot reason-
+ers [37], but they are also few-shot learners [ 10]. Their capacity
+for reasoning depends on the richness of the information provided.
+With the assistance of autonomous agents for extensive planning,
+tools, and memory, LLM-agent-based OM can unlock the potential
+of LLMs and therefore feature the following advantages:
+(a) Context Learning: LLMs have a large corpus of background
+knowledge. Given a context, LLMs can select relevant background
+knowledge and therefore perform better in lexical matching.
+(b) Transitive Reasoning: LLMs can reason on transitive relation-
+ships. They can also understand general and domain-specific sce-
+narios and apply lexical validation when necessary.
+(c) Self Correction: LLMs have a strong capacity for self correction.
+Even given a wrong statement, LLMs have good judgement to auto-
+matically remove false mappings. For example, semantic matching
+can cause false mappings because it considers only the data struc-
+ture and ignores the linguistic meaning of the entity. However, such
+a small piece of false information does not influence the correct
+truth that LLMs nevertheless learn.
+Despite the success of agent-powered LLMs for OM, there may
+be further opportunities for improvement as follows.
+(1) A matching process could be more complex. Although CoT
+may simulate how humans plan and perform tasks, it is still an
+incomplete model of human thought. Human reasoning employs a
+more complex network of thoughts, as humans tend to try different
+isolated paths (i.e. ToT, tree of thoughts [41, 81]), explore multiple
+paths (i.e. GoT, graph of thoughts [8, 82]), and backtrack, split, or
+merge to find the optimal solution to the problem. For example,
+people may use discovered mappings as input to the next iteration.
+
+(2) Prompt engineering is the key to instructing efficient LLM
+agents. These prompts are currently hand-crafted. For prompt-
+based tools, different LLMs may have varying default chat templates.
+Finding generic prompts across all LLMs is almost impossible. How-
+ever, we provide the simplest standardised version of the prompts
+from our experiments. The prompts used in our system currently
+support mainstream LLMs, such as OpenAI GPT models, Authropic
+Claude models, Meta Llama 3, Alibaba Qwen 2, Google Gemma 2,
+and ChatGLM 4. For those models not included in the list, we also
+provide an interface to add new LLMs to our system, but it may
+require minor code customisation to fit the LLMs used. We expect
+that our system will support more models via open-source commu-
+nity efforts in the future. We seek automatic prompt engineering
+and will consider using soft prompts in future versions.
+(3) LLM hallucinations can be mitigated, but cannot be eliminated.
+The accuracy of the RAG remains an open question. Human-in-the-
+loop may remain necessary [58]. Advanced RAG techniques, such
+as including the explanatory context in the RAG process [4], are
+promising directions.
+(4) There is a trade-off between precision and recall. Strict rules
+could result in high precision where most of the trivial true map-
+pings can be found, but some obscure true mappings may be missing.
+On the other hand, loose rules could result in a high recall score, but
+the precision score may become very low as more false mappings
+are generated during the matching process.
+(5) For LLMs used for OM, we find Moravec’s paradox [48]: “the
+hard problems are easy and the easy problems are hard”(p192) [61].
+Although Agent-OM performs well in complex and few-shot OM
+tasks, it is not outstanding on simple OM tasks. We will also consider
+integrating the LLM-based approach with traditional knowledge-
+based and ML-based approaches.
+8 LIMITATIONS
+(1) We evaluate only the TBox matching datasets that match classes,
+object properties, and datatype properties. ABox matching datasets
+(including individual data instances) are not considered due to
+privacy concerns in our targeted application domain. Additional
+data engineering (e.g. data de-identification and fuzzing) may be
+required to apply LLMs to ABox matching datasets to avoid personal
+and sensitive information exposure.
+(2) Due to the high cost of API calls for API-accessed commer-
+cial LLMs, experiments with the newest commercial models (e.g.
+OpenAI o1 and Anthropic claude-3-opus) are not included in this
+study. According to our findings in Section 6.1.2, we hypothesise
+that these models could achieve better performance in OM tasks.
+(3) There may be additional resource requirements for running
+open-source LLMs locally. The run time for API-accessed commer-
+cial LLMs is controlled by the LLM providers.
+9 FUTURE WORK
+(1) Multimodal OM: We have packaged our system into several
+natural language-based commands. It could be integrated with
+advanced LLM functions to support multimodal input, such as
+ontology diagrams and online seminars. The richer information
+sources might improve OM performance.
+(2) Multilingual OM: Agent-OM supports ontologies in multiple
+languages. We tested it on the OAEI MultiFarm Track, an adapted
+conference dataset with ontologies translated into nine different
+languages. The results are not included here because there are few
+benchmarks available.
+(3) Small language models (SLMs) for OM: SLMs (e.g. gemma-2-2b)
+are useful in resource-constrained devices, but they have problem-
+atic tool interfaces at present.
+10 CONCLUSION
+In this paper, we introduce a new design paradigm for OM systems.
+Agent-OM, an agent-powered LLM-based framework, is proposed
+and implemented with a proof-of-concept system. We compare
+our system with state-of-the-art OM systems to perform different
+types of OM tasks. The system has shown a powerful capability
+to perform OM tasks at different levels of complexity, leveraging
+the potential of using LLM agents for OM. We also discuss our
+observations on the advantages and current limitations of using
+LLMs and LLM agents for OM tasks.
+Our work focuses on large pre-trained foundation models that
+are impossible to retrain and hard to fine-tune. Our approach yields
+good results on LLMs for OM tasks without changing the LLM
+model itself, but by utilising CoT, ICL/RAG, and prompt engineering
+techniques. It is a simple, lightweight, and natural language-driven
+approach with high scalability. Agent-OM is all you need. While
+OM has been studied for two decades or more, we are now at a
+point where the goal of 100% accurate, fully-automated, and domain-
+independent OM seems to be within reach.
+ACKNOWLEDGMENTS
+The authors thank the reviewers for providing insightful comments.
+The authors thank Sven Hertling for curating the Ontology Align-
+ment Evaluation Initiative (OAEI) datasets. The authors thank the
+organisers of the Conference Track (Ondřej Zamazal, Jana Vatašči-
+nová, and Lu Zhou), the Anatomy Track (Mina Abd Nikooie Pour,
+Huanyu Li, Ying Li, and Patrick Lambrix), and the MSE Track (Engy
+Nasr and Martin Huschka), for helpful advice on reproducing the
+benchmarks in OAEI 2022 and OAEI 2023. The authors thank Jing
+Jiang from the Australian National University (ANU) for helpful ad-
+vice on the verbalisation tool used in the paper. The authors thank
+Alice Richardson from the ANU Statistical Support Network for
+helpful advice on the statistical analysis used in the paper. The au-
+thors thank the Commonwealth Scientific and Industrial Research
+Organisation (CSIRO) for supporting this project.
+Agent-OM did not participate in the OAEI 2022 and 2023 cam-
+paigns. According to the OAEI data policy (retrieved December 1,
+2024), “OAEI results and datasets, are publicly available, but subject
+to a use policy similar to the one defined by NIST for TREC. These
+rules apply to anyone using these data. ” Please find more details
+from the official website: https://oaei.ontologymatching.org/doc/
+oaei-deontology.2.html.

@@ -1,0 +1,491 @@
+record_id: arxiv:2605.10057
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2605.10057
+fetched_title: STAR: Failure-Aware Markovian Routing for Multi-Agent Spatiotemporal Reasoning
+fetched_at: 2026-09-18T19:00:52Z
+
+STAR: Failure-Aware Markovian Routing for
+Multi-Agent Spatiotemporal Reasoning
+Ruiyi Yang1, Lihuan Li1,
+Hao Xue1,2,Flora D. Salim 1,
+1University of New South Wales,
+2The Hong Kong University of Science and Technology (Guangzhou),
+Correspondence:ruiyi.yang@unsw.edu.au, flora.salim@unsw.edu.au
+Abstract
+Compositional spatiotemporal reasoning often requires a system to invoke multiple
+heterogeneous specialists, such as geometric, temporal, topological, and trajectory
+agents. A central question is how such a system should route among specialists
+when execution does not simply succeed or fail, but fails in qualitatively different
+ways. Existing tool-augmented and multi-agent LLM systems typically leave this
+routing decision implicit in language generation, making recovery ad hoc, difficult
+to interpret, and hard to optimize. This paper presents STAR(Spatio-Temporal
+AgentRouter), a failure-aware routing framework that externalizes inter-agent
+control as a state-conditioned transition policy over the current agent, task type,
+and typed execution status. At the center of STARis an agent routing matrix
+that combines expert-specified nominal routes with recovery transitions learned
+from execution traces. Because the matrix conditions on distinct failure states, the
+router can respond differently to malformed outputs, missing dependencies, and
+tool–query mismatches, rather than collapsing them into a generic retry signal.
+Specialists execute through a tool-groundedextract–compute–depositprotocol and
+write intermediate results to a shared blackboard for downstream fusion. Results
+prove that retaining unsuccessful traces during training enlarges the support of
+the routing policy on error states, enabling recovery transitions that success-only
+training cannot represent. Across three spatiotemporal benchmarks and eight
+backbone LLMs, STARimproves over multiple baselines with the clearest gains on
+queries whose execution deviates from the nominal routing path. Router-specific
+ablations and recovery analyses further show that typed failure-aware routing,
+rather than specialist composition alone, is a key factor for these improvements.
+1 Introduction
+Spatiotemporal reasoning requires models to combine heterogeneous forms of computation, including
+geometric localization, temporal relation reasoning, route planning, trajectory analysis, and graph-
+structured inference [17, 9, 15]. Complex queries often invoke these computations sequentially, where
+downstream steps depend strictly on intermediate results produced by earlier ones. Consequently, the
+core challenge lies not just in executing individual computations, but in determiningwhichspecialist
+should act next as the execution unfolds. We study this under the lens offailure-aware specialist
+routing: determining the optimal next specialist given the current agent, the task type, and, crucially,
+the observed execution outcome.
+This question is especially important when execution deviates from the nominal path. Failures in
+specialist pipelines are not monolithic: an agent may produce a malformed output, become blocked
+because a required upstream result is missing, or fail because its tool menu cannot resolve the query.
+Preprint.
+arXiv:2605.10057v3 [cs.AI] 15 May 2026
+
+These cases require different routing decisions, such as retrying with a sibling specialist, rerouting to
+an upstream producer, or escalating to another agent family. However, existing tool-augmented and
+multi-agent LLM systems often leave such control decisions implicit in language generation, making
+recovery difficult to inspect, optimize, and reuse across executions [26, 10].
+Figure 1: STARarchitecture. Queries are parsed into a task profile, the failure-aware routing matrix
+selects specialists conditioned on the current agent, task type, execution status, and specialists execute
+through an extract-compute-deposit protocol over a shared blackboard before final fusion.
+This paper proposes STAR(Spatio-TemporalAgentRouter), a failure-aware routing framework that
+externalizes inter-agent control into a state-conditioned transition policy. At the center of STARis an
+agent routing matrix indexed by the current agent, task type, execution status, and next agent. The
+matrix combines expert-specified nominal routes for successful execution with recovery transitions
+learned from execution traces. By conditioning on typed statuses such as malformed output, missing
+dependency, and tool–query mismatch, STARtreats recovery as an explicit routing problem rather
+than as an implicit byproduct of LLM generation. Specialists execute through a tool-grounded
+extract–compute–depositprotocol. The LLM selects a computation and extracts its parameters,
+deterministic tools perform the computation, and the resulting intermediate state is deposited into a
+shared blackboard for downstream agents and final fusion. This protocol exposes typed execution
+outcomes to the router and provides the intermediate state needed for recovery transitions.
+Our central claim is that typed execution feedback should be treated as a first-class control signal
+for multi-agent reasoning. Structurally, retaining unsuccessful traces enlarges the support of the
+learned routing policy on error states, enabling recovery transitions that success-only training cannot
+represent. Throughout experiments, STARimproves over LLM-only, prompting-based, and agentic
+baselines. Router-specific ablations and recovery analyses further show that the gains are concentrated
+on executions that deviate from the nominal route, isolating the contribution of failure-aware routing
+rather than specialist composition alone. Our keycontributionsare:
+1. Failure-aware specialist routing.STARformulates specialist composition as a state-conditioned
+routing problem over the current agent, task type, and typed execution status, making recovery
+decisions explicit rather than leaving them implicit in language generation.
+2. An interpretable agent routing matrix.A routing matrix is introduced combining expert nominal
+routes with learned recovery transitions from execution traces. The matrix conditions on distinct
+failure modes, including malformed outputs, missing dependencies, and tool–query mismatches.
+3. Tool-grounded execution with shared intermediate state.The routing policy is instantiated in a
+spatiotemporal multi-agent system where specialists follow an extract–compute–deposit protocol
+and write intermediate results to a shared blackboard for downstream fusion.
+4. Structural and empirical evidence for recovery-aware routing.Experiment results proved
+that retaining unsuccessful traces enables recovery transitions that success-only training cannot
+represent. Across three benchmarks and eight backbone LLMs, router-specific ablations and
+recovery analyses demonstrate that typed failure-aware routing improves robustness especially on
+executions that deviate from the nominal path.
+2
+
+2 Related Work
+Tool-augmented reasoning and self-correction.Tool-augmented language models extend LLMs
+with access to external tools, APIs, code execution, and symbolic or numerical solvers during
+reasoning [20, 31, 12, 16, 4]. These systems improve performance on tasks requiring computation,
+retrieval, planning, or environment interaction. Related work on self-correction and reflection further
+improves reasoning by asking models to critique, revise, or retry unsuccessful outputs [18, 13, 23].
+However, tool choice and recovery are often still handled through free-form generation, textual
+feedback, or iterative retries.
+Multi-agent LLM systems and shared memory.Multi-agent LLM frameworks decompose
+complex tasks across role-specialized agents and coordinate them through dialogue, role prompting,
+message passing, or hand-authored workflows [27, 8, 22, 25]. Shared-memory and blackboard-style
+architectures allow agents to accumulate intermediate results in a common workspace [7, 19]. These
+systems make intermediate reasoning more accessible, but recovery from intermediate failures is
+often treated as another round of interaction or as a manually specified fallback.
+Learned routing and hierarchical control.Selecting among heterogeneous sub-behaviors has
+long been studied in hierarchical decision-making, options, modular policies, and mixture-of-experts
+routing [24, 21, 6, 14, 29]. These approaches separate high-level control from low-level execution,
+providing a useful perspective for routing among specialist modules. In LLM-agent systems, however,
+routing decisions are often produced by latent generation behavior or task-level prompts rather than
+by an explicit execution-state transition model.
+Spatiotemporal reasoning with language models.Recent benchmarks show that LLMs struggle
+with spatiotemporal reasoning across spatial relations, temporal ordering, forecasting, navigation,
+trajectories, and graph-structured inference [17, 9, 15]. Prior studies have explored temporal reasoning,
+neuro-symbolic temporal reasoning, multimodal spatiotemporal reasoning, and spatial reasoning with
+LLMs [28, 5, 3, 1, 11]. These tasks provide a natural testbed for specialist composition because they
+require heterogeneous computations and expose distinct execution failure modes.
+Positioning.Our STARlies at the intersection of tool-augmented reasoning, multi-agent coordi-
+nation, and learned routing. Its focus is not on adding more specialists or tools, but on making
+inter-agent control explicit through a failure-aware routing matrix. By conditioning routing on the
+current agent, task type, and typed execution status, STARseparates the question of what went wrong
+from the question of which specialist should act next.
+3 Method
+STARis a failure-aware routing framework for specialist composition in spatiotemporal reasoning.
+The key design is to separate specialist execution from inter-agent control: agents produce intermedi-
+ate results and typed execution statuses, while the router decides which agent should act next. This
+separation is necessary because different failures require different successors. A malformed output,
+a missing upstream dependency, and a tool–query mismatch should not be collapsed into the same
+retry behavior. Given a queryq, a state-conditioned routing policyπ composes a pool of specialist
+agentsAthrough a shared blackboardB, and the final answer is produced by the fusion agent:
+F(q) =a FUSE (BK,q),B K =E(q,π,A).
+The central object in STARis a routing matrix indexed by current agent, task type, execution status,
+and next agent.
+3.1 Failure-Aware Routing Formulation
+We formalize specialist composition as routing over execution states:
+G= (A,S,T,π,B,Φ), π:A×S×T →∆(A)
+whereA is the agent set,T is a finite task-type set,B is the blackboard state space, and Φ ={ϕ a} is
+the set of per-agent execution functions. The transition kernelπ maps the current agent, observed
+execution status, and task type to a distribution over next agents.
+3
+
+The execution-status set isS={INIT,SUCC,FAIL,BLOCK,MISS}. Here, INIT and SUCC denote
+initialization and successful execution. The three error states have distinct operational meanings:
+FAIL denotes a malformed result, BLOCK denotes a missing upstream dependency, and MISS denotes
+a tool–query mismatch. Recovery is treated as a routing problem rather than free-form generation.
+3.2 State-Conditioned Routing Matrix
+The routing kernel combines stable nominal routes with learned recovery transitions:
+π(a′|a,s,t) =
+π1(a′|a,s,t),(a,s,t)∈Ω 1,
+π2(a′|a,s,t),otherwise. (1)
+For nominal statess∈{INIT,SUCC} ,System 1follows an expert successor function σt for each task
+typet:π 1(a′|a,s,t) =1[a ′ =σ t(a)].For error statess∈{FAIL,BLOCK,MISS},System 2uses a
+learned recovery matrixM∈R N×|S|×|T|×N
+≥0 ,with
+π2(a′|a,s,t) =M[a,s,t,a ′] = C[a,s,t,a ′]P
+a′′ C[a,s,t,a ′′].(2)
+Each row M[a,s,t,·] is a recovery profile: conditioned on the current agent a, task type t, and
+statuss, it assigns mass to candidate successor agents. Thus, the same agent and task type can route
+differently underFAIL,BLOCK, andMISS.
+Figure 2: State-conditioned routing matrix slices for a representative task type. Each panel visualizes
+a row M[a,s,t,·] with fixed current agent a and task type t but different execution statuss. The
+differing successor distributions show that recovery is conditioned on the type of failure rather than
+treated as a generic retry action.
+3.3 Specialist Execution via Extract–Compute–Deposit
+Each agenta∈A (1) exposes a computation menuMa of deterministic functions and executes
+ϕa(B,q) =
+
+s,B∪{(a,m ∗(θ))}
+
+,(3)
+where m∗ =select(q,B,M a) is the LLM-selected computation, θ=extract(q,B) are the
+extracted parameters, andm∗(θ) is the deterministic output. The LLM handles computation selection
+and parameter extraction, while numerical, geometric, temporal, and graph operations are delegated
+to deterministic solvers. Each specialist returns an updated blackboard and a statuss∈S , making
+execution outcomes observable to the routing matrix. The HEAD agent produces the query profile,
+the FUSION agent synthesizes the final answer, and full menus are provided in Appendix J.
+3.4 Failure-Aware Matrix Training
+For each training query (qi,yi) with task type ti, we execute the pipeline, record the trace ξi =
+[(a(i)
+0 ,s (i)
+0 ),...], and determine final-answer correctness ri ∈ {0,1}. Observed transitions are
+weighted as w(ri) =r i +α(1−r i), α∈(0,1), so successful traces receive weight 1 and
+unsuccessful traces receive attenuated weightα. The weighted count tensor is
+C[a,s,t,a ′] =
+X
+i
+X
+j
+w(ri)1
+
+a(i)
+j =a, s(i)
+j =s, ti =t, a(i)
+j+1 =a′
+.(4)
+4
+
+Routing feedback loop.The
+routing matrix dispatches spe-
+cialists based on the current
+agent, task type, and execution
+status. After execution, special-
+ists write typed status signals to
+the blackboard, which updates
+subsequent routing decisions.
+Figure 3: Failure-aware routing and execution feedback in STAR. Specialists return typed signals
+such as SUCCESS, BLOCK, MISS, and FAIL; the execution-state blackboard stores these signals and
+supports subsequent routing and final fusion.
+Row-normalizing C yields the recovery matrixM in Eq. 2. When an agent enters an error state during
+training, candidate recovery specialists are also evaluated on the same query, and successful recoveries
+are added to the corresponding row of C. This augmentation is used only to construct the matrix; at
+inference time, routing is determined by M without oracle recovery signals. A terminal constraint
+enforcesa FUSE as an absorbing state. The role ofαis to retain information from unsuccessful traces
+so that recovery transitions remain observable. The empirical precision–coverage trade-off ofα is
+analyzed in Appendix A.4.
+3.5 Inference with Parallel Activation
+Algorithm 1STARinference
+Require:Queryq, kernelπ, agentsA, thresholdτ, max stepsT
+1:B 0←∅,R←∅
+2:(t,p)←ϕ aHEAD (B0,q);B 1←{(HEAD,p)};a←a HEAD ;s←SUCC
+3:fork= 1,...,Tdo
+4:A next←{a′ :π(a′|a,s,t)≥τ}\R
+5:ifa FUSE∈A next then
+6:returna FUSE (Bk,q)
+7:end if
+8:{(s a′,B a′
+)}a′←scatter
+
+{ϕa′ (Bk,q)} a′∈Anext
+
+9:B k+1←B k∪S
+a′Ba′
+10:R←R∪{a ′ :s a′ =FAIL}
+11:(a,s)←pivot({(a ′,s a′ )}a′∈Anext )
+12:end for
+13:returna FUSE (BT,q)
+At inference time, the router activates all successor agents whose probabilities exceed a threshold
+τ. The system can execute multiple plausible successors in parallel when the routing matrix assigns
+mass to several candidates. The activated agents run in a scatter–gather step, deposit their outputs
+into the blackboard, and return typed statuses. A fixed pivot rule then selects the next control state
+from the returned statuses. Error statuses are prioritized for recovery, while failed agents are retired
+to avoid repeated malformed executions. Detailed inference algorithm is shown in Algorithm 1.
+3.6 Recovery Reachability
+Failure-aware training is necessary for representing recovery transitions in the learned routing matrix.
+If training retains only successful traces, then error-state rows that are visited only by unsuccessful
+executions remain empty. Unsuccessful traces are not merely negative examples: they provide
+evidence needed to populate otherwise empty recovery rows of the routing matrix. Theorem 1shows
+the recovery reachability dominance, while the full proof are deferred to Appendix A.
+Theorem 1(Recovery Reachability Dominance).Let Mα be the transition matrix trained with
+w(r) =r+α(1−r) forα>0 , and let M0 be the success-only matrix. For any error state (a,s,t)
+5
+
+Figure 4: Routing example through the dual-system kernel. System 1 nominal routes (green arrows)
+handle SUCC transitions, while System 2 learned recovery transitions (red arrows) handle FAIL,
+BLOCK, andMISSby escalating to alternative specialists or rerouting to fill missing dependencies.
+withs∈{FAIL,BLOCK,MISS},
+suppMα[a,s,t,·]
+≥
+suppM 0[a,s,t,·]
+,
+with strict inequality whenever at least one unsuccessful trace traverses (a,s,t) with a successor not
+observed in successful traces.
+Proof sketch. From Eq. 4, each transition count is weighted byw(r) =r+α(1−r) . Whenα>0 ,
+both successful and unsuccessful traces contribute nonzero weight, so any successor observed from
+an error state remains represented in the corresponding row of Mα after normalization. Whenα= 0 ,
+unsuccessful traces contribute zero weight, so successors observed only in unsuccessful executions
+disappear from M0. The support containment follows immediately, and the inequality is strict
+whenever an unsuccessful trace contributes a successor not observed in successful traces.
+4 Experiments
+4.1 Setup
+Three spatiotemporal benchmarks are evaluated: STARK [17] (26 task types), STBench (henceforth
+STB24) [9] (11 task types), and ST-Bench (2026) (henceforthSTB26) [15] (4 task types). We use
+eight backbone LLMs spanning proprietary and open-source families from 3B to 20B parameters.
+The primary metric is exact match (EM) with numeric tolerance, while regression tasks are evaluated
+with RMSE/MAE. Baselines include LLM-only, LLM-only with extended reasoning, Reflexion [23],
+ReAct [31], Tree-of-Thought [30], Graph-of-Thought [2, 32], and function-calling. Unless otherwise
+noted, the routing matrix uses α= 0.3 andτ= 0.4 . Full implementation details, prompts, and
+per-task results are deferred to Appendices D–F.
+4.2 Main Results
+Table 1: STARvs. prompting and agent baselines
+(Qwen3-8B, EM-eligible queries; 95% Wilson
+CIs).
+Method STARK STB24 STB26
+STAR(ours) 73.0±1.676.3±1.855.3±2.9
+Reflexion 68.8±2.137.2±2.940.0±3.5
+ReAct 65.6±2.331.8±2.626.7±3.1
+Tree-of-Thought 62.8±2.411.8±2.140.0±3.5
+Graph-of-Thought 61.7±2.410.2±5.742.5±3.7
+LLM-only (CoT) 59.4±1.834.2±1.945.0±2.9
+LLM-only 55.4±1.831.9±1.837.5±2.8
+Function-calling 31.9±2.120.8±2.333.3±3.0
+Table 1 compares STARagainst prompt-
+ing and agent baselines on the Qwen3-
+8B backbone. STARoutperforms
+Reflexion ( +4.2/+39.1/+15.3pp on
+STARK/STB24/STB26), ReAct, Tree-of-
+Thought, Graph-of-Thought, plain LLM-only
+(+17.6/+44.4/+17.8pp), LLM-only with
+extended reasoning, and a function-calling base-
+line on all three benchmarks, with the largest
+gains on STB24 where structured computation
+is especially important. Additional per-task
+comparisons, including against published
+STB24 baselines, are reported in Appendix B.
+Table 2 reports per-benchmark EM for both LLM-only and STARacross all eight backbones, with
+cell shading on each side proportional to the value. STARconsistently outperforms LLM-only on
+every benchmark; Qwen3-8B provides a strong efficiency–accuracy trade-off at substantially lower
+latency than GPT-OSS-20B and is used as the default backbone for all subsequent ablations.
+6
+
+Table 2: Per-benchmark EM (%) across eight backbones on EM-eligible queries. For each backbone
+we report LLM-only (red columns) and STAR(blue columns) per benchmark; cell shading is
+proportional to the value, so a darker blue cell next to a lighter red cell indicates a larger STARlift.
+Five numeric prediction types (two STARK, two STB24, one STB26) are excluded from EM and
+reported in Table 15; STAR“±” values are 95% Wilson half-widths (App. I).
+LLM-onlySTAR(ours)
+Model Params STARK STB24 STB26 STARK STB24 STB26 Lat Tok
+Proprietary
+Claude Sonnet 4.6 – 71.4 45.2 30.1 79.3±2.7 83.3±2.4 64.5±5.614.0 5,500
+Claude Haiku 4.5 – 70.3 28.7 45.6 74.6±2.8 76.1±2.6 55.0±5.88.9 4,073
+Open-source
+GPT-OSS-20B 20B 67.9 51.4 47.2 75.1±1.6 71.8±1.8 59.2±2.97.1 5,312
+Qwen3-8B 8B 55.4 31.9 37.5 73.0±1.6 76.3±1.8 55.3±2.91.6 4,191
+Ministral-3-8B 8B 51.3 32.1 42.0 64.1±1.8 66.8±1.9 46.2±2.91.9 4,625
+Llama-3.1-8B 8B 50.4 31.5 38.6 67.8±1.7 48.2±2.0 43.9±2.92.2 4,161
+GLM-4-9B 9B 52.9 37.0 45.6 65.3±1.8 48.4±2.0 48.3±2.91.8 3,746
+Llama-3.2-3B 3B 41.8 22.3 32.0 51.8±1.9 43.1±2.0 39.1±2.81.3 4,013
+4.3 Routing Mechanism Analysis
+This section asks whether the proposed routing formulation is necessary, not merely whether the
+broader system helps. Framework-level ablations (Table 3) remove non-routing components—tools,
+blackboard, HEAD classification—while router-specific ablations (Table 4) vary only the routing
+kernel and are the more informative test of state-conditioned routing itself.
+Table 3 shows that the non-routing scaffolding is load-bearing. Removing the blackboard causes the
+largest drop, especially on STARK, confirming that shared intermediate state is critical for fusion.
+Removing deterministic tools substantially hurts STARK, while simple routing without HEAD
+classification reduces accuracy and increases token cost. These results show that tools, blackboard
+accumulation, and HEAD routing are all important.
+Table 3: Framework-level ablations. Each row removes a non-routing component from the full
+system.
+Config Description STARK STB24 STB26
+STAR(full) Complete system73.0±3.176.3±3.555.3±7.4
+Simple routing No HEAD classification 68.3±3.265.7±3.950.4±7.4
+No tools Agents reason without deterministic
+solvers
+45.1±3.549.8±4.240.7±7.3
+No blackboard Agents run butB not passed to FU-
+SION
+21.6±2.946.6±4.246.8±7.4
+LLM-only No routing formulation, chain-of-
+thought only
+59.4±3.434.2±4.045.0±7.4
+The ablation in Table 4 further isolate the role of each routing component. System 1 carries much
+of STARK, while System 2 is especially important on STB24: disabling System 2 leaves STARK
+unchanged but costs 13.3pp on STB24’s queries, whereas disabling System 1 costs 14.0pp on STARK
+and 5.8pp on STB24. Status conditioning is also important: collapsingFAIL,BLOCK, andMISS
+into a single status costs 33.3pp on STARK and 7.7pp on STB24. Both asymmetric weighting and
+recovery augmentation matter:α= 0 costs 7.1pp on STB24, and removing recovery augmentation
+costs 5.6/12.5pp on STARK/STB24. Random routing, force-semantic routing, and the monolithic
+tool agent provide strong floor references, dropping 13–48pp on the diverging subset.
+4.4 Failure Recovery
+Theorem 1 shows that failure-aware training enlarges the support of the routing matrix on error
+states; here we examine what those additional transitions do at inference time. Table 5 traces a single
+concrete recovery: the primary specialist hits a tool limitation, returns a typed-failure status (MISS ),
+and the matrix autonomously reroutes to a successor that the training traces identified as effective
+for that exact(task, agent, status)triple. Crucially, the dispatch decision is made by the learned M,
+not by a hand-coded fallback table. Table 6 shows that the three error states correspond to distinct
+7
+
+Table 4: Router ablations (Qwen3-8B).Overall EMreports accuracy on all queries, in Difference
+positive = STARbetter.
+Overall EM Difference
+Configuration STARK STB24 STB26 STARK STB24 STB26
+STAR(baseline) 73.0 76.3 55.3 – – –
+System 1 only 63.0 63.1 50.4+10.0+13.2+4.9
+System 2 only 61.5 73.3 50.7+11.5+5.8+4.6
+No status conditioning 54.7 68.6 55.3+18.3+7.7 n/a
+α= 0(success-only) 68.2 76.3 54.0+0.0+7.1 n/a
+No recovery augmentation 67.9 76.3 55.3+5.6+12.5 n/a
+Random routing 48.0 44.4 50.7+27.0+29.5+4.6
+Force-semantic 54.2 52.3 52.7+13.4+25.6+0.5
+Monolithic tool agent 38.0 21.8 26.0+23.2+47.8+24.5
+Table 5: Worked example of autonomous failure recovery on a STARK LANDMARK_DIRECTION
+query (id stark_direction_questions_37; full trace in App. M.4). The primary special-
+ist cannot resolve named landmarks without a gazetteer and emits MISS ; the router consults
+M[LM_DIR,SP,MISS,·] and dispatchesFUSEdirectly. No human intervention or pre-coded fallback
+is involved—the recovery transition is entirely learned from training traces.
+Step Component Action / outcome
+1HEAD Classifies query as STARK_LANDMARK_DIRECTION; System 1 dis-
+patchesSP.
+2SP Tool landmark_direction cannot resolve “Alcatraz Island”, “Union
+Square” to coordinates without an external gazetteer⇒ returnsMISS.
+3 Router System 1 exhausted; System 2 looks up M[LM_DIR,SP,MISS,·] .
+Top successor isFUSE(learned: world-knowledge LLM answers post-
+tool-failure).
+4FUSE Reads raw query + “tool could not resolve landmarks” flag; uses LLM
+world knowledge that Union Square is south of Alcatraz ⇒ emits
+[1.0]=GT.
+recovery channels. The strongest result is MISS recovery. On STARK, queries that enter the MISS
+state recover to 80.8% EM, exceeding the no-failure baseline by 5.5 percentage points, while STB24
+MISS recovery reaches 82.1%, exceeding the no-failure baseline by 4.6 percentage points. This
+indicates that learned recovery can do more than provide generic fallback: when the initial specialist
+is mismatched, the learned transition can reroute the query to a more suitable agent. In other words,
+the recovery policy is not merely repairing broken executions; in some cases it corrects an initially
+suboptimal specialist assignment and routes the query onto a more appropriate computation path.
+By contrast,FAILrecovery is substantially harder, suggesting that residual errors are dominated by
+parameter extraction rather than routing.BLOCKcorresponds to rerouting for missing dependencies;
+its detailed breakdown is deferred to Appendix C.
+Table 6: The three failure-recovery channels learned by M with (Qwen3-8B). Each error state is a
+first-class routing pathway with its own learned successor distribution.
+Error state Recovery mechanism STARK STB24
+MISS(tool menu mismatch) Escalate to a specialist whose menu
+can resolve the query, typically the
+semantic / LLM-reasoning agent.
+80.8% 82.1%
+FAIL(malformed result) Invoke a sibling specialist of the
+same family with re-extracted param-
+eters.
+51.7% 56.6%
+BLOCK(missing dependency) Reroute to the upstream agent that
+produces the missing blackboard en-
+try, then retry.
+63.2% 67.7%
+No-failure baseline (queries that never enter an error state)75.3% 77.5%
+8
+
+Taken together, the theorem, theα= 0 and no-recovery-augmentation ablations in Table 4, and the
+recovery rates in Table 6 support the value of failure-aware routing from complementary perspectives:
+representability, causal contribution, and observed behavior.
+4.5 Cross-Benchmark Transfer and Composite Queries
+Table 7 probes whether the learned routing matrix captures reusable routing structure across bench-
+marks. Each row applies a matrix learned from one source benchmark to all three targets, while the
+first row reports the benchmark-specific matrix used on its own target.
+Table 7: Cross-benchmark transfer (Qwen3-
+8B). Each row uses one source-benchmark ma-
+trix to route queries on all three targets.
+Source→target STARK STB24 STB26
+Baseline (each-on-self) 73.0 76.3 55.3
+STARK matrix→all 73.0 71.1 50.9
+STB24 matrix→all 69.4 76.3 48.4
+STB26 matrix→all 68.8 69.5 55.3
+Cross-benchmark transfer.The strongest average
+transfer source is the STARK matrix. It preserves its
+own STARK performance and transfers to STB24
+and STB26 with moderate drops of 5.2pp and 4.4pp,
+respectively. This suggests that the STARK ma-
+trix captures routing patterns that are broadly useful
+across spatial, temporal, trajectory, and navigation-
+style tasks. The STB24 and STB26 matrices also
+preserve their own benchmark performance. The
+STB24 matrix transfers moderately to STARK, with a 3.6pp drop, but loses 6.9pp on STB26. Con-
+versely, the STB26 matrix preserves STB26 performance but drops by 4.2pp on STARK and 6.8pp on
+STB24. These results indicate that the learned routing matrix is not purely benchmark-specific, but
+transfer depends on how well the source benchmark covers the target’s task types and recovery states.
+Overall, cross-benchmark transfer reveals both reusability and boundary conditions of failure-aware
+routing. Routing patterns transfer best when source and target share overlapping computational
+primitives and similar specialist dependencies. Transfer degrades when the target requires recovery
+rows or task-specific transitions that are underrepresented in the source matrix.
+Composite queries.As a qualitative probe of parallel specialist composition, we hand-designed
+composite queries across three categories (event analysis, trajectory monitoring, logistics) and
+extended the HEAD agent to output a list of required sub-types, triggering parallel activation in the
+routing kernel. Composite STARachieves 50.0% overall and 66.7% partial, vs. ReAct 35.7/50.0,
+Reflexion 28.6/42.9, and LLM-only 21.4/35.7. The strongest finding is on trajectory monitoring (4
+queries), which requires the TRAJECTORY and SPATIAL agents running in parallel: composite
+STARachieves 75% while all baselines score 0% because sequential single-agent loops cannot
+decompose into two specialists simultaneously. We treat this as qualitative evidence that the parallel-
+activation mechanism composes naturally with multi-type decomposition, not as a quantitative result;
+14 queries are too few for a major claim. Full traces and tables appear in Appendix L.
+5 Conclusion
+STARis a failure-aware state-conditioned routing formulation for specialist composition. Its central
+argument is that compositional reasoning over heterogeneous specialists requires a routing policy
+conditioned onwhat went wrong:FAIL,BLOCK, andMISSdemand semantically distinct recovery, and
+success-only routing is structurally unable to learn any of them (Theorem 1). On three spatiotemporal
+benchmarks and eight backbones, the routing formulation consistently improves per-benchmark EM
+over LLM-only baselines and outperforms Reflexion, ReAct, and other prompting and agent baselines.
+Router-specific ablations isolate the contribution of each routing component and a dedicated recovery
+analysis provides the sharpest evidence: STARK queries entering the MISS state recover at 80.8%,
+above the no-failure baseline, suggesting that recovery transitions rescue mis-routed queries rather
+than provide generic fallback. Future work targets the parameter-extraction step that boundsFAIL
+recovery and learned refinements of the routing policy beyond trace-count estimation.
+Limitations.STAR currently learns routing matrices from execution traces within a given task
+taxonomy. As the transfer experiments show, routing generalizes best when source and target
+benchmarks share computational primitives and specialist dependencies. Future work will study
+task-agnostic recovery abstractions and larger composite-query evaluations.
+9
+
+Acknowledgments and Disclosure of Funding
+This research is partially supported by the ARC Training Centre for Whole Life Design of Carbon
+Neutral Infrastructure (IC230100015). We express our gratitude to Sharon AI for providing access to
+NVIDIA H100 GPUs.

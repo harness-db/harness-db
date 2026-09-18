@@ -1,0 +1,793 @@
+record_id: arxiv:2607.06906
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2607.06906
+fetched_title: The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI
+fetched_at: 2026-09-18T19:01:04Z
+
+The Harness Effect: How Orchestration Design Sets
+the Token Economics of Enterprise Agentic AI
+Muayad Sayed Ali, Aliaksandra Novik, Anji Boddupally, Artem Yavorskyi, Chris Nickerson,
+Daniel Rica, Emily DuGranrut, Felix Leung, Garrett Prince, Grace Barnett, Heath Robinson,
+Hosain Al Ahmad, Jesse Resnick, Juan Carlos Farah, Jyothi Swaroop Meruga,
+Leonid Kuznetsov, Brock Perry, Luke Gorham, Marie Schmoll, Michael Paciullo,
+Saumya Das, Sharath Sheripally, Tommy Griscom, Mykyta Osadchyi, Neha Mantri,
+Nick Westrum, Olivia Benowitz, Parikshith Kulkarni, Radik Chernyshov, Rakshith Vasudev,
+Rohith Nadimpally, Vikas Gangadevi, and Waseem AlShikh
+Writer, Inc.
+{muayad, aliaksandra, anji, artem, chris, daniel, emily, felix, garrett, grace,
+heath, hosain, jesse, juan, jyothi, leonid, brock, luke, marie, michael, saumya,
+sharath, tommy, mykyta, neha, nick, olivia, parikshith, radik, rakshith, rohith,
+vikas, waseem}@writer.com
+July 2026
+Abstract
+The dominant pattern in agentic AI development is what we calltoken maxing: buying capability with
+tokens—longer reasoning traces, more agent turns, wider tool payloads, larger replayed contexts—so
+that tokens per task grow faster than task value. Falling per-token prices mask the pattern without fixing
+it; total spend rises anyway. We argue that the decisive lever against token maxing is theharness: the
+orchestration layer that assembles context, exposes tools, sequences turns, delegates work, and carries
+the observability and governance surface an enterprise deployment runs on. To isolate this layer we
+run a controlled swap: the same 22 locked evaluation tasks on the same six foundation models (Claude
+Sonnet 4.6, Gemini 3.1, Gemini Flash 3.5, Qwen 3.6, GLM 5.1, and Palmyra X6), changing only the
+orchestration layer: a conventional production agent loop (the frozen baseline) versus the Writer Agent
+Harness. Holding models constant, placing the harness at the core of execution cuts blended cost per
+task by 41% ($0.21→ $0.12), median wall-clock by 44% (48 s→ 27 s), and tokens per task by 38%
+(14.2k→ 8.8k), while headline task-completion quality holds at parity (0.78 → 0.81, directional at
+this sample size). The efficiency gains aremodel-invariant—every model gets cheaper, by 33% to
+61%—while quality gains arecapability-dependent: the improvement a model extracts from the harness
+correlates almost perfectly with its baseline strength (r=0.99 , n=6 ), a phenomenon we termharness
+leverage. Quality per dollar rises 82% and task-completions per million tokens rise from 54.9 to 92.0.
+On this workload, the orchestration layer moved cost per task more than switching between the cheapest
+and most expensive model did. We formalize token economics at the orchestration layer, including an
+effective-input-price model under prompt caching; define token maxing; detail the six mechanism families
+behind the effect, from cache-shape discipline to failure-spend governance; compare six widely used agent
+systems on the same axes; and argue that the harness is the one component whose efficiency multiplies
+across every model an organization runs—present and future.
+1
+arXiv:2607.06906v1 [cs.AI] 8 Jul 2026
+
+1 Introduction
+An agentic task is not one model call. A single request—“reconcile these two contracts and draft the redline
+memo”—unfolds into a dozen or more turns: system prompt, tool schemas, retrieval payloads, intermediate
+reasoning, tool outputs, and, in naive implementations, the full replay of everything above on every subsequent
+turn. The token bill for the task is the sum over that loop, and the loop is governed not by the model but by
+the software around it. We call that software theharness: the orchestration layer that decides what enters the
+context window, which tools are visible, when to retrieve, when to retry, when to delegate, and when to stop.
+The industry’s default response to rising agent capability requirements has been to spend more tokens.
+Reasoning models emit thousands of deliberation tokens per answer; agent frameworks replay conversation
+history quadratically in the number of turns; tool ecosystems inject every schema into every call. Per-token
+prices have fallen steadily [24], and the falling unit price has financed the habit: teams treat tokens as nearly
+free at the margin and scale consumption to match. This is a textbook Jevons dynamic—efficiency gains in
+the resource lower its price and raise total consumption [1]—and it produces a development trajectory we
+nametoken maxing: quality is purchased with monotonically growing token intensity, at declining marginal
+quality per token (Definition 1, Section 3). Token maxing is invisible in benchmark tables, which report
+quality, and painfully visible in cloud invoices, which report tokens.
+Most published efficiency work attacks this probleminsidea single model call—prompt compression
+[9], budget-constrained reasoning [12], terse decoding [13], speculative decoding [14], serving-side memory
+management [15]—orbetweenmodels, by routing and cascading [ 10, 11]. Both families accept the orches-
+tration layer as given. Yet the harness controls every term of the token bill except the model’s own verbosity:
+the system prompt is replayed or cached by the harness; history is replayed or compacted by the harness;
+tool schemas are broadcast or scoped by the harness; retrieval payloads are sized by the harness; retries are
+triggered by the harness. If the harness is the layer that composes model calls into work, it is also the layer
+that sets the price of work.
+This paper measures that claim directly with a natural experiment the layered architecture makes possible:
+hold the tasks and the models constant, and swap only the orchestration layer. We evaluate 22 locked,
+capability-audited enterprise tasks on six foundation models spanning five vendors and three weight classes,
+under two orchestration layers: a conventional production agent loop, frozen on 2026-06-07 as the baseline,
+and the Writer Agent Harness, a model-agnostic orchestration layer with sub-agent delegation. Every task,
+prompt, model identifier, judge, and price table is identical across the two arms; the only variable is the
+orchestration code.
+The headline results (Section 6):
+1. Efficiency moves a lot, and it moves everywhere.Blended across models, cost per task falls 41%
+($0.21→ $0.12), median wall-clock falls 44% (48 s→ 27 s; 1.8× faster), and tokens per task fall 38%
+(14.2k→ 8.8k). The per-model cost reduction ranges from−33% (Gemini 3.1) to−61% (Flash 3.5):
+everymodel gets substantially cheaper. On this workload the harness is a bigger cost lever than model
+choice: moving from the most to the least expensive model under the baseline saves 36%, while keeping
+any model and adopting the harness saves 33% to 61%.
+2. Quality holds—and where it moves, it moves with the model.Headline task-completion is 0.78→ 0.81
+(a wash at n=22 ). Across the 48 capability×model cells, 30 improve, 11 are flat, and 7 regress; all
+7 regressions occur on the three smaller models, concentrated in orchestration-heavy capabilities (tool
+use via MCP, multi-step Playbooks). The mean quality gain a model extracts from the harness tracks
+its baseline strength almost perfectly (r=0.99 ): stronger models convert harness structure into quality;
+weaker models can be overwhelmed by it. We call thisharness leverage(Section 6.4).
+2
+
+3. Efficiency and capability are not a trade this time.Quality per dollar rises 82%; task-completions per
+million tokens rise from 54.9 to 92.0 (+68%). The harness also adds one net-new capability—delegated
+sub-agents—which crosses a usable reliability threshold only on the two strongest models (0.85–0.86), a
+concrete instance of the capability floor that harness features carry.
+Contributions.(1) A formal framing of token economics at the orchestration layer, including a decomposition
+of per-task token spend into harness-controlled terms, an effective-input-price model under prompt caching,
+and a definition of token maxing as a measurable development trajectory (Section 3). (2) A controlled harness-
+swap methodology that isolates orchestration effects from model effects, with a locked task set, frozen
+baseline, and trace-level accounting (Section 5). (3) Empirical findings across six models: model-invariant
+efficiency gains, capability-dependent quality gains (harness leverage), and a capability floor for advanced
+orchestration features (Section 6). (4) A mechanism inventory of the harness—cache-shape discipline,
+structured compaction, context offload, zero-token waiting, failure-spend governance, and a model-agnostic
+floor—mapped onto the cost decomposition, together with an architectural comparison of six widely used
+agent systems on the same axes (Sections 4.3–4.4). (4) An economic analysis of why harness efficiency
+compounds—it multiplies against every model, every vendor migration, and every unit of volume—and what
+that implies for the own-versus-rent decision on orchestration infrastructure (Section 7).
+2 Related Work
+Model-side and serving-side efficiency.A large literature reduces the cost of agivensequence of tokens:
+speculative decoding accelerates autoregressive generation without changing outputs [14]; PagedAttention
+and related memory managers raise serving throughput [15]. These techniques lower the price of a token.
+They do not reduce how many tokens an agent decides to consume, which is the quantity this paper targets.
+Prompt-side token reduction.LLMLingua and successors compress prompts while preserving task
+performance [9]; token-budget-aware reasoning constrains deliberation length [12]; Chain-of-Draft shows
+that terse intermediate reasoning can match verbose chain-of-thought [13, 4]. These methods operate within
+one call. An agent harness invokes such calls dozens of times per task and adds cross-call structure—history
+replay, tool schemas, retrieval—that no single-call method sees. Our results indicate the cross-call structure
+is where the larger savings sit: a 38% reduction in tokens per task achieved with no change to models or
+prompts.
+Routing and cascades.FrugalGPT and RouteLLM cut cost by sending easy queries to cheap models
+[10, 11]. Routing chooseswhichmodel pays the bill; the harness determineshow large the bill isfor
+whichever model is chosen. The two are complementary, and Section 7.4 argues our capability-floor finding
+sharpens routing: requests should be routed not only by difficulty but by the orchestration features they will
+exercise.
+Agent architectures.ReAct interleaved reasoning and tool calls [ 6]; Reflexion added verbal self-correction
+[7]; Toolformer trained tool invocation into the model [ 8]; SWE-agent showed that theagent–computer
+interfacematerially changes task success [ 18]; MemGPT introduced OS-style context paging [16]; the Model
+Context Protocol standardized tool connectivity [23]. This line established that scaffolding shapes capability.
+Long-context studies explain one mechanism: models attend unevenly across long inputs, so bloated contexts
+canreduceaccuracy while raising cost [ 17]. We extend the scaffolding-shapes-capability result with its
+economic dual—scaffolding sets cost—and quantify both sides under a controlled swap.
+3
+
+Evaluation and test-time compute.LLM-as-judge protocols [ 20] and locked benchmark suites [ 19]
+underpin our measurement design. Work on optimal test-time compute allocation [ 21] shows quality can
+be bought with inference tokens; our framing treats that purchase as an economic decision with a declining
+marginal rate, and the harness as the buyer of record. Reflective prompt-evolution systems such as GEPA
+[22] optimize the instructions a harness issues; they are natural complements that operatethroughthe layer
+we measure.
+Economics of inference.Scaling laws priced training compute [ 2, 3]; Epoch AI documents multi-order-of-
+magnitude declines in inference prices [24]. Jevons observed in 1865 that efficiency in coal use raised total
+coal consumption [1]; Section 3 argues agentic AI is mid-Jevons, and that the harness is the layer at which
+consumption discipline can actually be implemented.
+The harness as first-class object.Closest to our framing, a recent line of work elevates the harness itself
+to an object of study: Gu argues agentic progress is nowsystemscaling—context governance, memory,
+skill routing—as much as model scaling [27], and Harness-Bench measures, across 5,194 trajectories, that
+completion, efficiency, and failure behavior vary substantially across model–harness configurations [ 28].
+Practitioner evidence points the same way: production context-engineering guidance treats KV-cache hit
+rate as the first metric of an agent [30]; provider documentation prices cached input at roughly a tenth of list
+[32]; controlled measurements show model quality degrading as input grows [31]; and Anthropic reports
+agents at∼4× and multi-agent systems at∼15× chat-level token consumption [29]. We add the missing
+economic layer: a formal token-economics framing at the harness (Section 3), the mechanism inventory that
+implements it (Section 4.3), and a controlled swap that prices it (Section 6).
+3 Token Economics at the Orchestration Layer
+3.1 The bill for one agentic task
+Let a task execute as a k-turn agent loop. Turn i submits input tokens T in
+i and receives output tokens T out
+i .
+With input pricep in and output pricep out (per token), the task costs
+C=
+k
+∑
+i=1
+
+pin T in
+i +p out T out
+i
+
+.(1)
+The input side decomposes into terms the harness constructs:
+T in
+i =S i|{z}
+system
++H i|{z}
+history
++G i|{z}
+tool schemas
++R i|{z}
+retrieval
++U i|{z}
+user turn
+,(2)
+and the loop multiplies everything by retries and dead-end branches, which the harness also governs. A naive
+harness replays the full transcript: Hi = ∑ j<i(Uj +T out
+j +O j) where O j is tool output at turn j. Total input
+tokens then grow quadratically in turn count,
+k
+∑
+i=1
+T in
+i ≈kS+ k(k−1)
+2 ¯m+k ¯G+ ∑i Ri,(3)
+with ¯mthe mean per-turn payload. A harness that compacts history, caches the invariant prefix (tool schemas
+included), offloads bulky tool outputs, and truncates retrieval to the evidential minimum converts the quadratic
+term to (approximately) linear (Figure 1). Nothing about the model changes; the bill does.
+4
+
+2 4 6 8 10 12
+Agent turns k
+0
+10
+20
+30
+40
+50
+60
+70Cumulative input tokens (illustrative, k-tok)
+token maxing
+region
+Naive replay: O(k2)
+Harness-managed context: O(k)
+Figure 1: Where token maxing comes from.Illustrative cumulative input tokens for a k-turn agent loop. Full-history
+replay grows as O(k2) (Eq. 3); harness-managed context—prefix caching, history compaction, offloaded tool outputs—
+grows asO(k). The shaded gap is spend that buys no quality. Schematic; measured aggregates appear in Section 6.
+Two further facts sharpen Eq. (1). First, agent workloads areinput-dominated: because the transcript is
+re-submitted on every turn, production agents report input-to-output token ratios near 100:1 [30], so the pin
+term is nearly the whole bill. Second, the price of an input token is not one number. Providers serve tokens
+that repeat a previously seen prompt prefix from cache at a deep discount—roughly 0.1× the base input rate
+[32, 30]. If a fractionhof input tokens are cache reads billed at multiplierκ, the effective input price is
+peff
+in =p in
+
+1−h(1−κ)
+
+,κ≈0.1,(4)
+so a harness that holds h near 1 pays roughly a tenth of list price for the dominant term of Eq. (1). Crucially,
+h is neither a model property nor a provider favor: it is a function of promptbyte-stabilityacross turns, which
+is set entirely by how the orchestration layer assembles context. The harness therefore controls both factors
+of the bill—how many tokens are submitted (Eq. (2)) and the price at which the dominant ones are billed
+(Eq. (4)).
+3.2 Token intensity, efficiency, and token maxing
+Definetoken intensity τ as total tokens per completed task and let Q∈[0,1] be task quality under a fixed
+judge protocol. We use two efficiency metrics:
+η$ = Q
+C (quality per dollar),CPM= Q·10 6
+τ (task-completions per million tokens).(5)
+Definition 1 (Token maxing).A development trajectory {(Qt,τ t)}t exhibitstoken maxingif
+token intensity grows, τt+1 >τ t, while marginal quality per token declines, Qt+1−Qt
+τt+1−τt
+< Qt
+τt
+— i.e.,
+each release buys quality at a worse token exchange rate than the system’s running average.
+Token maxing is individually rational for a team judged on benchmark quality and collectively expensive
+for the organization paying per token. It is also self-reinforcing under falling prices: when p drops, the
+budget-constrained optimum shifts toward higher τ, and total spend N·C can rise even as p·τ per task
+falls—Jevons’ coal, restated for tokens [1, 24]. The escape is not cheaper tokens but a higher CPM: doing
+the same work with fewer tokens. Equation (2) says four of the five input terms, plus retries, are code, not
+model. That places the escape route squarely in the harness.
+5
+
+3.3 Why harness savings compound
+Let a fleet run N tasks per month across models m∈M with mix weights wm. Monthly spend is ∑m wmN Cm.
+A model-side optimization improves one Cm; a routing policy improves the mix w; a harness improvement
+multipliesevery Cm by a factor (1−s m) simultaneously—and keeps multiplying when the model set changes,
+because it is implemented above the model API. Empirically (Section 6.2) sm∈[0.33,0.61] across all six
+models with no exceptions, which is what makes the harness the unusual asset in the stack: the one whose
+returns are indifferent to which vendor wins the model race.
+4 The Writer Agent Harness
+4.1 What the harness is
+In Writer’s architecture the harness is the runtime between the application and any foundation model: it owns
+(i)context assembly—system prompt, conversation state, retrieval payloads from document and knowledge-
+graph grounding; (ii) thetool layer—native tools and external connectors via the Model Context Protocol
+[23], including schema exposure and call mediation; (iii)workflow execution—multi-step Playbooks run end
+to end; (iv)delegation—spawning scoped sub-agents and merging their results (absent from the baseline
+loop); and (v)observability—a trace shim that records prompt tokens, completion tokens, tool events, and
+wall-clock (duration seconds) for every turn of every run. The trace shim is what makes this paper’s
+accounting possible: cost is computed at report build by applying a pinned public price table to the recorded
+token counts, so both arms are priced identically. The same layer is the enterprise control plane: the trace
+shim that meters tokens is also the audit trail, the progressive tool disclosure that saves tokens is also tool
+governance, and deterministic workflow execution is what makes agent behavior reviewable—efficiency and
+control are properties of one component, which is why the harness sits at the core of everything else the
+platform does.
+The harness ismodel-agnosticby construction: the executing model is a configuration value (model name),
+which is precisely what permits the controlled swap in Section 5—six models, two orchestration layers, one
+task set, one judge panel. It is the runtime behind Writer’s Action Agent, whose public results (61% on
+the hardest GAIA level; the top overall score on the CUB computer-use benchmark) situate the production
+system this evaluation instruments [26].
+4.2 The harness versus a conventional agent loop
+The baseline is the conventional agent loop as previously deployed in production, frozen on 2026-06-07.
+Its design is the industry default and worth stating concretely, because each element is a token-economics
+decision made by omission: a monolithic system prompt of roughly 49 KB replayed on every turn; tool
+invocation parsed by regular expressions from XML emitted in the text stream; destructive middle-truncation
+when context overflows; per-model prompt tuning; and waits implemented as polling. The Writer Agent
+Harness, evaluated at its intended general-availability configuration, replaces each with an explicit contract:
+one execution path for any of the six models; native tool calling only (the XML path was deleted, not ported);
+non-destructive structured compaction in place of truncation; early streaming with live tool-call status;
+cancellation and retry as first-class states; andsub-agents—delegating a sub-task to one or more spawned
+agents with scoped context and merging their results—a capability the baseline loop does not possess at all.
+4.3 Mechanisms: how the harness rewrites the bill
+Mapping the observed deltas onto Eqs. (2) and (4), the savings must come from the terms the harness rewrote.
+The design goal can be stated in one sentence:maximize the fraction of tokens that are (a) cached,
+6
+
+VOLATILE TAIL rebuilt every turn: datetime · files · plan · reminders · voice
+DURABLE TRANSCRIPT (append-only turns)
+CHECKPOINT SUMMARIES (if ever compacted)
+STABLE SYSTEM PROMPT (identity, contracts)
+TOOL SCHEMAS (full catalog, ~35 tools)
+byte-stable prefix
+cached at 0.1× read price
+(99.9% of prompt tokens
+on identical-prefix call)
+volatile tail
+never cached;
+breakpoints refused here
+C3
+C4
+C2
+C1
+Figure 2: The two-zone prompt.A byte-stable prefix (tool-schema catalog, stable system prompt, append-only
+transcript) carries up to four provider cache breakpoints [C1–C4]; everything that changes per turn is confined to a
+volatile tail that is rebuilt each turn and structurally excluded from caching. Measured on an identical-prefix call: 99.9%
+of prompt tokens (7,876 of 7,886) served as cache reads, pricing the dominant input term at≈0.1×list (Eq. 4).
+(b) decision-relevant, and (c) spent inside committed, recoverable work—and enforce all three with
+structure rather than model behavior.Six mechanism families implement it.
+(1) Cache-shape discipline: the two-zone prompt.Every prompt the harness emits has a deliberate
+physical shape (Figure 2): a byte-stable prefix—the full tool-schema catalog, the stable system prompt, and
+the append-only durable transcript—followed by a volatile tail rebuilt every turn (clock, file listings, plan
+state, one-shot reminders, voice and custom instructions). The split is enforced as a correctness rule, not an
+optimization: anything that changes per turn is structurally banned from the prefix, and the cache-marker
+logic refuses to place a breakpoint at or after the first volatile message. Up to four provider breakpoints
+are pinned—after the schema catalog, after the stable system prompt, and sliding along the two newest
+durable turns—with one-hour retention latched per session so the policy never flips mid-run. Measured on an
+identical-prefix call in the harness repository, 7,876 of 7,886 prompt tokens (99.9%) were served as cache
+reads; by Eq. (4) with κ≈0.1 , such a turn pays roughly a tenth of list price for its dominant term. Because
+agent workloads are input-dominated, cache hit rate is the single highest-leverage cost variable a harness
+controls—and it lives in the placement ofS i,G i, andH i, not in the model.
+(2) Structured, incremental, cache-aware compaction.At 80% of the model’s input budget, older
+history is folded into atyped checkpointwith four artifacts: durable memory (decisions, constraints, rejected
+approaches), an eight-section execution summary written for resumability (current state, files touched, errors,
+next steps), preserved verbatim user requirements, and skill references. A live tail of the 4–12 most recent
+messages (≤30% of budget) always survives verbatim; each checkpoint folds the previous one forward, so
+compaction cost stays incremental; summarization runs on a cheaper helper model, off the paying loop; and
+an empty or degraded summary aborts the compaction rather than persisting it. If the prompt still does not
+fit, a deterministic ladder (shrink the tail, then middle-truncate with an explicit restate-what-matters nudge)
+guarantees a sendable request. Compaction and caching are co-designed: a summarizer that rewrote history
+every turn would destroy the very prefix stability Eq. (4) prices, so checkpoints are durable rows and the
+rebuilt prompt becomes thenewcacheable prefix. This is the mechanism that converts Eq. (3) from quadratic
+to linear (Figure 1) without the baseline’s destructive truncation.
+7
+
+(3) Context offload: tokens the model never pays for.A family of mechanisms keeps information
+availablewithout keeping itin context, attacking Ri and the tool-output share of Hi. Sub-agents act ascontext
+firewalls: a child agent performs broad reading or searching in its own context and returns a summary capped
+at 8 KB, with citations carried on a metadata sidecar the parent model never reads; delegation is depth-capped
+and idempotent under retries, so delegated exploration cannot inflate the parent loop. Skills useprogressive
+disclosure: the prompt carries only a name-and-description table, the full skill document is installed in the
+sandbox and read only when invoked (inline seed capped at 20K characters), and compaction later drops
+skill bodies deterministically while keeping the reference. Bulky tool outputsspill to files: shell output
+beyond 20K characters is head-and-tail previewed with the complete output written to a workspace file
+(under a banner forbidding the model to infer success from the preview), web fetches inline 8K characters
+and spill full pages, and oversized file reads are rejected with guidance rather than silently truncated—the
+filesystem is the unbounded memory; the context holds pointers. Plan and canvas state are event-sourced and
+projectedonce per turn as a compact rendering, with plan-tool results replaced by one-line acknowledgements
+so state is never duplicated across the transcript; the per-turn re-rendering doubles as objective recitation,
+countering long-horizon goal drift [30]. Background-task results are delivered exactly once as an ephemeral
+tail reminder; loaded media is bounded (at most four images or 2 MB in context, older ones evicted with
+a reload stub); and side work—telemetry, reasoning-trace titles, deliverable materialization—runs off the
+paying loop on helper models.
+(4) Zero-token waiting; durability as economics.Waiting is acontinuation, not a loop: when a run needs
+a human answer, an approval, or a long background job, it suspends durably at zero token cost and resumes
+on an ingress event—no polling turns. The same durability layer bounds catastrophic spend: every event
+is journaled to a write-ahead log before it is streamed, crashed or preempted runs resume under generation
+fencing at exactly the next sequence number, and tool results are persisted before they are shown. A crash
+that loses a 40-turn run means re-buying 40 turns of tokens; here it means resuming from durable state.
+(5) Failure-spend governance.Every failure is classified into a typed class (rate limit, stall, timeout,
+malformed stream, provider outage, permanent)beforeany decision is made, and only whitelisted classes fall
+through to the next provider in the route plan. Mid-stream failures becomediscarded attempts: the partial
+draft is cleared and no side effects—tool executions, durable writes—can originate from a discarded attempt,
+which is precisely the piece generic library fallbacks omit (streaming failover in orchestration libraries
+is documented to work only before the first chunk [ 34]). A circuit breaker halts a model that re-issues a
+byte-identical failing tool call three times, with cause-aware steering (change the arguments vs. back off);
+truncated outputs and output-length caps terminate loudly as typed states, never silently; the loop is capped at
+50 iterations and tool parallelism at four. Retries, dead ends, and doom loops are the multiplier on Eq. (1)
+that no per-token discount fixes; the harness bounds the multiplier.
+(6) A model-agnostic floor.Which model runs, over which providers, in what fallback order, is a typed
+route plan supplied as data—the loop never branches on a model name—and every provider stream is
+normalized into one chunk contract before the loop sees it. Native tool calling is the only invocation path,
+backed by schema hygiene for weaker models: $refs are inlined, double-encoded JSON arguments are
+recovered, framework internals are scrubbed from validation errors, and overloaded tool schemas are split
+when weaker models misuse them. These floors hold whatever model is driving, which is the structural
+explanation for the model-invariance of Section 6.2 and for why harness leverage (Section 6.4) appears as a
+clean function of model capability: the harness fixes the floor; the model sets the ceiling.
+The through-line of all six families is thattoken economy and output quality are one lever pulled once.
+Long, distractor-dense contexts measurably degrade every frontier model tested [31, 17]; a mechanism that
+8
+
+Table 1:Token-economic mechanisms across widely used agent systems, assessed from public documentation and a
+design-time source study—not head-to-head measurement (see Section 8). “app” = left to the application to build and
+budget.
+System Deployment class Model-
+portable
+Structural
+cache policy
+Compaction
+contract
+Firewalled
+delegation
+Zero-token
+waits
+Per-task
+accounting
+Claude Code single-user client no yes yes partial no no
+Claude Cowork single-user client no yes yes partial no no
+LangGraph library yes app app app partial no
+CrewAI framework yes app partial no no no
+AutoGen / AG2 framework yes app app no partial no
+Hermes Agent personal agent yes partial yes yes partial no
+Writer Harness multi-tenant runtime yes yes yes yes yes yes
+removes stale or bulky tokens is simultaneously cutting the bill and cleaning the model’s working set—which
+is what the grounding results of Section 6.6 show in miniature.
+Two implementation notes, stated for completeness: sub-agent delegation currently executes as blocking
+calls, and automatic whole-turn retry on output-length caps is designed but not yet shipped. The mechanisms
+above describe the configuration under evaluation.
+4.4 Token economics in existing harnesses and frameworks
+Recent work argues the harness should be a first-class object of design and evaluation [ 27], and cross-
+harness measurement finds that agent capability is a property of the model–harnessconfigurationrather
+than of the model alone [28]. Our claim here is narrower and economic: among widely used agent systems,
+token economics is nowhere a first-class, published contract. Table 1 summarizes the landscape on the
+mechanism families of Section 4.3, assessed from public documentation and from a source-level study of
+caching behavior conducted during this harness’s design.
+Vendor-integrated clients.Claude Code and Claude Cowork [ 37] are among the most sophisticated
+harnesses in wide deployment, and several of their patterns—cache-breakpoint latching, byte-stable prefixes,
+sub-agent task splitting—were adopted from or validated against them during this harness’s design. The
+differences are deployment class and contract: both are single-user, client-side tools bound to one model
+vendor; their internal token management is not exposed as a per-task accounting surface; and their economics
+do not transfer across models by construction. They optimize a session for a person. An enterprise runtime
+must meter a fleet.
+Orchestration libraries.LangGraph [ 34] supplies graph orchestration, checkpointing, and interrupts as
+excellent low-level primitives—and deliberately leaves prompt-cache policy, compaction, context offload,
+and failure-spend governance to the application. Token economics thereby becomes the application team’s
+unbudgeted responsibility: nothing in the framework measures it, enforces it, or reports it, and the framework’s
+own documentation concedes the streaming-failover gap noted in Section 4.3.
+Multi-agent conversation frameworks.CrewAI [ 35] and the AutoGen lineage [33] (the original frame-
+work, now in maintenance mode, continued by the AG2 community fork and succeeded for Microsoft stacks
+by the Agent Framework) organize work as conversations among role-prompted agents that share transcripts.
+Shared-transcript multi-agency is a token multiplier by construction: each participating agent re-reads the
+growing conversation and each carries its own role preamble. The best public measurement is Anthropic’s
+9
+
+own: agents consume roughly 4× the tokens of chat and multi-agent systems roughly 15×, with token
+volume explaining about 80% of performance variance on their research evaluation [29]. That is Definition 1
+operating as an architecture—quality purchased through token multiplication. It can be worth paying, as
+Anthropic is candid that only high-value, parallelizable tasks justify it; but none of these frameworks meters
+the multiplier per task, and none firewalls delegated context the way a capped-summary sub-agent contract
+does.
+Open personal harnesses.Hermes Agent [ 36] is a capable, genuinely model-agnostic open-source harness
+with isolated sub-agents. The design-time source study found, however, that it does not place its tool schemas
+inside a cached prefix—forfeiting the largest single discount available on an input-dominated workload
+(Eq. (4))—and, as a personal single-user agent, it publishes no per-task token or cost contract.
+What the comparison shows.The last column of Table 1 is this paper in miniature. Without per-task token
+accounting built into the orchestration layer, token maxing is unobservable—and what is unobservable is
+unmanaged. The Writer harness’s trace shim makes cost per task and CPM measurable per release precisely
+because the meter lives in the same layer that spends the tokens; the release-gate posture of Section 7.3 is only
+possible on top of it. We stress the epistemic status: Table 1 compares public designs and documentation,
+not measured runs; configuration-level measurement of the token dimension across harnesses, in the style of
+Harness-Bench [28], is natural future work.
+5 Experimental Setup
+5.1 Design
+The experiment is a paired swap. Both arms execute the same 22 tasks on the same six models with the
+same judges and the same pinned price table; only the orchestration layer differs. The baseline arm is the
+conventional production loop invoked via model name override, run once and frozen on 2026-06-07 as the
+reference. The harness arm is the Writer Agent Harness at its intended general-availability configuration.
+Because prompts, models, and judges are held fixed, any systematic difference in tokens, cost, latency, or
+quality is attributable to the harness.
+5.2 Task set
+The evaluation uses n=22 locked-baseline prompts, audited for capability coverage and for defensible
+pass/fail criteria before either arm ran. The set spans nine capability areas that mirror production usage of
+an enterprise agent platform: Model & System Awareness (MSA: identity, scope, safe refusal), Grounding
+& Retrieval (GDR: document and knowledge-graph grounding, web search, citation), Content Generation
+(CNG), Playbooks (PLY: predefined multi-step workflows executed end to end), MCP tool use (MCP:
+discovering and calling external connectors), Presentations (PRN: slide generation, an early-stage capability),
+V oice (VOX: brand voice and custom instructions), Image Analysis & Generation (IMG), and—under the
+harness only—Sub-agents (delegated work, net-new). Tasks include multi-turn cases (e.g., a three-turn
+Medicare grounding dialogue) and long-horizon cases (multi-step research synthesis).
+5.3 Models
+Table 2 lists the six models: two frontier generalists, one fast-tier model, two open-weight candidates, and
+Writer’s platform-native Palmyra X6. The spread is deliberate—the central claim is about a layerabovethe
+model, so it must be tested across weight classes and vendors, not on a single flagship.
+10
+
+Table 2:Models under evaluation. Every model runs identically under both harness arms.
+Model Vendor Class Role in analysis
+Claude Sonnet 4.6 Anthropic frontier strong generalist
+Gemini 3.1 Google DeepMind frontier strong generalist
+Gemini Flash 3.5 Google DeepMind fast tier low-cost generalist
+Qwen 3.6 Alibaba open weight candidate model
+GLM 5.1 Zhipu AI open weight candidate model
+Palmyra X6 Writer enterprise platform-native model
+Baseline Harness
+$0.21
+$0.12
+-41%
+Cost per task
+Baseline Harness
+48s
+27s
+-44%
+Wall-clock per task
+Baseline Harness
+14.2k
+8.8k
+-38%
+Tokens per task
+Figure 3: Blended efficiency across six models and 22 tasks.Replacing the baseline loop with the harness, models
+held constant: cost per task−41%, median wall-clock−44%, tokens per task−38%.
+5.4 Metrics
+Quality.Headline quality is task-completion scored by an LLM-judge panel against the audited pass/fail
+criteria [ 20]. Secondary judges score coherence, communication quality, and hallucination; these are
+reported per-prompt and did not headline any decision.Tokens.Prompt and completion tokens are recorded
+per turn by the trace shim; token intensity τ is the per-task total.Cost.Computed at report build as
+(prompt tokens×p in) + (completion tokens×p out) using a pinned OpenRouter price table, identically for
+both arms.Latency.Wall-clock from first token to terminal event ( duration seconds), median across runs.
+UX.A hand-scored qualitative rubric (streaming responsiveness, tool-call transparency, citation rendering,
+error/cancel handling, multi-turn coherence) reported separately from automated metrics.
+5.5 Statistical posture
+At n=22 , quality deltas aredirectional, not statistically significant, and we treat them as such throughout:
+the headline +0.03 is reported as parity, not improvement. Cost, token, and latency deltas are large, uniform
+in sign across all 22 prompts and all six models, and therefore decisive at this sample size in a way the
+quality deltas are not. Candidate-model failures on advanced features are expected and scored, not excluded;
+model-agnosticism is a claim about the execution path, not a promise of uniform capability.
+11
+
+Table 3:Parity scorecard, blended across models. Quality is task-completion under the locked judge protocol; derived
+rows use Eq. (5).
+Dimension Baseline Harness∆Reading
+Quality (task-completion) 0.78 0.81+0.03 wash atn=22
+Cost / task $0.21 $0.12−41% decisive
+Wall-clock / task (median) 48 s 27 s−44% decisive
+Tokens / task 14.2k 8.8k−38% decisive
+Quality per dollar (η$) 3.71 6.75+82% derived
+Completions per Mtok (CPM) 54.9 92.0+68% derived
+UI/UX (hand-scored) baseline improved↑qualitative
+Sonnet
+4.6
+Gemini
+3.1
+Flash
+3.5
+Qwen
+3.6
+GLM
+5.1
+Palmyra
+X6
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25USD per task
+-38%
+-32%
+-61%
+-44%
+-48% -52%
+Cost per task
+Baseline
+Writer Harness
+Sonnet
+4.6
+Gemini
+3.1
+Flash
+3.5
+Qwen
+3.6
+GLM
+5.1
+Palmyra
+X6
+0
+10
+20
+30
+40
+50
+60seconds per task
+-40% -41% -55% -34% -38%
+-48%
+Median wall-clock per task
+Figure 4: Per-model efficiency under the orchestration swap.Every model’s cost and latency fall; reductions range
+from−33% to−61% (cost) and−33% to−55% (latency). The effect is a property of the orchestration layer, not of
+any model.
+6 Results
+6.1 Headline: the same work, 38% fewer tokens
+Table 3 and Figure 3 give the blended result. Replacing the baseline with the harness removes 38% of token
+intensity and 41% of cost while quality stays at parity—which is the operational definition of escaping token
+maxing: the token exchange rate improved instead of degrading. In efficiency terms, a dollar buys 82% more
+completed quality and a million tokens completes 68% more tasks. The hand-scored UX rubric moved the
+same direction for the mechanical reasons one would expect from the architecture: earlier streaming, live tool
+status instead of a spinner, clean cancellation.
+6.2 Model invariance: everyone gets cheaper
+Table 4 and Figure 4 break the effect out per model. Two observations. First,uniformity: six models, five
+vendors, three weight classes, and not one exception—every model’s cost falls by at least a third. This is the
+signature of a layer-level effect: if the savings came from any model-specific behavior, the spread would show
+it. Second,magnitude relative to model choice: under the baseline, moving from the most expensive model
+(Palmyra X6 at $0.25) to the cheapest (Qwen 3.6 at $0.16) saves 36%; keepinganymodel and adopting the
+12
+
+Table 4:Per-model efficiency, baseline→harness. Same tasks, same judges, same price table.
+Cost / task Wall-clock / task (median)
+Model Base Harness∆Base Harness∆
+Claude Sonnet 4.6 $0.24 $0.15−39% 52 s 31 s−41%
+Gemini 3.1 $0.19 $0.13−33% 49 s 29 s−40%
+Gemini Flash 3.5 $0.18 $0.07−61% 60 s 27 s−55%
+Qwen 3.6 $0.16 $0.09−44% 44 s 29 s−33%
+GLM 5.1 $0.21 $0.11−47% 47 s 29 s−38%
+Palmyra X6 $0.25 $0.12−52% 50 s 26 s−48%
+Table 5:Sub-agent delegation (net-new under the harness; no baseline arm exists). Scores are task-completion on
+delegation tasks: spawn one or more scoped sub-agents and merge their results.
+Sonnet 4.6 Gemini 3.1 Flash 3.5 Qwen 3.6 GLM 5.1 Palmyra X6
+Sub-agents 0.85 0.70 0.45 0.42 0.58 0.86
+harness saves 33% to 61%. On this workload, the orchestration layer is a larger cost lever than the model
+menu—which inverts where optimization attention usually goes.
+The largest relative gains land on the fast tier: Flash 3.5 drops 61% in cost and 55% in latency. This is
+consistent with the decomposition in Eq. (2): for small, cheap models, harness overhead (replayed history,
+broadcast schemas) is alarger shareof the total bill, so removing it removes proportionally more.
+6.3 Quality: parity in aggregate, model-dependent at the edges
+Figure 5 plots all 48 capability×model cells (eight legacy capabilities × six models; the full matrix is
+Appendix A). The mass sits on or above the diagonal: 30 cells improve, 11 are flat, 7 regress. The regressions
+are not random. Every one occurs on Flash 3.5, Qwen 3.6, or GLM 5.1, and six of the seven fall in capabilities
+that exercise orchestration hardest—MCP tool use (Qwen−0.15, GLM−0.06, Flash−0.04), Playbooks,
+and Presentations. The frontier models and Palmyra improvemostin exactly those categories (MCP: Sonnet
++0.10, Palmyra +0.10; GDR: Sonnet +0.10, Palmyra +0.12). The same richer harness that a strong model
+converts into quality, a weaker model experiences as load.
+6.4 Harness leverage
+Collapsing each model to its mean across the eight scored capabilities gives a single number for how much
+quality it extracted from the swap: Palmyra X6 +0.079, Sonnet 4.6 +0.073, Gemini 3.1 +0.050, GLM 5.1
++0.028, Flash 3.5 +0.010, Qwen 3.6−0.031. Plotted against the baseline (Figure 6), the relationship is nearly
+linear (r=0.99 ; six points, so suggestive rather than conclusive). We call the slopeharness leverage: the
+rate at which a model converts orchestration structure into quality. The economic consequence is asymmetric
+and useful:efficiency gains are unconditional, quality gains are earned by capability. A weak model
+under the harness still gets its 44–61% cost cut; it simply does not also get better. This decouples the two
+reasons to upgrade a harness and lets each be priced on its own.
+6.5 The net-new capability and its floor
+The harness’s one genuinely new capability—delegating work to spawned sub-agents—lands above a usable
+reliability threshold only on the two strongest models (Table 5: Palmyra X6 at 0.86, Sonnet 4.6 at 0.85),
+13
+
+0.4 0.5 0.6 0.7 0.8 0.9 1.0
+Capability score under baseline
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Capability score under harness
+Harness better
+Harness worse
+Sonnet 4.6
+Gemini 3.1
+Flash 3.5
+Qwen 3.6
+GLM 5.1
+Palmyra X6
+Figure 5: Quality parity across 48 capability×model cells.Each point is one capability score for one model, baseline
+(x) vs. harness (y). Points above the diagonal improved under the harness: 30 improve, 11 are flat (|∆|≤0.02 ), 7 regress.
+All regressions belong to the three smaller models, concentrated in orchestration-heavy capabilities (MCP, Playbooks,
+Presentations).
+degrades on Gemini 3.1 (0.70) and GLM 5.1 (0.58), and is not yet dependable on the fast tier (0.42–0.45).
+This is the harness-leverage result in its sharpest form: an orchestration feature carries acapability floor,
+below which exposing it produces failures rather than function. Delegation also has a distinctive token-
+economics profile—sub-agent context is scoped, so delegated tokens are spent in a bounded side-loop rather
+than inflating the parent context—the context-firewall contract of Section 4.3: a capped summary returns,
+citations ride a sidecar, and the parent loop never pays for the child’s exploration.
+6.6 Per-prompt texture: where the tokens went and what came back
+Four exemplar prompts show the distribution behind the aggregates. The three-turnMedicare grounding
+dialogue improves from 0.60 to 0.90—the single largest quality jump in the set—under a harness whose
+retrieval shaping sends less, better-selected evidence, consistent with the finding that long, noisy contexts
+degrade attention [17].Identity/refusalholds at 0.90/0.90 while its cost halves ($0.04 → $0.02): safety
+behavior at half price.Contract Q&Amoves +0.07 (0.75→ 0.82). The most expensive task in the set,
+multi-step research synthesis, drops from $0.61 to $0.33 (−46%) but regresses in quality (0.80→ 0.60)—
+the one place the aggregate parity conceals a real trade, driven by the smaller models, and the reason the
+release recommendation (Section 7) holds candidates back pending a fix rather than shipping the regression.
+Secondary judges move with the headline: coherence 0.85→ 0.88, communication 0.79→ 0.80, hallucination
+clean in both arms.
+14
+
+0.70 0.72 0.74 0.76 0.78 0.80
+Mean capability score under baseline
+0.04
+0.02
+0.00
+0.02
+0.04
+0.06
+0.08
+0.10
+Harness leverage q (harness baseline)
+Sonnet 4.6
+Gemini 3.1
+Flash 3.5
+Qwen 3.6
+GLM 5.1
+Palmyra X6
+Figure 6: Harness leverage scales with baseline capability.Mean quality gain from adopting the harness ( ∆¯q, eight
+capabilities) against the model’s baseline strength. Stronger models extract more quality from the same orchestration
+upgrade (r=0.99 ; n=6 , suggestive). Palmyra X6 +0.079 and Sonnet 4.6 +0.073 lead; Qwen 3.6 is net negative
+(−0.031).
+7 Discussion
+7.1 The harness is the price-setter
+The results separate cleanly along the framing of Section 3. The terms of Eq. (2) that are pure code—history,
+schemas, retrieval size, retries—moved for every model, because code executes the same way regardless of
+which model reads its output. The quality terms are mediated by the model’s ability to exploit structure, and
+they moved with capability. One layer, two currencies: the harness sets the price of work unconditionally,
+and sets the ceiling of work jointly with the model. The layer that sets the price is also the layer an enterprise
+governs by; efficiency and control concentrate in the same component.
+This reframes a common procurement instinct. Teams comparing $/Mtok across vendors are comparing
+p; the bill is p×τ , and τ belongs to the harness. On this workload the harness moved the bill more than
+the entire spread of the model menu did (Section 6.2). An organization that rents its orchestration layer has
+outsourced the variable it controls most.
+7.2 Fleet economics: why the savings compound
+Per-task deltas understate the object of interest, which is fleet spend. At the blended rates measured here,
+an organization running one million agent tasks a month pays $210k under the baseline loop and $120k
+under the harness—$1.08M a year from an orchestration change alone (Figure 7). Three properties make this
+saving unusual among AI optimizations. It ismodel-portable: implemented above the API, it survived all
+six models here and, by construction, applies to models that do not exist yet. It isvolume-linear: it grows
+with exactly the quantity—agentic task volume—that is growing fastest in enterprise deployments. And it
+stacks: per-token price declines [ 24], routing [10, 11], and prompt-level compression [9, 13] all multiply
+against it rather than substituting for it. Latency compounds the same way: 1.8× faster per task is also 1.8×
+the throughput per unit of orchestration infrastructure, and shorter loops are cheaper to retry.
+15
+
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00
+Agent tasks per month (millions)
+0.0
+0.1
+0.2
+0.3
+0.4LLM spend ($M / month)
+$90k/month at 1M tasks
+($1.08M/year)
+Baseline blended ($0.21/task)
+Harness blended ($0.12/task)
+Figure 7: Harness savings at fleet scale.Blended cost per task applied to monthly task volume. At one million agent
+tasks per month, the harness is worth $90k/month over the baseline ($1.08M/year); the gap widens linearly with volume
+and multiplies against every model in the mix.
+7.3 Escaping token maxing: change the KPI
+Definition 1 suggests the managerial fix is a measurement fix. Teams that report quality alone will token-
+max, because tokens are someone else’s line item; teams that report CPM or η$ cannot. The swap studied
+here moved CPM from 54.9 to 92.0 completions per million tokens—the direction opposite to the industry
+trajectory—while quality held. We suggest CPM belongs next to quality in every agent release gate, for the
+same reason performance-per-watt sits next to performance in chip design: it is the number that predicts the
+bill.
+7.4 Harness–model co-design and routing by feature demand
+The regression pattern (all seven on smaller models, concentrated in MCP/Playbooks) and the sub-agent floor
+(Table 5) argue that orchestration features are not free to expose. A harness is a contract the model must
+be strong enough to honor. Two practical consequences follow. First, harness capabilities should degrade
+gracefully by model tier—scoping down tool catalogs and disabling delegation below the floor—rather than
+presenting one interface to all models. Second, routing research [10, 11] should route onfeature demand, not
+just prompt difficulty: a request that will exercise sub-agents belongs on Palmyra X6 or Sonnet 4.6 regardless
+of how simple its text looks, while a grounded Q&A request can take the 61%-cheaper fast tier with no
+quality penalty (Figure 5, GDR row: every model improves).
+7.5 Release posture implied by the data
+Read as a deployment decision, the evidence supports: general availability on the two models above the
+sub-agent floor (Palmyra X6, Sonnet 4.6); holding the open-weight candidates pending the multi-step-research
+fix; and leading external claims with efficiency—which is uniform and decisive—rather than quality, which
+is directional at n=22 . We record this here because it is the honest reading of Table 3: the temptation in
+industry reporting is to headline+0.03 quality; the defensible headline is−38% tokens at parity.
+16
+
+8 Threats to Validity
+Sample size. n=22 prompts is sufficient for the uniform, large efficiency deltas and insufficient for quality
+inference; all quality claims are directional, and the headline is parity, not improvement.Single-run baseline.
+The baseline was run once and frozen (2026-06-07); run-to-run variance on the baseline is unmeasured.
+Judge dependence.Task-completion is LLM-judged; judge bias is partially mitigated by locked criteria and
+secondary judges but not eliminated [20].Price-table dependence.Dollar figures inherit one pinned public
+price table; token and latency results are price-independent and tell the same story.Workload shape.The
+task set mirrors an enterprise assistant workload (grounding, workflows, tools, content); results may differ on
+long-horizon coding benchmarks [19, 18].Six points.The harness-leverage correlation is computed over
+six models and should be read as a strong pattern awaiting a wider model panel.One pair.We compare
+one baseline loop and one harness, both from a single vendor; the framing of Section 3 is general, but the
+magnitudes are specific to this pair.Cross-harness claims are architectural.Section 4.4 characterizes
+other systems from public documentation and a design-time source study; it contains no cross-harness
+measurements, and Table 1 should be read as a design comparison, not a benchmark.
+9 Conclusion
+Held to the same 22 tasks and judged by the same panel, six foundation models did the same work for 38%
+fewer tokens, 41% less money, and in 44% less time—because the software around them changed, not the
+models. The efficiency was unconditional; the quality gains went to the models strong enough to earn them;
+the one new capability came with a capability floor. Token maxing is a choice made at the orchestration layer,
+and it can be unmade there—mechanism by mechanism: cache the stable, compact the old, offload the bulky,
+suspend the waiting, bound the failing. The harness is not the plumbing of an agent system. On the evidence
+here, it is the P&L.
+Disclosure.The authors are employed by Writer, Inc., which develops the Agent Harness and the Palmyra
+model family evaluated in this work; the last author is co-founder and CTO. The evaluation design—frozen
+baseline, locked prompts, identical judges and price tables across arms, candidate-model failures scored
+rather than excluded—is intended to make the comparison auditable; the release artifacts are enumerated in
+Appendix D.

@@ -1,0 +1,945 @@
+record_id: s2_snowball:05927bb6149964f3ecaff1f9be79e23bd9bee07f
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2505.17616
+fetched_title: Runaway is Ashamed, But Helpful: On the Early-Exit Behavior of Large Language Model-based Agents in Embodied Environments
+fetched_at: 2026-09-18T19:00:23Z
+
+Runaway is Ashamed, But Helpful: On the Early-Exit Behavior of Large
+Language Model-based Agents in Embodied Environments
+Qingyu Lu♢✿*, Liang Ding♡*, Siyi Cao♢, Xuebo Liu❄, Kanjian Zhang♢♠†
+Jinxia Zhang♢, Dacheng Tao✿
+♢Southeast University ♡The University of Sydney ♠Southeast University Shenzhen Research Institute
+❄Institute of Computing and Intelligence, Harbin Institute of Technology, Shenzhen, China
+✿College of Computing and Data Science at Nanyang Technological University, Singapore 639798
+{luqingyu,siyic,kjzhang,jinxiazhang}@seu.edu.cn,liangding.liam@gmail.com,
+liuxuebo@hit.edu.cn,dacheng.tao@gmail.com
+https://github.com/Coldmist-Lu/AgentExit
+Abstract
+Agents powered by large language models
+(LLMs) have demonstrated strong planning and
+decision-making capabilities in complex em-
+bodied environments. However, such agents
+often suffer from inefficiencies in multi-turn
+interactions, frequently trapped in repetitive
+loops or issuing ineffective commands, lead-
+ing to redundant computational overhead. In-
+stead of relying solely on learning from tra-
+jectories, we take a first step toward exploring
+the early-exit behavior for LLM-based agents.
+We propose two complementary approaches,
+❶ anintrinsicmethod that injects exit instruc-
+tions during generation, and ❷ anextrinsic
+method that verifies task completion to deter-
+mine when to halt an agent’s trial. To evaluate
+early-exit mechanisms, we introduce two met-
+rics: one measures the reduction ofredundant
+stepsas a positive effect, and the other evalu-
+atesprogress degradationas a negative effect.
+Experiments with 4 different LLMs across 5
+embodied environments show significant effi-
+ciency improvements, with only minor drops in
+agent performance. We also validate a practical
+strategy where a stronger agent assists after an
+early-exit agent, achieving better performance
+with the same total steps. We will release our
+code to support further research.
+1 Introduction
+Large Language Models (LLMs, Achiam et al.,
+2023) have shifted the paradigm from merely re-
+sponding to user inputs to tackling more com-
+plex tasks within interactive environments such as
+household settings (Shridhar et al., 2021), virtual
+worlds (Park et al., 2023), and games (Hu et al.,
+2024). LLM-based agents serve as intelligent con-
+trollers, capable of perceiving environments, ex-
+ecuting actions, and adapting through feedback
+* Equal contribution.
+† Corresponding Author.
+0 10 20 30 40
+Average Steps
+10
+20
+30
+40
+50
+60Success Rate (%)
+Llama3.1-8B-Instruct
+Llama3.1-70B-Instruct
+Mistral-7B-Instruct
+Mistral-24B-Instruct
+ReAct Agent
++ Early Exit
+Figure 1:Early-exit behavior of different LLM-based
+agentsin embodied environments. While early termi-
+nation slightly reduces the success rate, it significantly
+decreases the average number of interaction steps, indi-
+cating improved efficiency.
+(Wang et al., 2024; Luo et al., 2025). Previous stud-
+ies show that structured workflows—such as rea-
+soning before acting (Yao et al., 2023), predicting
+future states (Fu et al., 2025b), and learning from
+high-quality trajectories (Chen et al., 2024b; Song
+et al., 2024)—can improve performance within
+a single trial. When agents do fail, post-hoc ap-
+proaches such as Reflexion (Shinn et al., 2023),
+AutoPlan (Ouyang and Li, 2023), and ExpeL (Zhao
+et al., 2024) enable them to learn from failures and
+replan more effective solutions in subsequent trials.
+However, a key limitation of LLM-based agents
+remains underexplored:they often fail to recognize
+when a goal is too difficult or when they are stuck.
+Prior work shows that agents may repeat the same
+errors in unproductive loops without meaningful
+actions or self-correction (Fu et al., 2025a), leading
+to unnecessary computational overhead. This issue
+becomes even more critical in real-world settings,
+where repeated mistakes by embodied agents can
+waste energy, cause wear-and-tear, or even damage
+physical objects in the environment. Therefore,
+incorporating built-in self-awareness mechanisms
+arXiv:2505.17616v2 [cs.CL] 22 Sep 2025
+
+You are in the middle of the room …
+Your task is to: look at bowl
+under the desklamp.
+Thought: I’ll check
+the desks first.
+Action: go to desk 1.
+Thought: I’m stuck.
+I’ll try again.
+Action: check valid
+actions.
+Thought: I need to
+figure out …
+Action: examine desk 1.
+Thought: I’m stuck.
+I’ll try again.
+Action: check valid actions.
+Thought: I think I am stuck.
+I need to …
+Action: put bowl 1
+in/on desklamp 1.
+Thought: I’ll check
+the desks first.
+Action: go to desk 1.
+Thought: I need to
+finally check ...
+Action: examine desk 1.
+You can exit if you think the
+task is complete.
+Thought: I think I have
+completed the task.
+Action: EXIT.
+Intrinsic Early Exit
+Exit?
+No.
+(The agent is
+still exploring.)
+Extrinsic Early Exit
+ReAct
+Exit?
+No.
+(The agent is
+trying to ...)
+Exit?
+Yes.
+(The agent seems to
+stuck in a loop.)
+Figure 2:A comparative overview of our proposed Intrinsic and Extrinsic Early Exitwith ReAct Agent. The
+intrinsic approach injects an exit instruction to guide the agent to self-terminate, while the extrinsic approach uses a
+verification module to determine whether to exit based on the current state.
+can help agents detect when progress has stalled,
+enabling early self-reflection and adjustment.
+To this end, we take the first step by investigating
+theearly-exitbehavior of LLM-based agents. As
+shown in Figure 2, we propose two complementary
+strategies: ❶ Intrinsic Early Exit, which injects
+exit instructions directly into the agent’s prompts to
+encourage self-recognition of when to halt; and ❷
+Extrinsic Early Exit, which introduces an external
+verification module that monitors the interaction
+status and outputs a binary (YES/NO) decision to
+control whether the agent should continue.
+In addition to using success rate and progress
+rate (Chang et al., 2024) to evaluate agent per-
+formance, we propose two new metrics to assess
+the impact of the early-exit mechanism.Redun-
+dant Stepsquantifies the positive effect by measur-
+ing reductions in unnecessary interactions, while
+Progress Degradationcaptures the potential nega-
+tive impact, indicating cases where exit early may
+interrupt or reverse meaningful progress.
+We conduct experiments on 5 datasets spanning
+over 400 environments and find that the early-exit
+mechanism significantly improves efficiency, with
+only a minor drop in task success and progress
+rates, as shown in Figure 1. We also propose a
+practical use of early-exit behavior: Once the agent
+exits early, a stronger agent reflects on the state and
+continues exploration, achieving improved perfor-
+mance within the same total steps.
+Our contributions are three-fold:
+• We present the first investigation into early-
+exit behavior in LLM-based agents, proposing
+two strategies that enable agents to develop
+self-awareness and terminate execution with-
+out external intervention.
+• We introduce two complementary metrics to
+evaluate the effectiveness of early exit. These
+metrics can serve as standardized tools for
+assessing agent behavior and guiding the se-
+lection of optimal exiting strategies.
+• Our proposed methods generalize across vari-
+ous LLM-based agents and task settings. We
+further demonstrate the practical value of our
+approach by introducing post-trial strategies
+that leverage stronger agents to enhance over-
+all performance.
+This study is an initial step toward exploring
+early-exit behavior in LLM-based agents. Our ap-
+proach encourages agents to make efficient deci-
+sions, avoid unnecessary interactions, and achieve a
+trade-off between efficiency and task performance.
+2 Approach
+2.1 Task Formulation
+Embodied EnvironmentsIn embodied environ-
+ments, an agent interacts with the world through
+actions and receives feedback from the environ-
+ment. This interaction can be modeled as a special
+case of a Partially Observable Markov Decision
+Process (POMDP), defined by an instruction space
+U, state spaceS, action spaceA, observation space
+O, and a transition functionT:S×A→S.
+
+LLM-based AgentsIn this work, we focus on
+text-based environments, where the instruction, ac-
+tion, and observation spaces are all expressed in
+natural language. The agent is provided with an
+instructionu, which includes a description of the
+task and environment, as well as the goal to be
+achieved. At each time step t, the agent, guided
+by a policyπθ (typically an LLM with parameters
+θ), must decide on the next actionat based on the
+trajectory historyet. This decision-making process
+is formalized as:
+at∼π θ(·|e t,u),(1)
+where et = (a 1,o 1,...,a t−1,ot−1) denotes the
+full trajectory up to timet, including previous ac-
+tions and observations. In this way, the agent con-
+tinually explores the environment, using feedback
+from observations to inform its next actions, until
+the task is completed or a predefined maximum
+number of steps is reached.
+2.2 Dynamic Early Exit
+We propose two simple but effective early-exit
+strategies,Intrinsic Early ExitandExtrinsic Early
+Exit, that enable the agent to terminate its interac-
+tion when appropriate.
+Intrinsic Early ExitThis strategy modifies the
+behavior of LLM agent by appending a natural lan-
+guage prompt that allows it to terminate the interac-
+tion with the environment when deemed necessary.
+The exit instruction can be formulated as:
+uintrinsic =concat(u,u exit).(2)
+In this way, the LLM may develop an intention to
+termiate based on the additional instruction uexit,
+leading to different actions and trajectories. As
+shown in Figure 2, the agent is prompted with an
+instruction to exit once the task is complete. After
+examining the relevant objects, the agent generates
+an "EXIT" action to terminate the interaction.
+Extrinsic Early ExitThis strategy introduces a
+verification modulevθ, which shares the same LLM
+backbone. The verification module operates after
+each action and observation, evaluating whether
+the agent should continue the task. It outputs a
+binary decision: "YES" to exit or "NO" to continue
+execution. Specifically, it functions as follows:
+uextrinsic =concat(u,u exit),(3)
+vθ(·|e t,u extrinsic)∈{0,1}.(4)
+The agent is verified periodically everyk steps. In
+our experiments, we set k= 1 1. As shown in
+Figure 2, the verification module detects that the
+agent is stuck and triggers an early exit, effectively
+avoiding further repetitive steps.
+2.3 Evaluation
+Typically, the performance of agents in embodied
+environments is evaluated using Success Rate and
+Progress Rate. To intuitively demonstrate the be-
+havior of the early-exit mechanism on LLM-based
+agents, we propose two complementary metrics
+that capture both its positive and negative effects.
+These metrics are defined as follows:
+Success Rate (SR)The environment is marked
+as successful if the agent completes the given task,
+typically when it reaches a predefined latent state
+that signifies task completion. A higher success
+rate indicates that the agent is more effective at
+solving environments under the same task.
+Progress Rate (PR)Progress Rate, proposed by
+Chang et al. (2024), quantifies the extent to which
+an agent advances toward the task goal, making
+it particularly valuable for evaluating incremental
+improvements. In embodied environments, the task
+goal is decomposed into a sequence of subgoals
+G= [g 1,···,g K], where each subgoal contributes
+progressively to task completion. At each time step
+t, the progress is defined as:
+rt = max
+i,0≤i≤t
+
+1
+K
+KX
+k=1
+f(si,gk)
+!
+,(5)
+wheref(si,gk)∈{0,1} is a binary indicator func-
+tion that evaluates whether the agent statesi satis-
+fies subgoal gk, typically determined via regular-
+expression-based matching. PR offers a more fine-
+grained and informative evaluation of agent behav-
+ior than binary success metrics alone.
+New Metric 1: Redundant Steps (RS)The pri-
+mary purpose of introducing the early-exit mech-
+anism is to reduce redundant steps in the agent’s
+interaction with the environment. As illustrated in
+Figure 3(a), after completing subgoal 3 out of 4, the
+agent continues exploring unnecessarily for 5 ad-
+ditional steps before ultimately failing. Early-exit
+can mitigate this issue while maintaining the same
+1We set k= 1 to enable timely detection in our experi-
+ments. In practice, larger values (e.g., k= 2 –5) can be used
+to reduce computational overhead.
+
+Subgoal 1/4 Subgoal 2/4 Subgoal 3/4
+Redundant Steps
+Fail
+(a) Redundant Steps
+Subgoal 1/4 Subgoal 2/4 Subgoal 3/4
+Subgoal 1/4 Subgoal 2/4 Subgoal 3/4
+Early ExitX
+✓ Success !
+Subgoal 4/4 (b) Progress Degradation
+Figure 3:An overview of the proposed metrics.Redundant Stepsmeasures the number of redundant steps.
+Progress Degradationmeasures task progress loss via reduced subgoal completion.
+level of progress. Letntotal denote the total number
+of steps in the trajectory, andnsubgoal be the index
+of the last step that achieves a new subgoal. The
+Redundant Stepsis defined as:
+RS=n total−n subgoal.(6)
+For trivial cases, RS=n total if the agent fails to
+complete any subgoal (i.e., PR= 0 ). if the agent
+successfully completes the entire task, RS= 0 ,
+meaning that all steps are considered useful.
+New Metric 2: Progress Degradation (PD)The
+agent may also negatively impact agent perfor-
+mance by prematurely terminating trajectories that
+might have led to further progress. This can sup-
+press the agent’s potential, causing missed subgoals
+or converting potentially successful trials into fail-
+ures. To quantify this loss, we defineProgress
+Degradationas:
+PD= max(PR ref−PR exit,0),(7)
+where PRref denotes the progress rate without exit,
+while PRexit is the progress rate when early-exit is
+applied2. As shown in Figure 3(b), the agent exits 3
+steps early, leaving an otherwise successful environ-
+ment unfinished with only 75% progress, resulting
+in a 25% loss in progress.Progress Degradation
+ranges from 0 (no degradation) to PRref (complete
+loss of progress). A higher PD indicates greater
+performance loss. In the trivial case, PD= 0 im-
+plies no degradation, while PD=PR ref indicates
+complete progress failure (e.g., all environments
+terminate at the first step).
+3 Experimental Setup
+DatasetsWe evaluate our methods across 3 em-
+bodied environments and 2 gaming environments.
+For embodied environments,AlfWorld(Shridhar
+et al., 2021) includes 134 household tasks that re-
+quire agents to explore their surroundings and com-
+plete instructions such as “Look at bowl under the
+2Progress degradation is only meaningful when compared
+against a reference baseline.
+desklamp.”ScienceWorld(Wang et al., 2022) sim-
+ulates a total of 90 scientific experiments in an
+interactive setting, such as “measure the melting
+point.”BabyAI(Chevalier-Boisvert et al., 2019) is
+a 20x20 grid-based environment where agents must
+navigate and interact with objects to accomplish
+112 defined goals. We also consider two gaming
+environments.Jericho(Hausknecht et al., 2020)
+comprises 20 text-based fictional worlds, which
+we adapt using the setup from Chang et al. (2024)
+to be completed within 15 subgoals.PDDLrep-
+resents a suite of strategic planning tasks defined
+in the Planning Domain Definition Language (Val-
+lati et al., 2015). Following Chang et al. (2024),
+we include four distinct games, namely, 60 unique
+environments for evaluation.
+LLMsTo ensure reproducibility, we evaluate
+four open-source large language models with vary-
+ing parameter sizes. From the LLaMA 3.1 se-
+ries3 (Grattafiori et al., 2024), developed by Meta,
+we use two instruction-tuned models: the 8B ver-
+sion (Llama3.1-8B-Instruct) and the 70B version
+(Llama3.1-70B-Instruct), with the latter quantized
+using 4-bit AWQ (Lin et al., 2024) for efficient
+inference. In addition, we test two models from
+the Mistral family4 (Jiang et al., 2024):Mistral-7B-
+Instruct(v0.3) andMistral-24B-Instruct(Mistral-
+Small-Instruct-2409).
+PromptsWe adopt ReAct-style (Yao et al., 2023)
+prompting to enable LLM-based agents to interact
+effectively with the environment. Following Song
+et al. (2024), we format the interaction prompt as
+a multi-turn conversation, including an in-context
+example for each task. For early-exit instructions,
+we explore prompt variants with varying strictness
+levels (see in Appendix B), aligning the strategy
+with specific LLMs.
+HyperparametersFor all experiments, we set
+the temperature to 0.1 and limit each turn’s re-
+3https://huggingface.co/meta-llama
+4https://huggingface.co/mistralai
+
+Setting ALFWorld BabyAI ScienceWorld
+Int. Ext.SR↑PR↑RS↓PD↓Steps↓SR↑PR↑RS↓PD↓Steps↓SR↑PR↑RS↓PD↓Steps↓
+Llama3.1-8B-Instruct
+- - 23.1 45.2 26.4 - 33.4 41.1 54.6 18.3 - 27.1 8.9 37.3 29.5 - 38.5
+✓ ✗ 14.2 38.3 11.0 14.1 15.9 41.1 54.3 15.2 10.5 25.6 7.8 32.6 25.5 11.1 32.3
+✗ ✓ 20.9 38.3 6.1 16.3 9.6 16.1 25.4 4.9 30.5 6.6 7.8 29.5 7.2 13.9 10.5
+✓ ✓ 21.6 44.4 11.3 9.1 16.8 46.4 57.3 16.3 6.6 25.1 7.8 34.5 25.1 9.4 32.3
+Llama3.1-70B-Instruct
+- - 76.1 81.1 7.2 - 19.0 49.1 62.8 16.1 - 26.4 34.4 67.5 17.9 - 31.4
+✓ ✗ 61.2 67.4 5.7 17.4 13.8 36.6 53.1 12.6 18.0 18.2 18.9 59.8 10.3 12.3 21.2
+✗ ✓ 70.2 79.3 3.8 8.7 13.4 42.0 59.3 7.8 12.9 13.3 27.8 63.6 6.8 9.0 17.4
+✓ ✓ 80.6 84.0 4.3 5.8 17.0 40.2 57.8 12.8 13.1 19.9 27.8 64.6 11.1 10.6 22.8
+Mistral-7B-Instruct
+- - 20.9 40.4 27.8 - 34.8 17.0 21.7 32.8 - 34.0 2.2 16.6 37.4 - 39.2
+✓ ✗ 14.9 36.3 18.7 15.9 23.9 16.1 25.9 29.2 5.6 32.0 2.2 18.4 34 3.4 36.3
+✗ ✓ 11.2 32.5 21 16.7 24.9 10.7 18.2 26.8 12.0 27.9 1.1 15.4 15.6 3.4 17.2
+✓ ✓ 17.2 36.1 27.2 11.4 32.7 16.1 22.4 31.4 4.9 33.5 2.2 18.2 34.8 1.9 38.0
+Mistral-24B-Instruct
+- - 58.2 71.6 11.7 - 25.9 49.1 60.9 17.1 - 25.5 15.6 42.5 26.4 - 36.9
+✓ ✗ 31.3 51.7 10.1 26.0 17.4 40.2 51.5 20.4 19.4 27.0 11.1 40.7 20.6 18.9 31.7
+✗ ✓ 57.5 70.7 9.2 10.8 20.5 37.5 50.1 8.2 16.3 13.3 3.3 23.3 6.5 20.7 9.5
+✓ ✓ 57.5 74.3 10.6 10.5 25.7 35.7 53.9 19.7 19.6 28.4 12.2 39.5 23.7 18.0 35.2
+Table 1:Performance comparison of two early-exit approaches—Extrinsic (Ext.) and Intrinsic (Int.)—vs.
+the ReAct baseline across four LLMs in three embodied environments. Red indicatesnegativeimpact (e.g.,
+performance drop or progress degradation), while Green showspositiveeffects (e.g., reduced redundancy).
+Metrics: SR (Success Rate), PR (Progress Rate), RS (Redundant Steps), PD (Progress Degradation), and Steps
+(Average Steps).
+sponse to a maximum of 256 tokens.
+Device and PlatformAll experiments are con-
+ducted on two NVIDIA A100 GPUs with 80GB of
+memory each. We deploy the models using VLLM
+(Kwon et al., 2023) for distributed inference and
+access them through OpenAI-compatible chat com-
+pletion APIs (Achiam et al., 2023). Evaluation is
+performed using AgentBoard (Chang et al., 2024),
+measuring both success rate and progress rate.
+4 Main Results
+We experiment on 3 embodied environments and 2
+gaming environments, and report results in Table 1
+and Table 2, respectively. We can see that:
+(i) Early-exit mechanisms significantly reduce
+redundant steps.Across all three embodied en-
+vironments, baseline methods exhibit substantial re-
+dundancy (“RS”) in their thought-action sequences.
+For example,LLama3.1-8B-Instructaverages 26.4
+unnecessary steps out of 40 in Alfworld5. Almost
+5Note that our implementation of RS did not account for
+some trivial cases in the first arXiv version. We have corrected
+this in the current version, and the correction does not affect
+our main conclusions.
+all early exit mechanisms are able to reduce the re-
+dundancy, by approximately 50% to 70%, leading
+to a notable increase in overall efficiency. A similar
+trend is observed in the average steps (“Steps”),
+decreasing alongside the reduction in redundant
+steps, further highlighting the effectiveness of the
+early-exit mechanism in improving task efficiency.
+(ii) Minor performance drop in success and
+progress rates.While early exit improves effi-
+ciency, it inevitably causes slight reductions in both
+success and progress rates. The observed progress
+degradation (“PD”) further confirms this trade-off.
+However, for all four tested LLMs, certain early
+exit strategies yield minimal performance loss. For
+example, using the extrinsic ("Ext.") method on
+Llama3.1-70B-Instruct, the progress rate drops by
+under 2%, 3%, and 4% in ALFWorld, BabyAI, and
+ScienceWorld, respectively. This shows that ap-
+propriate early exits can greatly improve efficiency
+with negligible performance impact.
+(iii) LLMs show varying preferences for early
+exit strategies.LLMs respond differently to the
+same early exit approach. For example, the intrin-
+sic ("Int.") early exit performs better forMistral-
+
+Setting PDDL Jericho
+Int. Ext.SR↑PR↑RS↓PD↓Steps↓SR↑PR↑RS↓PD↓Steps↓
+Llama3.1-8B-Instruct
+- - 11.7 29.9 27.4 - 38.3 5.0 27.3 25.2 - 36.5
+✓ ✗ 6.7 30.5 19.7 6.1 31.4 5.0 26.8 23.0 9.0 37.7
+✗ ✓ 1.7 4.4 3.6 25.9 4.0 0.0 7.5 5.4 19.8 6.8
+✓ ✓ 8.3 31.4 20.4 6.1 32.3 10.0 31.8 23.2 10.5 33.3
+Llama3.1-70B-Instruct
+- - 45.0 62.2 16.2 - 31.1 35 55.9 13.9 - 32.3
+✓ ✗ 41.7 64.8 12.4 5.8 28.2 25 41.5 13.2 23.1 29.8
+✗ ✓ 43.3 63.5 8.4 4.9 23 20 38.5 10.0 19.8 21.7
+✓ ✓ 38.3 61.9 14.2 8.1 29.7 20 41.5 14.3 21.1 29.4
+Mistral-7B-Instruct
+- - 0 9.7 37.5 - 40 0 11.7 35.6 - 38.4
+✓ ✗ 1.7 12.1 27.4 5 30.3 0 6.9 29.1 4.8 30.2
+✗ ✓ 3.3 13.8 17.8 4.6 20.9 0.0 9 23.9 6 26.1
+✓ ✓ 3.3 12.9 31.7 4.2 35.6 0 12 34.7 3.5 36.6
+Mistral-24B-Instruct
+- - 13.3 27.4 28.3 - 37 15 43.8 25.1 - 37.3
+✓ ✗ 13.3 33.3 25.4 8.5 34.7 10 33.8 23.5 12.7 32.7
+✗ ✓ 10.0 24.3 10.4 7.9 16.2 5 29.5 14.0 18.2 20.9
+✓ ✓ 11.7 32.0 26.6 7.8 36.1 10 27.4 27.6 20.5 37.0
+Table 2:Performance comparison of two early-exit settingsacross four LLMs in game environments. Red
+indicates negative impact, while Green shows positive effects (e.g., reduced redundancy). Metrics: SR (Success
+Rate), PR (Progress Rate), RS (Redundant Steps), PD (Progress Degradation), and Steps (Average Steps).
+7B-Instruct, whereas it significantly degrades the
+performance ofMistral-24B-Instruct. Conversely,
+Mistral-24B-Instructbenefits more from the extrin-
+sic method ("Ext."). This is possibly because the
+larger Mistral LLMs is more sensitive to intrinsic
+cues, resulting in premature termination, whereas
+extrinsic method provide more stable exit signals.
+(iv) Combining intrinsic and extrinsic early exit
+maximizes performance retention.We explore
+a hybrid strategy that first applies extrinsic veri-
+fication to detect potential exit, then applies the
+intrinsic method to confirm termination. While
+this increases the number of steps and reduces ef-
+ficiency, it achieves the best performance preser-
+vation ("Int.✓+ Ext.✓"). Notably, it even slightly
+improves performance onLlama3.1-70B-Instruct
+andMistral-24B-Instruct, possibly due to diversity
+behavior introduced by prompt modification.
+(v) Early-exit strategy generalizes to gaming
+environments.As shown in Table 2, applying
+early-exit in gaming environments yields similar
+trends, but smaller gains in efficiency and minor
+performance changes compared to embodied tasks.
+Redundancy reduction is less pronounced (gener-
+ally below 50%), and the drops in performance are
+marginal, except forMistral-7B-Instruct, occasion-
+ally showing improvement. This may be due to:
+1) the longer trajectories in gaming environments,
+which lead to lower baseline success rates (e.g.,
+below 20% for most LLMs exceptLlama3.1-70B-
+Instruct) and greater sensitivity to prompt varia-
+tions; and 2) ambiguous subgoal definitions, allow-
+ing multiple valid strategies and reducing consis-
+tency in progress measurement.
+5 Analysis
+5.1 Interpretation of Efficiency Metrics
+1/4
+subgoal
+2/4
+subgoal
+3/4
+subgoal
+4/4
+subgoal
+100%
+75%
+50%
+25%
+0
+5
+10
+15 Redundancy Steps (RS)
+Progress Degradation (PD)
+Maximum Step
+Reached
+Perfect
+Early-Exit
+Too Early
+RS PD
+Too Late
+RS PD
+Figure 4:Redundant Steps and Progress Degrada-
+tionmeasured in a failure case with 3 out of 4 subgoals
+completed. The metrics vary as the early-exit mecha-
+nism is triggered at different steps.
+
+Llama3.1-8B Llama3.1-70B Mistral-7B Mistral-24B
+Instruction-Tuned LLM
+0
+500
+1000
+1500Average Token Count
+ReAct
+Intrinsic Early-Exit
+Extrinsic Early-Exit
+Intrinsic + Extrinsic Early-Exit
+Figure 5:Comparison of the average token costfor
+one environment using different early-exit mechanisms.
+We illustrate how Redundant Steps (RS) and
+Progress Rate (PR) complement each other in mea-
+suring the early-exit behavior in Figure 4.
+Perfect Early-Exit ScenarioThe ideal early exit
+scenario ("Perfect Early Exit") occurs when both
+RS and PR are zero, meaning no redundant steps
+and no progress loss. However, this ideal is rarely
+achievable across all environments in practice.
+Too-Early ScenariosIf the early exit mechanism
+triggers too early ("Too Early"), it may reduce
+redundant steps but significantly impair progress.
+This is evident in the result of the external early exit
+ofLlama3.1-8B-Instructon BabyAI, where early
+termination yields a low RS but a high PD of 30.5.
+Too-Late ScenariosConversely, if the early exit
+mechanism triggers too late ("Too Late"), PD re-
+mains low but RS stays high. This is seen in
+Mistral-24B-Instruct, when using both intrinsic and
+extrinsic early exit methods fail to reduce RS.
+Visualization of Exit ScenariosSince Figure 4
+offers only a descriptive illustration of the effi-
+ciency metrics, we provide a detailed analysis of
+the experimental data in Appendix C, including
+further insights and interpretations.
+TakeawaysNeither too-early nor too-late exits
+are optimal in practice. Our results highlight the im-
+portance of selecting appropriate early exit settings
+for each LLM to balance RS and PR effectively.
+5.2 Inference Cost
+To further validate the efficiency improvements
+achieved by the early-exit mechanism, in addition
+to reporting the average number of execution steps
+in the main results, we also examine the average
+token cost for each environment, which directly re-
+flects the computational resource usage. As shown
+in Figure 5, the early-exit approach consistently
+10 15 20 25 30 35 40
+Maximum Steps
+20
+30
+40
+50
+60
+70
+80Success Rate (%)Mistral-24B Baseline
+Mistral-24B Early-Exit + Llama-70B
+Llama-70B Baseline
+Figure 6:Performance comparison under different
+max step limitsusing strong-agent assistance with an
+early-exit weak agent, compared to baseline agents.
+Mistral-24B-Instruct("Mistral-24B") is used as the
+weak agent, andLlama-3.1-70B-Instruct("Llama-70B")
+as the strong agent.
+reduces the number of tokens compared to ReAct
+across all four tested LLMs. It is worth noting that,
+in our extrinsic early-exit approach, the verification
+module generates only a simple "YES" or "NO"
+response. As a result, it has a negligible impact on
+the overall token cost.
+6 Practical Implications
+6.1 Motivation
+A key advantage of our proposed early-exit mech-
+anism is that agents capable of recognizing fail-
+ure can proactively terminate and seek assistance,
+thereby increasing the likelihood of successful
+problem-solving. This aligns with realistic appli-
+cation scenarios, where humans may intervene di-
+rectly or request help via a central server. In con-
+trast, agents without early-exit continue until the
+step limit, often wasting valuable interactions and
+failing to complete the task.
+To illustrate this, we simulate a practical scenario
+in embodied environments, wherea weaker agent
+exits early from challenging environments and
+requests assistance from a stronger agent.
+6.2 Setting
+DatasetWe use ALFWorld (Shridhar et al., 2021)
+as our test set, which is a typical embodied envi-
+ronment with 134 different tasks.
+ModelsWe useMistral-24B-Instructas the weak
+agent which achieves a 58.2% success rate under
+a ReAct-style format and 57.5% when paired with
+an external early-exit mechanism (seen in Table 1),
+andLlama3.1-70B-Instructas the strong agent.
+
+3 4 6 7 8 11 12 16 17 19 23 24 29 31 32 35 36 37 42 47 49 52 53 54 61 63 65 67 70 72 75 76 78 80 81 83 85 86 89 92 93 96 97 101102106108110112115117120121126132133
+Environment ID
+10
+15
+20
+25
+30
+35
+40Steps
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x x
+x x
+x
+x
+x
+x
+x x
+x
+x
+x x
+x
+x x
+x x
+x
+x x
+x
+x
+Mistral-24B Baseline Mistral-24B Early-Exit Llama-70B Continue Exploring
+Figure 7:Case study of failure environments under the early-exit approachin ALFWorld. Different colors
+indicate the contributions of various strategies. "x" marks the exit step for each environment, and ★ indicates
+completion by the stronger agent (Llama3.1-70B-Instruct).
+SetupIn baseline, the weaker agent executes up
+to 40 steps regardless of progress. With the ex-
+trinsic early-exit mechanism, it can terminate early
+and hand over control to a stronger agent, which
+replans and continues within the remaining steps.
+6.3 Experiment
+ResultAs shown in Figure 6, early exit followed
+by strong agent assistance yields over a 10% im-
+provement in success rate within the same 40-step
+budget, demonstrating the effectiveness of reallo-
+cating interaction steps to a more capable agent.
+Token UsageA potential concern is that intro-
+ducing a stronger agent does not necessarily im-
+prove “efficiency” in practice, as larger LLMs
+typically incur higher inference costs. To quan-
+tify this, we report token usage in Table 3. The
+strongerLlama3.1-70B-Instructconsumes an aver-
+age of 128 tokens per instance, whereas the weaker
+Mistral-24B-Instructrequires nearly 100 fewer to-
+kens. This modest increase of computation yields
+an 11.2% improvement in success rate, which rep-
+resents a reasonable trade-off between performance
+gains and computational overhead.
+Setting No. of Tokens SR (%)
+Mistral Llama
+Mistral-24B Base 622 - 58.2
+Mistral-24B Early-Exit 535 - 57.5
++ Llama-70B - 128 69.4
+Table 3:Comparison of success rates (SR) and av-
+erage token usageper environment across different
+experimental settings.
+Case StudyFigure 7 visualizes environments
+impacted by early-exit, where successful environ-
+ments by both early-exit and baseline are ignored.
+Around 15 environments (e.g., #3, #12) were com-
+pleted with strong-agent help. Of these, 7 envi-
+ronments (e.g., #12, #19) were not completed by
+the baseline within 40 steps but were solved with
+early exit and assistance. Only 2 cases (#29, #61)
+were prematurely exited but solved by baseline.
+Some tasks (e.g., #4, #36) remained unsolved by
+both agents but benefited from reduced wasted com-
+putation. These results clearly highlight the effi-
+ciency improvements brought by early-exit, espe-
+cially when supported by stronger agents.
+Adaptation to Reflexion FrameworkTo illus-
+trate the universality of early-exit behavior, we con-
+duct an additional experiment by integrating the
+early-exit mechanism with the Reflexion frame-
+work (Shinn et al., 2023), where the agent reflects
+on the early-exit trajectory before resuming execu-
+tion. This adaptation yields improved results, with
+further details provided in the Appendix D.
+7 Discussion
+Selecting Early-Exit StrategiesWe examine
+three types of early-exit strategies: intrinsic, extrin-
+sic, and hybrid. The intrinsic approach embeds exit
+instructions directly into the agent’s prompt; the
+extrinsic approach relies on a separate verification
+module (sharing the same LLM backbone) to mon-
+itor trajectories; and the hybrid approach combines
+both, using the extrinsic verifier to signal termina-
+tion and then injecting intrinsic exit instructions
+for subsequent steps, ensuring alignment between
+verifier and agent. Experiments show that different
+LLMs exhibit distinct behaviors under these strate-
+gies, preventing us from recommending a universal
+best setting. Instead, we provide model-specific
+recommendations in Appendix A, guided by the
+principle of minimizing progress degradation while
+
+reducing redundant steps.
+Overall Trends Across ModelsAnalysis of Ta-
+ble 1, Table 2, and Figure 8 indicates that the effec-
+tiveness of early-exit varies across LLMs. In prac-
+tice, larger models such asLlama3.1-70B-Instruct
+generally yield more reliable early exits due to
+stronger instruction-following capabilities. By con-
+trast, smaller models are more prone to premature
+termination, which can severely harm progress, and
+thus should be used with caution.
+Measurement of Redundant StepWe admit
+that the definition of redundant steps carries in-
+herent ambiguity. In particular, for the first trial
+in each environment, the true achievable progress
+is unknown, making it unclear which prior steps
+should be considered redundant. Once a subgoal is
+achieved, earlier steps may retroactively be deemed
+useful rather than redundant. This limitation may
+skew measurements in certain environments. We
+hope that researchers in the community will further
+investigate this issue and develop more sensitive
+metrics for distinguishing agent behaviors, such as
+productive reasoning versus unproductive looping.
+We also remind users to be aware of these limita-
+tions during evaluation of agent performance.
+8 Related Work
+LLM-based AgentsLLM-based agents are cen-
+tral to many tasks and show strong practical poten-
+tial. Some approaches, like ETO (Song et al., 2024)
+and AgentFLAN (Chen et al., 2024b), improve per-
+formance through expert trajectory training, achiev-
+ing better generalization. Others, such as ReAct
+(Yao et al., 2023), PreAct (Fu et al., 2025b), and
+StateFlow (Wu et al., 2024), focus on prompt de-
+sign to enhance chain-of-thought (CoT, Wei et al.,
+2022) reasoning. SwiftSage (Lin et al., 2023) inte-
+grates the behavior cloning and planning capabil-
+ities to enhance task completion. While effective,
+these methods often neglect efficiency, especially
+in failure cases. Complementary post-hoc strate-
+gies—like self-reflection (Shinn et al., 2023), tra-
+jectory revision (Ouyang and Li, 2023), and expe-
+rience extraction (Zhao et al., 2024)—help refine
+future behavior but only after trials conclude. We
+propose early-exit approaches that improve effi-
+ciency and demonstrate the practical benefits of
+leveraging stronger agents and post-hoc strategies.
+Dynamic Early ExitDynamic early exit is an
+adaptive inference strategy originally introduced
+in pre-trained language models to reduce compu-
+tational cost and latency by skipping certain lay-
+ers during inference (Zhou et al., 2020; Sun et al.,
+2022). Recent work extends this concept to LLMs
+to address the issue of excessively long and unpre-
+dictable generations. Yang et al. (2025) applies
+early exit mechanism to truncate outputs at appro-
+priate reasoning steps, thereby mitigating the “over-
+thinking” problem in LLMs (Chen et al., 2024a).
+Wang et al. (2025) eliminates redundant agent for
+better token efficiency in agent-collaboration sce-
+narios. In this work, we apply early exit to LLM-
+based agents in embodied environments, proposing
+an efficient and robust method adaptable to various
+agents, along with metrics to assess performance.
+Agent Verification and EvaluationTraditional
+benchmarks like AgentBench (Liu et al., 2024) as-
+sess overall agent performance using metrics such
+as reward or success rate. AgentBoard (Chang
+et al., 2024) improves transparency with human-
+annotated subgoals for process-level evaluation. A
+growing line of work explores using agents them-
+selves as evaluators, extending ideas from text
+generation (Zheng et al., 2023; Lu et al., 2024),
+code evaluation (Chen et al., 2024b). For exam-
+ple, Pan et al. (2024) explore using agents for
+self-evaluation and refinement. In this work, we
+leverage the agent verification module to verify its
+process in extrinsic early exit approach, and intro-
+duce two efficiency metrics to complement existing
+agent evaluation strategies.
+9 Conclusion
+In this work, We propose a dynamic early-exit
+framework for LLM-based agents in complex em-
+bodied environments, incorporating intrinsic and
+extrinsic early-exit mechanisms. Both approaches
+improve efficiency in our experiments. To better
+evaluate the impact of early exits, we introduce
+two complementary metrics that capture both its
+positive and negative effects. Additionally, we de-
+sign a practical experiment in which a stronger
+agent assists a weaker one in continuing task execu-
+tion, leading to enhanced performance. Early-exit
+mechanism is also universally applicable and can
+be integrated with other techniques. We hope our
+approach serves as a first step toward improving
+the efficiency of LLM-based agents and that our
+proposed metrics can be readily adopted by future
+research for evaluating agent efficiency.
+
+Limitations
+The limitations of our work are as follows:
+• Limited Datasets:We evaluate only five
+datasets from embodied and gaming environ-
+ments. Tasks like web navigation or app ex-
+ecution are excluded, as they often involve
+simpler, more direct goals, making early-exit
+less impactful. We leave these for future work.
+• No Training Integration:While our ap-
+proaches and metrics are designed to be plug-
+and-play for all LLM-based agents, we re-
+strict our experiments to models that were not
+trained with held-in data due to uncertainties
+about the complexity of datasets.
+• LLM Scope:We test four open-source LLMs
+due to budget constraints and to avoid data
+contamination. Proprietary models like GPT
+(Achiam et al., 2023) are not included.
+• Residual Redundancy:While our approach
+reduces redundant steps, it does not fully elim-
+inate them, likely due to current LLMs’ lim-
+ited instruction-following ability. Further im-
+provements are still necessary.
+• Real-World Deployment:Our evaluation is
+conducted in simulation rather than real-world
+environments. While this limits external va-
+lidity, simulation provides a controlled and
+necessary first step for analyzing core early-
+exit behaviors. We also give practical impli-
+cations to better illustrate the practical use of
+our approach.
+Ethics Statement
+We take ethical considerations very seriously, and
+strictly adhere to the Code of Ethics. All proce-
+dures performed in this study are in accordance
+with the ethical standards. This paper explores
+early-exit mechanisms for LLM-based agents in
+embodied environments. Our proposed approaches
+and metrics, does not include statements that in-
+duce the model to generate harmful information.
+Additionally, the approach focuses solely on deter-
+mining when to terminate agent execution, thereby
+reducing potential risks. Both the datasets and
+models used in this paper are publicly available
+and have been widely adopted by researchers. We
+ensure that the findings and conclusions of this pa-
+per are reported accurately and objectively. No
+human participants were involved as evaluators or
+case studies in this work.
+Acknowledgements
+We thank the anonymous reviewers and the area
+chair for their insightful comments and valuable
+suggestions. We have revised the paper and cor-
+rected a minor calculation error in the tables iden-
+tified during the review process. This research is
+supported by the Fundamental Research Funds for
+the Central Universities 2242025F20002, the Na-
+tional Science Foundation of China under Grant
+61973083, the Shenzhen Science and Technology
+Program JCYJ20210324121213036. Dr Tao’s re-
+search is partially supported by NTU RSR and Start
+Up Grants.

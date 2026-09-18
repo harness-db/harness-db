@@ -1,0 +1,386 @@
+record_id: openreview:OEDM8mzbsl
+source_used: openreview_pdf
+fetched_url: https://openreview.net/pdf?id=OEDM8mzbsl
+fetched_title: EVALUATING MULTI-AGENT COORDINATION ABILI - TIES IN LARGE LANGUAGE MODELS
+fetched_at: 2026-09-18T19:08:38Z
+
+Under review as a conference paper at ICLR 2024
+EVALUATING MULTI-AGENT COORDINATION ABILI -
+TIES IN LARGE LANGUAGE MODELS
+Anonymous authors
+Paper under double-blind review
+ABSTRACT
+A pivotal aim in contemporary AI research is to develop agents proficient in
+multi-agent coordination, enabling effective collaboration with both humans and
+other systems. Large Language Models (LLMs), with their notable ability to un-
+derstand, generate, and interpret language in a human-like manner, stand out as
+promising candidates for the development of such agents. In this study, we build
+and assess the effectiveness of agents crafted using LLMs in various coordination
+scenarios. We introduce the LLM-Coordination (LLM-Co) Framework, specifi-
+cally designed to enable LLMs to play coordination games. With the LLM-Co
+framework, we conduct our evaluation with three game environments and orga-
+nize the evaluation into five aspects: Theory of Mind, Situated Reasoning, Sus-
+tained Coordination, Robustness to Partners, and Explicit Assistance. First, the
+evaluation of the Theory of Mind and Situated Reasoning reveals the capabili-
+ties of LLM to infer the partner’s intention and reason actions accordingly. Then,
+the evaluation around Sustained Coordination and Robustness to Partners further
+showcases the ability of LLMs to coordinate with an unknown partner in complex
+long-horizon tasks, outperforming Reinforcement Learning baselines. Lastly, to
+test Explicit Assistance, which refers to the ability of an agent to offer help proac-
+tively, we introduce two novel layouts into the Overcooked-AI benchmark, ex-
+amining if agents can prioritize helping their partners, sacrificing time that could
+have been spent on their tasks. This research underscores the promising capabili-
+ties of LLMs in sophisticated coordination environments and reveals the potential
+of LLMs in building strong real-world agents for multi-agent coordination.
+1 I NTRODUCTION
+Humans engage in various coordination tasks in their daily lives and work, including mundane ac-
+tivities like cooking and more important tasks like search and rescue. In order to assist humans with
+tedious or hazardous tasks, it is essential to create agents capable of coordinating with humans or
+other autonomous systems. Recently, agents based on Large Language Models have successfully
+demonstrated emergent problem-solving and task-completion capabilities in complex environments
+Raman et al. (2022); Wang et al. (2023); Wu et al. (2023). They have shown high-level reasoning
+abilities and hints of Theory of Mind abilities Kosinski (2023). In this work, we intend to find out
+how well Large Language Models can reason to solve tasks that require multi-agent coordination.
+Effective coordination requires agents to be able to infer their partner’s next actions (Theory of
+Mind), reason about the inferred action in the context of their shared environment (Situated Rea-
+soning), take actions and make adjustments to execute the plan over a long duration (Sustained
+Coordination) and be able to adjust to unseen partners ( Robustness to Partners ). Furthermore,
+we need agents to be capable of proactively providing Explicit Assistance to their partners during
+coordination tasks.
+In order to evaluate the multi-agent coordination abilities of LLMs, we adopt three different coor-
+dination games. The first game is Collab Escape, where two agents need to coordinate to escape
+from an adversary. The second is Collab Capture where two agents chase an adversary through a
+maze of rooms. The final game is the Overcooked Carroll et al. (2019a), which requires two players
+to cook and deliver onion soups. To enable Large Language Models to understand and play these
+games we introduce the LLM-Coordination framework. The LLM-Co framework provides agents
+1
+
+Under review as a conference paper at ICLR 2024
+with contextual state information and feasible actions and interprets agent outputs for execution in
+real time. We will refer to agents using the LLM-Coordination framework as LLM-Co agents.
+In the evaluation, we first test the Theory of Mind (ToM) and Situated Reasoning abilities of LLMs,
+which are preliminary skills required for coordination. ToM allows models to infer the intentions and
+beliefs of others, while Situated Reasoning enables them to anchor these inferences in the contextual
+setting of the environment. We design the LLM-ToM-Reasoning Test Set, including independent
+scenarios from our multi-agent coordination environments. The LLM-ToM-Reasoning Test Set re-
+quires the LLMs to reason about their partner’s intention and the current state of the environment to
+provide the optimal next action. We compare four different LLMs (GPT-4, GPT-3.5-turbo, Vicuna-
+33B, and Vicuna-13B) OpenAI (2023); Ouyang et al. (2022); Chiang et al. (2023). We observe that
+GPT-4 overwhelmingly outperforms the other LLMs, getting an almost human-level score.
+In order to evaluate sustained coordination abilities in LLM-Co agents, we use GPT-4 as the LLM
+of choice as it is the only candidate that provides acceptable ToM and Situated Reasoning skills. We
+compare the performance of LLM-Co Agents (w. GPT-4) with Reinforcement Learning (RL) based
+baselines, which are the gold standards for AI-AI gameplay. We also experiment with varying the
+partners in the Coordination Environment to proxy human agents to test the agent’s Robustness to
+Partners. We observe that LLM-Co agents perform better than or equal to the RL baseline in both
+AI-AI and AI-human proxy gameplay without any fine-tuning. Additionally, LLM agents have a
+further edge over RL methods due to their ability to fully explain the rationale behind their actions
+in free text.
+Finally, we study whether LLM-Co agents can proactively provide help to their partner (Explicit
+Assistance). We extend the existing layouts in the Overcooked-AI environment to involve a gate el-
+ement that forces agents to assist their partners in order to complete deliveries. Through experiments
+on these new layouts, we discover that LLM-Co agents can determine the right strategy needed to
+help out their partners. However, they require a ”helper directive,” which uses natural language to
+prompt the LLM to be attentive to situations where their partner may need such help. We show that
+LLM-Co agents are able to outperform MARL baselines on these new layouts as well.
+We summarize the key contributions of our work as follows:
+• We develop the LLM-Coordination Framework that equips Large Language Models with
+tools and contextual information allowing them to play long-horizon games and execute
+LLM-generated natural language actions in real-time.
+• We present the LLM-ToM-Reasoning test set which consists of scenarios from the three
+coordination games explicitly designed to test the Theory of Mind and Situated Reasoning
+abilities of Large Language Models.
+• Using GPT-4 (which performs best on the LLM-ToM-Reasoning test) as the LLM of
+choice, we perform evaluations for assessing sustained coordination. We show that LLM-
+Co agents outperform Reinforcement Learning baselines in comprehensive evaluations in
+the multi-turn Overcooked-AI environment.
+• We introduce two new layouts to the Overcooked-AI environment that require Large Lan-
+guage Models to provide Explicit Assistance to their partners. Through quantitative and
+qualitative evaluations, we show that LLM-Co Agents understand the common-payoff na-
+ture of the game and are able to figure out the right actions and reasoning required to assist
+their partners.
+2 R ELATED WORK
+2.1 M ULTI-AGENT COORDINATION
+In Game Theory, Pure Coordination games are situations where the payoff is commonly shared
+between both agents. In such situations, cooperating is the best strategy. Various benchmarks
+have been used to evaluate Multi-Agent Coordination abilities over the years Lowe et al. (2017);
+Bard et al. (2020). In recent years, the Overcooked environment has emerged as a popular testbed
+for coordination experiments Carroll et al. (2019a); Wu et al. (2021). Our research leverages the
+Overcooked-AI environment Carroll et al. (2019b). The foundational work by Carroll et al. (2019a)
+2
+
+Under review as a conference paper at ICLR 2024
+emphasized the significance of incorporating human data for effective collaboration. Subsequent
+research has pivoted towards enabling self-play-trained agents to coordinate seamlessly with hu-
+mans within this environment. These studies employ various techniques, including self-play with
+past agent checkpoints Strouse et al. (2021), centralized population entropy objectives Zhao et al.
+(2023), open-ended objectives using graph theory Li et al. (2023), policy ensembles with context-
+aware mechanisms Lou et al. (2023), and the incorporation of human biases as linear hidden rewards
+Yu et al. (2023), to enhance the training and diversity of AI agents in different scenarios. Embod-
+ied environments usually set up in household environments have also been recently used to study
+multi-agent collaboration Puig et al. (2021); Jain et al. (2020; 2019); Gan et al. (2021).
+2.2 P LANNING AND REASONING WITH LARGE LANGUAGE MODELS
+Large Language Models (LLMs) have demonstrated remarkable capabilities of reasoning in natural
+language OpenAI (2023); Ouyang et al. (2022); Chiang et al. (2023). These models have achieved
+state-of-the-art performance across a spectrum of NLP tasks, showcasing their proficiency at verbal
+reasoning. Strategies like Chain of thought promptingWei et al. (2022), which generates step-by-
+step free-text explanations before coming to conclusions have further boosted the reasoning capac-
+ities of LLMs. Approaches augmenting an LLM with memory, belief, and tools have shown to be
+useful in multi-step problem-solving Park et al. (2023); Huang et al. (2022); Raman et al. (2022).
+Isolated LLM agents have shown to be capable of life-long learning and task completion in open-
+domain survival games, outperforming existing SOTA Reinforcement Learning methods Wu et al.
+(2023); Wang et al. (2023). More recently, such LLM agents have been paired with rule-based low-
+level planners to execute tasks in embodied environments Liang et al. (2022); Song et al. (2022).
+Zhang et al. (2023) demonstrated efficiency increase in collaborative embodied multi-agent setting
+and Mandi et al. (2023) have shown the ability of collaborative manipulator motion planning using
+LLMs. Taking the planning and reasoning abilities of LLM a step further, We intend to perform a
+systematic evaluation of coordination abilities in Large Language Models in Common Payoff games.
+3 E VALUATION ENVIRONMENTS
+3.1 C OLLAB CAPTURE
+Figure 1: The CollabCapture game involves two agents, Alice (Blue) and Bob (Green), chasing
+a thief across multiple rooms. Some rooms are connected by doors, which can be controlled by
+buttons in different rooms.
+Collab Capture involves two agents trying to capture an adversary in a maze of interconnected
+rooms. The rooms are connected by doors, which can be controlled through access buttons that can
+be found in different rooms. The agent’s task is to capture the adversary in the least amount of time
+using effective strategies including cornering the adversary, disabling the adversary, or enabling their
+partners.
+3
+
+Under review as a conference paper at ICLR 2024
+3.2 C OLLAB ESCAPE
+Based on the popular Video Game ”Dead-by-Daylight”, Collaborative Escape involves two agents
+trying to escape an adversary in a maze of interconnected rooms. They need to fix two generators
+located in randomly selected rooms to open an exit portal. The adversary tries to catch the agents,
+and the win condition is any one agent escaping. This game requires strategies like luring the
+adversary away from the partner, sacrificing for the partner’s safety, and manipulating the movement
+of the adversary.
+3.3 O VERCOOKED
+Figure 2: All layouts from the overcooked environment we use for our tests. The two agents Alice
+(Blue) and Bob (Green) need to collaborate to cook, plate, and deliver onion soups. From Left
+to Right: Cramped Room, Asymmetric Advantages, Forced Coordination, Coordination Ring, and
+Counter Circuit.
+In the Overcooked-AI environment Carroll et al. (2019a), two agents—Alice (Blue) and Bob
+(Green)—collaborate to cook and deliver onion soups. Different environments feature varying num-
+bers of onion dispensers (o), plate dispensers (p), cookers (c), delivery areas (d), and counters (k).
+Agents must load three onions into a cooker to start it, which takes 20 time steps to cook. Once
+done, an agent transfers the soup to a plate and delivers it.
+3.4 O VERCOOKED -A SSIST : D EMONSTRATING EXPLICIT ASSISTANCE IN OVERCOOKED
+Figure 3: Additional Layouts that require agents to explicitly help their partner complete a delivery.
+These new layouts utilize walls and gates to create situations requiring explicit assistance.
+The layouts in Overcooked-AI Carroll et al. (2019a) are an excellent test for gauging the ability
+of participating agents to sync their actions with their partners. It requires agents to effectively
+navigate the layout and time their actions in response to their partners in order to increase efficiency.
+However, none of these environments elicit the need for agents to explicitly help out their partner
+sacrificing their own time.
+We intend to evaluate the LLM agent’s ability to make the choice to actively help its partner but
+also see if they can realize when the opportunity to help has arrived and take the right action to
+facilitate their partner. If the LLMs cannot make such a choice implicitly, we intend to see the effect
+of tuning the directives to bring about such a cooperative intention. To elicit situations that require
+one agent to drop their own cooking/delivery and help out their partners, we extend the Overcooked
+environment by introducing 2 new facilities (Gates, Walls) and 2 new layouts.
+4
+
+Under review as a conference paper at ICLR 2024
+3.4.1 G ATED DELIVERY
+Visualized in Figure 3, the Gated Delivery layout requires both agents to help out their partners
+during soup delivery. The two gates g0 and g1 make the delivery area inaccessible. Gates can be
+opened by an agent provided they are not holding anything in their hand. Once opened, a gate
+remains open for a very short time enough for an agent to move through it but not enough for an
+agent to open it in advance before picking up cooked soup for delivery. This necessitates an agent
+not holding cooked soup in their hand to go and open the gate for the delivery agent. The kitchen
+counters are replaced by walls to prevent the agents from taking the loophole of placing their soups
+temporarily on counters to open the gates. In this environment, both agents are equally placed, and
+they need to be acutely aware of their partner’s needs in order to complete even a single delivery.
+3.4.2 L OCKED
+Visualized in Figure 3, the Locked environment is structurally similar to Soup Passing, except there
+is no shared counter to pass soup on. Instead, the agent in the left partition has to understand that
+their partner is locked behind a closed gate, holding a soup. In real-life scenarios, one collaborating
+partner might find themselves disadvantaged in a similar manner. In order to develop reliable assis-
+tive agents, the advantaged agent needs to understand the situation and make the choice to help out
+their partner since that provides a better common payoff.
+4 LLM-C OORDINATION FRAMEWORK
+Figure 4: Visual summary of the LLM-Co framework. Our framework serves as the backbone for
+an individual agent, focusing on bringing out its coordination ability. The framework translates
+abstract game details into an LLM-compatible format and then utilizes the generated LLM output to
+take actions in the game world.
+The games mentioned in Section 3 are translated into textual objectives using the LLM-
+Coordination Framework. The details of the game along with the rules and the layout of the map are
+condensed into a short Game Description (G). Along with the game description, we also provide a
+set of Directives (Di) that guide agent behavior. These descriptions are passed as initial prompts to
+the Large Language Model.
+At each turn, the LLM receives the current state description (D(S)) that is programmatically ob-
+tained from the environment, and the player states S. Since LLMs struggle with grid-based rea-
+soning and navigation, we provide relative distances from the agent to each location of interest in
+the state description. Along with player-specific variables, other salient state variables are also in-
+cluded as natural language descriptions. Finally, an agent is provided its partner’s inventory and
+relative position to allow it to consider their intentions. The state information provided to the LLM
+is equivalent to what a Reinforcement Learning agent would receive in the form of vectors.
+5
+
+Under review as a conference paper at ICLR 2024
+The LLM operates at a medium-level action space which is made up of verb-based actions like
+”pick”, ”place”, ”move” etc. It is provided with a set of feasible actions Mf to choose from to
+enable easier reasoning. The feasible action set is decided on the basis of player inventory and
+accessibility of locations.
+The LLM utilizes the information⟨G, Di, S, Mf⟩ to assess the situation and generates an action m
+from the provided set Mf . We then use an Action Manager to interpret the action based on the
+verb used and the location mentioned. The Action Manager generates low-level actions needed to
+execute the medium-level action. In the following experiments, we will refer to LLM Agents that
+use the LLM-Coordination Framework as LLM-Co Agents.
+5 E XPERIMENTS AND RESULTS
+In this section, we describe the experiments and results for the coordination ability of LLMs, with a
+focus on five aspects: Theory Of Mind, Situated Reasoning, Sustained Coordination, Robustness to
+Partners, and Explicit Assistance.
+5.1 T HEORY OF MIND AND SITUATED REASONING
+Figure 5: LLMs performance on the LLM-ToM-Reasoning test set. Partner action intent prediction
+accuracy shows the Theory Of Mind ability of LLMs under test and the optimal action reasoning
+accuracy infers the Situated Reasoning effect of LLMs under test. GPT-4 achieves the best perfor-
+mance among tested LLMs.
+LLM-ToM-Reasoning test set With the LLM-Co frameworks, we propose an LLM-ToM-
+Reasoning test set, which is a suite of 18 scenarios posed with questions among all three games: Col-
+laborative Capture, Collaborative Escape, and Overcooked. The scenarios in pure-text are formed
+by the outputs of the State Description and Feasible Action Generator from the LLM-Co frame-
+works. The test set only includes scenarios hand-picked to represent pivotal situations that require
+the agent under-test to first take their partner’s possible next actions into active consideration, reason
+about the current state, and adjust their actions that ”indirectly” lead to the best possible outcome.
+The same questions are shared across the test set which asks to analyze the current state, infer the
+partner’s potential next action, and predict the optimal next action from the perspective of a player.
+We annotate the ground truth answers to the questions in the test set manually and ensure a 100%
+human success rate during the cross-validation process.
+GPT-4 outperforms the other LLMs in LLM-ToM-Reasoning test set We use the collected
+LLM-TOM-Reasoning test set to scrutinize the LLMs in the Theory Of Mind (ToM) and Situated
+Reasoning aspects, which respectively refer to the ability to understand the beliefs and intentions of
+other entities and the ability to contextualize this understanding within the environmental dynamics
+6
+
+Under review as a conference paper at ICLR 2024
+to formulate appropriate responses. LLMs under-test are required to solve the questions in the LLM-
+TOM-Reasoning test set, where the output answers to questions are manually compared against the
+ground truth. First, we calculate the accuracy of the LLM predictions concerning their partner’s
+actions to indicate the ToM ability. Then, the accuracy of predictions for the next appropriate action
+and analysis of the current scenario shows the situated reasoning effectiveness. As the result shown
+in Figure 5, GPT-4 outperforms the other LLMs, GPT-3.5-turbo, Vicuna-33B, and Vicuna-13B, with
+only a marginal difference to human performance, indicating a strong potential in understanding and
+implementing continuous coordination tasks.
+5.2 S USTAINED COORDINATION AND ROBUSTNESS TO PARTNERS
+Sustained coordination refers to the ability of agents to continuously collaborate and adapt their
+actions over extended periods. Robustness to Partners is about an agent’s ability to adjust and adapt
+to interacting with new or unseen partners. We use GPT-4 as the LLM of choice to test these
+aspects. The choice of LLM is dictated by the fact that only GPT-4 is able to display satisfactory
+reasoning that will be required consistently for Sustained Coordination. We evaluate the LLM-Co
+agent on 400 timesteps of gameplay in the Overcooked-AI environment. The evaluation metric
+used in Overcooked Carroll et al. (2019a) is the sparse reward obtained when one whole delivery is
+completed by the agents. Each delivery wins the agents 20 points.
+We use Self Play with Proximal Policy Optimization (PPO) and Population-Based Training with
+PPO as the baselines for comparing AI-AI gameplay. For benchmarking AI-Human Proxy game-
+play, we use the method of using a PPO agent trained with a human model (Behavior Cloning
+model trained on Human-Human gameplay data) established in Carroll et al. (2019a) and observed
+in the follow-up works Li et al. (2023); Zhao et al. (2023); Lou et al. (2023); Yu et al. (2023) ap-
+proaching Zero Shot Coordination.
+Layouts
+Agent Type Cramped Rm. Asymm. Adv. Coord. Ring Forced Coord. Counter Circ.
+PPOSP 198.8± 4.06 167 .2± 3.63 190.8± 4.25 151 .9± 3.28 122 .3± 3.80
+PBT 216.9± 1.31 190 .1± 8.64 173 .8± 18.27 169 .5± 10.09 140 .1± 13.86
+LLM-Co 220± 0 280± 0 180 ± 0 200± 0 160± 0
+Table 1: Comparison of game play between self-play baselines (PPO, and PBT) and LLM-Co
+Agents. LLM-Co agents outperform RL methods on 4 out of 5 layouts, demonstrating highly effec-
+tive reasoning under sustained coordination.
+The LLM-Co agent efficiently completes the Overcooked-AI challenge over a long horizon
+We pair two LLM-Co agents together to jointly coordinate and complete the cooking and delivery
+task in Overcooked-AI. This is analogous to testing agents trained with self-play methods being
+asked to jointly perform the task. We observe through visualizations of the gameplay that LLM-
+Co agents make effective use of all resources available to them to complete multiple deliveries
+effectively. In fact, without being trained or fine-tuned for the task, LLM-Co agents outperform or
+nearly match Self-Play baselines trained using Proximal Policy Optimization Schulman et al. (2017)
+or Population-Based Training Jaderberg et al. (2017) which are the gold standard for Multi-Agent
+Tasks on. Table 1 shows a numerical summary of the scores obtained by agents. These scores
+represent averages obtained from 100 runs across with standard deviation across 5 seeds for MARL
+agents. For LLM-Co agents, the score obtained by agents for a fixed game description and directives
+remains the same as the agent always chooses to take the same medium-level action for a given state
+and history. This outcome is noteworthy because it demonstrates that Language Learning Models
+(LLMs), specifically GPT-4 OpenAI (2023) in this case, can outperform RL agents at cooperative
+multi-agent tasks with minimal scaffolding. We observed that LLM Agents are capable of achieving
+sustained coordination, adjusting to their partners, and correcting their own actions consistently.
+The LLM-Co agent is robust to the choice of partner. It is highly likely that an agent is paired
+up with a biased or sub-optimal partner. It is known that self-play agents, when paired with humans,
+tend to struggle because their behavior diverges from what they consider to be the optimal strategy
+7
+
+Under review as a conference paper at ICLR 2024
+Layouts
+Agents Cramped Rm. Asymm. Adv. Coord. Ring Forced Coord. Counter Circ.
+BC 103.5± 3.38 136 .5± 7.00 59 .0± 5.38 20 .5± 4.33 38 .0± 3.99
+PPOBC 156.4± 1.48 72 .6± 19.44 126 .4± 3.24 58 .9± 2.98 69 .5± 2.18
+LLM-Co 160± 0 180± 0 160± 0 120± 0 140± 0
+Playing from swapped positions:
+BC 110.0± 3.39 137 .5± 8.40 70 .0± 4.00 31 .0± 5.00 44 .0± 3.02
+PPOBC 163.9± 1.61 178.8± 2.65 129.8± 3.59 76 .9± 2.29 57 .6± 2.50
+LLM-Co 180± 0 140 ± 0 160± 0 80± 0 120± 0
+Table 2: Comparison of AI-Human Proxy Game play. We compare Behavior Cloning Agents,
+PPO BC Agents with LLM-Co agents utilizing the GPT-4 LLM. The LLM-Co agents are able to out-
+perform or match the performance of Reinforcement Learning models, indicating that LLM agents
+are robust to the choice of partner agents.
+Carroll et al. (2019a). The LLM-Co agent, on the other hand, does not face this issue. Their
+actions are based on verbal reasoning, and they adapt to the current situation rather than adhering to
+a determined policy. Consequently, they outperform Self-play-based methods trained with human
+data at AI-human proxy gameplay as shown in table 5.2.
+The LLM-Co agent generates explainable outputs through free-text Reinforcement Learning
+(RL-based) agents lack the ability to provide an underlying rationale for their actions, making it
+challenging to understand how their actions contribute to broader objectives. This understanding is
+crucial for the development of safer and more reliable agents, as well as for debugging when unex-
+pected behaviors occur. The LLM-Co agent addresses this gap by generating medium-level actions
+and providing high-level reasoning for such a selection. This allows us to extract comprehensive
+insights into the decision-making processes under given conditions by examining the ”analysis”
+generated by the language model during gameplay. Using insights derived from this explainability,
+we report qualitative case studies in Appendix B
+5.3 E XPLICIT ASSISTANCE
+Layouts
+Conditions Locked Gated Delivery
+Without Helper Directive 160 0
+With Helper Directive 240 180
+Table 3: Comparison of Gameplay in the Overcooked-Assistance Layouts with and without Helper
+Directive. The results indicate that the Large Language Model needs to be prompted to be aware
+of situations where their partner might need assistance in order to be effective in the Overcooked-
+Assistance layouts.
+Finally, we test the ability of the LLM-Co agent to provide explicit assistance to their partners in the
+new Overcooked layouts defined in 3.4, where proactive help is necessary to complete the task.
+the LLM-Co agent requires a helping directive to choose to help The LLM-Co agent, provided
+with the same prompt and directives as used in Overcooked-AI, struggles to recognize and help their
+partner agents in Locked and Gated Delivery environments. However, a simple directive informing
+the LLM-Co agent to ”help their partners when the situation demands” makes them actively look for
+opportunities to help their partners. We see that agents tend to help partner agents during the time
+they are waiting for their own soup to be cooked by choosing the open gates for the waiting agent.
+While this is not the most efficient strategy, which would have been to always help out a waiting
+agent, it still points to the agent’s ability to explicitly help out during coordination. Table 5.3 shows
+8
+
+Under review as a conference paper at ICLR 2024
+scores obtained by agents over 400 time steps. Both Locked and Gated Delivery require agents to
+notice a partner in need and consequently benefit from adding a directive to help out their partner.
+Layouts
+Agents Locked Gated Delivery
+PPOSP 132.83± 7.31 134 .88± 5.99
+PBT 175.8± 1.69 178 .6± 9.76
+LLM-Co 220± 0 180 ± 0
+Table 4: Comparison of Gameplay on Overcooked-Assistance Layouts between RL baselines and
+LLM Agents. The RL baselines being able to effectively solve the deliveries indicates that the
+environments are solvable through self-play training. The high scores achieved by LLM agents
+demonstrate that LLM agents are capable of reasoning for providing explicit assistance to their
+partners.
+The LLM-Co agent outperforms MARL methods at Overcooked-Co-op layouts Table 5.3
+shows the performance of Self Play agents trained using PPO and PBT and compares it with the
+abilities of the LLM-Co agent provided with a helper directive. Since a reward is provided to both
+agents for delivery in Self Play training, we expected to see them gain the ability to open gates as it
+results in a reward after a short delay. In spite of this, the LLM-Co agent has the upper hand in their
+ability to deduce the right actions required to facilitate their partners.
+6 C ONCLUSION
+In this study, we evaluate the reasoning abilities of Large Language Models for achieving Multi-
+agent coordination. We evaluate LLMS across five aspects necessary for coordination through com-
+prehensive evaluations in three different environments. We introduce The LLM-Co Framework for
+enabling Large Language Models to play multi-agent coordination games. We also curate the LLM-
+ToM-Reasoning dataset to assess the Theory of Mind inference and Situated Reasoning Abilities
+of Large Language Models. We show that LLM Agents are capable of Sustained Coordination in
+the Overcoked Environment and are Robust to the choice of partner. Finally, we introduce two new
+layouts to the Overcooked-AI environment and demonstrate the ability of Large Language Models
+to provide explicit assistance to their partners during coordination games.

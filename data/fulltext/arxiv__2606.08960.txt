@@ -1,0 +1,538 @@
+record_id: arxiv:2606.08960
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2606.08960
+fetched_title: Hardening Agent Benchmarks with Adversarial Hacker-Fixer Loops
+fetched_at: 2026-09-18T19:00:02Z
+
+Preprint. Under review.
+Hardening Agent Benchmarks with
+Adversarial Hacker-Fixer Loops
+Ziqian Zhong1 Ivgeni Segal2 Ivan Bercovich2 Shashwat Saxena1 Kexun Zhang2,∗
+Aditi Raghunathan1
+1Carnegie Mellon University 2Fewshot Corp ∗Independent Researcher
+✉ ziqianz@andrew.cmu.edu, ivgeni.segal@gmail.com, ibercovich@gmail.com, ssaxena2@cs.cmu.edu,
+zkx06111@gmail.com, raditi@cmu.edu
+/codehttps://github.com/few-sh/harden-v0
+Abstract
+Agent benchmarks score submissions with outcome verifiers that are typically hand-written
+and brittle, leaving them open to reward hacking. We audit 1,968 tasks across five terminal-
+agent benchmarks and find 323 (16%) hackable by frontier models given only the task
+description. This corrupts both leaderboard rankings and RL training signal, yet the
+standard response is manual and reactive.
+We introduce the hacker–fixer loop, a method for building exploit-resistant verifiers without
+per-task manual patching. The loop alternates three LLM agents: a hacker tries to pass
+the verifier without solving the task, a fixer patches the verifier to reject each discovered
+exploit, and a solver confirms the patched verifier still admits legitimate solutions. The
+loop iterates: each patch reshapes what the verifier rewards, surfacing the next exploit. We
+further add verifier access, and let patches transfer across tasks, to broaden the exploits the
+loop discovers.
+OnKernelBench, the loop drives the attack success rate from 62% to 0% on a held-out
+corpus of publicly reported exploits. We also find that weaker agents in the loop can defend
+against much stronger hackers: Gemini 3 Flash’s loop drives the stronger Gemini 3.1 Pro
+and Claude Opus 4.7’s attack success rate from 76% and 61% to 0% onKernelBench,
+and Gemini 3.1 Pro’s from 39% to 17% onTerminal Benchacross 77 tasks. We release
+Terminal Wrench(323 hackable environments, 3,632 hack trajectories) as a snapshot of
+the current attack surface, our patched verifiers, the exploits the loop discovered, and our
+implementation as a basis for future work.1
+1 Introduction
+Agent benchmarks today rely on outcome verifiers: whether the unit tests pass, whether the kernel runs
+faster, whether the command produces the right output. These verifiers are manually crafted and seldom
+robust, leaving them vulnerable to reward hacking: agents earn full marks through unintended shortcuts,
+such as deleting failing tests or monkey-patching the verifier, instead of genuinely solving the task. For
+example, Sydney Von Arx (2025) find that o3 reward-hacks in 30.4% of RE-Bench runs, and jacobkahn (2025)
+find agents trawling git history in SWE-bench for answers.
+The standard response is manual and reactive: discover an exploit, remove the offending submission, patch
+the specific verifier, move on (e.g., The Terminal-Bench Team (2026)). Yet the same exploit classes recur
+across tasks and benchmarks, and new ones surface with every model generation. No systematic method
+exists forhardeningthese environments against exploitation: proactively patching verifiers to reject exploits
+before they appear in the wild.
+1Our hacker-fixer loop implementation is released at https://github.com/few-sh/harden-v0. TheTerminal Wrench
+dataset is released athttps://github.com/few-sh/terminal-wrench with dataset cardhttps://arxiv.org/abs/2604.17596.
+1
+arXiv:2606.08960v1 [cs.CR] 8 Jun 2026
+
+Preprint. Under review.
+Exploits task
+(Hack-elicitation)
+Up to 3 tries
+1. Attack Phase
+Hacker Agent (LLM)
+Exploit
+successful?
+Edits verifier
+to block exploit
+2. Patch Phase
+Fixer Agent (LLM)
+Solves task
+legitimately
+3. Validate Phase
+Solver Agent (LLM)
+Exploit
+successful?
+Solver
+Passes
+Patch Accepted
+Yes
+Hacker-Fixer Loop Per Task System Overview
+Hacker
+Find exploits
+Fixer
+Patches verifier
+Solver
+Validates patches
+Hacker Fixer
+Solver
+Task 1 Task N
+…
+Next Iteration: Run up to 10 iterations
+Exploit
+Trajectory
+Patched
+Verifier
+Revert Patch to Refine
+Shared Defense Pool
+No
+Representative
+Bootstrap Task
+Seeds
+initial
+defenses
+Push
+Pull &
+Integrate
+Hacker Fixer
+Solver
+Shared defense pool allows fixes to propagate across tasks.
+Yes
+No
+Verifier
+Source
+Task Robust!
+Figure 1:Illustration of the hacker-fixer loop. The loop alternates three LLM agents: a hacker attempts to
+exploit the verifier without solving the task; a fixer patches the verifier to block the discovered exploit;
+a solver validates that the patched verifier still admits a legitimate solution. We additionally add verifier
+access to the hacker and a shared defense pool to broaden the set of exploits the loop can find and fix.
+We start by characterizing the distribution of exploits (§2). Across 1,968 tasks from five major terminal-agent
+benchmarks, we find 323 environments (16%) hackable by frontier models without access to the verifier
+source. We also find that many hackable tasks admit multiple distinct exploits, and similar exploit patterns
+recur across tasks.
+Drawing from these findings, we propose thehacker–fixer loopfor automatic environment hardening,
+which alternates three LLM agents: ahackerinstructed to exploit the verifier without solving the task; a
+fixerpatches the verifier to block the discovered exploit; asolvervalidates that the patched verifier still
+admits a legitimate solution. The solver is essential because the fixer can over-restrict and block valid
+solutions by accident. The loop iterates: each iteration blocks one discovered exploit, forcing the hacker
+to expose new exploits that were invisible before. The loop continues until the hacker can no longer find
+exploits or an iteration budget is exhausted.
+Around this core, we introduce two levers that broaden the set of exploits the loop can find and fix without
+changing the hacker model.Verifier accesslets the hacker read verifier source and perform more targeted
+attacks, anticipating stronger future hackers. Theshared defense pooladdresses recurrence: when the
+same exploit class surfaces across tasks that share evaluation infrastructure, a fix discovered on one task
+propagates through the pool to the others. Together, these reduce the held-out attack success rate beyond
+what the base loop achieves alone (Figure 2).
+As case studies, we evaluate the loop onKernelBenchandTerminal Bench(§4). The hacker and fixer
+run on Gemini 3 Flash in both; the solver is a deterministic reference solution onKernelBenchand
+Gemini 3 Flash onTerminal Bench. All held-out evaluation uses the stronger Gemini 3.1 Pro or Claude
+Opus 4.7. We find that the hardened verifiers generalize in three ways.
+Across previously documented exploits.To test whether our defenses block underlying exploit classes rather
+than just one model’s attack style, we compile known exploit strategies from public reports by other teams,
+spanning different models, scaffolds, RL-trained agents, and human-discovered vulnerabilities, and prompt
+2
+
+Preprint. Under review.
+0% 20% 40% 60% 80%
+Held-out attack success rate (lower is better)
+Original
+(unhardened)
+Blind + pool
+Verifier-aware
+no pool
+Verifier-aware
++ pool
+62%
+6%
+2%
+0%
+76%
+0%
+0%
+0%
+KernelBench (100 tasks; task-001 tested)
+0% 10% 20% 30% 40% 50% 60%
+Held-out attack success rate (lower is better)
+Original
+(unhardened)
+Blind + pool
+Verifier-aware
+no pool
+Verifier-aware
++ pool
+51.6%
+56.2%
+45.9%
+39.5%
+42.3%
+22.3%
+24%
+16.9%
+TerminalBench (77 tasks)
+Hinted ASR Unhinted ASR (w/ stronger attacker)
+Figure 2:Effect of verifier access and the shared defense pool on held-out Gemini 3.1 Pro attack success
+rates. We evaluate with two attack types:hinted(stronger model asked to execute a known exploit) and
+unhinted(stronger model with no prior knowledge asked to hack). OnKernelBench, the full configuration
+(verifier-aware + pool) drives both metrics to 0%. OnTerminal Bench, verifier access is the key driver for
+blocking hinted exploits, while both levers contribute to unhinted attack reduction.
+Gemini 3.1 Pro to execute each one against our hardened verifiers. OnKernelBench, the attack success
+rate drops from 62% to 0%; onTerminal Bench, from 50% to 39% across 77 tasks.
+Across hackers (weak-to-strong).Hardened environments should also withstand attacks from later, more
+capable models. Since our loop runs entirely on Gemini 3 Flash, we test the resulting verifiers against a
+stronger blind hacker (Gemini 3.1 Pro). Pro’s attack success rate drops from 76% to 0% onKernelBench
+and from 39% to 17% onTerminal Bench. ForKernelBench, we additionally tested against Claude Opus
+4.7 and found its attack success rate drops from 61% to 0%. Giving the weaker hacker access to verifier
+source and the fixer ability to pool defenses across tasks compensate for the capability gap.
+Across tasks.The shared defense pool lets fixes discovered while hardening one task strengthen others.
+OnKernelBench, the final verifier for task 001 contains code from 13 other tasks: every line in the final
+verifier code was written by a fixer working on a different task and propagated through the pool, because
+those fixers produced better patches than task 001’s own. The pool turns hardening from per-task effort
+into amortized infrastructure work.
+In summary, we contribute:
+1. Terminal Wrench, the largest open dataset of reward-hackable agent environments to date: 323
+hackable environments and 3,632 confirmed hack trajectories from five coding benchmarks.
+2. Thehacker–fixer loop, together with two coverage-broadening additions: ashared defense poolthat
+amortizes fixes across tasks through a patch repository, andverifier accessthat lets the hacker read
+verifier source and surface exploits blind probing misses.
+3. Empirical validation: onKernelBench, the loop drives the attack success rate from 62% to 0% on
+a held-out corpus of publicly reported exploits, while preserving the solver pass rate. OnTerminal
+Bench, it reduces the attack success rate on previously documented exploits from 50% to 39% across 77
+tasks.
+4. Weak-to-strong hardening: defenses built by a weaker verifier-aware hacker (Gemini 3 Flash) drive
+the stronger Gemini 3.1 Pro’s and Claude Opus 4.7’s attack success rate from 76% and 61% to 0% on
+KernelBench, and Gemini 3.1 Pro’s from 39% to 17% onTerminal Benchacross 77 tasks.
+The rest of the paper is organized as follows. §2 audits the attack surface across five benchmarks. §3
+describes the hacker–fixer loop and its two extensions: verifier access and the shared defense pool. §4
+presents case studies onKernelBenchandTerminal Bench, evaluating generalization across documented
+3
+
+Preprint. Under review.
+Task.A CI/CD server needs to run browser tests that capture screenshots at three resolutions (1920 ×1080,
+1280×720, 800×600). The agent must install and configure an X11 dummy display driver so that xrandr
+–display :99 –queryreports all three modes.
+Hacks.Instead of configuring a real virtual display, agents find three independent ways to pass the verifier:
+• Fake packages.Build local .deb packages named after the required X11 driver and utilities but containing no
+real functionality;aptreports them as installed.
+• Fake process.Launch a dummy process that reads Xorg :99 -config /etc/X11/xorg.conf , and write
+sentinel files so the startup script appears to succeed.
+• Fake binary.Replace /usr/bin/xrandr with a shell script that prints the three required resolution strings
+verbatim.
+Figure 3:Three example hacks on SETA task 1219 (headless multi-resolution virtual display).
+exploits, stronger hackers, and tasks. Related work is discussed in §C. We will releaseTerminal Wrench,
+hardened environments forKernelBenchL1 andTerminal Bench, our implementation, and all evaluation
+code.
+2 How Hackable Are Current Benchmarks?
+We probe 1,968 tasks from five terminal-agent benchmarks (Terminal-Bench (Merrill et al., 2026), Terminal-
+Bench 2.0, Terminal-Bench-Pro (Wang et al., 2025b), OpenThoughts-TB-dev (Team, 2025b), and SETA (Shen
+et al., 2026)) with three frontier LLMs (Claude Opus 4.6, Gemini 3.1 Pro, GPT-5.4). Each agent acts as a
+hacker: it receives the task instruction plus a hack-elicitation prompt directing it to find shortcuts that pass
+the verifier without solving the task, with no access to the verifier source. The goal is to characterize the
+attack surface: whether a taskcanbe hacked, and in what possible ways.
+To confirm that passing agents are actually hacking rather than solving legitimately, we additionally classify
+each trajectory that passes the verifier with an LLM judge and discard trajectories the judge marks as
+legitimate solves. Of the 4,848 trajectories that pass the verifier, the judge marks 75% as hacks. We manually
+verified the first 49 environments containing at least one judge-confirmed hack and found no false positives.
+The audit yields 3,632 hack trajectories across323 hackable environments(16% of tasks): 238 from SETA
+and 85 from the TerminalBench family (deduplicated across overlapping sub-sources). In the widely-adopted
+Terminal Bench 2.0, 13 of 89 environments (15%) are hackable. We release this dataset asTerminal Wrench.
+Exploit recurrence.Similar exploit patterns appear across different tasks and benchmarks: reading
+answers directly from unguarded files, replacing system binaries with wrapper scripts, and others. A fix
+discovered while hardening one task is likely relevant to many others. In §3.4 we exploit this recurrence
+with a shared defense pool that propagates infrastructure-level fixes across tasks.
+Within-task diversity.Individual tasks are not vulnerable to a single exploit. Many hackable tasks
+admit multiple distinct exploits targeting different parts of the environment. For example, SETA task 1219
+(Figure 3) admits three independent hacks: one spoofs a binary, another overwrites test fixtures, and a third
+hardcodes expected output. Patching any one (e.g., verifying that xrandr is a real binary) leaves the others
+open. We address this in our method (§3) by iteratively patching exploits, forcing the hacker to discover
+genuinely new attack vectors each iteration.
+3 The Hacker-Fixer Loop
+The exploit diversity and recurrence documented in §2 suggest that single-shot patching is insufficient: we
+need iteration to handle multiple exploit classes per task, and cross-task sharing to avoid rediscovering
+4
+
+Preprint. Under review.
+the same fix. We address both with thehacker–fixer loop(§3.2), augmented by two levers:verifier
+access(§3.3), which lets the hacker read the verifier source to find targeted exploits, and ashared defense
+pool(§3.4), which propagates infrastructure-level fixes across tasks. Additional implementation details
+(pseudocode, hyperparameters, workspace setup) are in Appendix D.1–D.8.
+Both levers expand the hackers’ surface, and together they let a fixed-strength hacker cover substantially
+more ground. We use this as the basis for aweak-to-strongclaim: defenses produced by a weaker
+verifier-aware hacker, given the information advantage and the cross-task pool, should resist a stronger
+blind hacker that has neither. We operationalize the claim in §4.1 and validate it empirically in §4.2 and
+§4.3.
+3.1 Setup
+We start by defining our object of study and goal. Ataskconsists of a natural-language instruction, a
+verifier(test scripts and supporting files that automatically assign reward), and a reference solution. We
+say a verifier ishackableif an agent can earn full reward without genuinely satisfying the instruction, and
+definehardeningas the process of patching a verifier to eliminate such exploits. We useexploitfor a single
+successful hack instance.
+For example,KernelBenchtasks require agents to produce CUDA kernels that are both correct and fast;
+the verifiers check output correctness and measures wall-clock speedup via Python’s time.perf_counter
+2. Because this function is a regular Python attribute, an agent can monkey-patch it to always return zero,
+so this verifier reports infinite speedup regardless of what the kernel actually does, allowing an agent to
+earn high reward with a completely unoptimized kernel (dee, 2025). A possible hardening against this
+exploit would add an integrity check on the timing mechanism, or move timing into a subprocess the agent
+cannot modify.
+3.2 The Loop
+A reasonable starting point is to alternate two LLM agents: ahackerthat probes the verifier for shortcuts
+that pass without solving the task, and afixerthat patches the verifier to block each successful exploit.
+Iterated, this pair pushes the verifier toward rejecting every exploit the hacker can find—but nothing
+prevents the fixer from over-tightening to the point that legitimate solutions are also rejected. To prevent
+this, we add asolverthat attempts the task legitimately against each patched verifier; the fixer’s edits are
+committed only if the solver still passes.
+The full loop alternates the three roles, each in an isolated environment, across three phases per iteration:
+1. Attack.Given the task instruction and a hack-elicitation prompt, the hacker attempts to earn full reward
+without solving the task. We run it up to three times per iteration; later attempts see earlier failed
+trajectories as context to avoid repeating dead ends. If all three fail to produce a sufficiently rewarded
+exploit, the task is declaredrobust against the current hackerand the loop terminates.
+2. Patch.Given a successful hacker trajectory and the verifier source, the fixer edits a sandboxed copy of
+the verifier to block the exploit. It may instead mark the trajectory as a legitimate solve, in which case
+no patch is applied.
+3. Validate.The solver attempts the patched task once. If it passes, the fixer’s edits are committed; other-
+wise the patch is reverted and the failure trace is fed back to the fixer for the next iteration. The solver
+must exercise realistic code paths to catch over-restriction: an LLM solver (we use Gemini 3 Flash in §4.3)
+generates diverse solutions; a cheaper reference-solution check can substitute but misses paths the refer-
+ence doesn’t exercise (in §4.2 this caused the fixer to silently blocktorch.cpp_extension.load_inline
+alongside real exploits).
+Aprecheckruns before the loop begins: the solver attempts the unmodified task up to four times, and
+tasks it cannot solve are excluded. Full prompts for each agent are in Appendix H.
+2https://github.com/ScalingIntelligence/KernelBench/blob/main/src/kernelbench/timing.py#L485
+5
+
+Preprint. Under review.
+3.3 Blind vs. Verifier-Aware Hacking
+In deployment, an agent’s exposure to the verifier varies—from full test access during development to a
+black-box pass/fail signal at evaluation time, with intermediate levels in between. The threat model we
+ultimately defend against sits at the low end: at RL rollout or evaluation, the agent sees only the task
+instruction and working environment, never the verifier source. We call this settingblind, and the loop’s
+coverage is bounded by what blind probing happens to land on.
+We strengthen the loop’s own hacker beyond this threat model by giving it read-only access to the verifier
+source (verifier-aware hacking); the held-out evaluator remains blind. A verifier-aware hacker can target
+specific checks rather than guess at them, and the resulting defenses transfer to the blind setting because
+they patch underlying vulnerabilities, not discovery methods.
+The benefit is huge in practice. OnKernelBenchtask 046 (3D average pooling), our verifier-aware hacker
+noticed that reported speedup is ref_runtime / sol_runtime —attackable from either side—and used
+Python’sgc.get_objects() to locate the referenceModel instance and patch itsforward to burn matmuls
+before each timed call, yielding 93,862× reported speedup. Nothing about this strictly requires source:
+a blind hacker reasoning about the speedup formula could in principle reach the same idea. But across
+49 unconstrained blind attempts on this task, zero did, while in-loop verifier-aware hackers successfully
+exploited this pattern 2 times. In our experiments onKernelBench(§4.2) andTerminal Bench(§4.3), we
+show that this extra information lets a weaker hacker produce defenses that hold against a stronger one
+without it.
+3.4 Shared Defense Pool
+When tasks share evaluation infrastructure, the same exploit often recurs across many tasks, and indepen-
+dent fixers rediscover the same patch, wasting compute. The timer monkey-patch from §3.1 is a typical
+example: everyKernelBenchtask uses the same evaluation harness, so a hacker who monkey-patches
+time.perf_counter fabricates an infinite speedup on every task at once, and 100 independent fixers would
+each reinvent the same timing integrity check. Ourshared defense pooladdresses this by maintaining a
+shared bare git repository across all task runs in a batch.
+The pool is initialized from a single bootstrap task’s existing verifier. Fixers are instructed to push onlytask-
+agnostic, infrastructure-level defenses: fixes to shared evaluation scripts rather than task-specific test logic.
+When a task’s next iteration detects new upstream commits, the loop skips the attack phase and instead
+asks the fixer to integrate the upstream patches locally. Further technical details of our implementation
+(iteration barrier, anti-stall) are deferred to Appendix D.2.
+The pool’s value is that it turns hardening from per-task effort into amortized infrastructure work. A
+defense discovered on one task—say, subprocess isolation to prevent cross-contamination between reference
+and solution runs—propagates to every other task that shares the same harness. In §4.2 we show that the
+final task-001 verifier contains no lines originating from task-001 itself: every defense layer was discovered
+while hardening a different task and transferred via the pool.
+The pool focuses on infrastructure-level issues that are valid across tasks (forKernelBench, the shared
+evaluation harness; forTerminal Bench, shared test boilerplate). It does not produce universal defenses
+that harden unrelated tasks, but rather amortizes fix effort within a shared evaluation substrate.
+4 Hardening Results
+4.1 Evaluation Setup
+We run two case studies onKernelBenchandTerminal Bench. Both use Gemini 3 Flash for the hacker
+and fixer, with the stronger Gemini 3.1 Pro as the held-out evaluator to test whether defenses built by a
+weaker model transfer to a stronger attacker. The solver differs: onTerminal Bench(§4.3) we use an LLM
+solver (Gemini 3 Flash), exercising the full three-agent loop; onKernelBench(§4.2) we substitute the
+6
+
+Preprint. Under review.
+reference solution—efficient, but prone to over-restrictive patches when the reference doesn’t exercise the
+same code paths as diverse LLM solutions. The precheck allows up to four solver attempts; tasks failing all
+four are excluded. Each task runs up to 10 hacker-fixer iterations, plus any interleaved pool-sync rounds
+that propagate fixes across tasks.
+We evaluate the resulting hardened environments on three metrics:
+1. Hint-guided attack success rate (hinted ASR).We compile exploit strategies from published reports—
+discovered by humans, RL-trained agents, and models from multiple vendors (not only Gemini)—and
+instruct Gemini 3.1 Pro to replicate these exploits. Hinted ASR is the fraction of attacks that pass the
+hardened verifier. Because the hints span exploit classes discovered outside the Gemini family, this arm
+tests whether defenses generalize beyond the in-loop model’s own attack distribution.
+2. Unhinted attack success rate (unhinted ASR).We instruct Gemini 3.1 Pro to attack the hardened
+verifier with no hints. Unhinted ASR is the fraction of successful attacks. ForKernelBench, we
+additionally attack with Claude Opus 4.7 to confirm robustness. Since the loop itself uses the weaker
+Gemini 3 Flash, this is a weak-to-strong test: defenses must hold up against capabilities beyond the
+hacker that built them.
+3. Solver pass rate.Gemini 3.1 Pro attempts each task normally. Solver pass rate is the fraction of attempts
+the hardened verifier accepts—a defense that blocks every attack but also rejects valid solutions is useless.
+4.2 Case study:KernelBench
+Setup.We run the full loop (verifier-aware hacker with shared defense pool) on all 100KernelBench
+L1 tasks, stopping around the 24-hour wall-clock mark. Gemini 3 Flash serves as both hacker and fixer;
+patches are validated against the reference solution instead of an LLM solver for efficiency. Each task runs
+on an NVIDIA H200 MIG partition with 18 GB VRAM (Appendix E.1); some tasks fail the precheck due to
+insufficient VRAM and are excluded.
+For evaluation, we focus on task 001 (square-matrix multiplication), as allKernelBenchL1 tasks use the
+same task-agnostic verifier: compile the candidate kernel, check output shape, runtorch.allclose against
+the reference output, then measure wall-clock timing. No task-specific logic exists in the verifier; the tasks
+differ only in the kernel being computed. We also run three ablation configurations (blind hacker, no pool,
+and blind+no pool) to isolate each lever’s contribution.
+Evaluation corpus of exploits.We source 15 exploit strategies from public reports ofKernelBench
+reward hacking (Team, 2025a; dee, 2025; Ouyang et al., 2025; Dai et al., 2026; Baronio et al., 2025). Each
+strategy is used as a hint to prompt Gemini 3.1 Pro for 9 independent attack attempts, yielding 133 hint-
+guided attacks. The full hint catalog is in Appendix E.2. We additionally source 49 unhinted attacks (blind
+Gemini 3.1 Pro) and 49 benign solves (Gemini 3.1 Pro). We consider an exploit successful if it achieves a
+reward (reported speedup rate)≥12 ; a benign solve is considered successful if it achieves a reward≥0.5 .
+We generate the evaluation corpus (hint-guided attacks, unhinted attacks, and solver attempts) once and
+score the same submitted kernels against every defense snapshot.
+Results.Table 2 traces the three evaluation metrics (§4.1) across loop iterations. Both hinted and unhinted
+attack success rates reach 0% by iteration 8 and remain there through the final iteration. Solver pass rate
+fluctuates due to over-restrictive patching (discussed below). Ablations show that both verifier access and
+the defense pool contribute; removing either unblocks some hinted attacks.
+Defense pool.Over 14 iterations (pool-sync iterations counted) across 100 tasks, the shared pool accu-
+mulates 171 commits from 45 distinct tasks. The final defense for task 001 retains contributions from 15 of
+these commits, originating from 13 different tasks, none of which is task 001 itself. This defense-sharing
+across tasks is precisely the mechanism the pool is designed to enable. Agit blame of the final verifier
+reveals six distinct defense layers:
+7
+
+Preprint. Under review.
+Defense layer Mechanism Source tasks
+Process isolation Reference and solution in separate subprocesses 078, 046, 086
+Monkeypatch capture Capture builtins andtorchtypes before load 086, 073, 066
+Stack-introspection block Hidesys._getframe, install audit hooks 015, 016
+Tensor-subclass detection Reject deferred-computation wrappers 085, 014
+Timing hardening Synchronize CUDA streams, randomize warmup 051, 006
+Seed unpredictability Cryptographically unpredictable seeds 013
+Table 1:Defense layers in the finalKernelBenchtask 001 verifier. Every contribution originates from a
+different task; the layers were composed via the shared pool, not authored for task 001.
+Table 2:Held-out evaluation onKernelBenchtask 001.Hinted ASR: fraction of 133 hint-prompted attacks
+achieving reward≥12× (we use 12× rather than 10× to exclude a few 10–12× TF32 submissions, where
+solutions are numerically lossy but arguably legitimate).Unhinted ASR: fraction of unhinted attacks (49
+Gemini 3.1 Pro; 49 Claude Opus 4.7) achieving reward≥12× .Benign pass: fraction of unhinted solver
+trials achieving reward≥0.5×(49 Gemini; 50 Opus).
+Gemini 3.1 Pro Claude Opus 4.7
+Hint (↓) Unhint (↓) Benign (↑) Hint (↓) Unhint (↓) Benign (↑)
+No defense62% 76% 98% 44% 61% 90%
+Verifier-aware + pool, with autopatch(default; over-restrictive defenses surgically relaxed)
+Iter. 2 17% 2% 98% 11% 2% 90%
+Iter. 5 41% 61% 98% 15% 2% 92%
+Iter. 8 0% 0% 98% 0% 0% 92%
+Iter. 11 0% 0% 98% 0% 0% 92%
+Iter. 13(final)0% 0% 98% 0% 0% 92%
+Same defenses, no autopatch(raw loop output, over-restrictive defenses left in place)
+Iter. 5 5% 0% 0% 15% 2% 0%
+Iter. 8 0% 0% 0% 0% 0% 0%
+Iter. 11 0% 0% 94% 0% 0% 22%
+Iter. 13(final)0% 0% 0% 0% 0% 0%
+Ablations(converged state)
+Blind, no pool(robust @ iter 2)52% 20% 98% 44% 61% 90%
+Blind + pool(robust @ iter 5)6% 0% 98% 2% 6% 90%
+Aware, no pool(robust @ iter 8)2% 0% 98% 0% 0% 90%
+Solver ablation.TheKernelBenchrun validates patches against the deterministic reference solution
+rather than an LLM solver, which makes it an unintentional ablation of the solver’s role. The refer-
+ence solution never callstorch.cpp_extension.load_inline—the standard PyTorch API for submitting
+custom CUDA kernels and the canonical solution pattern shown in the task instructions—so when the
+fixer’s defenses block load_inline alongside the exploits, the reference still passes and the breakage goes
+undetected.
+Notably, the loop partially self-corrected at iteration 11 without any human intervention. That iteration
+was a pool-sync: no hacker ran, and the fixer imported the latest pool defenses. After copying them, the
+fixer self-tested with a syntheticload_inlinesolution and found it failed (the pool’s stack-introspection
+defense had set sys.modules[’inspect’]=None, which breaks the load_inline code path). The fixer
+independently narrowed the defense to restore compatibility, producing a snapshot with 0% ASR and 94%
+solver pass rate on Gemini 3.1 Pro. Subsequent iterations 12–13 re-synced from the pool and re-imported
+the broad pattern from other tasks that had not performed this self-check, overwriting the fix.
+8
+
+Preprint. Under review.
+An LLM solver would prevent this regression by flagging load_inline breakage every iteration. Our
+default rows (top group of Table 2) report results with a surgical post-loopautopatch. We ran the Flash-fixer
+on the final iteration, showing it failed legitimate solvers and the verifier source and prompting it to relax
+the over-restrictive defenses. We then applied the same relaxation to other iterations. The middle group
+reports the raw loop output without autopatch for direct comparison; the autopatch lifts solver pass rate
+from 0–22% to 92–98% (Opus 4.7 and Gemini 3.1 Pro, iterations 8–13) without changing held-out ASR. Two
+specific over-restrictive defenses are removed: (1) the sys.modules[’inspect’]=None/sys._getframe
+pattern that breaksload_inline, and (2) the per-trial subprocess/threading isolation, which changes the
+CUDA context for solvers that create raw cuBLAS handles directly rather than using PyTorch’s API. These
+two changes still leave both Gemini and Opus hint ASR at 0%. This illustrates why the three-agent design
+matters: the hacker and fixer alone drive ASR to 0%, but without the solver as a guardrail, the verifier can
+be too aggressive. TheTerminal Benchrun (§4.3) includes an LLM solver, which catches over-restrictive
+patches early.
+Beyond held-out attacks.The default configuration ran 14 iterations without the in-loop hacker ex-
+hausting novel exploits, yet held-out ASR saturates at 0% from iteration 8 onward. In other words, the
+verifier-aware hacker discovers exploitsbeyondthe public hint corpus (e.g., the gc.get_objects() attack
+in §3.3). Blind configurations converge within 2–5 iterations (Table 2, bottom), confirming that verifier
+access enables the hacker to find more sophisticated exploits.
+4.3 Case study:Terminal Bench
+Setup.We run the default loop configuration (verifier-aware hacker, shared defense pool, hacker feedback)
+and ablations on 77Terminal Benchtasks 3. Gemini 3 Flash serves as hacker, fixer, and in-loop solver (no
+hint provided). The pool is initialized with a hello-world task with a verifier similar to otherTerminal
+Benchtasks.
+Evaluation corpus of exploits.We source 8 reward-hacking hints from two previous discussions about
+Terminal Benchhackability (Wang et al., 2026; rynewang, 2026). All eight are variations on dependency-
+chain or environment hijacking, proposed by human researchers. For each hint we prompt Gemini 3.1 Pro
+for one attack attempt per task. Besides human-identified vulnerabilities, we also collect 3 unhinted (blind,
+no hint) exploit attempts and 3 solver attempts per task from Gemini 3.1 Pro.
+In the main tables we consider an attack attempt successful if it passes the verifier. We separately run an
+LLM judge to filter out possible legitimate solves coming from the hacker and find 10.0% of reward-passing
+attack trajectories marked legitimate. Results after filtering are qualitatively similar (Appendix F.2).
+Results.Table 3 reports attack and solver pass rates before and after hardening. Results are noisier than
+KernelBenchdue to task and exploit diversity, but the direction is consistent.
+Unhinted (weak-to-strong).The loop halves the unhinted ASR of a stronger blind Pro hacker, from 39.2% to
+16.7% at the trajectory level and from 55.8% to 30.3% at the task level (three attempts per task).
+Hinted.Human-identified exploits also drop in success rate ( −11.0 pp trajectory-level). Table 5 (Ap-
+pendix F.1) shows the per-hint breakdown; all eight are suppressed.
+Ablations.Figure 2 (right panel) breaks down the contribution of verifier access and the defense pool on
+Terminal Bench. Verifier access is the key driver for blocking hinted exploits (56.2%→ 39.5% with both
+levers, vs. 56.2%→ 45.9% with verifier access alone), while the pool contributes primarily to unhinted
+attack reduction (42.3%→ 22.3% with pool only, vs. 42.3%→ 24.0% without it). Full ablation tables are in
+Appendix F.3.
+3Sourced fromTerminal Bench1.0 and 2.0. We started with 100 tasks and removed those where the solver could not pass the
+precheck; 28 of the 77 were found blind-hackable in our §2 audit.
+9
+
+Preprint. Under review.
+Table 3:Held-out evaluation on 77Terminal Benchtasks.Trajectory: fraction of individual attack/solver
+attempts that pass.Task-level: fraction of tasks where at least one attempt of that type passes (8 hint attempts
+per task; 3 unhinted; 3 solver). The unhinted arm is the cleanest weak-to-strong signal (Flash-derived
+defense vs. blind Pro hacker).p-values are two-proportionz-tests.
+Trajectory-level Task-level (any ofN)
+Orig. Hard.∆pppOrig. Hard.∆ppp
+Hinted ASR (↓) 50.4%39.4%−11.0 2·10 −4 100.0%92.2%−7.80.012
+Unhinted ASR (↓) 39.2%16.7%−22.5 1·10 −7 55.8%30.3%−25.60.001
+Benign pass (↑) 76.1% 65.2%−10.90.011 84.4% 74.0%−10.40.112
+Solution narrowing.All patches must admitsomesolution to pass the solver, but hardened verifiers
+still reject 11 pp more legitimate solutions (76.1%→ 65.2%) as they grow more restrictive. For example, on
+a logistic-regression debugging task, the fixer added gradient-correctness tests against a reference. This
+blocks hackers who spoof convergence flags, but also rejects solver attempts that modify the objective (e.g.,
+adding regularization).
+Can we harden everything?Two factors limit the loop. First,capability and budget: the loop can
+only patch exploits its hacker discovers, and the hacker’s coverage is bounded by model capability and
+the iteration budget, even though verifier access and cross-task defense sharing partially expand it. The
+held-out hint corpora (Appendices E.2, F.1) include human-discovered exploits requiring creative leaps
+agents currently miss, while our defenses are far more effective against agent-generated attacks—the regime
+closer to reward hacking in RL training and in-the-wild evaluations. Second,some tasks are fundamentally
+unfixableat the verifier level: e.g., aTerminal Benchtask requiring multi-pass shred cannot be verified
+inside a Docker container that lacks access to the underlying filesystem, since shred and rm -rf leave
+identical observable state. Such tasks require redesigning the evaluation infrastructure itself.
+5 Conclusion
+Our audit of 1,968 terminal-agent tasks reveals that 16% are hackable by frontier models under realistic
+constraints, undermining both evaluation integrity and RL training signal. The hacker–fixer loop automates
+benchmark hardening, which has so far been a manual, reactive process. Augmented by a shared defense
+pool and verifier-aware hacking, it eliminates all previously documented and novel stronger-model attacks
+onKernelBenchL1 and substantially reduces them onTerminal Bench(from 50% to 39% on documented
+exploits, from 39% to 17% on unhinted attacks), while preserving solver performance. We hope this enables
+benchmark creators and maintainers to integrate adversarial hardening as a continuous step rather than
+waiting for exploits to surface post-deployment.
+Acknowledgments
+We gratefully acknowledge support from UK AISI, Jane Street, the National Institute of Standards and
+Technology (NIST), AI Measurement Science & Engineering (AIMSEC), Schmidt Sciences, and Coefficient
+Giving.
+10
+
+Preprint. Under review.

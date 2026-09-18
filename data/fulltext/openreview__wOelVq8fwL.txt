@@ -1,0 +1,687 @@
+record_id: openreview:wOelVq8fwL
+source_used: openreview_pdf
+fetched_url: https://openreview.net/pdf?id=wOelVq8fwL
+fetched_title: ADAPTING LLM A GENTS THROUGH COMMUNICATION
+fetched_at: 2026-09-18T19:08:32Z
+
+Under review as a conference paper at ICLR 2024
+ADAPTING LLM A GENTS THROUGH COMMUNICATION
+Anonymous authors
+Paper under double-blind review
+ABSTRACT
+Recent advancements in large language models (LLMs) have shown potential for ad-
+vanced agents. To support online learning for these agents without extensive human
+supervision, we propose the Learning through Communication (LTC) paradigm,
+a novel training approach enabling LLM agents to enhance their skills through
+interactions with their environments and other agents. Through iterative exploration
+and updating, LTC empowers the agent to assimilate short-term experiences into
+long-term memory. To optimize agent interactions for task-specific learning, we
+introduce diverse communication patterns tailored for both single-agent and multi-
+agent environments. We evaluated LTC on four datasets: ALFWorld (single-agent),
+HotpotQA (multi-agent collaboration), Chameleon (multi-agent competition), and
+GSM8k (multi-agent teacher-student). On ALFWorld, it exceeds the instruction tun-
+ing baseline by 12% in success rate. On HotpotQA, LTC surpasses the instruction
+tuned Llama-7B agent by 5% in EM score, and it outperforms the instruction tuned
+9x larger PaLM-62B agent by 0.6%. On Chameleon, the winning rate of LTC agent
+surpasses the baseline by 3.1%. On GSM8k, LTC outperforms the CoT-Tuning
+baseline by 3.6% in accuracy. The results showcase the versatility and efficiency
+of the LTC approach across diverse domains. We will open-source our code to
+promote further development of the community.
+1 I NTRODUCTION
+Recent advances in large language models (LLMs) have shed light on human-like LLM agents [33,
+6, 65]. Previous works have explored how to employ the LLM as the engine of agents, which is
+complemented by several key components such as planning, tool use, and memory. For planning,
+Chain of Thought (CoT[66]) prompts the model to think step by step, decomposing complex tasks
+into smaller and simpler steps. ReAct [72] integrates reasoning and action within LLM, extending
+the action space to include both task-specific discrete actions (i.e., retrieval) and language generation.
+In addition, recent research has shown that LLM agents can be further augmented by using external
+tools to solve problems in interactive environments, which involve using retrieved knowledge [47, 72,
+57, 18], math tools [45, 72, 27], and code interpreters [12, 59].
+However, adapting LLM agents to specific tasks remains challenging. In order to adapt the general
+pre-trained LLMs to task-specific environments, existing methods focus on In-context learning
+(ICL [5, 72, 48]) and supervised fine-tuning (SFT [33]). For example, ICL utilizes few-shot prompts
+as a form of short-term memory [35, 48] to adapt agents’ task-specific ability during inference, and
+SFT typically requires high quality supervised training data for domain adaptation. However, both of
+these two approaches don’t leverage the rich feedbacks (i.e., positive/negative rewards, error message,
+hint etc) during the interaction with environment and external tools for online learning.
+In this paper, we introduce a new training paradigm Learning through Communication (LTC), allowing
+the LLM agent to do online learning in new environments and tasks with an iterative pipeline. Each
+iteration of LTC consists of two distinct phases: (1) the exploration phase where the agent interact
+with the environments and other agents to collect diverse trajectories and feedbacks, and (2) the
+updating phase that updates the agent model based on these trajectories.
+LTC method is a general learning paradigm that can be applied to diverse agent settings with single-
+agent and multi-agent environments. To collect communication trajectories and reward signals, we
+designed three structured communication patterns: (1) Single-agent Monologue allows a single
+agent to generate trajectories in a soliloquy style and get interactive feedback from environments;
+1
+
+Under review as a conference paper at ICLR 2024
+Few-shots
+Agent
+Prompt
+Training-free
+Inefficient Inference
+Examples dependent
+Prompting-free
+Efficient Inference
+Online learning
+Trajectories
+Reply buffers
+Agent
+Train
+LTC
+ICL
+Env: You are in the middle of a room. Looking quickly
+around you, you see a countertop, a fridge …
+Your task is to: put an egg in the bowl.
+Go to the countertop. Put the egg in the bowl.
+Success, reward +1
+An egg is more likely to appear in the fridge …
+You need to find and take an egg first …
+Open the fridge, I get an egg.
+A bowl is more likely to appear on the counter…
+Now you need to find the bowl and put the …
+Env: You are in the middle of a room. Looking quickly
+around you, you see a countertop, a fridge …
+Your task is to: put an egg in the bowl.
+Go to the countertop. Put the egg in the bowl.
+Success, reward +1
+Open the fridge, I get an egg.
+Env: Let’s play the Chameleon. The topic is: Animals.
+Secret word: Elephant (visible to chameleon players)
+[P1, P3] reward +1
+My clue is: It’s a smart mammal.
+They can run fast.
+It’s native to Africa and Asia.
+I think it is P2. Their clue doesn’t fit as well.
+I vote P1.
+I vote P2. His clue doesn’t seem to fit …
+Now vote who is the chameleon
+P2
+P1
+P3
+Accusation is correct. P2 can guess the secret word.
+Accusation is correct. P2 can guess the secret word.
+I guess the secret word is cheetah.
+(chameleon)
+[P2] reward -1
+Trajectories
+Agent
+Train
+Prompting-free
+Single-agent Multi-agent
+An egg is more likely to appear in the fridge …
+I need to find and take an egg first …
+A bowl is more likely to appear on the counter…
+Now I need to find the bowl and put the …
+2
+Figure 1: The LTC framework is adept for both single-agent and multi-agent environments. Within
+these environments, agents have the capability to persistently engage in exploration and interaction
+to collect trajectories through various communication patterns. Concurrently, LTC facilitates the
+training of these agents utilizing the data acquired from their exploratory activities. This process
+enables the agents to autonomously adapt to their respective environments, negating the necessity for
+human supervision.
+(2) Multi-agent Dialogue enables the multiple agents interacts with each other and external tools,
+and utilizes the reward signals provided by the environments; (3) Teacher-student Dialogue is a
+variant of multi-agent dialog that the teacher agent can provide not only linguistic feedback but also
+the non-linguistic reward signals.
+In addition, the updating phase is based on reinforcement learning (RL), and our training loss
+combines the language modeling loss and the PPO loss [ 33] to balance the language consistency
+and reward signals. We also designed a unified replay buffer to store trajectories from diverse
+environments, where each generated token is treated as an action in the RL formulation. We apply
+distinct masks to tokens generated by the system, LTC agents, and other agents, respectively. These
+masks are utilized to apply distinct loss functions to various token types. The replay buffer is updated
+after each exploration phase and a subset of the buffer is sampled for the updating phase. Through
+this iterative process, the agent continuously do online learning in new environments.
+We evaluate LTC method on three representative datasets: ALFWorld for decision-making, Hot-
+potQA for knowledge-intensive reasoning, and GSM8k for numerical reasoning. Throughout these
+experiments, LTC consistently outperforms the baselines. In ALFWorld, LTC outperforms the strong
+instruction tuning baseline by 12% on success rate, even in the challenging Pick 2 task. This shows
+that our communication mechanism enables the agent to learn from its experiences for task solving.
+On HotpotQA, LTC outperforms the instruction tuning baseline by 5% on EM score, and our Llama-
+7B based agent even obtains slightly better (0.6%) performance than the ReAct-Tuning baseline
+which uses 9× larger PaLM-62B model. On GSM8k, LTC also beats the CoT-Tuning baseline by
+3.6% on accuracy. These results highlight the adaptability and effectiveness of LTC approach across
+varied domains.
+Our key contributions are summarized as follows:
+1. Learning through Communication (LTC): We propose a new training paradigm named
+Learning through Communication (LTC), allowing the LLM agent to automatically adapt to
+new environments and tasks with an iterative pipeline.
+2. Task-specific Communication Patterns: The LTC paradigm allows flexible design of
+communication patterns for different tasks. Three specific patterns are introduced: Single-
+agent Monologue, Multi-agent Dialogue, and Teacher-student Dialogue. These patterns are
+composable to help generate diverse structured interaction and feedback signals for agent
+training for different types of tasks.
+3. Empirical Study and Findings: Through rigorous studies on public benchmark tasks, we
+demonstrate the effectiveness of LTC, and it could be a superior approach compared with
+instruction-tuning or prompting baselines.
+2
+
+Under review as a conference paper at ICLR 2024
+Replay Buffers
+Collect
+GPT-3
+GPT-4
+Llama-2
+GPT-3GPT-4
+Llama-2
+GPT-3
+Environments
+GPT-4
+Replay Buffers
+Exploration Phase
+…
+Llama-2
+GPT-3
+Agent
+Environments
+GPT-4
+Interact
+Interact
+GPU3
+Llama-2
+GPT-3
+Agent
+Environments
+GPT-4
+Interact
+Interact
+GPU2
+Llama-2
+GPT-3
+Agent
+Environments
+GPT-4
+Interact
+Interact
+GPU1
+LLM
+Pre-trained
+Reinforcement learning
+Collect
+Trajectories
+Train
+Agent
+Policy
+Update
+Policy
+Exploration Phase Updating Phase
+Initialize
+2
+Figure 2: LTC has an iterative two-phase framework. During the exploration phase, the agent
+proactively explores new environments and communicates with other agents, gathering the trajectories
+to update the replay buffer. Then the agent is trained for updating the policy in the updating phase.
+2 R ELATED WORK
+2.1 I NSTRUCTION TUNING
+Instruction tuning (IT) is an important technique for improving the capabilities and controllability of
+LLMs [39, 5, 65, 38, 32, 8, 56]. Many studies have been dedicated to instruction data generation and
+selection [9, 62, 19]. For instance, Unnatural Instructions [14] is created by using the Super-Natural
+Instructions dataset [63] as a seed to prompt InstructGPT [33]. Self-Instruct [62] employs a recursive
+pipeline that generates instruction data from hand-crafted seed tasks using ChatGPT [ 31]. Other
+studies focus on fine-tuning pre-trained LLMs with instruction data. BLOOMZ [30] is initialized with
+BLOOM [44] and then fine-tuned using the xP3 instruction dataset [30]. Flan-T5 is initialized with
+T5 [41] and fine-tuned with the FLAN dataset [25]. Additionally, after the release of LLaMA [56],
+many works have utilized it as the base model for instruction tuning, such as Alpaca [55], Vicuna [7],
+and GPT-4-LLM [36]. Some papers explore alignment fine-tuning using RLHF [ 33, 3, 52, 20].
+InstructGPT [33] employs GPT-3 for supervised fine-tuning on a human-filtered instruction dataset,
+followed by training a reward model and using PPO [46] for RLHF. Claude investigates RLHF [3] and
+constitutional approaches [4] for making LLMs both harmless and helpful. DPO [40] fine-tunes the
+LLMs to align with human preferences by directly optimizing a classification problem on preference
+data instead of RLHF. While these prominent research works focus on aligning LLMs for general
+instruction-following, our objective is to adapt LLM agents for specific tasks or environments.
+2.2 LLM A GENTS
+LLMs have demonstrated the potential to act as advanced agents [33, 6, 65], and significant progress
+has been made in developing versatile LLM agents [ 67, 53, 34, 23, 22, 70] and benchmarks [ 58,
+11, 24]. For planning, Chain-of-Thought (CoT[ 66]) prompts the model to think step by step, by
+decomposing complex tasks into smaller and simpler steps. Self Consistency [60, 61] extends CoT by
+using ensembles of predictions to improve consistency of the LLM. Inner Monologue [17] leverages
+environment feedback to enhance LLMs’ planning and processing capabilities in embodied robotics
+tasks without extra training. ReAct [72] integrates reasoning and action taking, expanding the action
+space to include both task-specific discrete actions and language. Reflexion [48] equips agents with
+dynamic memory and self-reflection capabilities to improve reasoning by using continuous trials in
+the same environment as feedback. Recent research has also shown that LLMs can be augmented
+as an autonomous agent to use external tools to solve problems in interactive environments. These
+techniques include retrieval augmentation [47, 72, 18], math tools [45, 72, 27], and code interpreters
+[12, 59]. Prior works also have explored using multiple LLMs in a collaborative setting to solve
+complex tasks [13, 37, 21, 64, 54, 1]. Open-source projects like AutoGPT [51], GPT-Engineer [2],
+and BabyAGI [73] also showcase the potential of LLM not just in generating content but also as a
+general problem solver. Most of the above methods are based on either human-designed few-shot
+prompting examples, or finetuning with pre-collected instruction datasets. Our LTC is not a few-shot
+prompting method and we focus on adapting the agent by collecting training data automatically by
+exploration.
+3
+
+Under review as a conference paper at ICLR 2024
+Collect
+Reinforce learning
+Prompt
+Env: You are in the middle of a room. Looking quickly
+around you, you see a countertop, a fridge …
+Your task is to: put an egg in the bowl.
+I need to find and take an egg first, then …
+An egg is more likely to appear in the fridge …
+Open the fridge, I get an egg. Now I need to
+find the bowl and put the egg into it …
+A bowl is more likely to appear on the counter…
+Go to the countertop. Put the egg in the bowl.
+Success, reward +1
+Few-shots Reply buffers
+Prompt Train
+ICL
+Collected trails
+AgentAgent
+Training-free Prompting-free
+Efficient InferenceInefficient Inference
+Examples dependent Continual learning
+LTC
+LoRA
+Your task is to: provide a detailed answer so user don't
+need to search outside to understand the answer …
+Question: Shawn has five toys. For Christmas, he got two
+new toys each from his mom and dad. How many toys
+does he have now?
+Shawn started with 5 toys. If he got 2 new toys
+then that is 5+2=7. The answer is 7.
+Sarah started with 9 pens. If she gives 3 pens to
+Bob and 3 pens to Tom, then that is 9-3-3=3.
+The answer is 3.
+It’s incorrect. If he got 2 toys from his mom and
+2 toys from his dad, then that is 5+2+2=9.
+Now take this homework problem: Sarah has 9
+pens, and she gives 3 pens to each of Bob and
+Tom. How many pens does Sarah have left?
+Correct! You have learnt this type of questions.
+Success, reward +1
+Fail, reward -1
+Signal from GPT
+Your task is to: solve a question answering task with
+interleaving Thought, Action, Observation steps …
+Question: Were Pavel Urysohn and Leonid Levin known
+for the same type of work?
+Search[Pavel Urysohn]
+I need to search Pavel Urysohn and Leonid
+Levin, find their types of work, then find …
+Pavel Samuilovich Urysohn was a Soviet …
+Leonid Anatolievich Levin is a Soviet-American
+mathematician and computer scientist.
+Search[Leonid Levin]
+Pavel Urysohn is a mathematician. I need to
+search Leonid Levin next and find its type …
+Finish[yes]
+Leonid Levin is a mathematician and computer
+scientist. So they have the same type of work.
+Success, reward +1
+Can replace when testing
+Env: You are in the middle of a room. Looking quickly
+around you, you see a countertop, a fridge …
+Your task is to: put an egg in the bowl.
+I need to find and take an egg first, then …
+An egg is more likely to appear in the fridge …
+Open the fridge, I get an egg. Now I need to
+find the bowl and put the egg into it …
+A bowl is more likely to appear on the counter…
+Go to the countertop. Put the egg in the bowl.
+Success, reward +1
+1
+Figure 3: The toy examples to demonstrate communication patterns: 1) the left figure is the Multi-
+agent Dialogue pattern, where two agent play different roles to collaborate on the task. The thinker
+agent is responsible for analyzing the situation and give suggestion to the actor agent who is responsi-
+ble for making decisions. We can just assign the LTC agent to play the thinker agent when testing
+without GPT-4 agent. 2) the right figure is the Teacher-student Dialogue pattern, where the student
+agent starts with an initial answer to the current question, and then the teacher directly corrects the
+answer with a reward. To help the student improve ability instead of just memorizing the solution,
+the teacher will generate another analogous question to ask the student. Eventually, the student gives
+a new answer for this analogous question and gets a new reward signal from the teacher.
+3 L EARNING THROUGH COMMUNICATION
+We design Learning Through Communication (LTC), an iterative training method for LLM agents to
+continuously adapt to new environments. As shown in Figure 2, LTC iterates between two phases:
+(1) An exploration phase where agents can interact with new environments and other agents to collect
+trial data with feedback, and (2) a updating phrase to fine-tune the agent to update the policy.
+3.1 E XPLORATION PHASE
+At the start of each iteration, the agent explores the environments to get the trajectories and the
+reward signal data. We denote these data as a tuple:S = (T,M,R), whereT ={t1,t 2,...,t n}
+represents the text data generated by the communication process during agent exploration, M =
+{m1,m 2,...,m n} with mi∈{ 0, 1, 2} indicates the source of the text data (system or agents),
+R ={r1,r 2,...,r n} withri∈{− 1, 0, 1} represents the reward signals provided by either the
+system or the agents. We demonstrate the the details of this data structure in Figure 4,M is the mask
+list, andR is the reward list. In PPO training, both the value list and the log-prob list correspond
+directly to the action list. For brevity, we denote these three lists together as T here. Please see
+Appendix A.2 for more detaills.
+To collect the trajectories dataS = (T,M,R) from different types of tasks, we design the commu-
+nication patterns for these tasks. Here we provide three communication patterns:
+• Single-agent Monologue: Single-agent Monologue is a single-agent soliloquy style commu-
+nication pattern, designed for general instruction following tasks (Algorithm 1). It split the
+tasks into step by step like ReAct and CoT, and their own trajectories with system rewards
+are collected to train themselves at the same time with their exploration. Figure 1 left is a
+toy example of ALFWorld to demonstrate the Monologue pattern with a single agent. This
+agent soliloquizes to think the situation and take the actions to explore the environment and
+finally get the reward provided by the environment. This pattern is based on the think and
+act steps in the ReAct formulation [72], we design the training buffer collection process to
+make it aligh with our reinforcement learning formulation.
+4
+
+Under review as a conference paper at ICLR 2024
+Figure 4: The buffer data is a serial of integer/float sequences. They are collected by the agent’s
+exploration and used for the reinforcement learning phase.
+• Multi-agent Dialogue: Multi-agent Dialogue is a multi-agent discussion style pattern
+(Algorithm 2). It is designed for multi-agent collaborating and competing tasks, where
+multiple agents will play their role by speaking or taking actions in a certain order anda final
+reward will be given by the environment based on the performance of the agents. The left
+figure of Figure 3 is a toy example of HotpotQA to illustrate this pattern for collaborating,
+where the GPT-4 agent play as a thinker to analyze the situation and give suggestions to
+the actor agent who is responsible for making decisions. The reward in HotpotQA is the
+correctness of the answer obtained by two agents. And we can use their communication data
+to train the LTC agents do both thinker and actor so that they can learn how to cooperate
+with each other to solve the task. The right figure of Figure 1 is a toy example of Multi-agent
+Dialogue for a competing game task Chameleon, where three agents play different roles.
+The reward is the win or loss of the game, so they need do with deduction and bluffing in the
+communication process to win the game. And their games trajectories will be use in LTC
+iterations to boost the agents.
+• Teacher-student Dialogue: Teacher-student Dialogue is a teacher-student style pattern
+for powerful agents to teach the novice agents (Algorithm 3). We design this pattern for
+complex analytical tasks such as numerical reasoning, which require extensive analytical
+examples for agents to improve the specific reasoning ability lacking in the pretrained models.
+Teacher-student Dialogue pattern has two roles (student and teacher) played by two agents,
+however, in addition to the linguistic feedback, the teacher roles candirectly provide the
+non-linguistic reward signals, which are all provided by the system (environments) in the
+previous pattern. The right figure of Figure 3 is a toy example with GSM8k to demonstrate
+how the student agent communicates with the teacher agent in a homework-correcting style.
+In the math question environment, the student agent starts with an initial answer to the
+current question, then the teacher directly corrects the answer with a reward. To help the
+student improve ability instead of just memorizing the solution, the teacher will generate
+another individual question and provide a new reward to the student.
+3.2 U PDATING PHASE
+In the updating phase, the LLM agent model could be optimized through the conversation sessions
+collected in the exploration stage. Given a example sessionS = (T,M,R), we mainly utilize two
+training objects for model training.
+• Language model Objective: LLM encourages the model to learn from the trajectory T ,
+serving as an unsupervised learning schema to help model for behavior cloning from other
+agents’ response or predicting system feedbacks.
+• Reinforcement Objective:Lreinforce optimizes the model by maximizing the expectation
+reward provided by environment or a teacher agent (i.e., GPT-4 [32]). It is an goal-oriented
+objective, and allows the model to learn through both positive and negative signals in the
+communication session.
+Thus, the overall training objective for LTC combines the above two terms:
+LLTC(S) = βLLM(T ) +Lreinforce(S), (1)
+whereβ is a balancing hyper-parameter. The off-policy PPO algorithm [46] is utilized for optimizing
+Lreinforce(S), and it can be further breakdown into policy loss, value loss and policy entropy regular-
+5
+
+Under review as a conference paper at ICLR 2024
+ization terms in implementation. The vanilla PPO algorithm takes the triplet (state, action, rewards)
+for training. In this case, we sample from the trajectories (T<i,ti) for simulating the state-action
+pairs, specifically, we only keep the tokens generated by agent model itself as actions for policy
+updating.
+4 E XPERIMENTS
+4.1 D ATASETS
+We conducted experiments on four datasets: ALFWorld [50], HotpotQA [71], Chameleon [69] and
+GSM8k [10]. Each of these datasets represents a different environment type, namely single-agent,
+multi-agent collaborating, multi-agent competing, and teacher-student, respectively. And different
+communication patterns are used: Single-agent Monologue for ALFWorld, Multi-agent Dialogue for
+HotpotQA and Chameleon [69], and Teacher-student Dialogue for GSM8k.
+ALFWorld ALFWorld (Figure 1) is a text-based game that follows the ALFRED benchmark [49]. In
+this game, agents are presented with six types of tasks that involve navigating a simulated household
+environment using textual actions. With over 50 locations to explore, these tasks demand strategic
+planning and thorough exploration. Following [ 50], we utilize the train set that consists of 3553
+environments for training our model and the baselines; and we use the unseen test set that comprises
+134 environments for evaluatation.
+HotpotQA HotpotQA is a question-answering dataset that focuses on multi-hop reasoning based
+supporting facts, with the goal of improving the explainability of QA systems. In this dataset, agents
+are required to reason across two or more Wikipedia passages to derive answers. We initialize the
+environments using only the text of the questions, meaning that agents are provided with the question
+and task description but do not have access to supporting paragraphs. To support their reasoning,
+agents must either rely on their internal knowledge or interact with an external Wikipedia tool to
+retrieve the necessary information. For training, we sample the environments from the training set,
+which consists of 90,447 QA-pairs. For evaluation, we run 500 random examples from the test set,
+following [72].
+Chameleon Chameleon is a multi-player social deduction game environment implemented by the
+ChatArena [69]. There are two roles in the game, chameleon and non-chameleon. The topic of
+the secret word will be first revealed to all the players. Then the secret word will be revealed to
+non-chameleons. Non-chameleons try to identify the chameleon without giving away the secret word,
+while the chameleon tries to blend in and guess the word. The game involves giving clues, voting on
+who the chameleon might be, and a final guess from the accused chameleon. We use [3, 4, 5] players
+setting to train and test the agents’ performance.
+GSM8k The GSM8k dataset is a collection of 8.5K math problems for grade school students.
+These problems have been crafted by human experts to ensure linguistic diversity. The dataset is
+divided into two sets: 7.5K problems for training and 1K problems for testing. Each problem in the
+dataset requires 2 to 8 steps of reasoning to arrive at the solution. The problems primarily focus on
+fundamental arithmetic operations like addition, subtraction, multiplication, and division.
+4.2 S ETTINGS
+Model Architecture We use a modified version of Llama [56] as the base model. To generate state
+values corresponding to the action tokens, we introduce an additional linear layer to serve ast the
+value head. This value head acts as an auxiliary output module, and the output values are processed
+using thetanh() function to ensure they fall within the range of (-1, 1). This adaptation for RL has
+also been discussed in prior studies [43].
+Agent Pre-training We use the Llama-7B model [56] for our LLM agent. To enhance the agent’s
+ability to follow task-specific instructions, we initialize it by instruction fine-tuning (IT). And this
+initialized agent works as the baseline for a fair comparison. This step is crucial because the original
+Llama-7B model, without prior instruction fine-tuning, struggled to follow task instructions and
+generation sensible actions in the environments. To collect data for instruction fine-tuning, we employ
+GPT3/4 as our agent to explore the environments created from the training set. We then filter out
+6
+
+Under review as a conference paper at ICLR 2024
+negative examples and retain positive examples to train the initial agent. For both the ALFWorld
+and HotpotQA datasets, we leverage GPT3 (specifically, text-davinci-003). However, for theGSM8k
+dataset, we use GPT4 due to GPT3’s inadequate performance in handling mathematical problems,
+which resulted in a scarcity of positive examples.
+Training details We utilize the AdamW optimizer [26] with a batch size of 32. The learning rate
+is set to 2e-4. In each iteration, the sizes of new environments for agents to explore are: 256 for
+ALFWorld, 512 for GSM8k, and 1024 for HotpotQA. For parameter-efficient fine-tuning, we employ
+LoRA [15] with hyperparametersR = 16 andα = 16. For distributed training, we utilize 4 nodes
+with 8×A100 GPUs on HotpotQA and GSM8k. For the experiments on ALFWorld, we use 1 node
+with 2×A100 GPUs due to the dataset’s small scale.
+Baselines We compare the agents trained by LTC with existing prompting and instruction tuning
+methods, including ReAct [72], ReAct-IM [17], CoT [66], CoT-SC [60, 61], BUTLER [28]. The
+detailed of these baselines are described in Appendix A.7. Most of these methods focus on few-shot
+prompting, and different pre-trained models are used. To ensure a fair comparison, we include the
+additional baselines named ReAct-Tuning and CoT-Tuning by fine-tuning the Llama-7B model using
+the collected trajectories as fine-tuning data. In addition, GPT-4 are not used in the test time, and all
+the results reported are obtained by the trained agent itself.
+4.3 R ESULTS
+Method \ Task Pick Clean Heat Cool Look Pick 2 All
+ReAct (avg) 65 39 83 76 55 24 57
+ReAct (best of 6) 92 58 96 86 78 41 71
+ReAct-IM (avg) 55 59 60 55 23 24 48
+ReAct-IM (best of 6) 62 68 87 57 39 33 53
+BUTLERg (best of 8) 33 26 70 76 17 12 22
+BUTLER (best of 8) 46 39 74 100 22 24 37
+ReAct-Tuning (avg) 83 91 91 90 72 8 77
+ReAct-Tuning (best of 3) 92 97 96 95 78 24 78
+LTC (avg) 89 91 93 97 96 67 90
+LTC (best of 3) 92 97 96 100 100 76 91
+Table 1: AlfWorld success rates (%) for 6 tasks. The results of the
+bottom block are obtained by fine-tuning Llama-7B model.
+ALFWorld As shown in Ta-
+ble 1, LTC outperforms the
+previous best methods* on all
+of tasks of ALFWorld. We
+can see that Instruction Fine-
+tuning is already a strong
+baseline outperforming oth-
+ers, yet our LTC achieves a
+success rate of 91%, remark-
+ably outperforming the best
+Instruction Tuning baseline
+(78%). Notably, on both Cool
+and Look tasks, LTC obtains
+a 100% success rate. Even on
+the hardest Pick Two & Place
+task (e.g., “put two pencils in
+the drawer”), it achieves a de-
+cent 76% success rate. The Pick Two task requires the agent to perform two sequences of ”pick and
+place” actions in one task, while keeping track of the desired type and the location. The combined
+sequences and the need to remember the previous location make this task challenging. This may be
+the reason why baselines achieve lower success rates on this task. In contrast, our LTC agent, which
+further trains the agent with self-exploration significantly outperforms other agents. This underscores
+the effectiveness of the communication mechanism in LTC.
+HotpotQA As shown in Table 2, LTC outperforms the instruction tuning baseline† by 5% on Exact
+Match (EM) score, and it even outperforms ReAct and CoT on their default settings. Note that
+ReAct and CoT use PaLM-540B and GPT3-175B as the pre-trained LM model, which is 77x and 25x
+larger than our the Llama-7B model we used. By sampling 21 CoT trajectories during inference and
+adopting the majority answer, CoT-SC is slightly better (0.2%) than LTC, and their combined method
+ReAct→ CoT-SC surpasses LTC by 1.9%. Compared to other models with tuning, our Llama-7B
+based agent even obtains slightly better (0.6%) performance than the ReAct-Tuning baseline with 9×
+larger PaLM-62B model.
+*For ALFWorld, ReAct and ReAct-IM results are from Table 3 of [72]. BUTLER and BUTLERg results are
+from Table 4 of [50], and they are trained with DAgger [42].
+†For HotPotQA, Prompting method results without fine-tuning are from Table 1&5 of [72]. PaLM-8B and
+PaLM-62B scores are estimates from Figure 3 of [72].
+7
+
+Under review as a conference paper at ICLR 2024
+Model Method EM score
+PaLM-540B
+CoT [66] 29.4
+CoT-SC[60] 33.4
+ReAct [72] 27.4
+ReAct→ CoT-SC 35.1
+GPT3-175B ReAct 30.8
+PaLM-62B ReAct-Tuning 32.6
+CoT-Tuning 25.2
+PaLM-8B ReAct-Tuning 25.0
+CoT-Tuning 14.0
+Llama-7B ReAct-Tuning 28.2
+LTC(single-agent monologue) 31.0
+LTC(multi-agent dialogue) 33.2
+Llama2-13B ReAct-Tuning 33.8
+LTC(multi-agent dialogue) 35.8
+Table 2: EM scores on Hot-
+potQA with prompt and tuning meth-
+ods. Methods that use fine-tuning are
+marked by “-Tuning”.
+Model Method Accuracy
+PaLM-540B CoT [66] 56.5
+CoT-SC[60] 74.4
+GPT3-175B CoT [66] 60.1
+CoT-SC[60] 78.0
+Llama-7B CoT [56] 11.0
+CoT-SC[56] 18.1
+Llama-7B
+CoT-Tuning 37.7
+LTC(single-agent monologue) 39.6
+LTC(teacher-student dialogue) 41.3
+Table 3: Accuracy on GSM8k. The results
+of the bottom block are obtained by fine-
+tuning LLaMA-7B model, while the others
+are prompting methods without fine-tuning.
+Method \ #players n=3 n=4 n=5 overall
+Llama-Tuning 20.8 20.3 23.8 21.9
+Llama-LTC 22.9 23.4 27.5 25.0
+Table 4: Chameleon game winning rates (%) of dif-
+ferent number of players settings. At each game, one
+player is played by target evaluated model, and the
+others are played GPT-4.
+Chameleon As shown in Table 4, LTC
+outperforms the instruction tuning base-
+lines by 3.1% on winning rate against GPT-
+4 players. In the training, all the players
+are played by the same Llama2-7B model
+that we are training. While in the testing,
+to get the winning rate of our trained agent
+against GPT4, only 1 player is randomly
+picked to use our trained agent as backend,
+and other players are played by GPT4. We
+could see that the LTC agents winning rate improves with the increasing of number of players, we
+explain this by the more players, the higher chance that the GPT4 players carry the game.
+GSM8k As shown in Table 3, LTC(teacher-student dialogue) outperforms the instruction fine-tuning baseline
+by 3.6% on accuracy, and it surpasses the LTC (single-agent monologue) baseline, which does not use the
+reward and feedback from GPT-4. However, LTC underperforms CoT and CoT-SC with the much
+larger models (PaLM-540B and GPT3-175B). This phenomenon is because numerical reasoning
+requires a larger model size and sufficient pretraining data, as observed in [32]. Unfortunately, due to
+computational resource limitations, we can only train the relatively small Llama-7B model but were
+unable to train larger-scale models. Nevertheless, we believe that exploring LTC with larger models
+is promising for future research.
+5 D ISCUSSION
+Method GSM8k Hotpot-QA Alfworld
+(CoT) (ReAct) (ReAct)
+ICL 836 1937 1744
+LTC 107 167 189
+Table 5: Average number of tokens of the input
+prompts on test sets. LTC does not use any few
+shot examples in the prompt, hence uses only a
+fraction of tokens compared to ICL.
+Efficiency As mentioned above, prompting-
+based methods such as ReAct [72] and CoT [66]
+use a subset of exemplary trajectories from the
+given task as few-shot prompts during inference.
+However, these few-shot prompts are often long,
+which leads to increased inference cost and lim-
+ited context length for user queries. As shown
+in Table 5, we compare the number of input to-
+kens for each task. We compute the CoT prompts
+for GSM8k, and we use ReAct for the other two
+tasks. All the few-shot prompts are sourced from
+the original paper. As shown, our LTC agents used
+only 12.8%, 8.6%, and 10.8% of the input tokens required by the ICL methods on the three tasks,
+respectively.
+8
+
+Under review as a conference paper at ICLR 2024
+0 1 2 3 4 5 6 7 8
+N iter
+0.65
+0.70
+0.75
+0.80
+0.85
+0.90Acc
+Iterative PPO Alfworld Acc
+w/ PPO&Interaction
+w/o PPO
+w/o Interaction
+Figure 5: The accuracy curves of PPO training.
+0 1000 2000 3000 4000
+N episode
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30
+0.35Loss
+Alfworld Loss
+LM loss
+Value loss
+Policy loss Figure 6: The loss curves of PPO training.
+Shortcuts One interesting observation is that the GPT-4 agent sometimes employs ”shortcuts” to
+solve problems when serving as a teacher to generate new training data. These shortcuts rely on
+the internal knowledge acquired during its pretraining process. To illustrate this, we present a case
+study from HotpotQA in Figure 7. In this case, the GPT-4 agent quickly retrieves the answer by
+leveraging its memorized knowledge about the second entry after receiving the Wikipedia page of the
+first entry. On the other hand, the bottom of Figure 7 demonstrates a comparison with LLaMA-7B,
+which was trained using our LTC method with the GPT-4 agent in the loop. LLaMA-7B does not
+employ shortcuts and instead performs a search for the second entry. This case study demonstrates
+that communication mechanism in LTC provide additional benefits during learning, compared to
+soley relying on data generated by GPT-4.
+Ablation We conducted ablation studies on the loss design of LTC. Figure 5 illustrates the success
+rate of agents on the ALFWorld dataset under different loss settings. Without using our communi-
+cation pattern for interactions and merely sampling pre-collected instruction data for training, the
+improvement was limited. However, when we incorporated our communication pattern to gather
+data, the model’s performance quickly surpassed 80%. Furthermore, employing PPO loss to handle
+positive and negative samples separately resulted in faster and more significant improvement (blue
+line). In Figure 6, we present the separate curves of the three main losses during training. Initially,
+the LM loss showed a decreasing trend. Interestingly, as training iterations progressed, both the value
+loss and policy loss gradually decreased, which possibly causes the LM loss to increase temporarily.
+After the value loss and policy loss reached a certain threshold, the LM loss continued to decrease till
+convergence.
+6 C ONCLUSION
+We introduced Learning-Through-Communication (LTC), a paradigm that adapts LLM agents to new
+tasks and environments via communication-based iterative learning. Within this LTC framework, we
+have designed three communication modes for common tasks including decision-making, knowledge-
+intensive reasoning, and numeric reasoning. These communication modes facilitate interactions
+between LLM agents and their environments, as well as other agents such as GPT-4 and humans.
+The history of these interactions can be autonomously organized into training data for PPO training
+so that the agent can adapt to the new task. Our approach represents a closed loop where the agent
+self-interacts with the environment or other agents, and learning to improve itself with minimal human
+intervention. Empirically, we have demonstrated that LTC performs strongly in success rate and
+efficiency across four different tasks: AlfWorld, HotpotQA, Chameleon, and GSM8k. It consistently
+outperforms existing LLM agent and instruction tuning baselines, showing the promise of the LTC
+paradigm in adapting LLM agents to new tasks and environments with minimal human effort. As for
+future work, we plan to explore more diverse communication patterns for different tasks, and involve
+the communication with human during the iterative learning process. We will open source our code
+to facilitate further research in this line.
+9
+
+Under review as a conference paper at ICLR 2024

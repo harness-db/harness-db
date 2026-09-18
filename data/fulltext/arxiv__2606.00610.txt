@@ -1,0 +1,926 @@
+record_id: arxiv:2606.00610
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2606.00610
+fetched_title: MemGraphRAG: Memory-based Multi-Agent System for Graph Retrieval-Augmented Generation
+fetched_at: 2026-09-18T18:59:57Z
+
+MemGraphRAG: Memory-based Multi-Agent System for Graph
+Retrieval-Augmented Generation
+Chuanjie Wu∗
+wuchuanjie@stu.xmu.edu.cn
+Xiamen University1, 2
+Xiamen, China
+Zhishang Xiang∗
+xiangzhishang@stu.xmu.edu.cn
+Xiamen University2, 3
+Xiamen, China
+Yunbo Tang
+tangyunbo@stu.xmu.edu.cn
+Xiamen University1
+Xiamen, China
+Zerui Chen
+chenzerui1@stu.xmu.edu.cn
+Xiamen University1
+Xiamen, China
+Qinggang Zhang†
+qinggangzhang@jlu.edu.cn
+Jilin University
+Changchun, China
+Jinsong Su†
+jssu@xmu.edu.cn
+Xiamen University1, 2, 3
+Xiamen, China
+Abstract
+Retrieval-Augmented Generation (RAG) has become an essential
+method for mitigating hallucinations in Large Language Models
+(LLMs) by leveraging external knowledge. Although effective for
+simple queries, traditional RAG struggles with large-scale, unstruc-
+tured corpora where information is highly fragmented. Graph-
+based RAG (GraphRAG) incorporates knowledge graphs to capture
+structural relationships, enabling more comprehensive retrieval
+for complex reasoning. However, existing GraphRAG methods rely
+on isolated, fragment-level extraction for graph construction, lack-
+ing a global perspective on the whole corpus. As a result, these
+methods frequently lead to thematically inconsistent, logically
+conflicting, and structurally fragmented graphs that degrade re-
+trieval performance. In this paper, we propose MemGraphRAG,
+a novel framework that introduces a memory-based multi-agent
+system to ensure high-quality graph construction. Specifically,
+MemGraphRAG employs a collaborative society of agents sup-
+ported by shared memory, which provides a unified global context
+throughout the extraction process. This mechanism allows agents
+to dynamically resolve logical conflicts and maintain structural
+connectivity throughout the corpus. Furthermore, we propose a
+memory-aware hierarchical retrieval algorithm tailored for the con-
+structed graph. Extensive experiments on multiple benchmarks
+demonstrate that MemGraphRAG outperforms the state-of-the-art
+baseline models with comparable efficiency. Our code is available
+at https://github.com/XMUDeepLIT/MemGraphRAG.
+∗Contributed equally.
+†Corresponding author.
+1School of Informatics
+2Key Laboratory of Digital Protection and Intelligent Processing of Intangible Cultural
+Heritage of Fujian and Taiwan,Ministry of Culture and Tourism
+3Institute of Artificial Intelligence
+This work is licensed under a Creative Commons Attribution 4.0 International License.
+KDD 2026, Jeju Island, Republic of Korea.
+©2026 Copyright held by the owner/author(s).
+ACM ISBN 979-8-4007-2259-2/2026/08
+https://doi.org/10.1145/3770855.3818074
+CCS Concepts
+•Information systems → Retrieval models and ranking;•
+Computing methodologies→ Information extraction; Knowledge
+representation and reasoning.
+Keywords
+RAG, GraphRAG, Multi Agent, Agent Memory, Indexing Graph
+ACM Reference Format:
+Chuanjie Wu, Zhishang Xiang, Yunbo Tang, Zerui Chen, Qinggang Zhang,
+and Jinsong Su. 2026. MemGraphRAG: Memory-based Multi-Agent System
+for Graph Retrieval-Augmented Generation. InProceedings of the 32nd ACM
+SIGKDD Conference on Knowledge Discovery and Data Mining V.2 (KDD
+2026), August 9–13, 2026, Jeju Island, Republic of Korea.ACM, New York, NY,
+USA, 20 pages. https://doi.org/10.1145/3770855.3818074
+1 Introduction
+Recently, Retrieval-Augmented Generation (RAG) effectively ex-
+tends the capabilities of Large Language Models (LLMs) by leverag-
+ing external knowledge [16, 31, 63]. However, existing RAG systems
+suffer from critical challenges in real-world scenarios. This is due to
+the unstructured and heterogeneous nature of large-scale corpora,
+where relevant information is often sparsely distributed. The con-
+texts retrieved by RAG systems are often noisy and lack structural
+coherence. Although recent methods attempt to segment docu-
+ments into smaller chunks for efficient indexing [ 2, 27, 29], this
+strategy disrupts long-range dependencies and loses critical contex-
+tual details. As a result, the retrieved contexts are often incoherent
+or insufficient for complex reasoning tasks [23, 62].
+To address these limitations, Graph Retrieval-Augmented Gener-
+ation (GraphRAG) [41, 52, 62] has emerged as a powerful paradigm,
+leveraging external structured graphs to model the hierarchical
+structure of background knowledge [23, 57]. Early efforts, such as
+RAPTOR [44] and Microsoft’s GraphRAG [12], organize knowledge
+through recursive summarization and community-level abstrac-
+tions to support coarse-to-fine retrieval, thereby facilitating compre-
+hensive response generation. Subsequent methods, including GFM-
+RAG [37], G-Retriever [24], and LightRAG [17], further incorporate
+specialized retrieval mechanisms and learning objectives to improve
+multi-hop generalization, scalability, and efficiency. Most recently,
+HippoRAG [19]and its enhancement HippoRAG2 [20] have drawn
+inspiration from cognitive associative memory, utilizing algorithms
+such as Personalized PageRank to simulate multi-hop reasoning
+arXiv:2606.00610v1 [cs.IR] 30 May 2026
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Chuanjie Wu, Zhishang Xiang, Yunbo Tang, Zerui Chen, Qinggang Zhang, and Jinsong Su
+Corpus
+a) GraphRAG
+Chunking
+Graph
+Construction
+b) MemGraphRAG
+Global Memory
+Hierarchical Graph
+Graph Construction
+Retrieval
+Passages
+Facts
+Chunking
+Graph
+Construction Knowledge Graph
+Merging
+Retrieval
+SubGraph
+Corpus
+Chunking
+Inject
+Local Information Only
+Global View + Local Details
+Figure 1: Comparison between existing GraphRAG and Mem-
+GraphRAG. Exiting GraphRAG performs isolated chunk-
+level extraction without the global view, resulting in a noisy
+and inconsistent indexing graph. While MemGraphRAG in-
+corporates global memory to ensure global consistency.
+Figure 2: (Left) Evaluation of representative RAG and
+GraphRAG systems. The radius reflecting performance of
+each systems.Relevancemeasuring context relevance to the
+query.Recallmeasuring whether sufficient evidence is cov-
+ered. (Right) Impact of removing irrelevant triples based on
+schema frequency on the final performance (LLM-ACC).
+pathways. These strategies demonstrate the potential of graph-baed
+retrieval in addressing the core limitations of traditional RAG.
+However, contrary to their theoretical advantages, GraphRAG
+systems frequently underperform naive RAG systems in many
+real-world applications [22, 52, 69, 70]. This performance decline
+is primarily due to the low quality of automatically constructed
+knowledge graphs [ 52, 70]. Although graph-based retrieval en-
+hances relevant knowledge recall, errors in graph construction
+introduce substantial noise into the retrieved contexts simultane-
+ously. Fundamentally, these challenges persist because existing
+pipelines typically derive knowledge from isolated local segments,
+lacking a global perspective on the previously processed context.
+This isolation leads to three critical deficiencies that undermine
+graph quality: (i)thematic irrelevance: extracted triples are often
+irrelevant to the central theme, introducing meaningless facts. (ii)
+logical inconsistency: contradictory facts may emerge within a
+single subgraph, compromising semantic coherence. (iii)structural
+fragmentation: the built graphs often suffer from fragmentation
+issues, where the isolated nodes and disconnected components
+weaken the core advantage of the knowledge graph in supporting
+global comprehension and multi-hop reasoning.
+While some recent studies attempt to improve graph quality
+before extraction by filtering triples using predefined schema [ 9,
+45], these approaches suffer from limited generalization and high
+manual costs. Other efforts seek to improve graph quality through
+bottom-up clustering-based community summarization [12, 20, 50]
+or topic modeling [44]. Nevertheless these unsupervised approaches
+remain susceptible to error propagation, because inaccuracies in
+entity relations tend to be amplified at high-level summaries.
+To address this, we revisit the pipeline of existing GraphRAG
+systems and propose a Memory-Based Multi-Agent Framework
+for Graph Retrieval-Augmented Generation (MemGraphRAG).
+Specifically, MemGraphRAG employs a collaborative society of
+agents supported by a novel Three-Layer Global Memory. This
+shared memory structure serves as a unified knowledge repository,
+providing a global perspective that enables agents to dynamically
+coordinate the extraction process, resolve conflicts upon detection,
+and integrate fragmented information across the entire corpus. To
+summarize, our contributions are listed as follows:
+• We identify the root cause of performance degradation in
+existing GraphRAG systems: the reliance on isolated local
+extraction. We demonstrate how this lack of global context
+inevitably leads to three critical deficiencies: thematic irrele-
+vance, logical inconsistency, and structural fragmentation.
+• We propose MemGraphRAG, which introduces a memory-
+based multi-agent system into graph construction. The shared
+memory not only maintains global thematic consistency to
+prevent irrelevance and fragmentation, but also provides
+grounded evidence to resolve local logical inconsistencies.
+Besides, we propose a memory-aware hierarchical retrieval
+algorithm tailored for the constructed graph.
+• We conduct extensive experiments on four benchmark datasets,
+demonstrating that MemGraphRAG consistently outperforms
+state-of-the-art baselines in terms of graph quality, retrieval
+quality and generation accuracy, validating its practicality
+for real-world applications.
+2 Problem Statement
+To facilitate subsequent discussion, we first introduce key defi-
+nitions for the knowledge representation, and then present the
+complete problem formulation of GraphRAG.
+2.1 Key Definitions
+We first provide formal definitions for the core components of our
+knowledge representation:
+(i)type ( 𝑡) and entity ( 𝑒): a type 𝑡 (e.g.,person) denotes an
+abstract category, while an entity 𝑒 (e.g.,Einstein) is a concrete
+instance. Formally, a typing function𝜙 assigns each entity to its
+specific type, denoted as𝜙(𝑒)=𝑡.
+(ii)schema (𝑠) and fact (𝑓 ): a schema𝑠=(𝑡 ℎ,𝑟,𝑡 𝑡) (e.g., (person,
+born_in,country)) specifies a logical constraint. 𝑡ℎ,𝑡𝑡 represent the
+head and tail types, respectively, 𝑟 denotes a semantic relation.
+Based on this structure, a fact 𝑓=(𝑒 ℎ,𝑟,𝑒 𝑡) (e.g., (Einstein,born_in,
+Germany)) is a concrete instantiation of a schema, where 𝑒ℎ,𝑒𝑡
+represent the head and tail entity.
+
+MemGraphRAG: Memory-based Multi-Agent System for Graph Retrieval-Augmented Generation KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+Einstein
+1879
+1880
+Birthyear
+Birthyear
+Conflict
+1) Mutually Exclusive Conflict
+USA
+Biden
+Trump
+President
+President
+2) Temporal Conflict
+Conflict James
+LA
+USA
+Birth place
+Birth place
+3) Granularity Conflict
+Be Included in
+Einstein 1879Birthyear
+USA
+Biden
+Trump
+46th President
+45thPresident
+James
+LA
+USA
+Birth city
+Birth country
+Figure 3: Illustration of three conflict types in extracted
+graphs: 1) Mutually Exclusive Conflict from logically incom-
+patible facts, 2) Temporal Conflict caused by missing tem-
+poral grounding for time-varying states, and 3) Granularity
+Conflict arising from inconsistent abstraction levels for the
+same entity or concept. Details are in Table 8 in Appendix C
+(iii)ontology (O): the ontologyO is defined as the collection
+of all valid schemas, denoted asO={𝑠 1,...,𝑠 |O|}. It includes the
+theme and logical rules of the whole knowledge graph.
+(iv)passage (𝑝): a passage𝑝 denotes the specific text segment
+acting as the source of the extracted information. We define a
+function𝜓(𝑓)=𝑝to trace each fact𝑓back to its origin.
+Detailed definitions are provided in Appendix??.
+2.2 Problem Formulation
+We formally formulate the task of GraphRAG as a unified frame-
+work composed of two distinct phases:
+(i)Offline Graph Structure Construction. Given a corpus of
+unstructured documentsD={𝑑 1,𝑑 2,...,𝑑 |D|}, the primary objec-
+tive is to transform raw text into a structured graphG=(V,E) .
+In our framework, the vertex setV is heterogeneous, comprising
+entities, types, and passages (V=V 𝑒∪V𝑡∪V𝑝) , and the edge
+setE encodes the semantic dependencies between them. Formally,
+this construction process is formalized as
+G=GraphConstructor(D)(1)
+whereGraphConstructor(*) maps the unstructured corpus to a
+semantic graph topology, facilitating the efficient navigation from
+abstract concepts to concrete evidence.
+(ii)Online Graph-Enhanced Retrieval and Reasoning. Based
+on the constructed graphG, the system processes a user query𝑞 to
+generate a final answer𝑎. Unlike extracting isolated text segments,
+this phase involves identifying optimal reasoning paths within the
+graph to curate a structured context. The process is formulated as
+𝑎=LLM(Retriever(𝑞,G))(2)
+whereRetriever(*) identifies the most relevant graph elements
+(subgraphs) to support grounded answer generation.
+3 Preliminary Study
+Although knowledge graphs can model complex dependencies, re-
+cent benchmarks show that advanced GraphRAG systems may
+underperform naive RAG in real-world QA tasks [52, 70]. To inves-
+tigate this issue, we conduct two preliminary studies to analyze
+how automatic graph construction affects retrieval quality and
+downstream generation.
+3.1 Performance Degradation
+We first compare Vanilla RAG with recent GraphRAG systems (MS-
+GraphRAG, HippoRAG, and GFM-RAG) in the G-Medical dataset[52].
+As shown in Figure 2(a), GraphRAG methods achieve higher re-
+trieval Recall (e.g., GFM-RAG: 84.3% vs. RAG: 71.8%), but suffer a
+substantial drop in Relevance (38.5% vs. 62.9%), leading to noisier
+contexts and lower generation accuracy. These results indicate that
+existing GraphRAG pipelines often expand the retrieval coverage
+at the cost of introducing excessive irrelevant information, which
+ultimately harms the QA performance.
+3.2 Error Analysis
+To further investigate why graph construction introduces noise
+and conflicts, we hypothesize that the root cause lies in the isolated
+local extraction paradigm adopted by most baselines. Without a per-
+sistent global memory, extraction LLMs process document chunks
+independently, which leads to systematic issues in graph quality.
+Specifically, we summarize the major failure modes as follows:
+Thematic Irrelevance.Without a global view of the corpus
+theme, local extraction tends to introduce off-topic triples. To quan-
+tify this effect, we conduct a filtering experiment (Figure 2(b)) that
+removes triples based on schema frequency. Interestingly, filtering
+out 40% of low-frequency triples slightly improves accuracy (65.28%
+vs. 64.85%), suggesting that a large fraction of extracted triples are
+thematically irrelevant noise.
+Logical Inconsistency.Independent extraction also introduces
+semantic contradictions into the merged graph. As illustrated in
+Figure 3, we observe mutually exclusive conflicts, temporal con-
+flicts, and granularity conflicts, which create inconsistent reasoning
+paths and confuse downstream retrieval. More conflict analyses are
+provided in Appendix C.
+Structural Fragmentation.Due to missing global coreference
+resolution and schema alignment, key entities are often duplicated
+or scattered across disconnected subgraphs. This fragmentation
+prevents effective multi-hop traversal and reduces the usefulness
+of the graph for global reasoning.
+3.3 Discussion
+Current GraphRAG systems exhibit two fundamental limitations.
+First, existing GraphRAG systems exhibit a fundamental
+trade-off between recall and relevance.Although graph ex-
+pansion improves coverage, it often retrieves irrelevant evidence
+that overwhelms the LLM and degrades generation accuracy.Sec-
+ond, current GraphRAG systems lack a global memory mech-
+anism during graph construction.Most systems rely on iso-
+lated local extraction, processing document chunks independently
+without maintaining a persistent global state. As a result, the con-
+structed graph fails to preserve thematic coherence and resolve
+cross-document conflicts, leading tothematic irrelevance,logical
+inconsistency, andstructural fragmentationin downstream retrieval
+and reasoning processes.
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Chuanjie Wu, Zhishang Xiang, Yunbo Tang, Zerui Chen, Qinggang Zhang, and Jinsong Su
+Unstructured
+Documents
+Extraction Agent
+Conflict Detector
+Conflict Handler
+Three-Layer Global Memory
+（Person, Rule, Country)
+…
+(Person, Native, Location)
+(Company, Create, Product)
+Pending Schema
+Frequency
+Filter (Country, Capital, City)
+…
+(Person, Job, Profession)
+(Person, Birthyear, Year)
+Stable Schema
+Article 288
+Simpson Sean is a Canadian ice ho-
+ckeycoach and former professional
+ice hockey player . He last served as
+head coach of Adler Mannheimin
+the Deutsche EishockeyLiga …
+…
+Fact Layer (𝑴𝒇𝒂𝒄)
+Ontology Layer (𝑴𝒐𝒏𝒕)
+Passage Layer (𝑴𝒑𝒂𝒔)
+(Louis XIV, Rule, France)
+…
+(Drake, Native, Toronto)
+(OpenAI, Create, ChatGPT)
+Inactive Instances
+(Newton, Birthyear, 1643)
+…
+(Newton, Birthyear, 1645)
+(Simpson, Job, Coach)
+trigger
+Memory-based Indexing Graph Construction
+Multi-Agent Group
+Conflict
+Found
+Conflict Triple
+Correct Triple
+Original
+Document
+Update
+Audit
+Ontology Graph
+Entity: UK
+Document: The Unit-
+ed Kingdom (UK), off-
+iciallythe United …
+Conflict
+Propagation
+OntologyPassage
+Entity: Simpson Sean
+Document: Simpson
+Sean is a Canadian ice
+hockey coach and …
+Type: Person
+Relation: Job
+Type: Profession
+Weight: 5
+OntologySchema
+Entity: Coach
+Relation: Job
+Entity: Simpson Sean
+Weight: 1
+OntologyFact
+Passage Graph
+Fact Graph
+Active Facts
+(Newton, Birthyear, 1645)
+(Newton, Birthyear, 1643)
+Hierarchical Graph
+Memory-guided Online Retrieval
+𝑴𝒐𝒏𝒕𝑴𝒇𝒂𝒄𝑴𝒑𝒂𝒔
+Question
+(𝑠𝑖𝑚>𝜏)
+Retrieved
+Passages
+Retrieved
+Facts
+Answer
+Schema Fact
+Passage
+Type Entity
+Personalized
+PageRank
+Figure 4: Overview of the MemGraphRAG framework with two phases: (i) Memory-Based Indexing Graph Construction, where
+Global Memory (M) and the Knowledge Graph (G) co-evolve via unified schema filtering, global adjudication, and memory-
+guided bridging; and (ii) Memory-Guided Online Retrieval, which leverages multi-layer memory filtering, structure-aware
+node initialization, and Personalized PageRank to identify globally relevant contexts for generation.
+4 Our Framework
+To overcome fragmented extraction and enable coherent graph evo-
+lution, we proposeMemGraphRAG, a memory-based framework
+for constructing and maintaining high-quality knowledge graphs.
+Our key insight is that reliable graph construction requires not
+only structured storage, but also persistent coordination and cor-
+rection across documents. As illustrated in Figure 4, it consists of
+two collaborative modules: Memory-based Graph Construction and
+Memory-guided Retrieval. We first introduce the foundational archi-
+tecture, followed by the graph construction and retrieval pipelines.
+4.1 MemGraphRAG Architecture
+MemGraphRAG consists of three core components: aGlobal Mem-
+orythat stores schemas, facts, and passages at different granularities
+and supports the construction of theHierarchical Indexing Graph,
+and aMulti-Agent Groupthat interacts with memory to iteratively
+extract, detect, and resolve conflicts. Specifically:
+Global Memory (M)organizes the extracted knowledge into
+a three-tier hierarchy, including anOntology Layer( M𝑜𝑛𝑡 ) that
+stores schemas with extraction frequencies, aFact Layer(M𝑓𝑎𝑐 ) that
+maintains concrete facts, and aPassage Layer(M𝑝𝑎𝑠 ) that preserves
+original text passages for evidence grounding. To strengthen cross-
+layer associations, we introduce adense indexing mechanismthat
+enforces schema consistency and evidence traceability through two
+bidirectional interactions, whereschema-instance alignmentlinks
+schemas with facts andfact-evidence groundingconnects facts with
+their supporting passages. (See more details in Appendix D.2).
+Hierarchical Indexing Graph(G). It provides a unified rep-
+resentation spanning abstract schemas, concrete facts, and textual
+evidence. It consists of three interconnected graph views: (i)Se-
+mantic Ontology GraphG𝑜𝑛𝑡 , derived fromM𝑜𝑛𝑡 , which encodes
+schema-level type relations and structural constraints; (ii)Fact
+GraphG𝑓𝑎𝑐 , constructed fromM𝑓𝑎𝑐 , which represents instanti-
+ated entity-relation triples for multi-hop reasoning; and (iii)Source
+Evidence GraphG𝑝𝑎𝑠 , induced fromM𝑝𝑎𝑠 , which grounds facts in
+G𝑓𝑎𝑐 back to their supporting passages. This hierarchical design
+enables reasoning to traverse from abstract semantics to grounded
+evidence. More details are provided in Appendix D.2.
+Multi-Agent Group(A). We introduce a group of agentsA=
+{𝐴𝑒𝑥𝑡,𝐴𝑑𝑒𝑡,𝐴𝑟𝑒𝑠}. Specifically: (i) theExtraction Agent𝐴𝑒𝑥𝑡 extracts
+schemas, facts, and passages intoM with evidence grounding; (ii)
+theConflict Detection Agent 𝐴𝑑𝑒𝑡 monitorsM𝑓𝑎𝑐 to detect redun-
+dancy, structural anomalies, and logical inconsistencies; and (iii) the
+Conflict Resolution Agent 𝐴𝑟𝑒𝑠 leverages schema constraints from
+M𝑜𝑛𝑡 and historical evidence fromM𝑝𝑎𝑠 to resolve conflicts and
+maintain global consistency inG. This design separates extraction,
+diagnosis, and correction for reliable graph construction.
+4.2 Memory-based Indexing Graph
+Construction
+Traditional graph construction often processes document chunks
+in isolation, resulting in index fragmentation and noise accumu-
+lation. To address the critical limitations ofThematic Irrelevance,
+Logical Inconsistency, andStructural Fragmentationidentified in
+our pilot study, we reformulate knowledge graph construction as a
+dynamic co-evolution process between the Global MemoryM and
+the Knowledge GraphG. Distinct from static extraction pipelines,
+our approach adheres to three core principles designed to system-
+atically resolve these issues: (i)Thematic Denoising via Unified
+Schema Filtering: AddressingThematic Irrelevance, we employ a
+unified schema to rigorously filter and manage extracted triples,
+ensuring that only thematically relevant knowledge is retained; (ii)
+Consistency Maintenance via Global Adjudication: To resolve
+Logical Inconsistency, we utilize the global memory to assist agents
+
+MemGraphRAG: Memory-based Multi-Agent System for Graph Retrieval-Augmented Generation KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+in detecting and adjudicating semantic contradictions across dis-
+parate documents, thereby ensuring the logical unity of the graph;
+iii)Structural Unification via Memory-Guided Bridging: To
+overcomeStructural Fragmentation, we leverage the global mem-
+ory to identify and merge equivalent entities across disconnected
+subgraphs. By connecting isolated local extractions and aligning
+them with the global ontology, we construct a cohesive and in-
+terconnected knowledge representation. Specifically, our graph
+construction procedure is described as follows:
+4.2.1 Thematic Denoising via Unified Schema Filtering.Graph con-
+struction begins with theExtraction Agent 𝐴𝑒𝑥𝑡 , which transforms
+each document chunk𝑐𝑖 into structured memory entries. Rather
+than producing triples alone,𝐴𝑒𝑥𝑡 jointly constructs entries for all
+three layers of Global MemoryM by generating candidate schemas,
+instantiated facts, and their supporting passages:
+𝐴𝑒𝑥𝑡(𝑐𝑖)→{S 𝑐𝑎𝑛𝑑∈M 𝑜𝑛𝑡,T𝑐𝑎𝑛𝑑∈M 𝑓 𝑎𝑐,P 𝑠𝑟𝑐 ∈M 𝑝𝑎𝑠}.(3)
+This design ensures that each extracted triple is strictly aligned
+with a schema and grounded in source evidence. To mitigate halluci-
+nation accumulation, newly generated schemas are initially treated
+as candidates and are promoted to stable schemas only when their
+empirical frequency exceeds a threshold:
+M𝑠𝑡𝑎𝑏𝑙𝑒
+𝑜𝑛𝑡 ={𝑠∈M 𝑜𝑛𝑡 |Freq(𝑠)≥𝜏}.(4)
+Accordingly, only facts aligned with stable schemas are activated for
+downstream graph construction and reasoning. Detailed extraction
+procedures are provided in Appendix D.3.1.
+4.2.2 Consistency Maintenance via Global Adjudication.During
+evolutionary extraction, newly activated triples may introduce re-
+dundancy or semantic conflicts with existing facts. To ensure the
+long-term consistency of theFact Layer M𝑓𝑎𝑐 , We deploy a decou-
+pled diagnosis and correction loop, where theConflict Detection
+Agent(𝐴𝑑𝑒𝑡 ) and theConflict Resolution Agent( 𝐴𝑟𝑒𝑠 ) collaborate
+to continuously maintain memory integrity. Specifically, when a
+new triple𝑡𝑛𝑒𝑤∈M 𝑓𝑎𝑐 becomes active,𝐴𝑑𝑒𝑡 asynchronously scans
+existing facts and identifies a conflict setF𝑐𝑜𝑛𝑓 based on semantic
+similarity and ontology-level structural constraints:
+F𝑐𝑜𝑛𝑓 ={𝑡 ′∈M 𝑓 𝑎𝑐|Sim(𝑡 𝑛𝑒𝑤,𝑡′)>𝛿∨Match(𝑡 𝑛𝑒𝑤,𝑡′)}.(5)
+IfF𝑐𝑜𝑛𝑓 is non-empty, 𝐴𝑟𝑒𝑠 is triggered to resolve the detected
+inconsistencies. Rather than generating corrections heuristically,
+𝐴𝑟𝑒𝑠 leveragesfact-evidence groundingto retrieve the provenance
+passages fromM𝑝𝑎𝑠 and adjudicates conflicts by comparing the
+corresponding textual evidence. This evidence-driven resolution
+enables reliable corrective actions such as filtering invalid facts,
+merging redundant triples, and resolving temporal or granular-
+ity inconsistencies, thereby ensuring thatM𝑓𝑎𝑐 remains globally
+coherent throughout the graph construction process.
+4.2.3 Structural Unification via Memory-Guided Bridging.In the
+final phase, we project the refined Global Memory M into the
+Hierarchical Indexing GraphG by constructing three interconnected
+graph views. Specifically, we build theSemantic Ontology Graph
+G𝑜𝑛𝑡 directly fromM𝑜𝑛𝑡 , where nodes and edges encode schema-
+level types and their valid relations, serving as the logical backbone
+of the overall structure. We then construct theFact Graph G𝑓𝑎𝑐
+fromM𝑓𝑎𝑐 , where entities form nodes and instantiated triples form
+edges, enabling multi-hop reasoning over concrete facts. To improve
+connectivity and reduce fragmentation, we further augmentG𝑓𝑎𝑐
+by introducing additional bridging edges, including type-based
+connections derived from shared stable schema types inG𝑜𝑛𝑡 and
+similarity-based connections between entities with high embedding
+similarity. Finally, we induce theSource Evidence GraphG𝑝𝑎𝑠 from
+M𝑝𝑎𝑠 , which links facts and entities inG𝑓𝑎𝑐 back to their originating
+passages, ensuring that every reasoning path remains traceable to
+grounded textual evidence.
+4.3 Memory-guided Online Retrieval
+Building upon the Global Hierarchical GraphG and Global Memory
+M, we perform memory-guided retrieval and reasoning in three
+stages: (i)Multi-Layer Memory Retrieval, which retrieves candi-
+date schemas, facts, and passages fromM𝑜𝑛𝑡 ,M𝑓𝑎𝑐 , andM𝑝𝑎𝑠 ; (ii)
+Structure-Aware Node Initialization, which maps the retrieved
+evidence to initial node weights based on semantic relevance and
+structural signals; and (iii)Graph Propagation, which runs Per-
+sonalized PageRank (PPR) over the heterogeneous graph to rank
+globally important nodes and passages for LLM generation.
+4.3.1 Multi-Layer Memory Filtering.The retrieval phase initiates
+by querying the three distinct layers of the Global MemoryM in
+parallel. Given a user queryq, we retrieve top-𝐾 candidates from
+M in parallel, including schemas fromM𝑜𝑛𝑡 , facts fromM𝑓𝑎𝑐 , and
+passages fromM𝑝𝑎𝑠 . To reduce noise before graph reasoning, we
+retain only schemas and facts whose semantic similarity satisfies
+Sim(q, x)>𝜏 . This filtering ensures that subsequent node initial-
+ization is seeded with high-confidence structural evidence. If no
+valid structural candidates remain (i.e.,S𝑟𝑒𝑡∪F𝑟𝑒𝑡 =∅ ), we fall
+back to standard RAG retrieval by directly selecting passages from
+M𝑝𝑎𝑠 based on query similarity.
+4.3.2 Structure-A ware Node Initialization.To seed graph propaga-
+tion with query-specific context, we project the retrieved evidence
+onto the heterogeneous graph by defining an initial reset proba-
+bility distribution𝑃𝑖𝑛𝑖𝑡(𝑣) for each node𝑣∈G . This distribution
+assigns the starting importance of nodes before propagation. We
+then initialize𝑃𝑖𝑛𝑖𝑡(𝑣) along three complementary dimensions, as
+detailed below.
+Entity Node Initialization via Facts:To ensure that graph propa-
+gation originates from grounded evidence, we initialize each entity
+node𝑒 based on the relevance of its associated retrieved facts. Specif-
+ically, its initial weight is defined as the mean similarity over all
+query-relevant facts containing𝑒:
+𝑃𝑖𝑛𝑖𝑡(𝑒)= 1
+|F𝑒|
+∑︁
+𝑓∈F 𝑒
+Sim(q,f),(6)
+whereF𝑒⊆F𝑟𝑒𝑡 denotes the subset of retrieved facts that contain
+entity𝑒. IfF 𝑒 =∅, we set𝑃 𝑖𝑛𝑖𝑡(𝑒)=0.
+Type Node Initialization via Schemas:We further initialize
+type nodes𝑡∈G schema based on the retrieved schemas fromMont
+to avoid introducing irrelevant semantics. A critical challenge is
+that type nodes often exhibit exceptionally large degrees (e.g., a
+generic “Person” node connected to thousands of entities). Directly
+activating such high-degree nodes would spread importance across
+overly many nodes, introducing significant noise. To address this
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Chuanjie Wu, Zhishang Xiang, Yunbo Tang, Zerui Chen, Qinggang Zhang, and Jinsong Su
+Table 1: Generation performance of different GraphRAG methods. The best result is bold, and the second is underline. The
+column Δ indicates the performance gain of our MemGraphRAG (59.25) compared to each baseline. Background colors in Δ
+columns represent the magnitude of improvement (Darker green = larger gap).
+Method HotpotQA 2WikiMultiHopQA MuSiQue G-Medical G-Novel Overall
+Str-Acc. LLM-Acc. Str-Acc. LLM-Acc. Str-Acc. LLM-Acc. LLM-Acc. LLM-Acc. Avg.Δ
+Direct Zero-shot LLM Inference
+Llama3-8B 30.80 28.20 34.00 16.00 6.70 7.40 26.43 15.20 20.59 +38.66
+Llama3-13B 24.90 17.00 22.30 9.50 4.20 5.00 28.28 19.30 16.31 +42.94
+GPT-3.5-Turbo 32.70 42.50 28.30 31.00 10.10 21.40 45.82 29.41 30.15 +29.10
+GPT-4o-mini 38.10 39.70 36.00 31.30 14.10 15.20 42.13 31.42 30.99 +28.26
+Vanilla Retrieval-Augmented-Generation
+Retrieval (Top-1) 48.80 50.40 38.10 34.00 19.90 23.80 50.90 43.94 38.73 +20.52
+Retrieval (Top-3) 55.40 58.90 46.50 41.80 26.60 28.50 55.16 46.06 44.87 +14.38
+Retrieval (Top-5) 58.50 60.30 49.80 45.40 28.30 32.00 61.07 48.35 47.97 +11.28
+Graph-based Retrieval-Augmented-Generation Methods
+KGP [51] 62.70 62.10 33.10 32.70 28.40 32.50 56.29 49.01 44.60 +14.65
+G-retriever [24] 44.00 41.80 47.80 29.70 16.20 17.60 52.40 45.90 36.93 +22.32
+RAPTOR [44] 57.00 61.00 51.70 43.60 24.70 28.90 57.88 44.24 46.13 +13.12
+MS-GraphRAG [12] 51.60 43.50 47.30 38.60 20.60 23.70 55.67 50.43 41.43 +17.82
+LazyGraphRAG [8] 52.70 43.80 46.80 37.90 21.50 24.80 56.63 51.56 41.96 +17.29
+LightRAG [17] 61.40 62.00 56.90 40.50 28.60 30.50 56.42 46.09 47.80 +11.45
+HippoRAG [19] 58.40 61.40 67.50 61.30 30.40 26.00 57.06 45.77 50.98 +8.27
+HippoRAG2 [20] 65.20 67.20 64.20 57.90 32.2038.3064.85 56.48 55.79 +3.46
+E2GraphRAG [64] 63.10 65.70 57.20 40.90 26.10 29.00 60.24 54.28 49.57 +9.68
+GFM-RAG [37] 64.10 67.70 69.10 61.10 32.50 36.10 58.19 53.39 55.27 +3.98
+LogicRAG [6] 55.80 65.60 64.80 63.40 30.10 34.60 56.75 49.84 52.61 +6.64
+LinearRAG [70] 65.30 67.30 70.20 65.70 33.20 37.20 65.70 52.57 57.15 +2.10
+MemGraphRAG (Ours) 67.20 71.60 70.30 69.80 34.40 37.90 68.40 57.41 59.25 –
+issue, we introduce a structural regularization term that combines
+semantic relevance with a log-degree penalty:
+𝑃𝑖𝑛𝑖𝑡(𝑡)= '›
+«
+1
+|S 𝑡|
+∑︁
+𝑠∈S 𝑡
+Sim(q,s) “ﬁ
+‹| {z }
+Schema Relevance
+× 1
+log(deg(𝑡)+1)
+| {z }
+Hub Suppression
+(7)
+whereS𝑡 denotes the retrieved schemas associated with𝑡. This
+design incorporates schema-level relevance while preventing overly
+generic types from dominating propagation.
+Passage Node Initialization via Information Density:Finally,
+we initialize the Passage Nodes (𝑝∈𝐺 𝑝𝑎𝑠 ) by combining semantic
+relevance with an information density prior:
+𝑃𝑖𝑛𝑖𝑡(𝑝)=Sim(q,d 𝑝)×𝛼×𝜎
+˝
+𝑒∈E 𝑝 IDF(𝑒)
+log(|E 𝑝|+1)
+!
+| {z }
+Information Density Term
+(8)
+This scoring function combines semantic alignment Sim(q, d𝑝), a
+dampening factor𝛼 (set to 0.05) to prevent passage nodes from dom-
+inating propagation, and anInformation Density Termthat favors
+passages containing rare and informative entities by aggregating
+their IDF scores with log-normalization. Detailed initialization pro-
+cedures are provided in Appendix E.1.
+4.3.3 Personalized PageRank.After initialization, we run Person-
+alized PageRank (PPR) on the heterogeneous graph to propagate
+query-specific importance. Starting from the normalized distribu-
+tionv(0) , the iteration is defined asv(𝑘+1) =( 1−𝜆) Wv(𝑘)+𝜆 v(0) ,
+whereWdenotes the transition matrix and 𝜆 is the damping factor.
+We set𝜆= 0.5to limit propagation within a local neighborhood
+and reduce semantic drift. After convergence, we select the top-𝐾
+passages and top-𝑀entities ranked byv (∞) for LLM inference.
+5 Experiments
+In this section, our aim is to answer the following questions:Q1
+(Generation Accuracy): How does MemGraphRAG perform com-
+pared to state-of-the-art GraphRAG methods in terms of genera-
+tion performance?Q2(Retrieval Analysis): How does our retrieval
+method compare to other frameworks in terms of performance and
+efficiency?Q3(Graph Adaptability Analysis): Can the graph con-
+structed by MemGraphRAG generalize to other GraphRAG meth-
+ods?Q4(Ablation Study): What contribution does each component
+of MemGraphRAG make to the overall performance? (Note that ad-
+ditional experiments and case studies are provided in Appendix A.)
+5.1 Experimental Setting
+Datasets.We first evaluate the effectiveness of MemGraphRAG on
+three widely-used multi-hop QA datasets, including HotpotQA [59],
+2WikiMultiHopQA (2Wiki) [ 25], MuSiQue [ 47]. We follow the
+
+MemGraphRAG: Memory-based Multi-Agent System for Graph Retrieval-Augmented Generation KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+Table 2: Retrieval performance of different GraphRAG methods on G-Bench(Medical).
+Method Fact Retrieval Complex Reasoning Contextual Creative Gen Retrieval Time
+Recall Relevance Recall Relevance Recall Relevance Recall Relevance
+RAPTOR [44] 85.40 69.38 89.70 53.20 88.86 58.73 72.70 52.71 0.171
+Lazy-GraphRAG [8] 74.29 19.90 78.65 17.50 78.72 21.35 83.41 15.09 9.835
+LightRAG [17] 80.32 41.27 82.91 42.79 85.71 43.11 81.34 45.17 11.052
+HippoRAG [19] 87.25 52.44 83.80 42.19 83.46 49.13 81.66 45.03 1.586
+HippoRAG2 [20] 78.70 87.96 77.00 80.94 77.40 86.85 61.12 78.64 2.157
+GFM-RAG [37]90.0857.90 85.03 33.06 78.62 40.14 83.51 22.87 1.375
+LinearRAG [70] 88.86 86.09 87.03 81.58 89.13 87.8989.08 72.74 0.123
+MemGraphRAG(ours)89.56 88.53 90.42 82.64 89.5786.91 89.86 79.12 0.061
+settings used in [ 19, 20] for a fair comparison, choosing 1,000
+questions from each validation set. We also test our approach
+on G-Bench(Medical) and G-bench(Novel) [52] to evaluate Mem-
+GraphRAG on complex reasoning across medical, novel knowledge.
+More details about datasets can be found in Appendix F.
+Baselines.We categorize all baselines into three groups: (i) Zero-
+shot LLM Inference: We evaluate several foundational models in-
+cluding LLaMA3 (8B) and LLaMA3 (13B) [11], as well as GPT-3.5-
+turbo and GPT-4o-mini [40]. (ii) We deploy Vanilla RAG across mul-
+tiple retrieval configurations (retrieving 1, 3, or 5 top passages). (iii)
+State-of-the-art GraphRAG Systems: We compare against leading
+GraphRAG implementations, including KGP [51], G-retriever [24],
+LightRAG [17], RAPTOR [44], MS-GraphRAG[12], HippoRAG [19,
+20], GFM-RAG [37], LazyGRAG[8], E2GraphRAG [64], LogicRAG[6]
+and LinearRAG[70].
+Evaluation Metrics.We evaluate our method using four met-
+rics across two categories. For QA performance, following existing
+work[6, 70], we use: 1) String-based accuracy (Str-Acc.), which com-
+putes whether the gold answer is included in the generated answer
+after normalizing them to lowercase words, and 2) LLM-based accu-
+racy (LLM-Acc.), which lets an LLM decide whether the generated
+answer correctly matches the gold answer. For GraphRAG-bench,
+since golden answers consist of lengthy descriptive statements, we
+only evaluate using LLM-ACC. For retrieval quality assessment, we
+adopt metrics from GraphRAG-Bench [52]: 1)Context Relevance,
+which measures semantic alignment between questions and re-
+trieved passages, and 2)Evidence Recall, which evaluates whether
+the retrieved contents contain all the necessary information that
+used for generating the correct answer.
+Implementation Details.For consistency, all methods use the
+same embedding model (i.e., NV-Embed-v2 [39]). We set𝑘=5 for
+top-𝑘 retrieval in all methods. For both offline indexing (graph
+construction) and online generation, we adopt GPT-4o-mini as the
+default LLM (additional open-source LLM results are reported in
+Appendix A). For evaluation, we use GPT-4o-mini to compute the
+LLM-Acc metric. To ensure reproducibility, we set the inference
+temperature to 0 for all LLM calls.
+5.2 Generation Accuracy (Q1)
+To address Q1, we conduct a comprehensive evaluation of gener-
+ation performance by comparing various baseline methods with
+MemGraphRAG across four benchmark datasets. The detailed ex-
+perimental results are presented in Table 1. Based on our analysis,
+we derive the following key observations.
+RAG system significantly enhances the LLM generation
+performance.Direct inference (without retrieval) yields the lowest
+scores across all benchmarks. For instance, GPT-4o-mini achieves a
+mere 14.65% average accuracy on MuSiQue in a zero-retrieval set-
+ting. Integrating retrieved contexts via Vanilla RAG (top-5) doubles
+this performance to 30.15%. This confirms that retrieval augmenta-
+tion is essential for knowledge-intensive tasks.
+Graph-based retrieval is more effective for multi-hop rea-
+soning.While increasing the retrieval count (𝑘) improves Vanilla
+RAG, the performance gains quickly plateau. This limitation stems
+from Vanilla RAG’s reliance on surface-level keyword matching,
+which often overlooks the logical bridges required for multi-hop
+reasoning. In contrast, GraphRAG methods explicitly capture struc-
+tural dependencies and consistently, and often deliver stronger
+results. Notably, HippoRAG 2 emerges as a competitive baseline,
+achieving 38.30% and 56.48% LLM-based accuracy on MuSiQue and
+G-novel, respectively.
+MemGraphRAG consistently surpasses existing GraphRAG
+baselines.While exiting GraphRAGs attempt to align semantics
+through graph structures, they are often sensitive to noise and
+low-quality indexing introduced by solated chunk- level extraction.
+In contrast, MemGraphRAG mitigates these issues by providing
+more reliable indexing and retrieval, achieves the best results across
+all datasets. It reaches 59.25% average accuracy, yielding a 2.10%
+absolute gain over the strongest baseline.
+5.3 Retrieval Analysis (Q2)
+To evaluate the retrieval performance of MemGraphRAG, we con-
+ducted tests across four distinct task levels on the GraphRAG-
+Bench. We utilized Recall and Relevance as metrics to assess the
+GraphRAG’s capacity for retrieving both comprehensive and pre-
+cise information. Additionally, to assess practical deployment feasi-
+bility, we recorded the average retrieval time (in seconds) across all
+queries. The experimental results are presented in Table 2.
+MemGraphRAG achieves consistently strong retrieval per-
+formance, balancing high recall with high relevance.Mem-
+GraphRAG consistently ranks at the top inComplex Reasoningtasks
+(Recall: 90.42, Relevance: 82.64) andFact Retrievaltasks, signifi-
+cantly outperforming baselines such as HippoRAG2 and LightRAG.
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Chuanjie Wu, Zhishang Xiang, Yunbo Tang, Zerui Chen, Qinggang Zhang, and Jinsong Su
+Table 3: Adaptability Analysis: MemGraphRAG as a universal graph constructor across different frameworks. The blue rows
+indicate experiments using MemGraphRAG’s constructed graph, while the purple row represents our full framework. The
+rightmost column shows the performance gain.
+GraphConstructor Retriever HotpotQA 2Wiki MuSiQue G-Medical G-Novel AverageΔ
+HippoRAG [19] HippoRAG [19] 59.90 64.40 28.20 57.06 45.77 51.07+8.61
+MemGraphRAG HippoRAG [19] 60.65 65.25 29.00 57.75 46.24 51.78 +7.90
+HippoRAG2 [20] HippoRAG2 [20] 66.20 61.05 35.25 64.85 56.48 56.77+2.91
+MemGraphRAG HippoRAG2 [20] 66.00 61.20 35.40 65.42 56.76 56.96 +2.72
+MS-GraphRAG [12] MS-GraphRAG [12] 47.55 42.95 22.15 55.67 50.43 43.75+15.93
+MemGraphRAG MS-GraphRAG [12] 48.00 43.20 22.45 56.53 50.88 44.21 +15.47
+LazyGraphRAG [8] LazyGraphRAG [8] 48.25 42.35 23.15 56.63 51.56 44.39+15.29
+MemGraphRAG LazyGraphRAG [8] 48.75 42.55 23.50 57.98 52.06 44.97 +14.71
+MemGraphRAG MemGraphRAG 69.40 70.05 36.15 68.40 54.41 59.68 -
+These results indicate that our approach effectively filters noise
+and invalid entity relationships, enabling the system to precisely
+pinpoint entities and relations relevant to the query. Unlike meth-
+ods that sacrifice precision for coverage, MemGraphRAG maintains
+superior relevance while capturing broad context, thereby validat-
+ing the effectiveness of ourGlobal Adjudicationmechanism for
+consistency maintenance in constructing high-quality graphs.
+MemGraphRAG achieves the lowest retrieval latency, show-
+ing superior online inference efficiency.MemGraphRAG re-
+quires an average of only 0.061 seconds per retrieval, which is signif-
+icantly faster than LightRAG (11.052s) and HippoRAG (1.586s). This
+efficiency is attributed to our lightweight retrieval process, which
+relies on efficient Personalized PageRank (PPR) rather than compu-
+tationally expensive real-time LLM filtering or iterative reasoning
+loops. Consequently, MemGraphRAG delivers high-precision com-
+plex reasoning while maintaining low latency in practice.
+5.4 Indexing Graph Adaptability Analysis (Q3)
+To evaluate whether our constructed index graph can seamlessly
+adapt to different GraphRAG frameworks, we conducted a trans-
+ferability experiment. Our pilot study previously identified that
+existing graph construction methods suffer from critical deficien-
+cies, including Thematic Irrelevance, Logical Inconsistency, and
+Structural Fragmentation. Consequently, we assess whether the
+structural unification enabled by MemGraphRAG through Memory-
+Guided Bridging can mitigate these issues for other frameworks.
+Specifically, we replaced the native graph construction modules
+of HippoRAG, HippoRAG2, MS-GraphRAG, and LazyGraphRAG
+with the graph constructed by MemGraphRAG, while retaining
+their original downstream retrieval and reasoning mechanisms.
+The comparative experimental results are presented in Table 3.
+MemGraphRAG consistently improves retrieval perfor-
+mance across all evaluated GraphRAG frameworks, serving
+as a universal high-quality graph constructor.As shown in
+the results, replacing the original graphs with MemGraphRAG-
+constructed graphs leads to consistent improvements for all baseline
+retrievers across all datasets. For instance, the average performance
+of HippoRAG increases from 51.07 to 51.78, and MS-GraphRAG
+improves from 43.75 to 44.21. This consistent improvement shows
+that our memory-driven global construction mechanism effectively
+Figure 5: Ablation study of MemGraphRAG on three datasets.
+mitigates structural fragmentation and logical inconsistencies. By
+producing a more cohesive and thematically aligned knowledge
+structure, MemGraphRAG substantially strengthens the effective-
+ness of existing retrievers, demonstrating its robustness as a foun-
+dational indexing solution.
+5.5 Ablation Study (Q4)
+To verify the contribution of each module in MemGraphRAG, we
+conduct an ablation study on HotpotQA, 2WikiMultiHopQA, and
+G-Medical. We compare the full model with four variants that
+remove theSchema Filter,Conflict Resolution,Hub Suppression, and
+theInformation Density Term, respectively. As shown in Figure 5,
+MemGraphRAG consistently achieves the best performance across
+all datasets (e.g., 69.40% on HotpotQA), which indicates that these
+memory-driven graph construction and initialization mechanisms
+are jointly crucial for building a robust knowledge graph.
+w/o Schema Filter:RemovingUnified Schema Filteringcauses a
+clear degradation, especially on 2WikiMultiHopQA and G-Medical
+(68.10% and 65.92%). Without the frequency-based stability con-
+straint ( Freq(𝑠) ≥𝜏 ), low-frequency and off-topic schemas are
+retained, introducing noisy triples that weaken semantic focus.
+w/o Conflict Resolution:ExcludingGlobal Adjudicationleads
+to the largest drop on HotpotQA (66.95%). Without conflict detec-
+tion and resolution, the fact layer accumulates contradictory or
+redundant triples, which disrupts multi-hop reasoning chains and
+increases the chance of retrieving inconsistent evidence.
+
+MemGraphRAG: Memory-based Multi-Agent System for Graph Retrieval-Augmented Generation KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+w/o Hub Suppression:RemovingHub Suppressionreduces ac-
+curacy (67.22% on HotpotQA). Without degree-based regularization,
+generic high-degree nodes dominate propagation, causing semantic
+drift toward irrelevant subgraphs.
+w/o Information Density Term:Dropping theInformation
+Density Termyields a smaller but consistent decline (68.67% on
+HotpotQA). Without IDF-style weighting, passage initialization
+cannot prioritize discriminative evidence, weakening the model’s
+ability to anchor reasoning on informative documents.
+6 Conclusion
+In this paper, we propose MemGraphRAG, a novel GraphRAG
+framework that integrates a global memory mechanism into the
+knowledge graph construction process. By leveraging a shared hier-
+archical memory structure, our multi-agent system collaboratively
+maintains a global perspective throughout both the extraction and
+retrieval phases. This paradigm effectively overcomes key limita-
+tions of traditional GraphRAG approaches that rely on isolated
+local extraction. It systematically mitigates thematic irrelevance,
+logical inconsistency, and structural fragmentation, thereby en-
+abling a globally consistent indexing graph. Extensive experiments
+demonstrate that MemGraphRAG consistently outperforms state-
+of-the-art baselines in terms of graph quality, retrieval precision,
+and generation accuracy, providing a robust solution for deploying
+reliable RAG systems in complex real-world scenarios.
+Limitation
+While MemGraphRAG demonstrates strong robustness in process-
+ing large-scale textual corpora and constructing globally consistent
+knowledge graphs, its current design is limited to unimodal textual
+inputs. However, real-world knowledge repositories are inherently
+multimodal, containing heterogeneous formats such as statistical
+charts, technical diagrams, document layouts, and embedded im-
+ages in academic papers or financial reports. Currently, our frame-
+work requires non-textual elements to be transcribed or described
+in text before processing, which may lead to the loss of critical vi-
+sual semantics and spatial relationships. For example, quantitative
+trends in line charts or complex structures in scientific diagrams
+often contain dense information that textual descriptions cannot
+fully capture, potentially causing information loss during indexing.
+Extending theGlobal Hierarchical Graphto incorporate multimodal
+nodes (e.g., embedding visual patches into theFact Layer M𝑓𝑎𝑐 or
+thePassage Layer M𝑝𝑎𝑠 ) is a promising direction for future work.
+Such an extension could enable cross-modal reasoning, allowing the
+multi-agent system to verify textual claims against visual evidence
+and further improve the versatility of MemGraphRAG.
+Acknowledgments
+The project was supported by Natural Science Foundation of Fujian
+Province of China (No. 2024J011001) and the Public Technology
+Service Platform Project of Xiamen (No.3502Z20231043). We also
+thank the reviewers for their insightful comments.

@@ -1,0 +1,336 @@
+record_id: awesome:ggjy:96fbb64ec010
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2602.04726
+fetched_title: SUPPORTING SOFTWARE ENGINEERING TASKS WITH AGENTICAI: DEMONSTRATION ON DOCUMENT RETRIEVAL AND TEST
+fetched_at: 2026-09-18T19:08:31Z
+
+SUPPORTING SOFTWARE ENGINEERING TASKS WITH AGENTICAI:
+DEMONSTRATION ON DOCUMENT RETRIEVAL AND TEST
+SCENARIO GENERATION
+Marian Kica0009-0008-9168-4327
+Gratex International
+Bratislava, Slovakia
+mkica@gratex.com
+Lukas Radosky0000-0003-3909-3219
+Department of Applied Informatics
+Faculty of Mathematics, Physics and Informatics
+Comenius University Bratislava
+Bratislava, Slovakia
+lukas.radosky@fmph.uniba.sk
+David Slivka0009-0005-7546-3186
+Gratex International
+Bratislava, Slovakia
+dslivka@gratex.com
+Karin Kubinova0009-0005-4369-4713
+Gratex International
+Bratislava, Slovakia
+kubinova@gratex.com
+Daniel Dovhun0009-0003-7750-299X
+Gratex International
+Bratislava, Slovakia
+ddovhun@gratex.com
+Tomas Uhercik0009-0001-2827-7488
+Gratex International
+Bratislava, Slovakia
+tuhercik@gratex.com
+Erik Bircak0009-0005-5688-1796
+Gratex International
+Bratislava, Slovakia
+ebircak@gratex.com
+Ivan Polasek0000-0001-6004-701X
+Department of Applied Informatics
+Faculty of Mathematics, Physics and Informatics
+Comenius University Bratislava
+Bratislava, Slovakia
+ivan.polasek@fmph.uniba.sk
+February 5, 2026
+This is a preprint of a paper that was accepted at theInternational Conference on Artificial Intelligence, Computer,
+Data Sciences and Applications (ACDSA 2026).
+ABSTRACT
+The introduction of large language models ignited great retooling and rethinking of the software
+development models. The ensuing response of software engineering research yielded a massive
+body of tools and approaches. In this paper, we join the hassle by introducing agentic AI solutions
+for two tasks. First, we developed a solution for automatic test scenario generation from a detailed
+requirements description. This approach relies on specialized worker agents forming a star topology
+with the supervisor agent in the middle. We demonstrate its capabilities on a real-world example.
+Second, we developed an agentic AI solution for the document retrieval task in the context of software
+engineering documents. Our solution enables performing various use cases on a body of documents
+related to the development of a single software, including search, question answering, tracking
+changes, and large document summarization. In this case, each use case is handled by a dedicated
+LLM-based agent, which performs all subtasks related to the corresponding use case. We conclude
+by hinting at the future perspectives of our line of research.
+arXiv:2602.04726v1 [cs.SE] 4 Feb 2026
+
+APREPRINT- FEBRUARY5, 2026
+Keywordsdocument retrieval, document summarization, question answering, test scenario generation, SDLC, large
+language models, LLM, agentic AI
+1 Introduction
+The emergence of large language models (LLMs) has raised questions of how they might be utilized in different domains,
+boosting interest in many research areas. A particularly interesting area is software engineering (SE), where automation
+of many tasks, be they repetitive or creative, has long been sought after. While rule-based [ 1, 2, 3] and machine
+learning [4, 5, 6] approaches to several tasks have been proposed and implemented in practice, no prior technology has
+demonstrated the potential for automation at the scale promised by LLMs. As a result, software development companies
+as well as researchers race towards adopting LLM-based solutions with cost-saving expectations.
+While SE largely attracts standards, structured documents, and precisely defined processes, it also entails a body of
+unstructured or semi-structured natural language (NL) texts, or even semi-formal diagrams [7]. These artifacts are often
+found in documents related to requirements, i.e. the specification phase of the software development lifecycle (SDLC).
+Some stakeholders prefer informal NL descriptions of requirements, semi-structured descriptions of user scenarios, or
+informal mail communication that never gets transformed into formal specifications, yet is expected to be considered
+during the design and the implementation phase of the SDLC.
+Another challenge of SE arises from the vast corpus of documents or short texts (comments, commit messages, etc.)
+typically generated during the SDLC. Navigating these documents might be challenging, especially for stakeholders
+who were not involved in their creation and therefore lack the implicit context needed for discovering important
+knowledge.
+We address two specific tasks stemming from these issues – test scenario generation from NL requirements and SE
+document retrieval – by implementing LLM-based agentic AI [8] solutions, which are gaining increasing traction in the
+field [9]. We exploit LLMs’ abilities to process unstructured texts [10] in order to generate template-compliant test
+scenarios. Moreover, we utilize LLMs for complex tasks related to discovering knowledge in a body of project-specific
+SE documents. Both solutions are part of a greater effort towards automating processes within software development
+companies.
+The primary contribution of this paper lies in presenting concrete agentic AI architectures we implemented for real-
+world, day-to-day scenarios in a SE company. We expect that the deployment of these tools will eventually yield a large
+volume of feedback and data to reflect upon in further research, resulting both in refining these implementations as well
+as employing similar solutions for other tasks.
+The remainder of this paper is structured as follows. Section 2 reviews existing literature dealing with both aforemen-
+tioned tasks. Section 3 introduces the tasks we dealt with in more detail, as well as the agentic AI architectures we
+employed to solve them. Section 4 concludes the contributions of this paper and hints at the steps we intend to take in
+the future.
+2 Related work
+2.1 Test scenarios
+Scenario generation with LLMs has been explored in a survey [11], focusing on autonomous driving. Arora et al. [12]
+introduced RAGTAG, an LLM-powered approach using retrieval-augmented generation (RAG) to generate test scenarios
+based on NL description of functionality. Their experiments involved the GPT-3.5-turbo and the GPT-4 models. Their
+approach optionally accepts a brief description of the expected scenario as an additional input, which is needed to
+obtain reasonable results. This is a downside in situations where such description is not available, as the generated
+scenarios tend to be overly generic without this input.
+Rahman et al. [ 13] proposed GeneUS, an LLM-powered tool designed to generate user stories from requirements
+documents. Their experiments utilized the GPT-4 model. The setup particularly struggled with the hallucination
+phenomenon [14] (also referred to as ’bullshit’ [15]), which they addressed using the Refine and Thought prompting
+strategy.
+Sami et al. [16] suggested utilizing an existing literature review tool [17] to generate user stories and test scenarios
+from functional requirements. The tool uses the GPT-3.5 model. However, no evaluation results were presented, and no
+subsequent published research could be identified.
+2
+
+APREPRINT- FEBRUARY5, 2026
+Yu et al. [18] introduced ScenGen, an agentic AI tool for generating test scenarios based on screenshots of a mobile app
+graphical user interface (GUI). In addition to generating the scenarios, the tool also executes them and performs live
+monitoring of results, including error logs. The experiments used the GPT-4V model under the hood, with human-based
+evaluation proving its excellence over state-of-the-art baselines.
+Hasan et al. [19] conducted a survey on the challenges of writing high-level tests with a body of software companies.
+They utilized the gathered insights to construct a dataset of pairs use case – high-level test scenario, intended for
+fine-tuning models. Having experimented with GPT-4, Gemini, LLaMA 3.1 8B, and Mistral 7B models, human-based
+evaluation demonstrated the effectiveness of fine-tuning these models with their dataset, with the LLaMA and the
+Mistral models showing particular promise.
+Study by Boukhlif et al. [20] hints that the most pressing challenges for LLM-based requirements-oriented tasks are the
+interpretability of outputs (usually, employing domain experts is the best approach) and the need for domain-specific
+datasets for fine-tuning purposes. This indicates that while automation is highly desirable, quality human-created data
+and human-in-the-loop approaches remain essential. Therefore, automation does not relieve the need for experts in the
+field.
+2.2 Document processing and retrieval
+The emergence of LLMs led to their incorporation in many established research areas, including information retrieval
+(IR). As in any other area, the feasibility of LLMs is hindered by a number of challenges, e.g. trustworthiness and high
+computational costs [21]. Zhai [22] even suggests that instead of performing IR, LLMs in practice might rather use IR
+as a tool. Nonetheless, LLMs have been applied to IR in many ways, as documented by Li et al. [23]. They provide an
+overview of the evolution of the long-document retrieval task in the era of pre-trained language models and LLMs.
+Sun et al. [24] exploit the GPT-4 model for re-ranking. They also try to address the risk of high computational costs [21]
+by comparing it with smaller open-source LLMs. However, they find that smaller models achieve significantly worse
+results than commercial GPT models. Ma et al. fine-tuned LLaMA models [25] not only as a (point-wise) re-ranker, but
+also as a dense retriever, demonstrating the effectiveness of LLMs when processing entire documents. A BERT-based
+divide-and-conquer retrieval approach also received some attention, yielding novel additions such as using a linear
+combination of the segment relevance scores and the segment correlation matrix to obtain segment scores [ 26] and
+effective calculations and query expansion [27]. Uneven distribution of relevance signals in long documents has been
+tackled by BERT-based [28] and later by LLaMA-based [28] solutions with focus on identifying the most important
+parts of documents. The most relevant document part identification problem was also addressed by SentenceBERT
+embeddings combined with an LLM-trained three-layer MLP classifier [ 29]. A tree-based recursive approach has
+also been introduced, where an LLM generates summaries of nodes in the tree [ 30]. Another approach operates on
+the sentence level, splitting the query and documents into sentences, which are encoded by a SentenceBERT-based
+embedder [31]. Among the more lightweight solutions is a plug-and-play approach that divides documents into
+segments, each represented by structured summaries [32].
+IR research spans a variety of domains and use cases, including application log retrieval [33], patient IR [34], or code
+IR [35]. Our goal is to develop a solution tailored to the domain of SDLC documents, e.g. requirements specifications
+and service delivery proposals.
+3 Our approach
+We utilize agentic AI solutions both for the test scenario generation task and for the document retrieval tasks. Our
+implementation is based on LangChain1 and LangGraph2 frameworks, using both on-premise and cloud-based LLMs.
+Models we currently use are subject to change as further research progresses.
+3.1 Test scenario generation
+The test scenario generation task in our instance is concerned with generating test scenarios based on a functional
+specification document (FSD). The FSD describes the functionality and intended behavior of the specified software and
+is typically referred to by software developers during the design and implementation phases of SDLC. The volume of
+FSD may span a few dozen pages.
+1https://www.langchain.com/langchain
+2https://www.langchain.com/langgraph
+3
+
+APREPRINT- FEBRUARY5, 2026
+FSD is also the basis for creating test scenarios for manual testing. The scenarios must reflect every detail of the FSD.
+Manual creation of these scenarios is a time-consuming and costly process. We intend to cut these costs by employing
+an LLM-based solution.
+Our solution consists of 6 agents, forming a star topology with the supervisor agent in the middle, and the rest of the
+agents being specialized workers. Each agent operates within its own context and history due to the limitations of the
+context window. To keep the context as small as possible for the supervisor, it only actively works with NL responses
+from worker agents. Input and output artifacts, such as the FSD, scenarios in markdown, and other supporting materials,
+are stored outside the active context. The architecture of our solution, including the agent order and input-output flow,
+is illustrated in Fig. 1.
+Get the content
+of chapter(s) X.Y XYZ
+Write the test scenario
+to an excel file
+Supervisor AgentThe extracted
+chapter(s) content
+Retriever Agent
+Test Scenario
+Writer Agent
+Result
+of the fact check
+Fact Checker
+Agent Translator Agent
+The test scenario was
+written to a file
+named <name>.xlsx
+Excel Writer Agent
+Fact check
+the provided
+generated
+test scenario
+Create Test scenario based
+on chapter 2.1 Password
+Management
+Succesfully generated Test
+Scenario based on chapter
+X.Y. XYZ. You can view the
+file at <PATH>.xlsx
+IN OUT
+Write a test scenarioHere is the test scenario in markdown
+Translate this text
+Here is the translated text
+Fact-checkingloop
+Input
+Output
+Figure 1: Architecture of our agentic AI solution for the test generation task, forming a star topology. The intended
+worker invocation order as well as possible feedback loops are also indicated, including the input and output flows. The
+’robot’ icon indicates agent components.
+Thesupervisoragent prompts the worker agents to perform their tasks, provides them with proper input, and retrieves
+their output. Worker agents are not aware of each other; they only communicate with the supervisor agent.
+The order in which worker agents should be invoked is given to thesupervisoragent in its prompt. Additionally, it is
+also enforced by worker agents verifying the input they are provided. If a worker agent’s input requirements are not
+met, the worker agent reports this to the supervisor agent, which reconsiders which agent to prompt next. For example,
+the retriever agent expects a FSD on input and will report an error to the supervisor if it receives a test scenario instead.
+This serves as a mechanism against the supervisor agent’s mistakes or hallucinations.
+The process begins by preprocessing the FSD into plaintext, while images are processed using a vision language model
+(VLM). Then theretrieveragent searches the FSD for the user-specified chapter and retrieves its contents. Thetest
+scenario writeragent generates the desired test scenario based on the retrieved text. Its prompt specifies the expected
+structure and criteria the test scenario has to meet (this is currently hard-coded, might be configurable in the future). The
+scenario is generated in a predefined markdown structure. Thefact checkeragent verifies the generated test scenario
+against the FSD content originally retrieved by the retriever agent. This mechanism specifically mitigates issues related
+to the hallucination phenomenon, as well as other inaccuracies. Based on the fact checker’s assessment, the supervisor
+either prompts the test scenario writer to improve its output, or advances the task.
+Thetranslatoragent translates the generated scenario into the desired language, as the language of FSD (and therefore
+the desired language of generated scenarios) is often dictated by the software company‘s client. Finally, theExcel writer
+agent creates an Excel file with the given structure based on the test scenario in markdown. Currently, theExcel writer
+agent does not use an LLM, and the Excel structure is hard-coded. In future work, we plan to explore a more modular
+approach.
+We demonstrate the desired usage of our solution with an example real-world problem instance we encountered. We
+only showcase a single chapter of a FSD. Although the original problem instance was in a non-English language, we
+demonstrate all artifacts in English to avoid reader confusion.
+4
+
+APREPRINT- FEBRUARY5, 2026
+Our solution receives FSD on input as a multimodal file, e.g. a Word document. It also requires a simple user prompt,
+such as seen in Fig. 2. The relevant FSD excerpt retrieved by the retriever agent is shown in Fig. 3.
+The test scenario is then generated, validated, translated, and converted into an Excel file. The output Excel file
+corresponding to the prompt from Fig. 2 and FSD in Fig. 3 is shown in Fig. 5. Finally, the user also receives a textual
+response, as shown in Fig. 4.
+Please create a test scenario based on section Password.
+Figure 2: An input user prompt example for our agentic AI solution for the test generation task.
+Figure 3: A chapter from a real-world FSD, which was retrieved by the retriever agent. The original image has been
+manually edited by translating the texts to English for reader convenience.
+The entire process has been completed successfully. The test scenario has been created, fact-checked, translated into
+«language», and written to an Excel file. If you need any further assistance or modifications, please let me know!
+Figure 4: Textual response of our test scenario generation solution for the user.
+5
+
+APREPRINT- FEBRUARY5, 2026
+Figure 5: A test scenario generation task output Excel file corresponding to the input prompt from Fig. 2 and the input
+FSD from Fig. 3.
+6
+
+APREPRINT- FEBRUARY5, 2026
+3.2 Document processing
+The document processing task in our case consists of several subtasks, enabling more complex real-world scenarios.
+A single SDLC typically entails a vast body of documents covering various granularities and aspects of the software.
+Moreover, a single document may evolve over time, leading to creation of many different versions of the document.
+Searching through documents and their various versions can be a highly time-consuming task, particularly for newcomers
+or when the documents are poorly organized, as is often the case.
+Get tool
+catalogue
+Request
+App
+User
+MCPServer
+Textual response
+Delegator
+Search Q&A Trace Reading
+Tool
+catalogue
+Prompt Tool catalogue
+Prompt
+Response
+Invoke tool
+Figure 6: Architecture of our agentic AI solution for the document processing task. The ’robot’ icon indicates agent
+components.
+To reduce costs associated with tasks concerned with the SDLC documents, we created an agentic AI solution.
+Architecture of the solution is shown in Fig. 6. The solution provides a common interface (App) for 4 use cases. Each
+use case is solved by a dedicated LLM-based agent (Search,Q &A,Trace,Reading). The agents share a Qdrant database
+of documents related to the given software. An LLM-drivenDelegatoragent decides which tools (agents) should be
+invoked to solve the given task.
+3.2.1 General search
+Thesearchuse case is concerned with document retrieval based on the given user query. The agent generates and
+executes a corresponding database query to obtain the relevant documents. Then the agent analyses the retrieved
+document set and filters out the documents it deems irrelevant. Ensuing is the summarization of each document, which
+is then formatted according to the given template. The user is then presented with an ordered list of relevant documents,
+with each record consisting of a document excerpt, document reference, and document metadata. The document list
+is split into two sections by the LLM – the most relevant documents and supplementary materials, i.e. less relevant
+documents.
+3.2.2 Question answering
+TheQ &Ause case provides answers to a user’s question, quoting relevant documents. The first step is to form a
+database query and filter out irrelevant documents, similarly to thesearchuse case. Then, each remaining document is
+used to answer the user’s question individually. Finally, the individual answers are aggregated into the final answer,
+with quotations of the most relevant documents. Note that if the agent decides it is not able to answer the question from
+the given base of documents, it will notify the user about this. This is guaranteed if no document is retrieved from the
+database.
+7
+
+APREPRINT- FEBRUARY5, 2026
+3.2.3 Tracking changes
+Thetraceuse case enables the user to reasonably observe changes in documents over time. This is particularly useful
+to track changes of a functional requirement. Similarly to thesearchuse case, the agent generates database query,
+retrieves the yielded documents, and filters out irrelevant ones. For each remaining document, the agent retrieves all of
+its versions. Each version of each document is searched for the relevant requirement, forming history of the requirement
+across each relevant document. If the requirement is present in different documents, these documents and their versions
+are merged, forming a precise history of the requirement, grouped by documents. This history is used as basis for
+generating a textual response to the user’s query, which also entails description of the requirement’s evolution over time.
+3.2.4 Document reading
+Thereadinguse case generates a response to the user query when dealing with particularly long documents that might
+exceed the LLM’s context window. The user query is required to precisely identify the document it is concerned with.
+The user might ask which chapter contains the given text or request assistance with a more complex task. The agent
+retrieves the relevant document by generating a corresponding database query. The retrieved document is then processed
+in blocks, i.e. a divide-and-conquer strategy [23] is applied. The agent maintains its notes on the entire document. After
+reading a block, it updates its notes, clears its context, and proceeds to the next block. Finally, the notes are used to
+generate a textual response to the user query.
+4 Conclusion and future work
+We presented two concrete LLM-based agentic AI solutions designed for test scenario generation and document retrieval
+tasks in the domain of SE. These solutions are currently deployed in a medium-sized SE company, where they are
+utilized daily in real-life operational environments.
+In addition, we aim to conduct a comprehensive evaluation of our solutions using established benchmark datasets,
+comparing their performance against state-of-the-art approaches. This evaluation will not only validate the effectiveness
+of our solutions but also highlight areas for further improvement.
+To further enhance these solutions, we plan to collect and analyze the usage data and reflect on it when improving these
+solutions as well as developing automation systems for other SE tasks. The insights gained from this process, including
+lessons learned from addressing minor development challenges, are expected to provide valuable contributions to the
+scientific software engineering community.
+Acknowledgment
+This research and paper was 100% funded by the EU NextGenerationEU through the Recovery and Resilience
+Plan for Slovakia under the project "InnovAIte Slovakia, Illuminating Pathways for AI-Driven Breakthroughs" No.
+09I02-03-V01-00029.

@@ -1,0 +1,667 @@
+record_id: arxiv:2602.21351
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2602.21351
+fetched_title: A Hierarchical Multi-Agent System for Autonomous Discovery in Geoscientiﬁc Data Archives
+fetched_at: 2026-09-18T19:01:08Z
+
+A Hierarchical Multi-Agent System for Autonomous
+Discovery in Geoscientiﬁc Data Archives
+Dmitrii Pantiukhin 1, Ivan Kuznetsov 1, Boris Shapkin 1, Antonia Anna Jost 1,
+Thomas Jung 1, and Nikolay Koldunov 1
+1Alfred Wegener Institute for Polar and Marine Research, Brem erhaven,
+Germany
+Abstract
+The rapid accumulation of Earth science data has created a signiﬁcant scal ability
+challenge; while repositories like PANGAEA host vast collections of datase ts, citation
+metrics indicate that a substantial portion remains underutilized , limiting data reusabil-
+ity. Here we present PANGAEA-GPT, a hierarchical multi-agent framework designed
+for autonomous data discovery and analysis. Unlike standard Large Language Model
+(LLM) wrappers, our architecture implements a centralized Superv isor-Worker topology
+with strict data-type-aware routing, sandboxed deterministic co de execution, and self-
+correction via execution feedback, enabling agents to diagnose and resol ve runtime errors.
+Through use-case scenarios spanning physical oceanography and ecology, we d emonstrate
+the system’s capacity to execute complex, multi-step workﬂows w ith minimal human
+intervention. This framework provides a methodology for querying an d analyzing hetero-
+geneous repository data through coordinated agent workﬂows.
+1 Introduction
+The increasing volume of digital data from sources such as sa tellite observations, autonomous
+underwater vehicles, and research vessels has increased th e demand for scalable, automated
+analysis methods. Major international repositories, incl uding PANGAEA, NASA’s Earth Ob-
+serving System Data and Information System (EOSDIS), and th e Copernicus Climate Data
+Store (C3S), now support essential climate and oceanograph ic research, collectively hosting
+petabytes of observational and model-derived data [ Kobler et al. , 1995, Felden et al. , 2023,
+Li et al. , 2023b]. PANGAEA alone catalogs over 400,000 curated datasets spanni ng more
+than 800 distinct geoscientiﬁc parameters, from Conductiv ity-Temperature-Depth (CTD) hy-
+drographic proﬁles and biogeochemical ﬂuxes to ice-core pr oxy records and coupled model
+ensembles [ Felden et al. , 2023]. Yet the scale of curation exceeds the rate of scientiﬁc reu se:
+analysis of the Data Citation Index reveals that nearly 90% o f archived datasets have never
+been cited in the peer-reviewed literature [ Robinson-Garc’ıa et al. , 2016].
+This usability gap stems from interoperability challenges across the data lifecycle. In-
+complete or inconsistent documentation obscures essentia l context (measurement provenance,
+instrument calibration history, quality-control ﬂags), w ithout which downstream reuse is im-
+practical [ Gil et al. , 2016]. Format heterogeneity ampliﬁes the problem: the same phys ical
+quantity may be encoded as a column in a ﬂat CSV, a variable in a m ulti-dimensional NetCDF
+array, or a chunked Zarr store, each demanding a distinct sof tware toolchain and non-trivial
+1
+arXiv:2602.21351v1 [cs.AI] 24 Feb 2026
+
+domain expertise to interpret correctly [ Gil et al. , 2016, Schnase et al. , 2016]. While the F AIR
+(Findable, Accessible, Interoperable, Reusable) data princ iples provide an essential framework
+for addressing these barriers [ Wilkinson et al. , 2016], implementing them at scale remains chal-
+lenging even for dedicated community eﬀorts [ Marsden et al. , 2025]. The cumulative technical
+load required to discover, harmonize, and analyze disparat e datasets remains a primary bottle-
+neck to data reuse [ Li et al. , 2023b].
+Large Language Models (LLMs) have evolved from text generat ors into autonomous agents
+that reason over problems, decompose tasks, and invoke exte rnal tools [ Boiko et al. , 2023a,
+Schick et al. , 2023]. This shift has given rise to Multi-Agent Systems (MAS) in whi ch com-
+plex problems are partitioned across specialized agents [ Hong et al. , 2024, Li et al. , 2023a,
+Guo et al. , 2024b]. Hierarchical agent architectures have demonstrated the a bility to navi-
+gate knowledge graphs and design experiments in materials s cience [ Ghafarollahi and Buehler ,
+2024b,a]. Similarly, the AI Scientist-v2 [ Yamada et al. , 2025] and Google’s AI Co-Scientist
+[Gottweis et al. , 2025] have been applied to automating research cycles and hypoth esis gener-
+ation, while AlphaEvolve [ Novikov et al. , 2025] uses LLM-driven evolutionary computation to
+discover and optimize algorithms, advancing results in mat hematics and computing infrastruc-
+ture. In laboratory settings, systems like Coscientist [ Boiko et al. , 2023b] and ChemCrow [ Bran
+et al. , 2024] have achieved autonomous planning in chemical synthesis. More recently, Robin
+[Ghareeb et al. , 2025] has automated hypothesis-driven biomedical discovery, D ata Interpreter
+[Hong et al. , 2025] targets general-purpose data science tasks, and DS-Agent [ Guo et al. , 2024a]
+automates machine learning pipelines.
+Current LLMs already rival human domain experts on graduate -level science benchmarks
+[Rein et al. , 2024], and their expanding context windows enable coherent mult i-step tool use.
+Orchestration frameworks such as HuggingGPT show that an LLM controller can dynamically
+route subtasks to specialist models [ Shen et al. , 2023]. Whether these capabilities transfer
+to the messier reality of scientiﬁc data archives, with thei r inconsistent metadata and format
+heterogeneity, remains an open question.
+Within geosciences, LLM adoption has progressed from domain -speciﬁc foundation mod-
+els to tool-augmented autonomous agents. Models like GeoGa lactica [ Lin et al. , 2023] and
+OceanGPT [ Bi et al. , 2024] established domain-speciﬁc linguistic capabilities. In the domain
+of climate services, ClimSight [ Koldunov and Jung , 2024, Kuznetsov et al. , 2025] demonstrated
+that augmenting LLMs with localized climate model output, R AG-based report retrieval, and an
+agent-based architecture can deliver actionable, locatio n-speciﬁc climate assessments at scale.
+Tool-augmented models like GeoGPT [ Zhang et al. , 2023b] enabled geospatial data processing,
+followed by single-agent frameworks like GeoAgent [ Chen et al. , 2024] and LLM-Find [ Ning
+et al. , 2025]. However, as identiﬁed in our prior architectural survey [ Pantiukhin et al. , 2025],
+none of these systems provide end-to-end integration with t he retrieval, format-handling, and
+analytical infrastructure of a production-scale geoscien tiﬁc data repository.
+Despite this progress, existing approaches address indivi dual components of the scientiﬁc
+workﬂow in isolation (discovery, analysis, or visualizati on) without integrating them into a uni-
+ﬁed, self-correcting pipeline capable of operating across the format diversity of a major reposi-
+tory. Moreover, no multi-agent system has been deployed for geoscientiﬁc data archives, where
+the inherent disciplinary breadth, spanning physical ocea nography, biogeochemistry, paleocli-
+matology, and ecology, demands specialist agents with dist inct analytical toolchains. What is
+missing is an architecture that combines semantic search, d ata-type-aware task routing, and
+deterministic code execution in a single orchestrated fram ework.
+Here, we describe PANGAEA-GPT, a hierarchical multi-agent syste m ﬁrst outlined in Pan-
+tiukhin et al. [2025], and provide its full architecture along with the ﬁrst scen ario-driven evalu-
+ation on real research workﬂows. We demonstrate that by comb ining an iterative, self-reﬁning
+agentic search with a supervisor-orchestrated team of spec ialist data agents, the system can
+2
+
+execute complex, multi-step Earth science analyses with re duced manual intervention.
+2 Results
+2.1 System overview
+The system operates through a hierarchical Supervisor-Wor ker topology that enforces a strict
+separation between reasoning and execution (Fig. 1). A natural language query is received
+directly by the Supervisor Agent, which decomposes it into su btasks based on the schema,
+dimensionality, and coordinate reference system of each re trieved dataset. The Supervisor then
+routes each subtask to one of ﬁve specialist worker agents: ( i) an Oceanographer Agent for
+N -dimensional arrays (NetCDF, Zarr) and external climate rean alysis APIs; (ii) an Ecologist
+Agent for biodiversity metrics and taxonomic aggregation; ( iii) a Visualization Agent with
+a reﬂexive quality-control loop and a retrieval-augmented generation (RAG) index of domain-
+speciﬁc exemplar plots; (iv) a DataFrame Agent for statisti cal computation on tabular data; and
+(v) a Writer Agent for narrative synthesis via a vision-langu age model interface (Methods 5.2.2).
+This modality-based routing ensures that, for example, gri dded arrays are never processed by
+tabular agents.
+2.2 Validation scenarios
+We evaluated PANGAEA-GPT on four scenarios that collectively te st the full scientiﬁc work-
+ﬂow: data retrieval, cross-domain integration, statistic al analysis, and visualization.
+2.2.1 Scenario 1: Microplastic distribution in the Weddell Sea
+Quantifying the coupling between ocean circulation and pla stic accumulation typically requires
+bridging two distinct data regimes: Lagrangian point obser vations and Eulerian ﬂow ﬁelds. To
+test the system’s capacity for this cross-domain integrati on, we loaded a published dataset of
+sea-surface microplastic concentrations from the Weddell Sea ( N = 34 Manta trawl stations;
+DOI: 10.1594/PANGAEA.941076) and directed the agents to integrate it with ocean reanalys is
+ﬁelds.
+Guided by the user’s deﬁnition of the study period, the Ocean ographer Agent resolved the
+speciﬁc spatiotemporal constraints, retrieved daily surf ace velocity ﬁelds from the Coperni-
+cus Marine Service (GLORYS12V1), and computed a temporal mean circulation ﬁeld over the
+months of the expedition. The Visualization Agent rendered a r egional map (Fig. 2a) overlaying
+current speed, ﬂow streamlines, and stations scaled by micr oplastic abundance. The generated
+streamlines visually captured the cyclonic rotation of the Weddell Gyre. During execution, the
+agents autonomously resolved one API-level error and one vis ualization layout failure (Sup-
+plementary Table S1). The system also handled domain-speci ﬁc constraints of the underlying
+ocean model. When the initial request for surface-level data was rejected by the service, which
+deﬁnes its shallowest vertical layer at 0.494 m rather than t he sea surface, the Oceanographer
+Agent autonomously parsed the error response, identiﬁed the nearest valid vertical coordinate,
+and resubmitted the retrieval without human intervention. In the visualization workﬂow, the
+reﬂexive critic identiﬁed that the legend obscured the cent ral streamlines, prompting the agent
+to refactor the ﬁgure layout into dedicated colorbar and leg end axes.
+Following a user request to quantify the coupling, the DataF rame Agent performed a sta-
+tistical evaluation on N = 21 co-located stations (positive abundance, valid curren t speed),
+revealing a moderate negative association between current speed and microplastic concentra-
+tion (Spearman ρ = −0.47, p = 0 .033; Fig. 2b). A Mann–Whitney U test conﬁrmed signiﬁ-
+3
+
+Phase 1: Data Discovery User Query (Natural Language)
+Search Agent
+Search Modes
+Simple: Optimized Boolean Query
+Deep: Parallel Queries & Consolidation
+PANGAEA Archive
+Publication Data (CrossRef)
+Selected Datasets & Analysis Request
+Phase 2: Data Analysis & Visualization
+Supervisor Agent Planning Tool
+Stateful Workflow (LangGraph)
+Data-Type Aware Routing
+Task Delegation
+Oceanographer Ecologist Visualization DataFrame
+Isolated Execution Environment (Sandbox)
+Toolboxes
+Core Tools (Shared)
+Python REPL (Jupyter K.) File Lister
+Code Examples (RAG) Package Installer
+Wise Agent (Advisor) Reflection (Vision)
+Validator (Vision Model)
+*DataFrame Agent uses only REPL & File Lister
+Oceanographer Specific Tools
+ERA5 Retrieval Copernicus Marine
+Synthesis
+Writer Agent Describe Images Tool
+Scientific Report & Visualizations
+Figure 1: Conceptual framework of the PANGAEA-GPT Multi-Agent Sys tem (MAS). The
+system uses a two-phase, hierarchical architecture. First, a Search Agent discovers relevant
+datasets from a user’s natural language request. A Supervis or Agent then delegates analysis and
+visualization tasks to a team of specialist agents working w ithin a secure sandbox environment.
+Finally, a Writer Agent synthesizes the results into a cohesiv e report.
+cantly higher abundance in the low-speed regime ( U = 88 .0, p = 0 .022; median 2,558 vs. 268
+items km−2). We emphasize that these statistics serve to demonstrate t he system’s capacity
+to autonomously execute a complete analytical pipeline, fr om data retrieval through statisti-
+cal testing, rather than to draw robust ecological conclusi ons. With only 21 stations and no
+control for confounding variables, these results are explo ratory and should not be treated as
+conﬁrmatory.
+2.2.2 Scenario 2: Reanalysis validation against mooring observatio ns
+Validating global climate models against in-situ observations typically requires extensive manual
+coding to bridge the gap between disparate tabular data and m ulti-dimensional gridded outputs.
+We tasked the system with validating temperature records fr om ten mooring datasets deployed
+at the LTER HAUSGARTEN observatory (Fram Strait, 2006–2012; PANG AEA DOIs 845608–
+4
+
+(a) Mean surface current speed (January–February 2018–
+2019, GLORYS12V1) with streamlines and Manta trawl sta-
+tions scaled by microplastic abundance. The visualization
+was iteratively reﬁned via the reﬂexive quality control loop
+(3/10 → 9/10).
+(b) Log-linear regression of abun-
+dance against current speed ( N =
+21). Annotations: Spearman ρ =
+−0.47 ( p = 0 .033); Mann–Whitney
+p = 0 .022. Statistical annota-
+tions were automatically generated
+and placed on the plot by the Visu-
+alization Agent.
+Figure 2: Exploratory analysis of microplastic distribution in the Weddell Sea (Sup-
+plementary Note 1).
+845617) against the Copernicus Marine Service global reana lysis (GLORYS12V1).
+The workﬂow proceeded through three stages. First, the Visual ization Agent generated
+exploratory depth-coverage plots. Second, the DataFrame Ag ent programmatically harmo-
+nized the ten CSV ﬁles, standardizing column names and ﬁlter ing for upper-ocean records
+(N = 135 ,678). Finally, the Oceanographer Agent performed the 4D match up. During this
+step, it encountered a type mismatch between the mooring tim estamps and the reanalysis
+model’s native date format. The agent diagnosed the incompa tibility, refactored the temporal
+alignment, and re-executed the matchup, completing all 135 ,678 co-locations without human
+intervention (Supplementary Note 2). The resulting validat ion scatter plot (Fig. 3) shows a
+warm bias of +0 .35 ◦C, root-mean-square error (RMSE) of 1 .09 ◦C, and Pearson r = 0.31. The
+positive bias is consistent with known oﬀsets in the GLORYS12 V1 reanalysis that are ampliﬁed
+in regions of intense Atlantic Water inﬂow such as the Fram Str ait [ Lellouche et al. , 2021], and
+the moderate correlation reﬂects the use of nearest-grid-p oint matching without spatial inter-
+polation across steep lateral temperature gradients betwe en Atlantic and Arctic water masses.
+2.2.3 Scenario 3: Resource-eﬃcient retrieval and trajectory analysis
+Validating gridded reanalysis products against moving pla tforms presents challenges regard-
+ing data transfer eﬃciency and geometric mismatch. We taske d the system with comparing
+ERA5 2-meter air temperature against shipboard measurement s along the R V Polarstern track
+during the MOSAiC expedition (PS122/1, September–December 2019; DOI: 10.1594/PAN-
+GAEA.935221).
+The DataFrame Agent parsed the navigation log to extract spat iotemporal bounds, which
+the Oceanographer Agent used to execute a targeted cloud-nat ive retrieval from the Arraylake
+ERA5 data store [ Earthmover, 2025]. The agent then interpolated the gridded ﬁeld to the ship’s
+2,013 hourly positions, producing a co-located time-serie s (Fig. 4a). A subsequent prompt
+5
+
+Figure 3: Validation scatter plot comparing in-situ tempera ture observations (0–500 m) from ten
+HAUSGARTEN moorings with co-located values from the Copernicu s GLORYS12V1 reanaly-
+sis. The Oceanographer Agent retrieved daily thetao ﬁelds, performed 4D nearest-grid-point
+matchup ( N = 135 ,678), and calculated statistics (Bias +0 .35 ◦C, RMSE 1 .09 ◦C, r = 0 .31).
+Color scale indicates observation depth.
+directed the system to generate a wind rose diagram (Fig. 4b). The agents recovered from two
+runtime errors, including an out-of-bounds interpolation edge case (Supplementary Note 3).
+During interpolation of the ship track against the gridded E RA5 ﬁeld, the Oceanographer Agent
+detected that 83 of the 2,013 co-located points returned inv alid values where the vessel trajectory
+grazed the bounding-box edge. Rather than reporting a parti al result, the agent autonomously
+expanded the retrieval domain by approximately 0.3 ◦ and re-executed the extraction, achieving
+100% spatial coverage. The wind rose generation required th e agent to autonomously diagnose
+a dimensional mismatch between the number of speed-bin edge s and the corresponding Beaufort
+scale labels (an oﬀ-by-one error inherent in binned classiﬁ cation) and correct the bin deﬁnitions
+before producing the ﬁnal diagram.
+2.2.4 Scenario 4: Biodiversity–water mass coupling
+Interdisciplinary research often requires merging sparse biological observations with continu-
+ous physical ﬁelds. We tasked the system to compare jellyﬁsh biodiversity between the Nor-
+wegian and Irminger Seas using a cruise dataset from the North Atlantic (May 2013; DOI:
+10.1594/PANGAEA.829702) and to link species abundance to speciﬁc water masses.
+First, the Ecologist Agent stratiﬁed sampling stations into “ Eastern” (Norwegian Sea) and
+“Western” (Irminger Sea) transects based on a user-deﬁned 2 0◦W longitude threshold. It then
+computed the Shannon-Wiener diversity index ( H ′) for each station. A Welch’s t-test ( t =
+6
+
+(a) In-situ air temperature (blue) measured aboard R V Po-
+larstern compared with co-located ERA5 2-meter temperature
+(red) interpolated to the ship’s hourly positions. The system
+calculated the bounding box to minimize cloud data retrieval
+(∼260 MB).
+(b) Wind rose diagram for the
+PS122/1 cruise leg (September–
+December 2019, n = 120 ,616
+observations). Wind directions are
+binned into 16 sectors; color scale
+indicates Beaufort wind force cate-
+gories. The diagram was produced
+after one self-correction cycle.
+Figure 4: ERA5/MOSAiC Lagrangian validation and wind regime characterizatio n.
+−3.39, p = 0.0014) indicated signiﬁcantly higher biodiversity in the We stern transect ( ¯H ′west =
+0.81) compared to the Eastern transect ( ¯H ′east = 0 .35). During the diversity computation,
+the Ecologist Agent encountered a division-by-zero error ca used by zero-abundance taxa. It
+autonomously applied a masking operation to exclude these e ntries before the logarithmic
+transformation. The Visualization Agent produced a comparat ive violin plot, utilizing the
+reﬂexive quality control loop to detect and ﬁx label overlap s across ﬁve iterations.
+Subsequently, to determine the environmental niche of the d ominant hydrozoan Aglan-
+tha digitale , the Oceanographer Agent queried the Copernicus Marine Serv ice to retrieve co-
+located potential temperature ( θ) and salinity ( S) proﬁles. It performed a 4D nearest-neighbor
+matchup between the global reanalysis model and the local bi ological samples. The resulting
+Temperature-Salinity (T-S) diagram (Fig. 5) shows that the highest abundances of A. digitale
+cluster within the cold, fresh end-member ( θ < 2 ◦C, S ≈ 34.8–35.0 psu), corresponding to Sub-
+polar Mode Water carried by the Irminger Current. This is con sistent with the species’ known
+aﬃnity for subarctic water masses in the North Atlantic [ Pantiukhin et al. , 2024]. The warmer,
+more saline Norwegian Atlantic Current stations ( θ > 5 ◦C, S > 35.1 psu) hosted markedly
+lower abundances (Supplementary Note 4).
+2.3 Search benchmark
+To evaluate the agentic retrieval architecture, we conduct ed a benchmark using a curated
+dataset of 100 natural language queries spanning six geosci entiﬁc domains: physical oceanogra-
+phy, marine geology, biogeochemistry, paleoclimatology, marine ecology, and atmospheric sci-
+ence (Supplementary Note 5). Queries were manually assemble d to represent realistic research
+needs and stratiﬁed into ﬁve complexity categories: single -parameter lookups, multi-constraint
+ﬁltering, spatiotemporal subsetting, cross-domain integ ration, and open-ended discovery. Each
+query’s retrieval results were evaluated using a structure d rubric scored on a 1–10 scale across
+ﬁve metrics: Precision, Recall, Parameter Coverage, Metad ata Quality, and Result Relevance.
+Evaluation was performed programmatically using Gemini 3 P ro Preview [ Google DeepMind ,
+2025] as an automated judge, following a structured rubric with d etailed scoring criteria for
+7
+
+Figure 5: Bio-physical coupling generated by the Oceanographer Agent. The system
+augmented the PANGAEA biological dataset by retrieving and co- locating 4D hydrographic
+data ( θ/S) from the Copernicus Marine Service GLORYS12V1 reanalysis. Th e T-S diagram
+highlights the co-occurrence of Aglantha digitale with distinct water masses (log 10-abundance).
+each metric. All search architectures were driven by GPT-5.2 [OpenAI, 2026]. We compared
+three conﬁgurations: (1) Baseline (Elasticsearch BM25, ra w keyword matching), (2) Simple
+LLM (single-pass translation of the natural language query into a structured Boolean request),
+and (3) Agentic Search (our ReAct-based iterative agent, whic h decomposes user intent into
+multiple Boolean query permutations and reﬁnes them across successive retrieval cycles).
+The Agentic Search strategy increased the overall mean score to 8.14/10 compared to the
+Simple LLM’s 5.46/10 and the Baseline’s 2.87/10 (Fig. 6). The most signiﬁcant gains occurred
+in Precision (M1: 8.53) and Parameter Coverage (M3: 8.99). B eyond aggregate statistics, qual-
+itative analysis of individual queries reveals distinct fai lure modes that the agentic architecture
+resolves (Supplementary Note 6).
+Temporal reasoning. When queried for “salinity proﬁles from the Weddell Sea durin g
+winter 2013,” both the Baseline and Simple LLM failed to reso lve the hemispheric seasonal
+constraint: the former returned IceBird altimetry campaig ns from the wrong year, while the
+latter selected summer cruises. Only the Agentic Search corr ectly mapped “Austral Winter” to
+June–August and ranked the ANT-XXIX/6 (A WECS) cruise as the top resul t (Agentic: 9.8/10
+vs. Baseline: 1.8/10; full analysis in Supplementary Note 6) .
+Source disambiguation. A query for “satellite altimetry data” exposed a systematic re-
+trieval error: both the Baseline and Simple LLM returned in- situ mooring datasets whose meta-
+data mentioned “used to validate satellite altimetry,” confusing ground-truth with the requested
+product. The Agentic Search correctly prioritized gridded s ea-surface height anomaly products
+from CryoSat-2, Envisat, and TOPEX/Poseidon (Agentic: 9.6/1 0 vs. Baseline: 1.0/10).
+These examples indicate that iterative query reﬁnement res olves implicit scientiﬁc con-
+straints (hemispheric seasonality, measurement geometry , product-level intent) that keyword
+and single-pass approaches systematically miss.
+8
+
+M1: Precision M2: Spatio-T emporal M3: Parameter M4: Diversity M5: Ranking
+Evaluation Metric
+0
+2
+4
+6
+8
+10
+12Mean Score (1-10)
+2.8 3.0 3.1
+2.7 2.7
+4.7
+5.5
+5.1
+3.8
+4.7
+8.5
+8.0
+9.0
+6.9
+8.3
+Search Method Performance Comparison
+(100 Queries)
+Elastic Search Simple LLM Agentic Search
+Figure 6: Grouped bar chart comparing Baseline (Elastic Sear ch), Simple LLM, and Agentic
+Search architectures across ﬁve semantic metrics using 100 geoscientiﬁc queries. Error bars
+indicate standard deviation. The Agentic Search method outp erforms traditional approaches
+in all categories.
+3 Discussion
+Four architectural primitives together enable the composi tion of multi-step geoscientiﬁc work-
+ﬂows across heterogeneous data formats: data-type-aware r outing, sandboxed execution, self-
+correction from execution tracebacks, and reﬂexive visual quality control. Iterative agentic
+search treats user queries not as strings to be matched but as under-speciﬁed scientiﬁc intents
+to be progressively reﬁned. These primitives generalize ac ross the validation scenarios without
+scenario-speciﬁc engineering, and by resolving implicit c onstraints that keyword and single-pass
+LLM approaches miss, the system reduces the manual eﬀort req uired to transition from data
+retrieval to analysis [ Singh et al. , 2025, Zhang et al. , 2023a].
+Agentic search works because it replicates what a domain expe rt does implicitly during
+manual retrieval. When a researcher searches for “sediment c ores from the Fram Strait,” they
+do not submit these words verbatim; they translate the geogr aphic name into a bounding-box
+speciﬁcation, identify relevant campaign identiﬁers, and cross-reference parameter inventories.
+In practice, however, no user formulates this as a structure d Boolean query against an Elas-
+ticsearch index; they type natural language and expect rele vant results. The LLM bridges
+this gap by translating free-text intent into structured Bo olean queries, and the agentic layer
+goes further by generating multiple query permutations and iteratively reﬁning them against
+the returned metadata. The four validation scenarios stres s-test diﬀerent capabilities of this
+approach: cross-domain data fusion (Scenario 1), format ha rmonization across heterogeneous
+tabular sources (Scenario 2), resource-eﬃcient cloud-nat ive retrieval along non-Eulerian trajec-
+tories (Scenario 3), and biological–physical coupling req uiring external reanalysis integration
+(Scenario 4). We note that the system functions as an assiste d analysis tool whose output
+quality depends on the speciﬁcity of the user’s intent; vagu e or under-constrained queries may
+yield retrieval of marginally relevant datasets.
+The layered self-correction strategy addresses error prop agation at two levels. At the pro-
+grammatic level, tracebacks from the sandboxed Python kern el are fed back to the generating
+agent, which parses the error, refactors the code, and re-ex ecutes. In Scenario 1, for exam-
+ple, the Oceanographer Agent diagnosed and corrected a Coper nicus API rejection caused by
+an invalid depth coordinate. At the perceptual level, the vi sual quality-control loop subjects
+every generated ﬁgure to a structured critique. In Scenario 4, this loop drove the violin plot
+9
+
+through ﬁve successive reﬁnements (scores 3 →4→4→5→9/10), each targeting a distinct ren-
+dering defect. Across all scenarios, the system resolved all ﬁve runtime errors without human
+intervention, and the visual QC loop executed 11 critique cy cles across the generated ﬁgures
+(Supplementary Table S6). This combination of programmati c and perceptual feedback draws
+on methods from verbal reinforcement learning [ Du et al. , 2024, Shinn et al. , 2023] and multi-
+agent collaborative veriﬁcation [ Darwish et al. , 2025, Shi et al. , 2025]. A third mechanism,
+cross-model escalation to a secondary foundation model (Se ction 5.2.5), provides an additional
+fallback, though it was not triggered in the four validation scenarios.
+However, the centralization of task decomposition in the Sup ervisor Agent constitutes a
+single point of failure. If the Supervisor incorrectly deco mposes a query (for example, routing a
+gridded reanalysis comparison to the DataFrame Agent instea d of the Oceanographer Agent),
+downstream agents have no mechanism to detect or correct thi s misassignment. Similarly,
+the system cannot verify domain-speciﬁc correctness beyon d code executability. For example,
+it cannot detect whether a co-located dataset contains a sys tematic spatial oﬀset from an
+incorrect coordinate reference system, or whether an unnec essary unit conversion was applied.
+Addressing these failure modes will require domain-speciﬁc validation hooks, such as automated
+CRS consistency checks and unit-conversion veriﬁcation, t hat operate independently of the
+Supervisor’s planning logic.
+The Supervisor-Worker topology also facilitates reproduc ibility and extensibility. Each an-
+alytical step is captured as executable Python code within a deterministic sandbox, providing
+a complete provenance trail that complements the stochasti c reasoning layer [ Herschel et al. ,
+2017]. Extending the system to new domains requires three steps: deﬁning a domain-speciﬁc
+agent prompt, registering routing rules that map feature ﬂa gs to the new agent, and adding
+the required feature ﬂags to the metadata introspection mod ule (Section 5.1.4). Natural can-
+didates include sedimentology (grain-size distributions , stratigraphic correlation), paleoclima-
+tology (proxy calibration, age–depth modelling), and geoc hemistry (elemental ratios, isotope
+systematics). This modular design follows principles esta blished in prior multi-agent frame-
+works [ Shen et al. , 2023, Hong et al. , 2024].
+The current system operates reactively, responding to indi vidual user queries. However, the
+architecture is compatible with an asynchronous mode in whi ch agents traverse the archive over
+extended periods, systematically loading datasets, cross -referencing observations against reanal-
+ysis ﬁelds, and ﬂagging statistical anomalies, metadata in consistencies, or previously unexam-
+ined inter-dataset correlations. For example, an agent cou ld compare all CTD proﬁles in a given
+region against the corresponding reanalysis grid cells, id entifying systematic observation–model
+discrepancies that may indicate instrument calibration dr ift or ocean features not captured by
+the model. A complementary application is inverse metadata generation: agents could ingest
+poorly documented legacy ﬁles, infer parameter names and sp atiotemporal coverage from data
+distributions and ﬁle headers, and produce machine-action able metadata records, increasing the
+fraction of discoverable datasets [ Jacobsen et al. , 2020]. Such long-running exploration would
+generate candidate ﬁndings for subsequent human review, tu rning the archive from a passive
+store into one that actively surfaces candidate patterns fo r expert review. We note that this
+direction is speculative and would require advances in hall ucination detection [ Farquhar et al. ,
+2024], automated signiﬁcance ﬁltering to suppress spurious cor relations, and human-in-the-loop
+validation protocols before operational deployment.
+Modularity is also a practical design requirement for syste ms of this kind. Because each
+worker agent communicates with the Supervisor only through a standardized message interface,
+individual agents can be detached from the pipeline and reus ed independently. The Oceanogra-
+pher Agent, for example, already integrates ERA5 and Copernic us data without relying on the
+PANGAEA retrieval layer, and could serve as a standalone reanal ysis tool in other workﬂows.
+Designing agents to be self-contained from the outset lower s the cost of adapting the system to
+10
+
+new repositories or embedding individual components into t hird-party platforms.
+4 Limitations and Future Directions
+Our results must be interpreted within the constraints of th e underlying data infrastructure.
+The system’s retrieval performance is tied to the quality of existing metadata; in the PANGAEA
+archive, only approximately 15% of datasets contain struct ured abstracts, and sparse parameter
+descriptions limit the eﬃcacy of semantic search for the rem aining majority. This creates
+a “long-tail” problem where poorly documented datasets rem ain eﬀectively invisible to the
+retrieval layer. Additionally, while the architectural com ponents are not speciﬁc to PANGAEA,
+our evaluation was restricted to this repository. Transfer ability to other major repositories,
+such as NASA EOSDIS or GBIF, remains untested and will require ha ndling distinct API
+conventions, authentication mechanisms, and metadata sch emas.
+Because the system relies on stochastic inference, outputs are inherently non-deterministic,
+which conﬂicts with the reproducibility requirements of sc ientiﬁc computing. Repeated exe-
+cution of the same query may yield functionally equivalent b ut syntactically diﬀerent code,
+diﬀerent dataset retrieval orderings, and marginally diﬀe rent numerical results due to alterna-
+tive interpolation strategies or coordinate-matching heu ristics. While the deterministic sandbox
+ensures that any given code block produces identical output , the upstream reasoning layer in-
+troduces variability in which code is generated.
+The system also remains vulnerable to hallucinations at two levels [ Huang et al. , 2023].
+Visual hallucinations (rendering artefacts, incorrect axi s labels, missing legends) are mitigated
+by the reﬂexive quality-control loop described above. Inte rpretive hallucinations are more dif-
+ﬁcult to detect: the system might correctly compute a correl ation coeﬃcient but attribute it
+to a causal mechanism unsupported by the data, or generate a n arrative that over-interprets
+a statistically marginal result. The system also shows redu ced performance on multi-step rea-
+soning that requires domain-speciﬁc knowledge; for exampl e, inferring that a depth coordinate
+mismatch implies an incompatible vertical reference frame rather than a unit conversion error
+[Wang et al. , 2024]. As domain-speciﬁc foundation models mature, integrating them into the
+reasoning layer may reduce these failure modes.
+Each multi-step analytical session involves dozens of LLM i nference calls spanning task
+planning, code generation, error diagnosis, and visual cri tique, resulting in non-trivial compu-
+tational costs when using commercial models such as GPT-5.2 . Emerging open-weight models
+and model distillation techniques may reduce these costs, p articularly for routine operations
+such as code refactoring and metadata parsing, enabling dep loyment on institutional computing
+clusters.
+From a security perspective, although the sandbox provides ﬁlesystem and process isolation,
+the system does not currently perform static analysis or for mal veriﬁcation of agent-generated
+code. Future hardening should include AST-level code inspec tion, per-session resource quotas
+(CPU time, memory, disk), and an explicit allowlist of impor table Python packages [ Vangala
+et al. , 2025]. In multi-tenant deployments, session isolation must als o prevent cross-user data
+leakage through shared kernel state.
+Finally, our evaluation methodology introduces a circulari ty: an LLM (Gemini 3 Pro Pre-
+view) serves as the automated judge for a system driven by ano ther LLM (GPT-5.2). The
+judge evaluates factual alignment between returned datase ts and query constraints but does
+not assess the reasoning process that led to dataset selecti on. While this approach enables
+reproducible scoring at scale, future validation must inco rporate human expert annotation on a
+representative subset of queries to calibrate automated sc ores, quantify inter-rater agreement,
+and identify systematic blind spots in the automated evalua tion. The full scoring rubric and
+per-query results are provided in Supplementary Note 5.
+11
+
+5 Methods
+5.1 Search and retrieval
+To bridge the semantic gap between natural language inquiry and the PANGAEA archive
+schema, we designed and evaluated a multi-tiered retrieval architecture comprising three con-
+ﬁgurations of increasing autonomy (Supplementary Note 5). E ach tier was benchmarked against
+a curated dataset of 100 natural language queries spanning s ix geoscientiﬁc domains, scored by
+an automated judge on ﬁve semantic metrics (Supplementary No te 5).
+5.1.1 Baseline: Elasticsearch keyword retrieval
+The lowest tier relies on the PANGAEA Elasticsearch index using standard BM25 scoring
+with tf-idf weighting. Queries are matched verbatim agains t metadata ﬁelds (title, abstract,
+parameter names, campaign identiﬁers). This conﬁguration provides sub-second latency but
+lacks semantic understanding: synonymous terms (e.g., “CT D” vs. “conductivity–temperature–
+depth”), geographic colloquialisms (“Fram Strait” vs. a bo unding-box speciﬁcation), and tem-
+poral abstractions (“Last Glacial Maximum”) are not resolv ed. The Baseline achieved a mean
+score of 2.87/10 in our benchmark, reﬂecting high recall for trivially speciﬁed queries but poor
+precision and parameter coverage for complex scientiﬁc req uests.
+5.1.2 Intermediate: simple LLM query translation
+The intermediate tier interposes a single LLM inference cal l between the user and the search
+engine. GPT-5.2, operating in a zero-shot setting, transla tes the natural language query into a
+structured Lucene Boolean string, resolving geographic na mes to coordinate ranges and expand-
+ing parameter synonyms. This single-pass approach improve d the benchmark mean to 5.46/10
+but remains brittle: the model has no mechanism to inspect th e returned results, detect low-
+quality matches, or iteratively reﬁne the query. Ambiguous q ueries that require multiple rounds
+of disambiguation therefore saturate at moderate precisio n.
+5.1.3 Advanced: agentic search
+The Search Agent employs a ReAct (Reasoning + Acting) loop [ Yao et al. , 2023], operating
+through four stages:
+1. Inferential Query Translation: The agent decomposes user intent into metadata con-
+straints, deriving implicit boundary conditions where nee ded; for example, translating
+“Fram Strait” or “Last Glacial Maximum” into bounding-box c oordinates and numeric
+temporal intervals.
+2. Execution and Introspection: The agent executes a structured query and evaluates
+the returned metadata.
+3. Parallelized Query Expansion: Rather than relying on a single search string, the
+agent programmatically generates a matrix of Boolean query permutations targeting dis-
+tinct metadata ﬁelds, permuting instrument types, paramet er synonyms, and platform
+identiﬁers. These queries are executed concurrently again st the archive.
+4. Semantic Consolidation: The system aggregates results, performs deduplication bas ed
+on unique identiﬁers, and ranks each result by scoring its me tadata against predeﬁned
+relevance criteria derived from the original user prompt.
+12
+
+5.1.4 Metadata retrieval and feature introspection
+Before any analytical code is generated, the system pre-fet ches the full metadata record for
+each selected dataset, including parameter inventories, m atrix dimensions, coordinate refer-
+ence systems, and temporal extents. From these records, it d erives binary feature ﬂags that
+characterize each dataset along ﬁve dimensions: whether it c ontains geospatial coordinates,
+whether it is stored as a gridded array, whether it includes a depth axis, whether its ﬁle size
+exceeds a conﬁgurable threshold, and whether it carries a te mporal index. The system injects
+these ﬂags into the Supervisor’s planning context, where th ey directly determine the routing
+decision (Section 5.2.2). For instance, a dataset ﬂagged as gridded with a depth axis is routed
+to the Oceanographer Agent, whereas a ﬂat table without spati al coordinates is assigned to
+the DataFrame Agent. This pre-execution introspection elim inates the ambiguity that would
+otherwise arise if the Supervisor inferred data type from th e user’s natural language description
+alone.
+5.2 Multi-agent orchestration
+The analytical core is a stateful MAS governed by a directed cy clic graph, implemented using
+the LangGraph framework [ LangChain, 2024b] built on top of LangChain [ LangChain, 2024a],
+with a Supervisor Agent as the orchestrator. The architectur e isolates the reasoning engine
+from the computational kernel, enabling task routing based on data-type introspection and
+ensuring reproducibility through deterministic code exec ution.
+5.2.1 Supervisor agent and task planning
+The Supervisor maintains the global conversational state a nd manages inter-agent handovers.
+Before delegating tasks, it inspects the internal structur e of retrieved resources (e.g., NetCDF
+dimension hierarchies, Zarr chunk layouts) to select the ap propriate specialist. It decomposes
+user queries into sub-tasks via a planning module, dispatch es them sequentially, and updates
+the plan as results become available. Safeguards include an iteration cap and strict data-
+type routing constraints to prevent, for instance, routing multi-dimensional arrays to agents
+specialized for tabular data.
+5.2.2 Data-type routing and agent specialization
+The introspection performed during the metadata enrichmen t phase (Section 5.1.4) determines
+the execution branch, routing tasks to speciﬁc worker nodes based on their architectural spe-
+cialization:
+• The Oceanographer Agent: Specialized for N -dimensional array handling
+(NetCDF/Zarr). It possesses tool-augmented access to extern al climate reanalysis
+APIs (Copernicus Marine Service, ERA5 via Arraylake [ Earthmover, 2025]), enabling
+contextualization of local observations within global env ironmental ﬁelds. The agent
+automatically extracts spatiotemporal bounds from loaded datasets, retrieves the match-
+ing reanalysis subset via lazy-loaded cloud-native Zarr st ores, and performs geometric
+co-location (nearest-grid-point for Eulerian comparison s, 4D interpolation for Lagrangian
+trajectories). Full details are provided in Supplementary Note 7.
+• The Ecologist Agent: Optimized for biodiversity metrics and tabular data manipu la-
+tion, equipped with specialized libraries for biological i ndices calculation.
+13
+
+• The Visualization Agent: A general-purpose plotting specialist augmented with a
+Retrieval-Augmented Generation (RAG) index of domain-spec iﬁc exemplar plots, en-
+abling it to match ﬁgure types to data dimensionality and enf orce scientiﬁc conventions
+(e.g., reversed depth axes, standard color palettes).
+• The DataFrame Agent: Strictly conﬁned to data manipulation, statistical analys is,
+and ﬁltering of tabular data. This agent is architecturally prohibited from generating
+visualizations, enforcing a clean separation between comp utation and presentation.
+• The Writer Agent: A synthesis specialist that collects outputs from upstream agents
+and produces a coherent scientiﬁc narrative, interpreting generated ﬁgures via a vision-
+language model interface.
+5.2.3 Adaptive context management
+Building on the multi-tier memory concept described in Pantiukhin et al. [2025], we implement
+a progressive summarization strategy to manage context win dow limits. The system partitions
+conversational history into two segments: recent messages retained at full resolution, and older
+exchanges compressed into a structured summary by a fast inf erence model. This summary
+explicitly preserves critical operational state (variabl e names, loaded dataset identiﬁers, ﬁle
+paths, and intermediate results) while discarding convers ational ﬁller. The result is that agents
+retain suﬃcient context to resume multi-step workﬂows even when the raw token history exceeds
+the model’s context window.
+5.2.4 Sandboxed execution
+Agents synthesize Python code executed in a persistent Jupyte r kernel within an isolated ﬁlesys-
+tem sandbox. This design ensures three critical properties . First, State Persistence : unlike
+stateless function calls, the kernel maintains active memo ry of variables, loaded datasets, and
+imported libraries, allowing iterative multi-step analys is without data reloading. Second, Ses-
+sion Isolation : each user session initializes a unique workspace identiﬁe d by a universally unique
+identiﬁer (UUID), with all data retrieval and artifact genera tion conﬁned to this directory to
+prevent cross-session contamination. Third, Self-Correction: the kernel captures standard error
+outputs (tracebacks) and feeds them back to the generating a gent, which parses the traceback,
+refactors the code, and re-executes.
+5.2.5 Cross-model error escalation (Wise Agent)
+When a worker agent fails to resolve an error after a conﬁgurab le number of retry cycles,
+the system escalates the task to a secondary agent (the Wise Agent ) backed by a diﬀerent
+foundation model. In the current deployment, the primary pi peline runs on GPT-5.2 [ OpenAI,
+2026], while the Wise Agent runs on Claude Opus 4.6 [ Anthropic, 2026]. The escalation transfers
+the full execution context (code, traceback, and prior repa ir attempts) to the Wise Agent, which
+generates an independent ﬁx. This cross-model fallback exp loits the observation that diﬀerent
+LLMs exhibit complementary failure modes: an error pattern that causes one model to loop
+often lies outside the failure distribution of another. In p ractice, this mechanism resolved
+deadlocked error cycles that single-model retries could no t break.
+5.2.6 Visual quality control
+Visual outputs are subjected to a reﬂexive quality-control l oop that intercepts every generated
+ﬁgure before it is surfaced to the user. Once a plot is saved to the sandbox, the image is
+14
+
+passed to a vision-enabled language model acting as a struct ured critic. The critic evaluates
+the ﬁgure against a ten-point rubric spanning ﬁve dimension s: axis labelling and units, legend
+completeness, adherence to domain conventions (e.g., inve rted depth axes for oceanographic
+proﬁles, standard color palettes for temperature ﬁelds), a bsence of overlapping text, and overall
+readability at publication scale. If the composite score fa lls below a strict threshold, the critic
+returns structured, actionable feedback specifying each d eﬁciency. This feedback is appended
+to the generating agent’s context, triggering a targeted co de refactoring cycle. The loop repeats
+until the score exceeds the threshold or a maximum of ﬁve iter ations is reached.
+Data Availability
+All datasets analyzed in this study are publicly available th rough the PANGAEA data
+repository. Speciﬁc datasets are referenced by DOI in the co rresponding scenario descrip-
+tions: Weddell Sea microplastics ( 10.1594/PANGAEA.941076), MOSAiC PS122/1 navigation
+(10.1594/PANGAEA.935221), North Atlantic jellyﬁsh survey ( 10.1594/PANGAEA.829702),
+and HAUSGARTEN moorings (PANGAEA DOIs 845608–845617). Climate re analysis data
+were accessed from the Copernicus Marine Service (GLORYS12V1 ) and the ERA5 reanalysis
+accessed via the Arraylake cloud-native data platform (Eart hmover, https://earthmover.io).
+The benchmark query dataset (100 queries, Supplementary Not e 5) is available at https:
+//github.com/CliDyn/pangaeaGPT.
+Code Availability
+The PANGAEA-GPT source code, agent conﬁgurations, and benchmar k evaluation scripts are
+available at https://github.com/CliDyn/pangaeaGPT.
+Author Contributions
+D.P. conceived and designed the system, developed the multi -agent architecture, conducted all
+experiments, and wrote the manuscript. I.K. provided domai n expertise in physical oceanog-
+raphy, guided the design of the validation scenarios, and re viewed the scientiﬁc interpretation
+of the results. B.S. contributed to the system design and ass isted with the integration of the
+PANGAEA Elasticsearch API and metadata harvesting protocols. A. A.J. contributed to the
+ecological use-case design, provided expertise in biodive rsity metrics, and assisted with the
+curation of the benchmark query dataset. N.K. supervised the project, provided strategic guid-
+ance on the system architecture and its integration with the PANGAEA infrastructure, and
+contributed to manuscript revision. T.J. provided institut ional support, strategic oversight, and
+contributed to manuscript revision. All authors reviewed an d approved the ﬁnal manuscript.
+Competing Interests
+The authors declare no competing interests.
+Acknowledgements
+This work was supported by the Helmholtz Association and the Fe deral Ministry of Educa-
+tion and Research (BMBF) for supporting the DataHub Initiativ e of the Research Field Earth
+15
+
+and Environment; the European Union’s Destination Earth Ini tiative and relates to tasks en-
+trusted by the European Union to the European Centre for Mediu m-Range Weather Forecasts
+implementing part of this Initiative with funding by the Eur opean Union; and Projects S1: Di-
+agnosis and Metrics in Climate Models of the Collaborative R esearch Centre TRR 181 “Energy
+Transfer in Atmosphere and Ocean,” funded by the Deutsche Fo rschungsgemeinschaft (DFG,
+German Research Foundation, project no. 274762653). Views a nd opinions expressed are those
+of the authors only and do not necessarily reﬂect those of the European Union or the European
+Climate Infrastructure and Environment Executive Agency (C INEA). Neither the European
+Union nor the granting authority can be held responsible for t hem.

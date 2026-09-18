@@ -1,0 +1,393 @@
+record_id: arxiv:2607.16712
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2607.16712
+fetched_title: DS@GT ARC at eRisk 2026: Hybrid Multi-Agent LLM System with Structured Algorithmic Guidance for Conversational Depression Screening
+fetched_at: 2026-09-18T19:00:15Z
+
+DS@GT ARC at eRisk 2026: Hybrid Multi-Agent LLM
+System with Structured Algorithmic Guidance for
+Conversational Depression Screening
+Notebook for eRisk Lab’s Task 1 in CLEF 2026
+Victor Gong1,*, David Guecha 1
+1Georgia Institute of Technology, North Ave NW, Atlanta, GA 30332
+Abstract
+We describe DS@GT’s submission to the eRisk 2026 Task 1 challenge on conversational depression screening, in
+which systems interview LLM personas that simulate individuals with varying depression profiles and produce a
+Beck Depression Inventory II (BDI-II) score plus four key symptoms per persona, without directly asking sensitive
+mental health questions. Our pipeline evolved through three stages: a monolithic single-model prototype to
+start off, a baseline multi-agent architecture that separates conversational interviewing from BDI-II scoring
+under a coordinating orchestration layer, and a final hybrid configuration that replaces the paid GPT-5-nano
+interviewer with the open-source Gemma 27B. To offset the model’s weaker reasoning and instruction-following,
+the hybrid adds three algorithmic components: a precomputed dialogue tree that standardizes interview openers
+and follow-ups, a reliability-weighted consensus aggregation inspired by the Weaver framework, and a cluster-
+based imputation step for unprobed symptoms. We submitted three fully automated runs across all 20 personas,
+with Run 1 from the paid baseline and Runs 2 and 3 from the hybrid. Hybrid Run 3 achieved an ADODL of 0.9063,
+ranking 3rd among all complete-submission runs and placing DS@GT 2nd among the 21 teams overall, while
+outperforming our paid baseline Run 1 (0.8841) at roughly one-quarter of the per-persona API cost. These results
+support our central hypothesis that with sufficient algorithmic supervision, a weaker open-source model can
+compete with a stronger proprietary model in the conversational interviewer role. Our source code is available at
+https://github.com/dsgt-arc/erisk-task1-2026.
+Keywords
+eRisk 2026, Conversational Depression Screening, BDI-II Assessment, Large Language Models, Multi-Agent
+Systems, Agent Orchestration, Open-Source Models, Dialogue Tree, Reliability-Weighted Aggregation
+1. Introduction
+Depression affects over 280 million people worldwide [1] and frequently goes undetected until symptoms
+reach clinical severity [2]. Structured instruments such as the Beck Depression Inventory II (BDI-II) [3]
+provide a validated framework for severity assessment, but their administration requires trained
+clinicians, limiting scalability in resource-constrained settings. Automated conversational systems that
+can elicit and interpret depressive symptom information represent a practical direction for broadening
+screening access, provided they can produce reliable assessments without direct clinical inquiry. Recent
+work supports this direction: systematic reviews report strong LLM performance across depression-
+related tasks [4], depression symptoms including suicidal ideation are observable in online social media
+discourse [5], and structuring clinical interview content as directed graphs for LLM-based evaluation
+has produced competitive automated depression detection [6].
+The eRisk 2026 Task 1 challenge provides a controlled testbed for this problem. Participants interact
+conversationally with LLM personas, LoRA adapters fine-tuned on Llama-3-8B-Instruct to simulate
+individuals with varying depression profiles, and must estimate a BDI-II score and identify up to four
+prominent symptoms per persona. The task prohibits direct questions about depression and requires
+strategies to infer symptom severity from natural conversation. Evaluation is also penalized for late
+CLEF 2026 Working Notes, 21-24 September 2026, Jena, Germany
+*Corresponding author.
+/envel⌢pe-⌢penvgong7@gatech.edu (V. Gong); dahumada3@gatech.edu (D. Guecha)
+/orcid0009-0002-1080-5980 (V. Gong); 0009-0009-9855-5330 (D. Guecha)
+©2026 Copyright for this paper by its authors. Use permitted under Creative Commons License Attribution 4.0 International (CC BY 4.0).
+
+decisions through the number of conversation turns, which creates a trade-off between thorough
+diagnosis and conversational efficiency.
+Two characteristics of the task make standard modeling and development difficult. First, ground truth
+labels are not provided during the entirety of the submission period, meaning systems must operate
+“in the dark” and predictions can’t be directly tuned against task-specific labels. Second, personas are
+released weekly with hard submission deadlines, requiring a system that is both reliable from the outset
+and improvable across the whole period. Under these constraints, we adopted an iterative development
+strategy where each week’s persona helped validate and test design changes.
+Building on our prior DS@GT eRisk 2025 submission [7], our system evolved through three stages. An
+initial single-model prototype established end-to-end functionality but exhibited score drift and incon-
+sistent symptom coverage across repeated runs. A multi-agent architecture separating conversational
+interviewing from BDI-II scoring improved coverage and reliability, at the cost of roughly double the
+API expenditure. A final hybrid configuration retained the multi-agent structure but replaced the paid
+interviewer model with the open-source Gemma 27B, compensating for the model’s looser adherence
+and higher variance through algorithmic supervision: a precomputed dialogue tree, reliability-weighted
+sample aggregation, and imputation across symptom clusters. For the majority of the personas, we
+employed the paid configuration for Run 1 and hybrid configuration for Runs 2 and 3.
+The central hypothesis motivating this work is that a weaker, open-source model can produce
+results competitive with a stronger paid model in the interviewer role, given sufficient algorithmic
+guidance. Our results support this claim. In the official evaluation, both hybrid-produced Run 2 and
+Run 3 outperformed our paid-model Run 1 in ADODL, the primary evaluation metric, at approximately
+one-quarter of the per-persona API cost. Furthermore, Run 3 placed 3rd overall among all complete-
+submission runs and 2nd among all teams.
+2. Task and Evaluation
+Participants interact with up to 20 LLM personas released weekly. Each persona is implemented as a
+LoRA adapter on Llama-3-8B-Instruct and simulates an individual with a specific depression profile.
+For each persona, participants submit a BDI-II score and up to four key symptoms. Up to three fully
+automated runs are permitted per persona.
+The BDI-II questionnaire covers 21 symptoms, such as sadness, pessimism, self-criticalness, sleep
+changes, fatigue, and loss of concentration, each scored 0-3 for a maximum total of 63. Severity is
+conventionally categorized as minimal (0-13), mild (14-19), moderate (20-28), and severe (29-63).
+3. System Architecture & Methods
+3.1. Monolithic Single-Model Prototype
+Our initial prototype assigned all conversational and scoring responsibilities to a single language
+model with a unified context-heavy prompt. The system conducted a multi-turn interview with the
+LLM persona, then produced a structured BDI-II score report at the conclusion of the conversation.
+Prompt engineering focused on two priorities: guiding the model to target related symptom clusters
+within single turns to reduce total turn count, and providing explicit 0-3 scoring rubrics for each BDI-II
+symptom to improve inter-run consistency.
+While this approach confirmed end-to-end functionality, it exhibited two systematic failure modes.
+First, assigning both interviewing and scoring to a single model produced score drift during preliminary
+experimentation. Repeated runs on identical personas yielded substantially different BDI-II totals
+and symptom rankings, reflecting sensitivity to sampling stochasticity in both the interviewer and
+the persona. Second, without an external mechanism enforcing symptom coverage, the model would
+sometimes exhaust its turn budget on a subset of symptoms, leaving others unprobed. These instabilities
+were compounded by non-determinism in the persona itself. Persona 3, for example, responded to
+
+the same probe (“Have you been harder on yourself than usual?”) with “I don’t think I’m actually
+hard on myself” in one session and “definitely harder on myself” in another, introducing variance in
+conversation and scoring that is hard to control with a single-model system.
+3.2. Multi-Agent Architecture (Baseline)
+To address the reliability limitations of the monolithic system, we separated conversational and scoring
+responsibilities into two specialized agents coordinated by an orchestration layer (Figure 1). This
+approach was inspired by team SINAI’s similar multi-agent design from eRisk 2025 [8].
+Figure 1:Multi-agent system architecture. The interviewer agent conducts turn-by-turn dialogue with the LLM
+persona, and the scorer agent updates BDI-II symptom estimates and confidence levels after each turn. The
+orchestration layer ranks symptom priorities, directs the interviewer toward the highest-priority targets, and
+enforces the stopping conditions. The full loop runs 10 to 20 interview samples per persona, and the sample
+aggregation step constructs a consensus profile via reliability-weighted median to select the closest runs for
+submission.
+Theinterviewer agentconducts adaptive multi-turn conversations with the persona. Its prompt
+instructs it to ask targeted, naturalistic questions about potential depressive symptoms, pursue severity-
+distinguishing follow-ups when initial responses are ambiguous, and avoid direct questions about
+depression or mental health.
+Thescorer agentoperates in parallel with the interview, reviewing the full conversation transcript
+after each turn and producing updated 0-3 estimates for all 21 BDI-II symptoms along with per-
+symptom confidence scores. By running the scorer at every turn rather than at the conversation end,
+the orchestration layer receives a continuously updated diagnostic picture.
+Theorchestration layer, consistent with recent findings that a centralized orchestrator improves
+coordination in multi-agent LLM systems [ 9], serves three functions. First, it groups the 21 BDI-II
+symptoms into seven thematic clusters and ranks them based on a priority score combining current
+estimated severity and inverse confidence to direct the interviewer toward the least diagnosed symptoms
+at each turn. Second, it embeds cluster-specific instructions into the interviewer’s prompt dynamically,
+so the conversational agent addresses high-priority areas. Third, it enforces stopping conditions based
+
+on four criteria evaluated after each turn: (a) the 18-turn hard limit, (b) all symptoms exceeding 0.6
+confidence after more than 8 turns, (c) the BDI-II total changing by fewer than 2 points over the last
+3 consecutive turns after more than 10 turns, or (d) at least 70% of symptoms probed, subject to the
+18-turn override. These conditions help minimize the number of turns per conversation and enforce the
+hard limit imposed by the task. We selected the numerical thresholds (the turn caps, the 0.6 confidence
+floor, and the 70% coverage criterion) heuristically, tuned by manual inspection on the released personas
+in the absence of ground truth during the submission period.
+To mitigate run-level variance, we batched 30 interview samples per persona and selected the three
+runs whose total BDI-II score fell closest to the batch median for submission. We later kept this initial
+version of our multi-agent system as ourbaseline configurationfor the remainder of the project.
+3.3. Hybrid Configuration
+The multi-agent architecture improved coverage and consistency but approximately doubled API cost
+relative to the monolithic prototype, due to the passage of full conversational histories to two model
+instances per turn. This motivated an attempt to achieve similar predictive results with a cheaper,
+open-source model. We retained GPT-5-nano [10] for the scorer, where instruction-following precision
+directly affects diagnostic accuracy, while replacing it with Gemma 27B [11] for the interviewer, where
+conversational naturalness and question diversity are the primary requirements. All other components
+of the system (the scorer agent, the orchestration layer, the stopping conditions, and the multi-agent
+loop itself) were held constant or improved in parallel between the baseline and hybrid.
+Initial results with this hybrid configuration revealed two predictable failure modes consistent with
+weaker open-source models. The hybrid systematically underestimated BDI-II totals, particularly for
+personas with prominent cognitive and affective symptoms, and exhibited higher score variance across
+runs than the paid baseline. We attribute both effects to Gemma 27B’s tendency to accept surface-
+level responses without probing for underlying emotional content, and to less reliable adherence to
+the structured interview instructions embedded in the prompt [12]. We developed three algorithmic
+components to address these limitations.
+Figure 2:Cluster 1 (Mood & Pleasure) of the precomputed dialogue tree, illustrating the two opener questions
+(sadness Q1 and anhedonia Q4) and their negative- and positive-response follow-up branches. The complete
+tree spanning all seven clusters appears in Appendix A.
+
+Dialogue Tree.Structured task frameworks have been shown to improve controllability and coher-
+ence in LLM dialogue agents [13]. To standardize interview openers and reduce the variance introduced
+by unconstrained question generation, we constructed a precomputed dialogue tree with 7 symptom
+clusters, 12 cluster-opening questions, and 17 follow-up probes. Symptoms are grouped thematically
+so that semantically related items can be probed within a single conversational thread, with each
+individual symptom or small symptom pair assigned its own dedicated opener. Grouping symptoms
+this way exploits natural conversational flow, since related symptoms tend to co-occur in the same
+emotional register. A persona already discussing energy and fatigue is more likely to respond openly
+to a follow-up about sleep than to an abrupt topic shift, producing richer responses and more reliable
+scorer estimates. Clinically sensitive symptoms, such as suicidal ideation and loss of interest in sex,
+have no precomputed lines so as to treat them on a case-by-case basis.
+We hardcoded the very first question of the conversation to target sadness and anhedonia. Subsequent
+openers are selected on demand, where the system retrieves the first unused opener whose target
+symptoms appear in the orchestrator’s current priority list of unassessed or low-confidence items. As
+the scorer gains confidence across turns, symptoms drop out of the priority list and their openers are
+skipped, so not every opener fires in every interview. Within each opener, BM25 [14] text matching on
+the persona’s response chooses the best follow-up branch. This structure covers approximately 2-3
+interview turns without any LLM call (Figure 2).
+Reliability-Weighted Aggregation.Simple median selection, as used in the multi-agent baseline,
+is sensitive to outlier runs when per-sample variance is high. Drawing on the classical ensemble
+learning principle that many weak predictors combined intelligently can match a single strong one,
+recently adapted to LLM verifier aggregation by the Weaver framework [ 15], we replaced it with a
+reliability-weighted consensus method. For each pair of runs (𝑎, 𝑏) and each BDI-II symptom 𝑠, we
+compute a pairwise agreement score:
+𝐴(𝑎, 𝑏, 𝑠) = 1− |𝑠𝑐𝑜𝑟𝑒𝑎
+𝑠−𝑠𝑐𝑜𝑟𝑒 𝑏
+𝑠|
+3 (1)
+The reliability weight for run 𝑟 is the mean pairwise agreement across all other runs in the batch
+and all 21 symptoms. A consensus BDI-II profile is constructed as the reliability-weighted median per
+symptom, and the three runs with minimum L1 distance between their total score and the consensus
+total are selected for submission. This method identifies internally consistent samples without requiring
+ground truth, effectively using the batch itself as a weak supervision signal.
+Cluster Imputation.Because Gemma 27B’s shallower probing sometimes left symptoms entirely
+unaddressed within the 18-turn limit, unprobed symptoms would contribute a default score of zero,
+systematically depressing BDI-II totals. To address this, we assigned each of the 21 BDI-II symptoms
+three semantically related donor symptoms, manually chosen by similarity, from which its severity can
+be inferred. If all three donors have estimated severity greater than 2 and confidence greater than 0.7,
+the unprobed symptom is assigned the mean of the donor scores, capped at 2. This prevents systematic
+undershooting while remaining conservative. Imputed scores are never assigned at maximum severity,
+and imputation is only triggered when donor evidence is strong and consistent. Like the orchestration
+thresholds, we chose the 0.7 confidence floor as a reasonable estimate in light of no ground truth.
+For the hybrid configuration, we ran 20 interviews per persona versus 10 for the baseline. This
+asymmetry directly compensates for higher per-sample variance in the weaker interviewer and is
+grounded in the weak supervision principle that motivates Weaver’s design, where combining a larger
+pool of weak verifiers can match the reliability of fewer strong ones. Because one hybrid interview costs
+approximately half the price of a paid-model interview, running 20 hybrid samples is cost-equivalent
+to the 10-run baseline while providing the reliability aggregation with substantially denser pairwise
+signal (190 comparisons versus 45). The larger pool is not a methodological concession but the intended
+operating mode of the approach.
+
+4. Results & Discussion
+4.1. Baseline vs. Hybrid Performance Comparison
+Because ground truth BDI-II scores were not released during the submission period, we evaluated the
+hybrid configuration against the paid-model baseline through internal comparison across Personas 7 to
+20, the 14 personas for which both systems were run in parallel.
+The most direct advantage of the hybrid is cost. Substituting Gemma 27B for the GPT-5-nano
+interviewer reduced per-persona API cost from approximately $8 to $2, a 75% reduction.
+The hybrid underestimated baseline BDI-II totals for 8 of the 14 personas assessed (Figure 3). This
+directional bias is consistent with Gemma 27B’s tendency toward surface acceptance rather than
+affective probing [12]. Despite this offset, most of the hybrid’s scores still cluster near the diagonal line
+in Figure 3, which indicates competitive score alignment across the board.
+Figure 3:Per-persona mean BDI-II score comparison between the baseline (GPT-5-nano interviewer, 10 runs) and
+hybrid (Gemma 27B interviewer, 20 runs) configurations across Personas 7 to 20. The dashed line indicates𝑦=𝑥
+(perfect agreement), and the Pearson coefficient of determination is 𝑅2 = 0.885 . Points below the diagonal
+correspond to personas where the hybrid produced lower mean BDI-II estimates than the baseline, with Persona
+10 the most pronounced outlier.
+Quantitatively, the hybrid’s mean scores remained within 6 BDI-II points, approximately one severity
+category, of the baseline for 13 of 14 personas (Table 1). The single exception was Persona 10, where
+the hybrid underestimated by a mean of 8.4 points (23.9 baseline vs. 15.4 hybrid). Analysis of the
+submitted runs for Persona 10 reveals a qualitatively different symptom profile. The baseline run (Run
+1), scoring 23, identified cognitive and self-evaluative symptoms (pessimism, guilty feelings, self-dislike,
+self-criticalness), while both hybrid runs (Runs 2 and 3), scoring 20 and 16 respectively, anchored on
+somatic symptoms (sleep changes, fatigue, loss of energy, concentration difficulty) without probing the
+underlying affective layer, producing a lower total score.
+Examining tendencies at the symptom level further reinforces this trend. The hybrid overrepresented
+somatic symptoms like fatigue, sleep disturbance, and loss of energy, while underrepresenting affective
+
+Table 1
+Mean BDI-II scores for the baseline (GPT-5-nano interviewer, 10 runs) and hybrid (Gemma 27B interviewer,
+20 runs) systems across Personas 7-20. Gap denotes absolute difference in means. Persona 10 is the only case
+exceeding one BDI-II severity category (gap>7).
+Persona Baseline Mean Hybrid Mean Gap
+7 35.0 31.8 3.1
+8 34.2 30.2 4.1
+9 22.0 20.6 1.4
+10 23.9 15.4 8.4
+11 22.5 20.0 2.5
+12 28.3 24.4 3.9
+13 34.9 32.5 2.4
+14 33.0 35.2 2.1
+15 36.6 39.6 3.0
+16 32.5 33.9 1.4
+17 6.3 8.0 1.7
+18 7.5 12.0 4.6
+19 8.0 8.4 0.4
+20 26.6 21.0 5.7
+symptoms such as sadness and anhedonia. This asymmetry reflects a structural tendency in Gemma
+27B to treat somatic framing at face value rather than pursue the emotional content that underlies it, a
+limitation the dialogue tree’s affective probing branches only partially addressed (Figure 4).
+Figure 4:Symptom flagging frequency across Personas 7 to 20 for the baseline and hybrid configurations. (A)
+Heatmap of % samples in each pool that listed the symptom as one of the four key symptoms. (B) Difference in
+symptom hit rates between hybrid and baseline. The baseline model tended to focus on intrinsic, emotional
+symptoms like sadness and guilt, while the hybrid favored surface-level somatic signs like sleep and fatigue.
+Nevertheless, runs from both pools converged to comparable scores across nearly all personas
+(Figure 5). Personas 11 and 20 showed larger discrepancies than the others, differences that were less
+apparent in the mean scores. These gaps likely stem from differences in aggregation methods, simple
+median in the baseline versus reliability-weighted aggregation in the hybrid, rather than weaker model
+performance. Measured against the ground-truth BDI-II scores (green bars), both configurations land
+near the true value for many personas but share a tendency to overestimate severity on a subset of
+
+cases. The clearest example is Persona 20, whose true minimal-range score of 6 was scored in the
+moderate range by both the baseline (28) and the hybrid (20), with similar joint overestimates for
+Personas 8, 9, 12, and 13. Because these errors move together across the paid and free configurations
+rather than separating them, we attribute them to the difficulty of eliciting candid disclosure from
+deflecting personas rather than to the open-source substitution. Overall, the small margins between
+the two systems support our hypothesis that with sufficient supervision and effective aggregation, the
+weaker interviewer model in the hybrid can perform competitively with the paid baseline.
+Figure 5:Final submitted runs per persona compared against ground truth. Blue bars show the BDI-II score of
+the baseline-derived Run 1 (GPT-5-nano interviewer). Orange bars show the mean of the two hybrid-derived
+submissions, Runs 2 and 3 (Gemma 27B interviewer). Green bars show each persona’s ground-truth BDI-II score.
+Most personas show close agreement between the two configurations, with the largest gaps at Personas 10, 11,
+and 20.
+4.2. Official Judging Results
+The official eRisk 2026 evaluation results corroborate these internal findings. DS@GT submitted three
+fully automated runs across all 20 personas. Run 1 was drawn from the baseline configuration (GPT-5-
+nano interviewer), and Runs 2 and 3 from the hybrid (Gemma 27B interviewer). Our system averaged
+11.5 messages per conversation at 210.15 characters per message, slightly higher and denser than most
+other teams [16] [17] (Table 2).
+Table 2
+Conversation statistics for selected eRisk 2026 Task 1 teams.msgs./conv.denotes the average number of system
+messages per persona interview.chars./msg.denotes the average characters per system message.
+Team msgs./conv. chars./msg.
+DS@GT 11.5 210.15
+pjmathematician 6.0 108.88
+SINAI 4.4 242.61
+Awakened 5.3 84.37
+UNED-GELP 10.7 114.47
+Submissions were judged on several metrics that encapsulate the accuracy and efficiency of their
+BDI-II score and symptom predictions:
+
+• Depression Category Hit Rate (DCHR): Fraction of runs whose BDI-II scores fell into the
+correct depression category (score range).
+• Average Difference between Overall Depression Levels (ADODL): Average distance between
+estimated depression level (BDI-II score) and actual depression level, expressed as (63−|𝐴𝐷𝐿−
+𝐸𝐷𝐿|)/63 and averaged across all runs. This benchmark served as the primary evaluation metric.
+• Average Symptom Hit Rate (ASHR): Ratio of correctly identified key symptoms averaged
+across all runs. Due to the ambiguity and closeness of some symptoms, pushing this quantity
+past 0.5 (2/4 symptoms correct) proved to be difficult across all teams.
+• Latency-Aware DCHR and ASHR (LDCHR, LASHR): DCHR and ASHR with an additional
+“decay” coefficient that penalizes long conversations, taking into account the number of turns
+used.
+Across the 21 complete-submission teams, DS@GT ranked 2nd overall by ADODL, with Run 3
+achieving a score of 0.9063, behind only pjmathematician’s best run (0.9254). Notably, both hybrid runs
+outperformed the baseline Run 1 on ADODL, which directly supports our central hypothesis that with
+sufficient algorithmic supervision, the open-source Gemma 27B interviewer can match and even exceed
+the paid GPT-5-nano baseline on the primary evaluation metric (Table 3).
+However, this improvement didn’t extend to all metrics. Run 3’s ASHR of 0.1875 fell below the
+baseline’s 0.2500, while Run 2 matched the baseline at 0.2500. This degradation aligns with the earlier
+observation that the hybrid configuration overemphasizes certain somatic symptoms at the expense
+of deeper affective symptoms (Figure 4), leading to improved BDI-II scoring but weaker symptom
+identification.
+Table 3
+Best-performing submitted run per team across the five eRisk 2026 evaluation metrics: DCHR (Depression
+Category Hit Rate), ADODL (Average Difference Between Overall Depression Levels), ASHR (Average Symptom
+Hit Rate), LDCHR (Latency-adjusted DCHR), and LASHR (Latency-Adjusted Symptom Hit Rate). Parenthesized
+numbers indicate each team’s rank on that metric across all 21 complete-submission teams. Bold ADODL values
+highlight DS@GT Run 3’s third-place finish.
+Team DCHR ADODL ASHR LDCHR LASHR
+pjmathematician Run 3 0.5500 (2)0.9254 (1)0.3000 (4)0.3872 (1)0.2112 (3)
+DS@GT Run 3 0.5500 (2)0.9063 (3)0.1875 (11) 0.2493 (6) 0.0777 (14)
+SINAI Run 3 0.4737 (4) 0.8989 (7) 0.1711 (13) 0.2368 (8) 0.0855 (12)
+UNED-GELP Run 1 0.4500 (5) 0.8968 (8) 0.1625 (14) 0.3168 (3) 0.1144 (6)
+Awakened Run 2 0.5000 (3) 0.8802 (12) 0.2625 (7) 0.3374 (2) 0.1709 (4)
+Latency-aware metrics reflect our trade-off between predictive depth and conversation length.
+DS@GT’s LDCHR scores of 0.2091, 0.1696, and 0.2493 for Runs 1, 2, and 3 respectively placed the
+team mid-field and illustrate the cost of our moderately long interview strategy. Our system averaged
+11.5 messages per conversation, well below the 30-message threshold at which the latency penalty
+reaches 0.5, but longer than faster teams like SINAI (4.4 messages) or Awakened (5.3 messages), which
+traded symptom coverage for speed. The LASHR scores of 0.1138, 0.1142, and 0.0777 similarly highlight
+the trade-off. Future iterations could benefit from a more aggressive early-stopping policy once high-
+confidence symptoms are locked in to preserve ADODL performance while recovering latency-weighted
+rank.
+Overall, across ADODL rankings for complete submissions, DS@GT occupied ranks 11, 8, and 3
+across its three runs, with the hybrid-generated Run 3 as the strongest individual submission. The fact
+that a run produced by the open-source Gemma 27B placed 3rd among all runs across all 21 complete-
+submission teams reinforces the efficacy of the hybrid design and algorithmic guidance. Comparable
+diagnostic accuracy is achievable at roughly one-quarter of the API cost with no manual intervention.
+
+5. Conclusion
+This paper presented an iterative, multi-agent LLM framework for conversational depression screening,
+developed and evaluated under the task constraints of no ground truth and weekly persona releases. Our
+system evolved through three stages. We began with a monolithic single-model prototype, progressed
+to a baseline multi-agent architecture, and arrived at an upgraded hybrid configuration.
+The central hypothesis driving our final system was that a weaker, open-source model (Gemma
+27B) could produce results competitive with a stronger paid model (GPT-5-nano) for the interviewer
+role, provided it received sufficient algorithmic supervision. Our results support this claim. Across 14
+personas compared internally, the hybrid’s mean BDI-II scores remained within 6 points of the baseline,
+approximately one severity category, for 13 of 14 personas. In the official eRisk evaluation, hybrid Run
+3 achieved ADODL 0.9063, the 3rd highest score among all complete-submission runs and the strongest
+of our three submitted runs, outperforming the paid baseline Run 1 at 0.8841. This was accomplished at
+approximately $2 per persona versus $8 for the paid-only baseline, a 75% cost reduction.
+The primary limitation of our evaluation is the absence of a controlled ablation study. The baseline
+and hybrid configurations were introduced at different points in the persona sequence and continued
+to evolve through the submission period, meaning the two systems were never held constant against
+the same persona set under identical conditions. Compounding this, the unequal sample pools, 20
+hybrid runs versus 10 baseline runs per persona, mean the two configurations are cost-matched but
+not sample-matched, and we cannot fully disentangle the contribution of sample count from that
+of the algorithmic components without an equal-pool replication. A rigorous follow-up experiment
+would freeze both systems, equalize sample counts, and evaluate across a fixed held-out persona set
+against released ground truth labels. Future studies could also benefit from tuning thresholds in the
+orchestration layer and cluster imputation to better balance symptom coverage against conversation
+length.
+More broadly, however, these findings suggest that raw model capability is not a binding constraint in
+multi-agent conversational assessment. With structured orchestration, a question policy, and consensus-
+based aggregation, a 27B open-source model can compete with a near-frontier paid model. Hybrid
+systems have practical implications for cost- or privacy-sensitive deployments where proprietary API
+access is infeasible, such as clinical depression screening where patient data confidentiality is paramount.
+While our hybrid configuration still routes scoring through a proprietary model, the locally hosted
+interviewer model handles the full conversational exchange and therefore the most sensitive patient-
+facing interactions. A fully open-source pipeline, in which scoring is similarly migrated, remains a
+natural next step.
+Acknowledgments
+We want to thank the Data Science at Georgia Tech (DS@GT) ARC group for their support and the eRisk
+2026 organizing committee for designing and running this task. Computing resources were provided by
+the Georgia Institute of Technology in Atlanta, Georgia, USA, through access to the Partnership for an
+Advanced Computing Environment (PACE) [18].
+Within the team, we acknowledge Murilo Gustineli for organizing team efforts, Anthony Miyaguchi
+for inspiring many ideas explored in this paper, and the rest of the DS@GT ARC team for their continued
+collaboration and support.
+Declaration on Generative AI
+During the preparation of this work, we used Claude (Anthropic) and ChatGPT (OpenAI) to check
+grammar and spelling, improve flow, and format LaTeX. After using these tools, we reviewed and edited
+the writing as needed and take full responsibility for the publication’s content.

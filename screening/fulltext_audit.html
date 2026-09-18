@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full-text screening audit</title>
+<meta name="description" content="Read-only browser for the automated full-text screening decisions of HARNESS-Review: decision, exclusion code, deciding step, verbatim evidence per step, system name and codability. Data: data/screening/fulltext_audit.js (python scripts/validate_screening.py). Works from file://, no network.">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1c1f24; --muted: #5d6470; --line: #d9dde3;
+    --accent: #2457c5; --ok: #1e7f4f; --ok-bg: #e3f3ea; --bad: #b3261e; --bad-bg: #fbe7e5;
+    --warn: #8a5a00; --warn-bg: #fdf1d8; --chip: #eef1f5; --quote: #f3f5f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a; --panel: #1d2026; --ink: #e8eaee; --muted: #a0a7b3; --line: #343941;
+      --accent: #7ea2ff; --ok: #5fcf8f; --ok-bg: #173226; --bad: #ff7b72; --bad-bg: #3a1d1b;
+      --warn: #e6b450; --warn-bg: #3a2e14; --chip: #262a31; --quote: #22262d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a; --panel: #1d2026; --ink: #e8eaee; --muted: #a0a7b3; --line: #343941;
+    --accent: #7ea2ff; --ok: #5fcf8f; --ok-bg: #173226; --bad: #ff7b72; --bad-bg: #3a1d1b;
+    --warn: #e6b450; --warn-bg: #3a2e14; --chip: #262a31; --quote: #22262d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 16px; }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .meta { color: var(--muted); font-size: 12.5px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+  .filters select, .filters input[type="search"] { font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+  .filters input[type="search"] { flex: 1 1 180px; }
+  .filters label { display: inline-flex; gap: 5px; align-items: center; font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+  .filters button { font: inherit; font-size: 13px; background: var(--chip); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+  .count { font-size: 13px; color: var(--muted); margin-left: auto; }
+  main { max-width: 980px; margin: 0 auto; padding: 12px 16px 60px; }
+  .summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  .stat b { font-size: 16px; display: block; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; overflow-wrap: anywhere; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .badge { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 8px; background: var(--chip); color: var(--ink); }
+  .inc { background: var(--ok-bg); color: var(--ok); }
+  .exc { background: var(--bad-bg); color: var(--bad); }
+  .dis { background: var(--warn-bg); color: var(--warn); }
+  .ref { background: var(--chip); color: var(--accent); }
+  .t { font-weight: 600; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .sys { margin-top: 4px; font-size: 14px; }
+  a { color: var(--accent); }
+  details { margin-top: 6px; }
+  summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  .ev { list-style: none; padding: 0; margin: 6px 0 0; }
+  .ev li { display: grid; grid-template-columns: 72px 1fr; gap: 8px; padding: 4px 0; border-top: 1px dashed var(--line); font-size: 13.5px; }
+  .ev .k { color: var(--muted); font-size: 12.5px; }
+  .ev .fail { color: var(--bad); font-weight: 600; }
+  .q { background: var(--quote); border-radius: 4px; padding: 1px 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .chip { font-size: 11.5px; background: var(--chip); border-radius: 4px; padding: 0 5px; }
+  .p2 { margin-top: 6px; padding: 6px 8px; border-left: 3px solid var(--line); font-size: 13.5px; }
+  .p2.disagree { border-left-color: var(--warn); }
+  .more { display: block; margin: 14px auto; font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  .empty { padding: 30px 0; text-align: center; color: var(--muted); }
+  @media (max-width: 560px) {
+    .ev li { grid-template-columns: 1fr; gap: 2px; }
+    .count { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Full-text screening audit</h1>
+  <div class="meta" id="meta">Loading data/screening/fulltext_audit.js ...</div>
+  <div class="filters" role="search">
+    <select id="f-dec" aria-label="Decision"><option value="">All decisions</option><option value="include">Include (pass 1)</option><option value="exclude">Exclude (pass 1)</option></select>
+    <select id="f-code" aria-label="Exclusion code"><option value="">All exclusion codes</option></select>
+    <select id="f-src" aria-label="Source"><option value="">All sources</option></select>
+    <select id="f-why" aria-label="Pilot stratum" hidden><option value="">All strata</option></select>
+    <label><input type="checkbox" id="f-ref"> Validation set only</label>
+    <label><input type="checkbox" id="f-dis"> Pass 1 / pass 2 disagreements</label>
+    <input type="search" id="f-q" placeholder="Search title, system, id" aria-label="Search">
+    <button type="button" id="theme" title="Toggle light/dark">Theme</button>
+    <span class="count" id="count"></span>
+  </div>
+</header>
+<main>
+  <div class="summary" id="summary"></div>
+  <div id="list"></div>
+  <button type="button" class="more" id="more" hidden>Show more</button>
+</main>
+<script src="../data/screening/fulltext_audit.js"></script>
+<script>
+(function () {
+  "use strict";
+  var PAGE = 150;
+  var shown = PAGE;
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[c]; }); }
+  function safeUrl(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+
+  try { var t = localStorage.getItem("ft-audit-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) { /* storage unavailable */ }
+  $("theme").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var dark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("ft-audit-theme", next); } catch (e) { /* ignore */ }
+  });
+
+  var A = window.AUDIT;
+  if (!A || !A.records) {
+    $("meta").textContent = "No data: run python scripts/validate_screening.py (writes data/screening/fulltext_audit.js).";
+    return;
+  }
+  var R = A.records;
+  R.forEach(function (r) { r._dis = !!(r.p2 && r.p2.d !== r.d); });
+  $("meta").textContent = "Scope: " + A.scope + " (" + A.n_scope + " records) · " + R.length + " screened · prompt " + A.prompt_version + " · model " + A.model + " · generated " + A.generated + " · read-only";
+
+  function fill(sel, values) {
+    values.forEach(function (v) { var o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); });
+  }
+  function uniq(f) { var s = {}; R.forEach(function (r) { var v = f(r); if (v) s[v] = (s[v] || 0) + 1; }); return Object.keys(s).sort(); }
+  fill($("f-code"), uniq(function (r) { return r.code; }));
+  fill($("f-src"), uniq(function (r) { return r.source; }));
+  var whys = uniq(function (r) { return r.why; });
+  if (whys.length) { $("f-why").hidden = false; fill($("f-why"), whys); }
+
+  function count(f) { return R.filter(f).length; }
+  var nInc = count(function (r) { return r.d === "include"; });
+  var nP2 = count(function (r) { return r.p2; });
+  var nDis = count(function (r) { return r._dis; });
+  var nNR = count(function (r) { return r.code === "not_retrievable"; });
+  var nRef = count(function (r) { return r.ref; });
+  var stats = [["Screened", R.length], ["Pass-1 include", nInc], ["Not retrievable", nNR], ["Read twice", nP2], ["Disagreements", nDis], ["Validation-set records", nRef]];
+  $("summary").innerHTML = stats.map(function (s) { return '<div class="stat"><b>' + s[1] + "</b>" + esc(s[0]) + "</div>"; }).join("");
+
+  function matches(r) {
+    var d = $("f-dec").value, c = $("f-code").value, s = $("f-src").value, w = $("f-why").value;
+    var q = $("f-q").value.trim().toLowerCase();
+    if (d && r.d !== d) return false;
+    if (c && r.code !== c) return false;
+    if (s && r.source !== s) return false;
+    if (w && r.why !== w) return false;
+    if ($("f-ref").checked && !r.ref) return false;
+    if ($("f-dis").checked && !r._dis) return false;
+    if (q) {
+      var hay = [r.id, r.title, r.cand_title, r.sys, (r.ment || []).join(" "), r.ref].join(" ").toLowerCase();
+      if (hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  }
+
+  function evList(ev) {
+    if (!ev || !ev.length) return '<div class="sub">No step evidence (no LLM reading).</div>';
+    return '<ul class="ev">' + ev.map(function (e) {
+      var v = e.verdict === "fail" ? '<span class="fail">fail</span>' : esc(e.verdict);
+      return '<li><span class="k">Step ' + esc(e.step) + " · " + v + "</span><span>" + (e.quote ? '<span class="q">“' + esc(e.quote) + "”</span>" : '<span class="sub">(no quote)</span>') + "</span></li>";
+    }).join("") + "</ul>";
+  }
+
+  function card(r) {
+    var dc = r.d === "include" ? "inc" : "exc";
+    var b = ['<span class="badge ' + dc + '">' + esc(r.d) + "</span>"];
+    if (r.code) b.push('<span class="badge">' + esc(r.code) + (r.sub ? " / " + esc(r.sub) : "") + "</span>");
+    if (r.step) b.push('<span class="badge">step ' + esc(r.step) + "</span>");
+    if (r.conf) b.push('<span class="badge">' + esc(r.conf) + " confidence</span>");
+    if (r.code !== "not_retrievable") b.push('<span class="badge">codable ' + esc(r.cc) + "/38" + (r.layers && r.layers.length ? " · " + esc(r.layers.join("")) : "") + "</span>");
+    if (r._dis) b.push('<span class="badge dis">pass 2: ' + esc(r.p2.d) + "</span>");
+    if (r.final && r.final !== r.d) b.push('<span class="badge dis">final: ' + esc(r.final) + "</span>");
+    if (r.ref) b.push('<span class="badge ref">' + esc(r.ref) + "</span>");
+    var url = safeUrl(r.url), furl = safeUrl(r.fetched_url);
+    var h = '<div class="row">' + b.join("") + "</div>";
+    h += '<div class="t">' + esc(r.title || r.cand_title || r.id) + "</div>";
+    if (r.cand_title && r.title && r.cand_title.toLowerCase() !== r.title.toLowerCase()) h += '<div class="sub">Candidate metadata title: ' + esc(r.cand_title) + "</div>";
+    h += '<div class="sub">' + esc(r.id) + " · " + esc(r.source) + (r.why ? " · pilot: " + esc(r.why) : "") + (r.used ? " · read from " + esc(r.used) : "") +
+      (url ? ' · <a href="' + esc(url) + '" target="_blank" rel="noopener">record</a>' : "") + (furl ? ' · <a href="' + esc(furl) + '" target="_blank" rel="noopener">fetched text source</a>' : "") +
+      (r.ew ? " · excerpt " + esc(r.ew) + " of " + esc(r.fw) + " words" : "") + "</div>";
+    if (r.sys) {
+      var repo = safeUrl(r.repo);
+      h += '<div class="sys">System: <b>' + esc(r.sys) + "</b>" + (r.ver ? " " + esc(r.ver) : "") + (r.rel ? " · released " + esc(r.rel) : "") +
+        (repo ? ' · <a href="' + esc(repo) + '" target="_blank" rel="noopener">' + esc(r.repo) + "</a>" : (r.repo ? " · " + esc(r.repo) : "")) +
+        (r.sid ? ' · registry <span class="chip">' + esc(r.sid) + (r.canon === "1" ? " canonical" : r.canon === "0" ? " duplicate" : "") + "</span>" : "") + "</div>";
+    }
+    h += "<details" + (r._dis ? " open" : "") + "><summary>Evidence per step (" + ((r.ev || []).length) + ")</summary>" + evList(r.ev) + "</details>";
+    if (r.dims && r.dims.length) h += "<details><summary>Codable dimensions (" + r.dims.length + ")</summary><div class=\"chips\">" + r.dims.map(function (x) { return '<span class="chip">' + esc(x) + "</span>"; }).join("") + "</div></details>";
+    if (r.ment && r.ment.length) h += '<div class="sub" style="margin-top:4px">Mentions: ' + esc(r.ment.join(", ")) + "</div>";
+    if (r.flags && r.flags.length) h += '<div class="chips">' + r.flags.map(function (x) { return '<span class="chip">' + esc(x) + "</span>"; }).join("") + "</div>";
+    if (r.p2) {
+      h += '<div class="p2' + (r._dis ? " disagree" : "") + '">Second reading: <b>' + esc(r.p2.d) + "</b>" + (r.p2.code ? " · " + esc(r.p2.code) + (r.p2.sub ? " / " + esc(r.p2.sub) : "") : "") +
+        (r.p2.step ? " · step " + esc(r.p2.step) : "") + " · codable " + esc(r.p2.cc) + (r.p2.sys ? " · " + esc(r.p2.sys) : "") +
+        "<details><summary>Second-reading evidence</summary>" + evList(r.p2.ev) + "</details></div>";
+    }
+    return '<article class="card">' + h + "</article>";
+  }
+
+  function render(reset) {
+    if (reset) shown = PAGE;
+    var rows = R.filter(matches);
+    $("count").textContent = rows.length + " of " + R.length + " records";
+    if (!rows.length) { $("list").innerHTML = '<div class="empty">No records match these filters.</div>'; $("more").hidden = true; return; }
+    $("list").innerHTML = rows.slice(0, shown).map(card).join("");
+    $("more").hidden = rows.length <= shown;
+    $("more").textContent = "Show more (" + (rows.length - shown) + " left)";
+  }
+  ["f-dec", "f-code", "f-src", "f-why", "f-ref", "f-dis"].forEach(function (id) { $(id).addEventListener("change", function () { render(true); }); });
+  var timer;
+  $("f-q").addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(function () { render(true); }, 150); });
+  $("more").addEventListener("click", function () { shown += PAGE; render(false); });
+  render(true);
+})();
+</script>
+</body>
+</html>

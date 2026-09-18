@@ -1,0 +1,676 @@
+record_id: arxiv:2606.00555
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2606.00555
+fetched_title: Probe Before You Edit: Probing-Guided Molecular Optimization for LLM Agents in Structure-Based Drug Design
+fetched_at: 2026-09-18T19:00:17Z
+
+Probe Before You Edit:
+Probing-Guided Molecular Optimization for
+LLM Agents in Structure-Based Drug Design
+Zaifei Yang1, Weiyu Chen2, Yaqing Wang3, James Kwok1
+1The Hong Kong University of Science and Technology
+2City University of Hong Kong
+3 Beijing Institute of Mathematical Sciences and Applications
+zyangea@connect.ust.hk
+Abstract
+Structure-based drug design increasingly employs LLM agents to iteratively refine
+ligands against a target pocket, yet a viable ligand must satisfy two often-conflicting
+objectives—binding affinity and druggability—which single optimization steps
+rarely improve together. To quantify this difficulty, we introduce two diagnostic
+metrics: the first measures how often a single edit improves both objectives, and
+the second measures how often a gain on one objective comes with a loss on
+the other. Applying these diagnostics to current LLM-agent pipelines exposes a
+consistent failure mode: the agent performs molecular editing without knowing how
+the pocket-ligand complex responds to local modifications, thus rarely achieving
+joint improvement. Inspired by medicinal chemists, who probe the pocket-ligand
+complex with controlled analog edits before choosing an optimization direction, we
+proposePROBE, an optimization framework built around edit–response probing.
+PROBE first decomposes the ligand into editable sites and builds a pocket-specific
+site mapthat flags where joint gains are plausible, where the two objectives are
+likely in tension, and where liability substructures should be changed; it then
+performs controlled probe edits whose responses are distilled into anEditManual.
+Guided by the site map and EditManual, PROBE runs an iterative multi-agent
+loop in which an affinity agent, a druggability agent, and a co-optimization agent
+jointly produce edits. On the CrossDocked2020 benchmark, PROBE achieves
+state-of-the-art performance and substantially mitigates the failure modes exposed
+by our diagnostics metrics.
+1 Introduction
+Structure-based drug design (SBDD) [37, 22] aims to generate candidate ligands whose 3D geome-
+tries are complementary to a specific protein binding pocket, providing a cost-effective alternative
+to high-throughput screening in early-stage drug discovery. Recent deep 3D generative models
+(including autoregressive [27, 29], diffusion-based [15, 9, 16, 33, 24, 42], and language-model-based
+approaches [39, 6, 19]) have achieved considerable progress in capturing structural complementarity.
+However, these models cast SBDD as a one-time conditional generation task: A candidate molecule
+is produced in a single forward pass, with no mechanism to iteratively inspect, critique, and repair
+it against pocket-specific feedback [ 12, 18]. In contrast, medicinal chemists typically optimize
+ligands through iterative design–make–test–analyze (DMTA) rounds [38, 30], where each round uses
+evidence from previous analogs to fix concrete issues.
+This mismatch motivates a growing line of work that employs LLMs as agents to drive iterative,
+post-generation optimization of SBDD candidates [ 34, 12, 2]. Existing pipelines mainly fall into
+Preprint.
+arXiv:2606.00555v2 [cs.AI] 2 Jun 2026
+
+two paradigms: (i) the LLM directly proposes edited molecules, relying on its learned chemical
+priors to decide which atoms or fragments should be modified [ 34, 12]; (ii) the LLM acts as a
+planner that selects an optimization objective and delegates the actual modification to an external
+algorithmic module [ 2]. In both paradigms, the agent only sees feedback after an optimization
+edit has been finished, so exploration and optimization are entangled within the same step. This
+is problematic because SBDD intrinsically involves competing multiple objectives [41, 24, 42]: a
+viable candidate must simultaneously have high binding affinity, typically measured by the AutoDock
+Vina scores (Vina) [36], and high druggability, typically measured by Quantitative Estimate of Drug-
+likeness (QED) [5] and synthetic accessibility (SA) [10]. These objectives frequently pull in opposite
+directions under any local edit: for example, attaching a hydrophobic group to fill a pocket subsite
+often improves the Vina score but lowers QED and SA by increasing molecular size and complexity.
+To characterize this challenge, we introduce two diagnostic metrics. The first measures how often
+an optimization step improves both affinity and druggability at the same time. The second metric
+measures how often achieving improvement in one objective leads to a degradation in another. Across
+the two LLM-agent paradigms(See Section 3), these diagnostics reveal a consistent pattern: current
+agents rarely achieve joint improvement within a single edit, and their gains are often offset by
+objective interference. This suggests that the main bottleneck is not simply the choice of agent
+paradigms. Rather, current agents commit to edits before they have any pocket-specific evidence
+about how the ligand will respond. What is missing is a method to estimate edit responses before the
+iterative optimization process.
+Our key idea is to make this estimation explicit and conduct it before optimization. Medicinal chemists
+often run small sets of controlled analog edits to see how a pocket responds before committing to a
+larger optimization direction [30]. Inspired by this practice, we proposePROBE, a framework for
+LLM agent SBDD optimization thatprobes before editing, whereas prior agentsedit before knowing.
+Given an initial pocket–ligand complex, PROBE first decomposes the ligand into editable sites and
+builds asite map. The site map marks where joint improvement is plausible, where the two objectives
+are likely to be in tension, and where liability substructures should be changed. PROBE then performs
+controlled probe edits on the sites identified in the site map and records how affinity and druggability
+respond. The responses are distilled into anEditManual, a site-level guide that lists favorable edit
+directions, modifications to avoid, and chemical constraints for each site.
+During iterative optimization, PROBE uses thesite mapandEditManualto guide a multi-agent
+optimization loop. An affinity agent and a druggability agent propose edits from different priorities
+while grounded in the same guidance. A co-optimization agent then reconciles these proposals by
+combining compatible edits across different sites or resolving conflicts at the same site according
+to theEditManual. This lets PROBE pursue joint improvement directly, rather than relying on
+independent single-objective edits to align by chance. Our contributions are summarized as follows:
+• We introduce diagnostic metrics for measuring joint improvement and objective interference in
+LLM-agent-based SBDD optimization, and use them to analyze the limitations of existing pipelines.
+• We proposePROBE, aprobe-before-editframework that estimates pocket-specific edit responses
+before optimization, distills them into asite mapand anEditManual, and uses them to guide
+multi-objective molecular editing.
+• We evaluate PROBE on the CrossDocked2020 benchmark, where it achieves state-of-the-art results
+on standard SBDD metrics and substantially reduces the failure modes revealed by our diagnostics.
+2 Related Work
+Deep generative models for structure-based drug design.Deep generative models for SBDD
+generate ligands structurally complementary to a given protein pocket, spanning autoregressive [27,
+29], diffusion-based [ 15, 16, 33, 9, 24, 42], and language-model approaches [ 39, 6, 19]. These
+methods share a one-shot conditional-generation formulation that produces a candidate in a single
+forward pass. We treat their outputs as initial candidates and study what should happenafter
+generation: how to refine a given pocket–ligand complex with pocket-specific evidence.
+LLM agents for structure-based drug design.Recent works use LLM agents to iteratively refine
+SBDD ligands [34, 12, 2] in two paradigms. (i) MoLLM [34] and CIDD [12] let LLM agents directly
+generate edited molecules. (ii) LIDDIA [2] uses the LLM as a planner that, at each step, picks one
+2
+
+Diagnosis
+Agent
+Diagnosis Signal
+Aggregation
+(i) Interaction Signal
+(ii) Geometric Signal
+(iii) Property Signal
+Deep
+Generative
+Model
+Protein
+Pocket
+Tension
+Site
+Liability
+Site
+Synergy Site
+Induction
+Agent
+Pocket-Specific
+Edit Manual
+Pharmacophore Role
+......
+Action and Property
+Constraints
+......
+Synthetic Blacklist
+......
+Probing
+Planner
+Probing
+Strategy
+Affinity-first
+Druggability-first
+Co-optimization
+Optimization
+Site Map
+Fragment Name
+Atom Indices
+Local Symptoms
+Type
+Optimization
+Site Map
+High Intensity Medium Intensity
+Low Intensity Counterfactual
+Probing Matrix
+Probing
+Generater
+Probing
+Molecules
+...
+Affinity
+Agent
+Druggability
+Agent
+Modification
+Plan
+Modification
+Plan
+Design
+Analyze
+(i) Success? Failure?
+(ii) Summarize & Update
+Edit Manual
+(iii) Select Best Molecule
+Make
+Test
+Co-optimization
+Agent
+Modification
+Plan
+Pocket-Specific
+Edit Manual
+Optimization
+Site Map
+(a) Site Map Construction
+(b) Pocket-Specific Edit Manual Induction (c) Multi-Agent Optimization
+Figure 1: Overview of the PROBE. (a) Site Map Construction. (b) Pocket-Specific Edit Manual
+Induction. (c) Multi-Agent Optimization.
+target from {Vina, QED, SA} and dispatches it to an algorithmic executor for optimization. All these
+paradigms only see feedbackafteran edit is finished, mixing exploration with optimization. So they
+are all based on a blindly pocket-agnostic multi-objective trade-off. MoLLM weighs all objectives
+jointly, CIDD treats affinity as a constraint on druggability, and LIDDIA cycles one objective on the
+executor per step, so gains on one objective often hurt another. In contrast, PROBEprobes before
+editing: a probing stage first produces a pocket-specificsite mapandEditManualmarking where
+joint improvement is plausible and where objectives conflict, then guides an affinity-druggability
+co-optimization agent loop that grounds the multi-objective optimization in measured evidence.
+3 Limitations of Existing LLM Agents for SBDD
+To characterize the limitations of current LLM agents on multi-objective SBDD, we experiment with
+the two paradigms in Section 2. For agents that use the LLM to generate edited molecules, we have
+(i) MOLLM [34], which performs multi-objective global edits. We also augment it with PLIP [35]
+text reports so that it can perceive 3D interactions; and (ii) CIDD [12], which targets modifications
+on low-druggability substructures while maintaining or improving its affinity. Moreover, to study
+whether textual guidance is enough to induce multi-objective trade-off behavior, we add a variant (iii)
+CIDD+MOO, which injects explicit multi-objective trade-off instructions into the CIDD prompt (full
+prompt in Appendix A.1). For planner-plus-executor agents, we have (iv) LIDDIA [2], whose LLM
+reasoner only decides which single objective in {Vina, QED, SA} is the current bottleneck at the
+planning stage, and then dispatches optimization to a single-objective graph-based genetic algorithm
+executor GraphGA [23]. All four methods are run under the same pocket set, starting molecules, and
+number of optimization rounds. Details on the experimental setup are in Section 5.
+Table 1: Statistics for change on affinity ( ∆A)
+and druggability (∆D) after one optimization step.
+Positive values indicate improvement. For each
+method, the largest outcome is marked inbold.
+∆A >0 ∆A >0 ∆A≤0 ∆A≤0
+∆D >0 ∆D≤0 ∆D >0 ∆D≤0
+MOLLM 16.6%48.0%10.1% 25.3%
+CIDD 28.4% 10.4%47.3%13.9%
+CIDD+MOO 25.1%43.3%13.1% 18.6%
+LIDDIA 18.6% 22.9%47.6%11.0%
+PROBE 52.8%22.7% 19.0% 5.4%
+Improvement statistics.For a molecule m, we
+define the affinity score A(m) =−Vina(m)
+and druggability score D(m) = QED(m) +
+SA(m). For both objectives, the larger the bet-
+ter. We define ∆A=A(m ′)−A(m) and
+∆D=D(m ′)−D(m) , where m′ is the op-
+timized molecule after one optimization step.
+We classify the steps to four categories: (i)
+joint improvement( ∆A >0,∆D >0 ), (ii)
+affinity-only improvement( ∆A>0,∆D≤0 ),
+(iii)druggability-only improvement( ∆A≤
+0,∆D>0 ), and (iv)joint degradation( ∆A≤
+0,∆D≤0 ). Table 1 counts the number of steps in each category. As can be seen, for all the baselines,
+3
+
+fewer than one-third of the steps lead to joint improvement, while most of the steps can only improve
+one objective at best.
+Table 2: Intent ratio, IOC rate, and OI rate of each
+pipeline. “n/a” marks IOC cells where the intent is
+never declared.
+Intent Intent Ratio IOC↑OI↓
+MOLLM
+Affinity 33.1% 56.9% 75.7%
+Druggability 14.4% 33.9% 88.2%
+Joint 52.5% 21.8% —
+CIDD
+Affinity 0.0% n/a —
+Druggability 19.0% 77.3% 68.6%
+Joint 81.0% 29.3% —
+CIDD+MOO
+Affinity 37.2% 72.3% 77.7%
+Druggability 12.4% 49.8% 61.0%
+Joint 50.4% 33.1% —
+LIDDIA
+Affinity 31.6% 86.9% 81.9%
+Druggability 68.4% 94.2% 78.7%
+Joint 0.0% n/a —
+PROBE
+Affinity 39.1% 75.3% 30.1%
+Druggability 20.9% 80.8% 25.6%
+Joint 40.0% 66.3% —
+Intent does not match outcome.From
+the LLM’s reasoning text in each opti-
+mization step, we use Gemini-3.1-Pro to
+see whether its intent is on improving the
+affinity, druggability, or both (full prompt
+in Appendix A.2). To measure whether
+the optimized molecule realizes the intent,
+we define threeIntent–Outcome Consis-
+tency(IOC) measures: (i) IOCAffinity =
+Pr(∆A >0|intent= affinity) , (ii)
+IOCDruggability = Pr(∆D >0|intent=
+druggability), and (iii) IOCJoint =
+Pr(∆A>0∧∆D>0|intent= joint).
+As shown in Table 2, MOLLM, CIDD, and
+CIDD+MOO achieve substantially higher
+IOC under single-objective intents than
+under joint intent. With the addition of
+multi-objective instructions, CIDD+MOO
+changes the intent distribution, but does not
+improve the joint-intent IOC. LIDDIA be-
+haves differently. Its planner must choose
+exactly one bottleneck objective at each step, and so cannot declare a joint intent explicitly.
+One objective improves while the other objective deteriorates.For single-objective intents, we
+defineObjective Interference (OI)as the probability that the selected objective improves while
+the other objective does not: OIAffinity = Pr(∆D <0|∆A >0∧intent= Affinity) and
+OIDruggability = Pr(∆A<0|∆D>0∧intent= Druggability) . As shown in Table 2, for all the
+baselines, improvement in one objective frequently leads to deterioration of the other. In particular,
+while LIDDIA can realize the intent reliably (high IOC), its OI is the highest because the unselected
+objective is not constrained in the genetic algorithm executor.
+4 Method
+For more effective SBDD optimization, the LLM agent needs to know which local sites can support
+joint improvement, rather than merely declaring a joint intent during LLM reasoning. Moreover, on
+trying to improve one objective, it has to know which local edit directions can preserve the unselected
+objectives. To address these requirements, in this section we introduce PROBE. It first constructs
+a pocket-specific site map (Section 4.1), then induces an EditManual from controlled probe edits
+(Section 4.2), and finally uses the resulting evidence in an iterative multi-agent optimization loop
+(Section 4.3). The whole pipeline is shown in Figure 1.
+4.1 Site Map Construction
+In this section, we construct a pocket-specificsite mapbefore optimization. The site map is a set of
+planning priors induced from PLIP, geometric, and property signals over the current pocket–ligand
+complex. It marks where joint improvement is plausible, where the two objectives are likely in tension,
+and where liability substructures should be fixed. The map is built once and reused across rounds,
+supplying the downstream planner with a structural prior for intent selection and edit implementation.
+Diagnosis signal aggregation.Following the post-hoc optimization pipeline [ 12], which starts from
+an initial ligand molecule produced by a deep generative model, we decompose the ligand with
+BRICS [8] into sub-molecule fragments{fj}. From each fragment, we aggregate three complemen-
+tary streams of diagnosis signals:interactionsignals from PLIP [ 35],geometricsignals describing
+how the fragment fits the pocket, andpropertysignals covering ligand efficiency [ 1] and known
+problematic groups. Details of the signal extraction are in Appendix B.
+4
+
+Table 3: The 3×4 probing matrix. Each row is a strategy used by the probing planner and each
+column is an edit.
+Strategy High intensity Medium intensity Low intensity Counterfactual
+Affinity-firstFill pocket void
+with ring
+Add functional
+group
+Isosteric tweak Delete functional
+group
+Druggability-firstPrune Liability or
+Tension sites
+Trim peripheral
+unwanted groups
+Shave solvent
+exposed atoms
+Add bulky groups
+Co-optimizationReplace core
+scaffold
+Peripheral
+bioisostere swap
+Regio-isomeric
+shift
+Break geometric
+constraint
+Site selection and labeling.A diagnosis LLM reads the fragment-level signals to select a subset
+of fragments as sites{si}. It first writes a short holistic profile of the complex, summarizing the
+pocket context, anchor interactions, ligand efficiency, and druggability liabilities. Conditioned on this
+profile, it marks each site assi =⟨fragment_name,atom_indices,local_symptoms,type⟩, where
+the type can be (i) SYNERGY, indicating a site where one edit can plausibly improve both affinity
+and druggability; (ii) TENSION, where improving one objective is likely to hurt the other; or (iii)
+LIABILITY, which contains a structural liability, such as a reactive alert, excessive chirality, or an
+overly complex spiro system, that should be repaired regardless of the trade-off. When multiple labels
+appear plausible, the LLM chooses the dominant one. The full prompt is shown in Appendix A.3.
+4.2 Pocket-Specific Edit Manual Induction
+The site map gives the locations of high-value edits, but does not determine which edit directions
+are safe for the specific pocket–ligand complex. PROBE therefore probes the mapped sites before
+optimization. The probing runs only once, before the iterative optimization loop begins. The probe
+molecules are controlled perturbations used to observe how affinity and druggability respond. The
+observations are distilled into a pocket-specific EditManual.
+Probing planner.Given the site map, a probing planner LLM proposes three strategies along the
+affinity-druggability trade-off:Affinity-first,Druggability-first, andCo-optimization. Each strat-
+egy specifies targeted sites, a chemically explicit edit prescription, and the trade-off it accepts.
+For example, an affinity-first strategy may extend a donor toward an unfilled subpocket, while a
+druggability-first strategy may replace a complex chiral group with an achiral bioisostere. The full
+prompt is given in Appendix A.4.
+Probes.For each strategy (Affinity-first, Druggability-first, Co-optimization), a probing generator
+LLM generates four structured edits. Each edit contains a target atom, an action, and semantic
+constraints over the fragment to be retrieved. The first three probes apply the strategy at three edit
+magnitudes (high, medium, low), so we can observe whether increasing the edit magnitude continues
+to improve the objectives or begins to degrade them, for example, whether filling a pocket void
+with a ring outperforms a small isosteric tweak. The fourth probe is a counterfactual that reverses
+the strategy’s direction as a control: the strategy is credible only if the forward probes improve
+the response, while the counterfactual does not. With the three strategies, this gives a total of 12
+probes per input molecule (Table 3). A fragment-assembly engine instantiates these edits as valid
+molecules (Appendix C). All probes are then scored to yield ∆A and ∆D. The full prompt is shown
+in Appendix A.5.
+Response summarization.Before manual construction, an analyzer converts the 12 raw outcome
+scores into a response summary while retaining the exact deltas. For each strategy, it reports the shape
+of the high–medium–low response, such as: monotone improvement, activity cliff, saturation, or
+flat/negative response. It also reports the counterfactual signal: whether reversing the strategy makes
+the scores worsen, improve, or remain unchanged. This gives the manual-construction LLM both
+numerical evidence and a stable qualitative interpretation. The full prompt is shown in Appendix A.6.
+EditManual construction.The EditManual is built by distilling the scored probe outcomes and
+response summaries into structured constraints. A manual-construction LLM reads the site map,
+strategies, probe outcomes, and summarized response patterns, and then generates a structured
+EditManual. For each site, the manual records: (i) a pharmacophore role (anchor, linker, hydrophobic
+core, etc.); (ii) allowed and forbidden actions, each justified by the probe outcome, together with
+quantitative constraints on size, polarity, flexibility, and shape that any future fragment placed at
+5
+
+that site must follow; and (iii) a blacklist of structural features that must not be introduced. It also
+records cross-site rules indicating which sites can be edited independently and which edit directions
+are mutually exclusive. The EditManual therefore converts local probe responses into executable
+constraints for the optimization loop. The full prompt is shown in Appendix A.7.
+4.3 Multi-Agent Optimization
+Next, PROBE refines the ligand molecule through a design-make-test-analyze loop [38]. Each round
+is guided with the site map and the EditManual. The site map supplies where the agents could act,
+while the EditManual constrains how each local edit should be designed.
+Design.PROBE uses three role-specialized agents (affinity agent, druggability agent, and co-
+optimization agent) conditioned on the same site map, EditManual, and edit history. The affinity
+agent proposes one localized edit under an affinity-first prior, preferentially acting on SYNERGYsites
+or the affinity-favorable side of TENSIONsites while preserving manual-protected anchor interactions.
+The druggability agent proposes one localized edit under a druggability-first prior, preferentially
+acting on LIABILITYsites or the property-liability side of TENSIONsites through simplification,
+pruning, or bioisosteric replacement when allowed by the manual. Since the molecule changes across
+rounds while the site map is defined on the original ligand, both agents first resolve the selected site
+to its current atom indices before generating a structured edit.
+The two drafts are then cross-reviewed against the same EditManual. Each agent checks whether the
+other draft targets the correct current site, violates semantic constraints, or threatens its own objective.
+After revision, a co-optimization agent receives the two revised drafts and generates one reconciled
+edit. When the drafts are compatible, it preserves the constraints needed by both objectives; when
+they conflict on the same site, it designs a manual-compliant hybrid constraint. Thus, each round
+yields three designs—affinity-oriented, druggability-oriented, and co-optimized—which are passed
+to the make-and-test stage. The full prompt is shown in Appendix A.8.
+Make and test.All three designs are instantiated by the same fragment-assembly engine used in
+the probing stage (Appendix C). The engine retrieves fragments satisfying the semantic constraints,
+applies the requested local action, and returns the candidate. Each candidate is then evaluated,
+yielding its∆Aand∆Drelative to the current parent molecule.
+Analyze and iterate.The analysis stage updates the search state without discarding accumulated
+evidence. First, each candidate is labeled as success or failure with respect to the intent that produced
+it. Second, the edit history is updated with the targeted site, action, constraints, and observed outcome.
+Third, the EditManual is revised incrementally when an outcome contradicts an existing rule: the
+affected entry is tightened or rewritten, and the failed action is recorded to prevent repeated attempts.
+After updating the state, we select the best molecule for the next round from the three candidates
+produced in the current round. The selection is based on the hypervolume [17] of the candidatem
+with respect to the initial moleculem0 (i.e., the input ligand at the start of the optimization loop) in
+the(A,D)space:
+Sbal(m) =
+
+
+
+A(m)−A(m 0)
+|A(m0)|
+D(m)−D(m 0)
+D(m0)
+
+ifA(m)>A(m 0)andD(m)>D(m 0),
+0otherwise.
+Usingm0 as the reference point ensures that candidates failing to improve both objectives receive
+zero contribution. The candidate with the largestSbal is promoted as the start for the next round, and
+the iteration runs for a fixed number of optimization rounds.
+Final candidate selection.After all rounds finish, PROBE returns the molecule with the largest Sbal
+from a pool that includes the initial molecule, all 12 probe molecules, and every molecule produced
+during iterative optimization. The probes are counted as part of PROBE’s search budget, and the full
+resulting computation costs are reported in the compute budget analysis (Section 5.4).
+5 Experiments
+Following CIDD [12], we conduct experiments on the CrossDocked2020 dataset [11] and evaluate
+models using the standard SBDD metrics. Details of the dataset and metrics are in Appendix D.
+6
+
+Table 4: Performance on CrossDocked2020. Performance ranking per column is color-coded as
+follows: best, second-best
+Model Vina↓ QED↑ SA↑ Success↑ MRR↑ QikProp↑ Lipinski↑ LogP MW Rank↓
+De novo 3D-generation models
+AR -6.613 0.506 0.635 5.98% 64.85% 20.31% 4.76 0.45 247.6127
+Pocket2Mol -7.245 0.567 0.755 22.82% 70.97% 29.83% 4.83 1.70 243.5415
+TamGen -7.476 0.508 0.573 8.01% 24.62% 30.33% 4.44 4.16 326.4624
+LMLF -7.776 0.515 0.572 8.31% 23.52% 25.83% 4.43 4.18 327.4923
+ELILLM -7.930 0.528 0.579 9.81% 24.02% 27.93% 4.42 4.22 328.0922
+IDOLpro -7.611 0.548 0.568 7.60% 38.20% 30.10% 4.72 1.81 342.7226
+TAGMol -7.571 0.550 0.571 7.80% 40.00% 31.10% 4.73 1.86 337.4825
+DrugGPS -7.295 0.465 0.636 13.70% 56.70% 26.50% 4.45 1.39 328.8221
+IPDiff -7.806 0.521 0.593 14.50% 26.30% 23.50% 4.53 3.46 331.6020
+DecompDiff -7.949 0.449 0.604 19.80% 64.24% 28.89% 4.31 2.45 424.1418
+MOC -7.685 0.559 0.647 22.60% 25.00% 40.60% 4.78 3.09 304.2016
+MolCRAFT -7.679 0.503 0.684 24.80% 63.50% 22.20% 4.44 1.18 327.3313
+MolPilot -7.818 0.552 0.736 30.00% 77.50% 32.30% 4.60 1.80 323.9711
+DecompDPO -8.427 0.471 0.662 30.40% 55.10% 15.80% 4.20 5.01 435.339
+MolJO -8.663 0.560 0.763 46.80% 41.30% 14.90% 4.55 4.18 308.816
+LLM-agent optimization methods
+TAGMol + MoLLM -8.052 0.566 0.621 16.65% 47.31% 29.26% 4.81 2.54 357.5319
+TAGMol + LIDDIA -7.724 0.556 0.679 21.52% 55.43% 33.71% 4.81 2.83 374.8217
+TAGMol + CIDD -7.944 0.641 0.665 24.53% 59.19% 47.79% 4.74 3.01 333.5114
+TAGMol + PROBE -9.168 0.7020.696 48.43% 62.18% 55.63% 4.85 2.96 365.224
+MolCRAFT + MoLLM -8.135 0.514 0.698 30.32% 65.27% 24.06% 4.69 2.26 346.7810
+MolCRAFT + LIDDIA -7.934 0.524 0.712 28.25% 69.22% 27.14% 4.51 2.27 362.7312
+MolCRAFT + CIDD -7.946 0.598 0.739 31.40% 70.60% 37.10% 4.69 2.07 331.588
+MolCRAFT + PROBE -9.203 0.689 0.766 63.76% 79.58% 52.61% 4.852.97 359.532
+MolJO + MoLLM -8.755 0.556 0.746 43.61% 42.86% 21.31% 4.60 4.38 331.617
+MolJO + LIDDIA -8.693 0.567 0.765 48.44% 56.93% 29.65% 4.59 3.79 354.363
+MolJO + CIDD -8.568 0.632 0.762 47.80% 57.05% 30.16% 4.63 4.18 314.595
+MolJO + PROBE -9.6260.664 0.782 67.67%66.94% 34.69% 4.67 4.16 344.321
+We compare PROBE with two categories of baselines. The first category includesDe novo 3D-
+generation models: (i) autoregressive models: AR [ 27] and Pocket2Mol [ 29], (ii) LLM-based:
+TamGen [39], LMLF [ 6], ELILLM [ 19]; and (iii) diffusion-based: IDOLpro [ 24], TAGMol [9],
+DrugGPS [40], IPDiff [20], DecompDiff [16], MOC [42], MolCRAFT [33], MolPilot [31], Decom-
+pDPO [7], and MolJO [32].
+The second category includesLLM-agent methods, including MOLLM [34] (paired with PLIP [35] re-
+ports), LIDDIA [2], and CIDD [12]. For every protein pocket in CrossDocked2020, each LLM-agent
+method starts from 10 initial molecules produced by a deep 3D generator (TAGMol/MolCRAFT/-
+MolJO trained on CrossDocked2020) and refines each through 5 DMTA iterations, yielding 10
+optimized molecules per pocket. The quantitative analysis in Section 3 is based on MolCRAFT
+initial molecules. We use GPT-4o-mini as the backbone for all agent roles. All the experiments
+are conducted on 64 parallel workers of a server with 96 Intel(R) Xeon(R) Gold 6342 CPUs. The
+detailed prompts are in Appendix A. PROBE has an extra probing stage whose overhead is separately
+analyzed in Section 5.4. The experiment on the effect of different LLM Backbones is in Appendix E.
+5.1 Performance Results
+Table 4 shows the multi-objective optimization performance obtained. The following can be observed.
+(i)PROBE yields consistent improvements over the initial molecules.Regardless of which deep
+generation model provides the initial molecule, attaching PROBE shows substantial gains on all
+metrics. Besides, the stronger the initial molecules, the stronger the final results. (ii)PROBE
+outperforms LLM-agent baselines.PROBE consistently outperforms MOLLM, LIDDIA, and
+CIDD on all metrics. (iii)PROBE closes the affinity-druggability trade-off.PROBE is the only
+method that significantly pushes both objectives upward across all three initializer settings. These
+results stem from the PROBE’sprobes before editingpipeline, which estimates how the specific
+pocket responds to local edits before optimization and turns these observations into guidance for the
+agents to propose edits improving affinity and druggability together.
+7
+
+Table 5: Ablation study on CrossDocked2020. We use MolCRAFT to generate initial molecules.
+Site Mapcontrols whether fragments are organized by the site map (Site) or kept as flat BRICS
+fragments without site organization (Fragment).Manualcontrols how edit constraints are produced:
+raw diagnosis signals only, no EDITMANUAL(Signal); EDITMANUALwritten by the LLM from its
+prior knowledge, no probing (Prior); EDITMANUALinduced from probing evidence (Probed, ours).
+Index Site Map Manual Vina↓QED↑SA↑Success↑MRR↑QikProp↑Lipinski↑LogP MW
+1 Fragment Signal -7.922 0.573 0.699 21.77% 56.06% 29.73% 4.59 2.23 321.50
+2 Site Signal -8.618 0.629 0.726 46.18% 73.48% 42.47% 4.72 2.34 344.85
+3 Fragment Prior -8.152 0.579 0.701 38.42% 48.87% 31.92% 4.62 2.06 347.88
+4 Site Prior -8.713 0.622 0.726 48.92% 71.07% 39.66% 4.74 2.23 344.87
+5 Fragment Probed -8.642 0.601 0.733 49.19% 66.70% 43.67% 4.67 2.72 372.28
+6 Site Probed -9.203 0.689 0.766 63.76% 79.58% 52.61% 4.85 2.97 359.53
+5.2 Closing the Bottlenecks
+Tables 1 and 2 show the performance of PROBE alongside the four baselines. The main findings are:
+(i) Joint progress becomes the dominant outcome.PROBE is the only method with most of its
+steps achieving improvements on both affinity and druggability, and its joint-intent IOC is roughly
+twice that of the best baseline (CIDD+MOO). Thesite mapandEditManuallocalize the edit to a site
+whose label supports both objectives, so the joint intent is reliably realized as joint improvement.(ii)
+Single-objective progress with limited collateral cost.On single-objective intents, PROBE keeps
+IOC high while keeping OI well below the baseline range on both axes. Baselines all have an OI rate
+larger than 60%, meaning that when they realize the intended objective, they typically damage the
+other one. PROBE overcomes this problem due to the explicit edit constraints carried byEditManual,
+so realizing one objective does not force the other down.
+5.3 Ablation Study
+We ablate the two design choices that distinguish PROBE from other LLM-agent paradigms in Table 5.
+TheSite Mapaxis contrastsSite(fragments organized by the site map) againstFragment(naive
+BRICS fragments). TheManualaxis forms a three-rung ladder:Signalsforwards only diagnosis
+signals with no EditManual;Priorhas the LLM write an EditManual from its own prior knowledge
+over the same signals, with no probing;Probed(ours) induces the EditManual from probing evidence.
+We have the following observations:(i) Site map consistently improves.ComparingFragment
+withSite(rows 1 vs. 2, 3 vs. 4, 5 vs. 6), all metrics improve simultaneously. Localized site map
+organization, rather than naive fragments, gives downstream edits a precise target for multi-objective
+optimization.(ii) Probing makesEditManualuseful.Asking the LLM to write anEditManual
+from its prior knowledge (Signals→ Prior, rows 1 vs. 3 and 2 vs. 4) gives only small and inconsistent
+changes. Replacing prior knowledge with probing evidence (Prior→ Probed, rows 3 vs. 5 and 4 vs. 6)
+produces a clear jump on both affinity and druggability metrics. The gain comes from the probing
+evidence distilled into the manual, not from having a manual.(iii) The two components work
+together.The best results on every metric appear when both are used (row 6). Site map alone (row 2)
+or probed manual alone (row 5) each improve over the bare baseline (row 1) but stay well below the
+whole model (row 6). The site map tells edits where to act, and the probed manual tells them what to
+do there. Both are needed for joint affinity-druggability progress.
+Figure 2: Computational budget and performance comparison. CIDD (27 Rounds) is the baseline
+extended to match PROBE’s theoretical Vina budget.
+5.4 Compute Budget Analysis
+In this experiment, we compare PROBE with CIDD, the best baseline in Table 4. Since Vina docking
+takes significantly longer than an LLM call, it dominates the wall-clock time. Therefore, we use
+the per-molecule Vina-call budget for comparison. A 5-round CIDD run admits at most 5 Vina
+calls per molecule, whereas a 5-round PROBE run admits up to 27 (12 from probing, 15 from the
+8
+
+(i) interaction signals
+Vina Score: -6.908
+fragments interactions: ...
+(ii) geometric signals
+Clash: No.
+Void/Buriedness: ...
+(iii) property signals
+Ligand Efficiency:-0.364
+Replace the existing cyclic
+backbone with a more
+stable and simpler aromatic
+structure, such as a
+substituted benzene ring...
+Retain the phosphate group
+(P=O) as it plays a critical
+role in forming hydrogen
+bonds with basic residues.
+(c) CIDD Design
+Carboxylic Acid Group
+[Synergy]
+The carboxylic acid group is
+involved in interactions with HIS
+311 and LYS 438, contributing to
+favorable binding...
+Phosphate Group
+[Tension]
+The complexity of the phosphate
+group and its sterics could
+introduce challenges...
+Spiro Atom System
+[Liability]
+The presence of a spiro atom
+significantly increases synthetic
+difficulty and raises SA penalties...
+(g) Site Map
+Carboxylic Acid Group
+"Pharmacophore role":
+"Hydrophobic for ...",
+"Action Constraints": {
+"Allowed_Actions":
+["Grow","Replace"],
+"Banned_Actions":
+["Delete_Group"]},
+"Property Constraints":{
+"Size_Limits": "Small or Medium",
+"Polarity": "Remain
+Hydrophilic...",
+"Flexibility_Limits":
+"Rigid..."},
+"Liability Blacklist":
+[electron withdrawing
+groups..." ]}
+......
+(h) EditManual
+(j) PROBE Molecule
+(e) Diagnosis signal
+"analysis": I am targeting Spiro
+Atom System. Optimizing this
+area to manage complexity while
+maintaining structural integrity.
+"modification_logic": ...
+(i) PROBE Design
+(a) Initial Molecule
+Vina: - 6.912
+QED: 0.357
+SA: 0.460
+(d) CIDD Molecule
+Vina: - 6.538
+QED: 0.469
+SA: 0.770
+Vina: - 9.759
+QED: 0.544
+SA: 0.820
+(f) Site Map Visualization
+[Synergy]
+[Tension]
+[Liability]
+Target:
+PLCD1_RAT_134_756_0
+Beyond the hydrogen-bond–dominated
+profile of the parent, the molecule
+recruits a salt bridge with HIS311 and a
+π-stacking contact with TYR551, ...
+Modification should retain the
+phosphate group and replace the
+existing cyclic backbone with a simpler
+aromatic scaffold (e.g., a substituted
+benzene ring) to relieve steric strain
+and exploit π-stacking with TYR551.
+(b) CIDD Analysis
+Figure 3: Comparison on target PLCD1. Hydrogen bonds and hydrophobic contacts are marked
+by dashed lines. Clashes are marked by red lines. (a) initial molecule, (b-d) CIDD pipeline: (b)
+CIDD analysis, (c) CIDD design, (d) CIDD optimized molecule. (e–j) PROBE pipeline: (e) diagnosis
+signals, (f,g) site map, (h) EditManual, (i) PROBE Design, (j) PROBE optimized molecule.
+multi-agent DMTA cycles). To ensure that the performance gap is not just caused by a larger budget,
+we additionally extend CIDD to 27 rounds so that its theoretical Vina budget matches PROBE’s.
+Figure 2 shows the per-molecule cost and performance. Against 5-round CIDD, PROBE uses more
+computation as expected. The key comparison is with budget-matched CIDD (27 rounds): it spends
+comparable Vina calls and more LLM tokens than PROBE, yet it yields very small improvements
+over 5-round CIDD, showing that simply enlarging the CIDD cost is inefficient. PROBE instead uses
+the site map and EditManual to constrain where and how each edit happens, reaching a much higher
+multi-objective yield within a smaller actual budget.
+5.5 Qualitative Analysis
+Figure 3 visualizes the optimization trajectories of CIDD and PROBE on target PLCD1. The initial
+molecule exhibits a clear affinity-druggability trade-off: it has baseline binding but its phosphate
+group and spiro system incur steric tension and synthetic penalties. Without pocket-specific evidence
+about how the ligand will respond to the edit, CIDD applies a generic heuristic and replaces the cyclic
+backbone with an aromatic scaffold. The unconstrained topology change introduces new 3D clashes
+and forces a rigid-body rotation of the full molecule that breaks the pre-existing hydrogen-bond
+and hydrophobic contacts, degrading affinity. PROBE marks the molecule with explicit sites and
+induces an EditManual. Guided by these constraints, PROBE performs small, rigid replacement edits
+that not only resolve the original steric clashes and reinforce the pre-existing hydrogen bonds and
+hydrophobic contacts, but also fill the lower part of the pocket with a new fragment, substantially
+enhancing affinity without harming druggability.
+6 Conclusion
+In this paper, we studied why current LLM agents struggle to refine ligands in structure-based
+drug design. We showed that existing agents rarely improve binding affinity and druggability
+simultaneously, and gains on one objective often come at the cost of the other. These agents decide
+how to edit a ligand before knowing how the pocket actually responds to local edits. To address this,
+we proposed PROBE, which first probes the pocket with controlled edits, summarizes the observed
+responses into a site map and an EditManual, and then uses these to guide role-specialized agents
+during optimization. PROBE achieves state-of-the-art performance on CrossDocked2020. It also
+substantially reduces the failure modes of existing agents revealed by our diagnostics, with joint
+improvement becoming the dominant per-edit outcome and objective interference greatly reduced.
+We envision thatprobe-before-editcould serve as a general pipeline for LLM-driven molecular
+optimization, where gathering task-specific evidence before committing to edits may extend beyond
+SBDD to other multi-objective design settings.

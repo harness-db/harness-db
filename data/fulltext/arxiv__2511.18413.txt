@@ -1,0 +1,441 @@
+record_id: arxiv:2511.18413
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2511.18413
+fetched_title: Multi-Agent Collaborative Filtering: Orchestrating Users and Items for Agentic Recommendations
+fetched_at: 2026-09-18T18:59:52Z
+
+Multi-Agent Collaborative Filtering:
+Orchestrating Users and Items for Agentic Recommendations
+Yu Xia
+University of California, San Diego
+La Jolla, CA, USA
+yux078@ucsd.edu
+Sungchul Kim
+Adobe Research
+San Jose, CA, USA
+sukim@adobe.com
+Tong Yu
+Adobe Research
+San Jose, CA, USA
+tyu@adobe.com
+Ryan A. Rossi
+Adobe Research
+San Jose, CA, USA
+ryrossi@adobe.com
+Julian McAuley
+University of California, San Diego
+La Jolla, CA, USA
+jmcauley@ucsd.edu
+Abstract
+Agentic recommendations cast recommenders as large language
+model (LLM) agents that can plan, reason, use tools, and interact
+with users of varying preferences in web applications. However,
+most existing agentic recommender systems focus on generic single-
+agent plan-execute workflows or multi-agent task decomposition
+pipelines. Without recommendation-oriented design, they often un-
+deruse the collaborative signals in the user–item interaction history,
+leading to unsatisfying recommendation results. To address this,
+we propose the Multi-Agent Collaborative Filtering (MACF) frame-
+work for agentic recommendations, drawing an analogy between
+traditional collaborative filtering algorithms and LLM-based multi-
+agent collaboration. Specifically, given a target user and query, we
+instantiate similar users and relevant items as LLM agents with
+unique profiles. Each agent is able to call retrieval tools, suggest
+candidate items, and interact with other agents. Different from the
+static preference aggregation in traditional collaborative filtering,
+MACF employs a central orchestrator agent to adaptively man-
+age the collaboration between user and item agents via dynamic
+agent recruitment and personalized collaboration instruction. Ex-
+perimental results on datasets from three different domains show
+the advantages of our MACF framework compared to strong agentic
+recommendation baselines.
+CCS Concepts
+•Information systems→Recommender systems.
+Keywords
+Agentic Recommendation, LLM-based Multi-Agent System
+ACM Reference Format:
+Yu Xia, Sungchul Kim, Tong Yu, Ryan A. Rossi, and Julian McAuley. 2026.
+Multi-Agent Collaborative Filtering: Orchestrating Users and Items for
+Agentic Recommendations. InProceedings of the ACM Web Conference 2026
+(WWW ’26), April 13–17, 2026, Dubai, United Arab Emirates.ACM, New York,
+NY, USA, 4 pages. https://doi.org/10.1145/3774904.3792931
+This work is licensed under a Creative Commons Attribution 4.0 International License.
+WWW ’26, Dubai, United Arab Emirates
+©2026 Copyright held by the owner/author(s).
+ACM ISBN 979-8-4007-2307-0/2026/04
+https://doi.org/10.1145/3774904.3792931
+1 Introduction
+Recommender systems are shifting from static predictors toward
+interactive agents. Recent agentic recommenders in web applica-
+tions, such as online shopping assistants and movie finders, cast the
+system as a large language model (LLM) agent that can plan, reason,
+call tools, and interact with users [ 2, 11]. These systems usually
+follow one of two patterns. The first uses a single LLM agent in
+a plan–and–execute loop [3, 12] that reasons step-wise and calls
+retrieval or recommendation tools but still acts as a single decision-
+maker, making it hard to draw on diverse preference signals [ 8].
+The second organizes multiple LLM agents into task-decomposition
+pipelines with generic dialogue or planning roles [1, 10, 15]. These
+multi-agent designs introduce role specialization and coordination,
+but their roles are loosely tied to preference signal sources such as
+similar users or relevant items. Thus, while these approaches im-
+prove interactivity and tool use, they lack an effective way to bring
+collaborative signals into the agentic recommendation process.
+As the foundation for many modern recommender systems, col-
+laborative filtering (CF) has long shown that similar users and rele-
+vant items hold strong predictive value [6, 7, 13]. Recent AgentCF
+[16] extends this idea by modeling users and items as LLM agents
+that interact under logged user–item histories for behavior sim-
+ulation. Despite these advances, most LLM-based agentic recom-
+menders still treat user–item histories only as context in prompts
+and do not structure or combine neighborhood evidence as CF does.
+As a result, they struggle to take advantage of the collaborative
+signals during recommendation, especially when similar users and
+correlated items provide complementary information.
+To address this, we proposeMulti-AgentCollaborativeFiltering
+(MACF), which draws an analogy between traditional CF and LLM-
+based multi-agent collaboration. Instead of using a single agent or
+generic multi-agent roles, MACF instantiates user agents and item
+agents that correspond to similar users and relevant items in the
+target user’s history. Each agent is initialized with a profile contain-
+ing user information or item attributes, and can call retrieval tools,
+suggest candidate items, and exchange messages with other agents.
+A central orchestrator is employed to manage a multi-round discus-
+sion between user and item agents. It dynamically selects which
+agents should participate in each round and issuing personalized
+instructions for each agent that shape how they contribute to the
+discussion. This setup allows the system to draw on complementary
+evidence from neighborhoods on both the user and item side, refine
+arXiv:2511.18413v3 [cs.CL] 26 Jan 2026
+
+WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Yu Xia, Sungchul Kim, Tong Yu, Ryan A. Rossi, and Julian McAuley
+“I suggest…”
+User Agent
+User Agent
+Item Agent
+Item Agent
+Query:
+“Please suggest a men’s
+cargo short for outdoor
+adventures”
+User History:
+
+, , … ,
+Orchestrator
+
+User Agent
+- GetSimilarUsers
+- GetRelevantItems
+- RetrieveByQuery
+- RetrieveByItem
+Personalized Instruction:
+“Based on your preference for
+branded fashion items, suggest
+trendy men’s cargo…”
+…………
+Tools
+Orchestrator
+
+…………
+
+Decision:
+Continue Discussion
+Agent Recruitment Agent Recruitment
+Personalized Instruction:
+“Consider agent X’s inferred target user
+preference, refine your previous suggestion
+if necessary…”
+……
+Target User:
+…
+
+…
+
+…
+
+……
+Orchestrator
+
+Decision:
+End Discussion
+Item Sufficiency Test:
+1. Quantity
+2. Relevance
+3. Ordering
+Final Recommendation
+…
+Round 0 Round 1 Round 2
+“Based on…”
+“I recomm…”
+“Here are…”
+“I’ll select…”
+Figure 1: Overview of our MACF workflow illustrated with a product recommendation example from Amazon Clothing.
+candidates through agent communication, and surface agreements
+or conflicts that would be missed by fixed aggregation rules. In
+this way, MACF leverages collaborative signals from user–item
+history in a structured way and produces recommendations with
+clear reasoning. We evaluate MACF on three datasets from differ-
+ent domains, where it shows consistent improvements over strong
+agentic recommendation baselines, validating the advantages of our
+agentic collaborative filtering framework. In summary, we make
+the following contributions:
+• We propose MACF, an agentic recommendation framework that
+draws an analogy between traditional collaborative filtering and
+LLM-based multi-agent collaboration.
+• We develop a dynamic orchestration mechanism that manages
+user and item agents across multiple rounds with personalized
+instructions, allowing MACF to aggregate collaborative signals
+in a structured and adaptive manner.
+• Experimental results demonstrate the advantage of our proposed
+MACF with consistent improvements over strong baselines on
+three datasets from different domains.
+2 Methodology
+In this section, we introduce our MACF framework as illustrated
+in Figure 1, which bridges traditional collaborative filtering and
+LLM-based multi-agent collaboration for agentic recommendation.
+2.1 Problem Definition
+LetU andI denote the sets of users and items. Each user𝑢∈U has
+an interaction history𝐻𝑢 =⟨𝑖 1,...,𝑖 𝑚⟩, represented as an ordered
+list of items. Given a natural-language user query𝑞, the task is to
+produce a ranked list ˆ𝑅𝑢,𝑞 =⟨𝑖 1,...,𝑖 𝐾⟩ that reflects both the short-
+term user intent in𝑞 and the long-term user preferences expressed
+in𝐻𝑢. We assume access to the following retrieval utilities:
+•GetSimilarUsers(𝑢,𝑛) returns a setN𝑢 of𝑛 users whose prefer-
+ences are most similar to the target user𝑢;
+•GetRelevantItems(𝑢,𝑞,𝑛) returns a subsetH𝑢,𝑞 containing up to
+𝑛items from𝐻 𝑢 that are most relevant to the user query𝑞;
+•RetrieveByQuery(𝑞,𝑘) retrieves𝑘 items whose embeddings are
+most similar to the user query𝑞;
+•RetrieveByItem(𝑖,𝑘) retrieves𝑘 items whose embeddings are
+most similar to a given item𝑖.
+These utilities are exposed to all MACF agents as callable toolsT.
+2.2 Agents Instantiation
+MACF instantiates two types of recommendation agents, user agents
+and item agents, that mirror the collaborative filtering structure, to-
+gether with an orchestrator agent that coordinates their interaction
+for a given target user𝑢, query𝑞, and user history𝐻 𝑢.
+User Agents.A user agent 𝑎user
+𝑣 is instantiated for each selected
+similar user𝑣∈N 𝑢. Each agent is initialized with a compact profile
+summarizing the user’s preference pattern and interaction history,
+along with the target user information. From its own perspective,
+the user agent reasons about how the target user𝑢 may align with
+itself, identifies which aspects of the target user’s preference are
+most informative for the query𝑞, and prepares to suggest or critique
+items. When needed, it calls retrieval tools inT to search for items
+that match the inferred preferences or a strong anchor item.
+Item Agents.An item agent 𝑎item
+𝑗 is instantiated for each selected
+query-relevant history item𝑗∈H 𝑢,𝑞 from target user history. Each
+agent is initialized with a compact profile of the item attributes and
+metadata. Given the target user information, the item agent reasons
+about why the target user𝑢 previously interacted with item 𝑗 and
+how this evidence relates to the current user intent expressed in
+the query𝑞. It can optionally call retrieval tools inT to retrieve
+items closely related to itself or to broaden the search using the
+query when it provides more informative guidance.
+Orchestrator Agent.The orchestrator agent 𝑎orc controls how
+user and item agents are instantiated and coordinated across a
+multi-round discussion. Given the target user information, the or-
+chestrator agent first calls tools T to select which similar users
+and relevant items to be instantiated as user agents𝑎 user and item
+agents𝑎item. It then issues concise, personalized instructions for
+each agent that define their task in the current round. Across rounds,
+the orchestrator continues to decide whether to continue the discus-
+sion, which agents remain active, how they are instructed, and how
+their suggestions and messages are aggregated into an evolving
+ranked list for the final recommendation. We describe the detailed
+orchestration mechanism in Section 2.3.
+
+Multi-Agent Collaborative Filtering:
+Orchestrating Users and Items for Agentic Recommendations WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates
+2.3 Multi-Agent Collaborative Filtering
+MACF runs a coordinated multi-agent discussion over rounds𝑡=
+0, 1,...,𝑇 max. Each round produces agent messages and item can-
+didates with rationales, together with a draft ranked list ˆ𝑅𝑡 . The
+design mirrors collaborative filtering in language form: user agents
+bring preference evidence from similar users, item agents expand
+around history items, and the orchestrator adapts the mix to the
+target query𝑞through targeted coordination decisions.
+Dynamic Agent Recruitment.At the beginning of the discussion
+𝑡= 0, the orchestrator agent𝑎orc calls the retrieval tools inT to
+select a set of similar users and query-relevant history items given
+target user𝑢, query𝑞, and user history𝐻 𝑢:
+N𝑢 =GetSimilarUsers(𝑢,𝑛),H 𝑢,𝑞 =GetRelevantItems(𝑢,𝑞,𝑛).
+It further filters these sets by relevance to the query𝑞 and instan-
+tiates user agents 𝑎user and item agents 𝑎item from the selected
+elements. This step grounds MACF’s agent population directly in
+collaborative signals rather than in generic role templates.
+Personalized Collaboration Instruction.Once the agent set
+A=𝑎 user∪𝑎 item is chosen, the orchestrator issues personalized
+instructions to each agent𝑎∈A . These instructions describe the
+agent’s task in the current round𝑡, such as proposing new candi-
+dates, refining earlier suggestions, resolving conflicts, or examining
+low-relevance items in the current draft of ranked list ˆ𝑅𝑡 . Instruc-
+tions depend on each agent’s unique profile, target user information,
+and the state of the draft ranked list, which ensures that different
+agents contribute complementary forms of evidence. For example,
+user agents highlight neighborhood preference patterns fromN𝑢,
+while item agents trace relevance paths from the user historyH𝑢.
+User–Item Collaboration Orchestration.For each discussion
+round𝑡≥ 1, the orchestrator agent𝑎orc begins by drafting a ranked
+list ˆ𝑅𝑡 of size𝐾 from currently accumulated candidates and ratio-
+nales from all agents. It then applies a sufficiency test on ˆ𝑅𝑡 that
+requires: (i) at least𝐾 unique items with clear relevance to the query
+𝑞 and the inferred preference; (ii) item-level alignment with the
+rationales provided by agents; and (iii) a clear ordering by relevance.
+If all conditions are met or𝑡=𝑇 max, the discussion terminates and
+ˆ𝑅𝑡 becomes the final ranked list.
+If the sufficiency test is not satisfied and 𝑡<𝑇 max, the discus-
+sion continues. The orchestrator agent𝑎orc then selects a subset of
+agentsA𝑡⊆A whose perspectives are most useful for improving
+ˆ𝑅𝑡 , and issues updated collaboration instructions for each agent
+tailored to the sources of remaining uncertainty, such as resolving
+ties and conflicts or replacing low-relevance items. Given these
+instructions, user agents 𝑎user refine or contest items using pref-
+erence evidence drawn from their similar-user viewpoint in N𝑢
+as well as optional additional tool calling. Item agents likewise
+expand around strong anchors inH𝑢 using RetrieveByItem(𝑗,𝑘) or
+adjust off-topic entries by invokingRetrieveByQuery(𝑞,𝑘)to find
+more query-aligned alternatives. Each agent also observes the full
+multi-agent discussion history and can use this shared context to
+support, critique, or counter earlier arguments, which allows MACF
+to combine the strengths of user-based CF and item-based CF in a
+single coordinated process through language-guided interaction.
+Table 1: Main results of all compared methods across datasets.
+Amazon Clothing Amazon Beauty Amazon Music
+Methods H@10 N@10 H@10 N@10 H@10 N@10
+BM25 0.0801 0.2543 0.2171 0.4546 0.1628 0.3336
+BGE-M3 0.3103 0.4356 0.2694 0.4889 0.1187 0.2947
+BGE-Reranker 0.2970 0.5031 0.2980 0.4946 0.1763 0.3516
+ItemCF 0.3804 0.6258 0.3199 0.5141 0.3106 0.5105
+UserCF 0.3687 0.5926 0.3037 0.4998 0.2988 0.4780
+ReAct 0.4217 0.6912 0.3921 0.6012 0.2323 0.4012
+Reflexion 0.4218 0.7002 0.4001 0.6203 0.3234 0.4900
+InteRecAgent 0.4207 0.7035 0.3919 0.6136 0.2919 0.4585
+MACRec 0.4205 0.6846 0.3834 0.5999 0.2634 0.4876
+MACRS 0.3871 0.6441 0.3156 0.5399 0.2348 0.4769
+TAIRA 0.4447 0.7182 0.4655 0.7520 0.3519 0.5540
+MACFitem-based 0.43630.7963 0.5027 0.8179 0.5088 0.7614
+MACFuser-based 0.5134 0.7927 0.5368 0.8244 0.5134 0.7574
+MACF 0.52380.7942 0.54210.8215 0.5450 0.7668
+Final Recommendation.When the sufficiency test is satisfied
+or the round limit𝑇max is reached, the discussion terminates and
+the most recent draft list ˆ𝑅𝑡 becomes the final recommendation
+ˆ𝑅𝑢,𝑞. This list is generated directly by the orchestrator agent𝑎orc,
+which consolidates all item candidates and rationales collected
+across rounds from all user and item agents and produces the final
+ordering through its drafting and re-ranking steps.
+3 Experiments
+3.1 Experimental Setup
+Datasets and Metrics.We evaluate our method on the three Ama-
+zon datasets: Clothing, Beauty, and Music [5]. We adopt the same
+user simulator-driven evaluation protocol as in [ 15] to measure
+the recommendation quality.H@10(HitRatio@10) measures how
+often relevant items appear in the top-10positions of the recom-
+mendation list.N@10(NDCG@10) evaluates the ranking quality
+of top-10items in the recommendation list. We adopt the same data
+splits and natural language query sets as in Yu et al. [15].
+Baselines and Variants.We compare MACF against three types
+of baselines. Retrieval-based recommenders includeBM25,BGE-
+M3, andBGE-Reranker[ 4]. Traditional collaborative filtering
+baselines includeItemCF[ 7] andUserCF[ 6] which are slightly
+adapted to consider user query via embedding-based reranking of
+CF results. We also compare recent single-agent and multi-agent
+agentic recommenders includingReAct[ 14],Reflexion[ 9],In-
+teRecAgent[ 3],MACRec[ 10],MACRS[ 1], andTAIRA[ 15].
+For our method, besidesMACFwith user-item collaboration as
+described in Section 2.3, we also report the results of two vari-
+ants:MACF user-based instantiating only user agents for multi-agent
+collaboration and similarlyMACF item-based with only item agents.
+Implementation Details.We implement the orchestrator agent,
+user agents, and item agents as MCP services using asynchronous
+HTTP stream transport with all retrieval utilities in T provided
+as MCP tools. All agents share the backbone LLM of gpt-4o with
+temperature0 .3. The input arguments for retrieval tools are de-
+faulted to𝑛= 5and 𝑘= 15, but agents may adaptively override
+them when calling the tools. All embeddings as required by tools
+are computed with BGE-M3 model [ 4] for fair comparison of all
+
+WWW ’26, April 13–17, 2026, Dubai, United Arab Emirates Yu Xia, Sungchul Kim, Tong Yu, Ryan A. Rossi, and Julian McAuley
+Table 2: Ablation studies of different modules in MACF
+Amazon Clothing Amazon Beauty Amazon Music
+Variants H@10 N@10 H@10 N@10 H@10 N@10
+MACF 0.5238 0.7942 0.5421 0.8215 0.5450 0.7668
+𝑤/𝑜PCI 0.5165 0.7902 0.5147 0.7836 0.5372 0.7417
+𝑤/𝑜DAR 0.5029 0.7462 0.5053 0.7753 0.5448 0.7129
+𝑤/𝑜ATU 0.4300 0.7516 0.4890 0.7882 0.4884 0.6682
+1 2 3 4 5
+Number of Discussion Rounds
+0
+50
+100
+150
+200Frequency
+Amazon Music
+1 2 3 4 5
+Number of Discussion Rounds
+0
+50
+100
+150
+200
+Amazon Beauty
+1 2 3 4 5
+Number of Discussion Rounds
+0
+50
+100
+150
+200
+Amazon Clothing
+Figure 2: Distributions of MACF discussion rounds.
+methods. The maximum number of discussion rounds𝑇max is set to
+5. The number of items in the targeted ranked list𝐾is set to 10.
+3.2 Results
+Main Results.As presented in Table 1, across all three domains,
+MACF delivers clear gains over retrieval, CF-based, and agentic
+baselines. On Clothing, MACF achieves the best hit rate while
+maintaining strong ranking quality. On Beauty, it again reaches the
+highest hit rate and stays competitive at the top for NDCG@10. On
+Music, MACF leads on both metrics, reflecting its ability to combine
+neighborhood signals and history-based reasoning across differ-
+ent domains. The user-only and item-only variants also perform
+strongly. MACFuser-based shows competitive hit rates across domains,
+while MACFitem-based produces high NDCG@10 scores, especially
+on Clothing and Beauty. These results highlight that grounding
+agents in collaborative filtering signals and guiding their interac-
+tion through the orchestrator consistently improves relevance and
+ranking accuracy.
+Ablation Studies.We report in Table 2 performances of MACF
+after removing each key module. From the results, we observe that
+disabling personalized collaboration instruction (PCI) or dynamic
+agent recruitment (DAR) reduces both HR@10 and NDCG@10
+across datasets, verifying the value of structured agent selection
+and targeted guidance in our orchestrator agent design. Turning
+off adaptive tool use (ATU), where each agent only call tools once
+at the beginning, also leads significant degradation, especially on
+Music, where relevant anchors vary more across user histories.
+These results further confirm the validity of our agent designs and
+dynamic orchestration mechanism for MACF.
+Additional Analysis.To further understand the behavior of MACF
+during multi-agent discussion, we show in Figure 2 the distribution
+of discussion rounds across three datasets. We observe that most
+queries finish before the third round, with very few cases reaching
+the set maximum of five rounds. This indicates that our designed
+sufficiency test in collaboration orchestration is effective at identi-
+fying when the ranked list is ready to be recommended to the user,
+preventing unnecessary interaction and reducing extra cost.
+4 Conclusion
+In this paper, we present Multi-Agent Collaborative Filtering (MACF),
+an agentic recommendation framework that grounds LLM-based
+multi-agent collaboration in collaborative filtering signals. By in-
+stantiating similar users and relevant items as LLM agents and co-
+ordinating them with a central orchestrator, MACF turns user–item
+evidence into an interactive, query-aware multi-agent discussion
+that yields stronger recommendations. Experiments on three datasets
+show consistent gains over traditional recommenders and strong
+agentic recommendation baselines, highlighting the potential of
+agentic modeling for future recommender systems.
+Acknowledgement
+This work is partially supported by NSF IIS-2432486.

@@ -1,0 +1,469 @@
+record_id: s2_snowball:e713c2d7fed016aad3affc3d9c985a55c9715250
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2501.19318
+fetched_title: MINDSTORES: M EMORY-INFORMED NEURAL DECI - SION SYNTHESIS FOR TASK -O RIENTED REINFORCE - MENT IN EMBODIED SYSTEMS
+fetched_at: 2026-09-18T19:00:24Z
+
+arXiv:2501.19318v4 [cs.AI] 3 Jun 2025
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+MINDSTORES: M EMORY-INFORMED NEURAL DECI -
+SION SYNTHESIS FOR TASK -O RIENTED REINFORCE -
+MENT IN EMBODIED SYSTEMS
+Anirudh Chari1∗ Suraj Reddy1∗ Aditya Tiwari2 Richard Lian1 Brian Zhou3
+1Massachusetts Institute of Technology, Cambridge, MA
+2Illinois Mathematics and Science Academy, Aurora, IL
+3Harvard University, Cambridge, MA
+{anichari,surajrdy,rlian}@mit.edu;atiwari@imsa.edu,
+brianzhou@college.harvard.edu
+* = Equal Contribution
+ABSTRACT
+While large language models (LLMs) have shown promising capabilities as zero-
+shot planners for embodied agents, their inability to learn from experience and
+build persistent mental models limits their robustness in complex open-world envi-
+ronments like Minecraft. We introduce MINDSTORES, an experience-augmented
+planning framework that enables embodied agents to build and leverage mental
+models through natural interaction with their environment. Drawing inspiration
+from how humans construct and refine cognitive mental models, our approach
+extends existing zero-shot LLM planning by maintaining a database of past experi-
+ences that informs future planning iterations. The key innovation is representing
+accumulated experiences as natural language embeddings of (state, task, plan,
+outcome) tuples, which can then be efficiently retrieved and reasoned over by an
+LLM planner to generate insights and guide plan refinement for novel states and
+tasks. Through extensive experiments in the MineDojo environment, a simulation
+environment for agents in Minecraft that provides low-level controls for Minecraft,
+we find that MINDSTORES learns and applies its knowledge significantly better
+than existing memory-based LLM planners while maintaining the flexibility and
+generalization benefits of zero-shot approaches, representing an important step
+toward more capable embodied AI systems that can learn continuously through
+natural experience.
+1 I NTRODUCTION
+Recent advances in large language models (LLMs) have demonstrated enhanced capabilities in
+reasoning (Plaat et al., 2024; Huang & Chang, 2023), planning (Sel et al., 2025), and decision-making
+(Huang et al., 2024) through methods that strengthen analytical depth. Among the numerous domains
+of active innovation, the success of AI agents serves as a critical benchmark for assessing our progress
+toward generally capable artificial intelligence (Brown et al., 2020).
+Building embodied agents—AI systems with physical form—that learn continuously from real-world
+interactions through persistent memory and adaptive reasoning remains a fundamental challenge
+in the future of artificial intelligence. Classical approaches, such as reinforcement learning (Dulac-
+Arnold et al., 2021) and symbolic planning (Zheng et al., 2025), struggle with scalability, irreversible
+errors, and rigid assumptions in complex environments.
+A promising paradigm for such agents leverages LLMs as high-level planners (Jeurissen et al., 2024):
+the LLM decomposes abstract goals into step-by-step plans (e.g., “mine wood→ craft tools→ smelt
+iron”), while a low-level controller translates these plans into environment-specific actions (e.g.,
+movement, object interaction). This “brain and body” architecture capitalizes on the LLM’s capacity
+for structured reasoning while grounding its outputs in the dynamics of the physical world—a critical
+1
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+capability for real-world applications like robotic manipulation (Shentu et al., 2024; Bhat et al., 2024;
+Wang et al., 2024b), autonomous navigation (Zawalski et al., 2024), and adaptive disaster response.
+Input
+Review Experience
+Plan Generation
+Predict Outcome
+Execute
+Record
+Failure Management
+Next Iteration
+Task: Mine Iron
+Review: Previous experiences for mining needs a pickaxe!
+Plan: Mine
+, craft
+, mine
+, craft
+, mine
+Predict: Probable failure, might die from hunger while finding iron ore.
+Review: Find food before searching for iron ore.
+Plan: Mine
+, craft
+, mine
+, craft
+, craft
+, hunt
+, mine
+Predict: Probable success!
+Execution:
+Store relevant information back into database to refer to later.
+Figure 1: Overview of the MINDSTORES planning architecture. The left shows the iterative
+experiential learning pipeline leveraging the experience database. Database-related methods are in
+orange, planning steps are in green, and Minecraft steps are in red. The right shows an example
+applying this pipeline to an example task in Minecraft.
+While recent LLM-based agents show promise in generating action plans for embodied tasks, many
+lack experiential learning, i.e., the ability to apply insights from past experiences to planning for
+future tasks. Unlike humans—who build mental models to generalize insights, avoid errors, and
+reason counterfactually (e.g., “Crafting a stone pickaxe first would enable iron mining”)—existing
+agents cannot synthesize persistent representations of past interactions. This gap hinders their ability
+to tackle long-horizon tasks in open worlds like Minecraft, where success requires inferring objectives,
+recovering from failures, and transferring insights across scenarios.
+Minecraft exemplifies these challenges: agents must explore procedural terrains, infer task dependen-
+cies (e.g., stone tools before iron mining), and adapt to unforeseen challenges. Current LLM planners,
+namely zero-shot architectures like DEPS (Wang et al., 2024c), exhibit critical flaws: (1) they lack
+persistent mental models, causing repetitive errors (e.g., using wooden pickaxes for iron mining); and
+(2) they underutilize LLMs’ reasoning to synthesize experiential insights, producing brittle plans.
+To address these limitations, we propose MINDSTORES, a framework that leverages LLMs to
+construct dynamic mental models—internal representations guiding reasoning and decision-making,
+inspired by human cognition. Just as humans build simplified models of reality to anticipate events
+and solve problems, our approach equips agents to actively interpret experiences through structured
+reasoning. By analyzing failures (e.g., “Wooden pickaxes break mining iron”), inferring causal rules
+(e.g., “Stone tools are prerequisites”), and predicting outcomes, the LLM transforms raw interaction
+data into adaptive principles.
+MINDSTORES augments planners with an experience database storing natural language tuples (state,
+task, plan, outcome) and operates cyclically: observe, retrieve relevant experiences, synthesize context-
+aware plans, act, and log outcomes. This closed-loop process enables semantic analysis of memories,
+iterative strategy refinement, and outcome prediction, bridging the gap between static planning and
+experiential learning while grounding agent reasoning in human-like cognitive foundations.
+Hence, our key contributions are as follows:
+2
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+• A cognitive-inspired formulation of artificial mental models to enable natural-language
+memory accumulation and transfer learning.
+• MINDSTORES, a novel open-world LLM planner leveraging the above formulation to
+develop lifelong learning embodied agents.
+• Extensive evaluation of MINDSTORES in Minecraft, demonstrating a 9.4% mean improve-
+ment in open-world planning tasks over existing methods.
+In the remainder of this paper, we detail the theoretical foundations of mental models in Section 2,
+present the MINDSTORES architecture in Section 3, and validate its performance through experi-
+ments in Sections 4 and 5. Our findings underscore the critical role of memory-informed reasoning in
+developing lifelong learning agents for open-world environments.
+2 B ACKGROUND
+2.1 O PEN -WORLD PLANNING FOR EMBODIED AGENTS
+Planning for embodied agents in open-world environments presents unique challenges due to the
+unbounded action space, long-horizon dependencies, and complex environmental dynamics. In
+environments like Minecraft, agents must reason about sequences of actions that may span dozens of
+steps, where early mistakes can render entire trajectories infeasible (Fan et al., 2022). Traditional
+planning approaches that rely on explicit state representations and value functions struggle in such
+domains due to the combinatorial explosion of possible states and actions.
+The key challenges in open-world planning stem from two main factors. First, the need for accurate
+multi-step reasoning due to long-term dependencies between actions presents a significant hurdle.
+Second, the requirement to consider the agent’s current state and capabilities when ordering parallel
+sub-goals within a plan poses additional complexity. Consider the example of crafting a diamond
+pickaxe in Minecraft: the process requires first obtaining wood, then crafting planks and sticks,
+mining stone with a wooden pickaxe, crafting a stone pickaxe, mining iron ore, smelting iron ingots,
+and finally crafting the iron pickaxe—a sequence that can easily fail if any intermediate step is
+incorrectly executed or ordered.
+2.2 Z ERO-SHOT LLM P LANNING WITH DEPS
+Recent work has shown that large language models can serve as effective zero-shot planners for
+embodied agents through their ability to decompose high-level tasks into sequences of executable
+actions (Huang et al., 2022a). The DEPS (Describe, Explain, Plan and Select) framework leverages
+this capability through an iterative planning process that combines several key components (Wang
+et al., 2024c). The framework utilizes a descriptor that summarizes the current state and execution
+outcomes, an explainer that analyzes plan failures and suggests corrections, a planner that generates
+and refines action sequences, and a selector that ranks parallel candidate sub-goals based on estimated
+completion steps.
+The key innovation of DEPS is its ability to improve plans through verbal feedback and explanation.
+When a plan fails, the descriptor summarizes the failure state, the explainer analyzes what went
+wrong, and the planner incorporates this feedback to generate an improved plan. This creates a form
+of zero-shot learning through natural language interaction.
+However, DEPS and similar approaches maintain no persistent memory across episodes. Each new
+planning attempt starts fresh, unable to leverage insights gained from previous successes and failures
+in similar situations. This limitation motivates our work on experience-augmented planning.
+2.3 M ENTAL MODELS
+Mental models are cognitive representations of how systems and environments work, enabling humans
+to understand, predict, and interact with the world around them. Originally proposed by Craik (1952),
+mental models theory suggests that people construct small-scale internal models of reality that they
+use to reason, anticipate events, and guide behavior. These models are built through experience and
+3
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+Figure 2: Interactive planning process for crafting iron boots in Minecraft. The system initially plans
+to mine iron with a wooden pickaxe but learns from past experience that this will fail. It then updates
+the plan to include creating a stone pickaxe first, leading to successful iron ore mining.
+observation, continuously updated as new information becomes available, and help reduce cognitive
+load by providing ready-made frameworks for understanding novel situations.
+A key insight from psychological research on mental models is their role in transfer learning and
+generalization (Canini et al., 2010). When faced with new scenarios, humans naturally draw upon their
+existing mental models to make informed decisions, even in previously unseen contexts. This ability
+to leverage past experiences through abstract representations is particularly relevant for embodied
+agents operating in open-world environments, where they must constantly adapt to novel situations
+while maintaining coherent, generalizable knowledge about environmental dynamics.
+3 M ETHODS
+3.1 O VERVIEW
+We propose an experience-augmented planning framework that maintains a similar foundation to
+DEPS but advances by maintaining a persistent mental model of the environment through natural
+language experiences. Our approach integrates several key components into a cohesive system. The
+framework maintains a databaseD of experience tuples (s,t,p,o ) containing state descriptionss,
+taskst, plansp, and outcomeso. This is complemented by a semantic retrieval system for finding
+relevant past experiences, an LLM planner that generates insights and plans informed by retrieved
+experiences, and a prediction mechanism that estimates plan outcomes before execution.
+3.2 E XPERIENCE DATABASE
+Each experience tuple (s,t,p,o )∈D consists of natural language paragraphs describing the en-
+vironmental context. The state s captures the environmental context and agent’s condition. The
+taskt represents the high-level goal to be achieved. The plan p contains the sequence of actions
+generated by the planner. Finally, the outcomeo describes the execution result and failure description
+if applicable.
+For each component, we compute a dense vector embeddinge(x)∈ Rd using a pretrained sentence
+transformer, wherex represents any ofs,t,p, oro. This allows efficient similarity-based retrieval
+4
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+using cosine distance:
+sim(x1,x 2) = e(x1)·e(x2)
+∥e(x1)∥∥e(x2)∥ (1)
+3.3 E XPERIENCE -G UIDED PLANNING
+Given a new statest and tasktt, our algorithm proceeds through several stages. Initially, it retrieves
+thek most similar past experiences based on state and task similarity:
+Nk(D,s t,t t) = top-k(s,t,p,o)∈D
+
+ X
+x∈{s,t}
+λxsim(x,x t)
+
+ (2)
+The LLM is then prompted to analyze these experiences and generate insights about common failure
+modes to avoid, successful strategies to adapt, and environmental dynamics to consider. Following
+this analysis, it generates an initial planpt conditioned on the state, task, experiences, and insights.
+The system then predicts the likely outcome by retrieving similar past plans:
+Nk(st,t t,p t) = top-k(s,t,p,o)∈D
+
+ X
+x∈{s,t,p}
+λxsim(x,x t)
+
+ (3)
+If predicted outcomes suggest likely failure, the system returns to the plan generation stage to revise
+the plan. Finally, it executes the plan and stores the new experience tuple inD. The complete process
+is formalized in Algorithm 1.
+Algorithm 1 Experience-Augmented Planning
+Require: Statest, Tasktt, DatabaseD, LLMM,k neighbors
+Ensure: Planpt
+1:Nk←retrieve top k(D,s t,t t,k )
+2: insights←M.analyze experiences(Nk)
+3: pt←M.generate plan(st,t t,Nk,insights)
+4: while true do
+5: similar plans←get similar plans(D,s t,t t,p t)
+6: pred outcome←analyze outcomes(similar plans)
+7: if pred outcome is success then
+8: break
+9: end if
+10: pt←M.revise plan(pt, pred outcome)
+11: end while
+12: outcome←execute plan(pt)
+13:D.add((st,t t,p t, outcome))
+14: returnpt
+3.4 D ESIGN JUSTIFICATION
+Our approach incorporates several carefully considered design elements that work together to create
+an effective planning system. The use of natural language experiences, rather than vectors or symbolic
+representations, leverages the LLM’s ability to perform flexible reasoning over arbitrary descriptions.
+The semantic retrieval system employs dense embeddings to enable efficient similarity search while
+capturing semantic relationships between experiences beyond exact matches. The two-stage retrieval
+process first retrieves experiences based on state/task similarity to inform plan generation, then
+retrieves similar plans to predict outcomes, allowing the planner to both learn from past experiences
+and validate new plans. Finally, the iterative refinement capability enables the planner to revise plans
+based on predicted outcomes before execution, reducing the cost of actual failures.
+This design maintains the benefits of zero-shot LLM planning while enabling continual learning
+through natural experience.
+5
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+4 E XPERIMENTS
+4.1 E XPERIMENTAL SETUP
+We evaluate our experience-augmented planning approach in MineDojo using 8 tiers of task com-
+plexity (MT1–MT8) (Fan et al., 2022). The observation space includes RGB view, GPS coordinates,
+and inventory state, with 42 discrete actions mapped from MineDojo’s action space (Fan et al., 2022).
+All experiments utilize the behavior cloning controller trained on human demonstrations, following
+similar methodology to DEPS and V oyager. Due to software version constraints, our implementation
+of the controller achieves lower baseline performance than the original DEPS controller. Therefore,
+we use our implementation of DEPS without the experience database as the primary baseline for fair
+comparison. Each task is evaluated over 30 trials with randomized initial states and a fixed random
+seed of 42.
+Our experience database uses Sentence-BERT embeddings (768-dim) stored in FAISS for efficient
+search. Key parameters were determined through ablation studies:
+• Optimal k = 5 neighbors (testedk = 1, 3, 5, 10, 20)
+• Weighted similarity: λs = 0.4 (state),λt = 0.4 (task),λp = 0.2 (plan)
+For the complete agent algorithm and associated LLM prompts, see Appendix A, and for detailed
+implementation aspects including environment integration and neural component configurations, see
+Appendix B.
+4.2 E VALUATION TASKS
+We evaluate on 53 Minecraft tasks grouped into 3 complexity tiers:
+• Basic (MT1–MT2): Fundamental tasks (wood/stone tools, basic blocks)
+• Intermediate (MT3–MT5): Progressive tasks (food, mining, armor crafting)
+• Advanced (MT6–MT8): Complex tasks (iron tools, minecart, diamond)
+Episode lengths range from 3,000 steps (Basic) to 12,000 steps (Challenge tasks).
+For additional task details and performance statistics, see Appendix C.
+4.3 B ASELINES
+We compare MINDSTORES to the following existing state-of-the-art approaches:
+• DEPS: State-of-the-art zero-shot LLM planner (Wang et al., 2024c)
+• Voyager: Automated curriculum learning agent (Wang et al., 2023)
+• Reflexion: LLM planner with environmental feedback (Shinn et al., 2023)
+4.4 A BLATIONS
+To analyze the function of each individual component of the MINDSTORES framework, we perform
+the following ablations:
+• No Experience: Remove retrieval component
+• Fixedk Values: Testk = 1, 3, 5, 10, 20 retrieval contexts
+• Single-Shot: Disable iterative plan refinement (DEPS)
+4.5 M ETRICS
+To quantify each method’s performance in open-world planning in the Minecraft environment, we
+measure:
+6
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+• Success Rate: Completion percentage across trials
+• Learning Efficiency: Iterations required for skill mastery
+• Complexity Scaling: Performance vs. task complexity tiers
+• Retrieval Impact: Success rate vs. context size (k)
+• Continuous Learning: Effect of non-discrete experience database for each task progression
+5 R ESULTS AND ANALYSIS
+Our experiments reveal significant performance differences between MINDSTORES and DEPS
+across task categories, highlighting key insights into their scalability and effectiveness.
+5.1 P ERFORMANCE METRICS
+1 2 3 4 5 6 7 8
+0
+20
+40
+60
+80
+100
+Task Difficulty (MT)
+Success Rate (%)
+MINDSTORES DEPS
+Figure 3: Performance comparison: MIND-
+STORES consistently outperforms DEPS across
+tasks. Both systems show declining success rates
+with increasing complexity (MT1–MT8), with
+MT8 resulting in 0% success for both. Mean
+difference: 9.4%.
+Wood
+Cobblestone
+Coal
+FurnaceSword Iron
+0
+200
+400
+Novel Learning Iterations
+MINDSTORES V oyager Reflexion
+Figure 4: Novel learning iterations across dif-
+ferent Minecraft tasks. MINDSTORES demon-
+strates superior efficiency in complex tasks.
+(Note: Iteration counts for Reflexion are capped
+at 500 in later tasks.)
+As we analyze Figure 3 in comparison to our version of DEPS, we see an all-around improvement
+with the addition of the experience database.
+FUNDAMENTAL TASKS (MT1–MT2)
+Both systems achieve strong performance in fundamental crafting tasks, with DEPS achieving success
+rates of 70.6–77.0% and MINDSTORES performing slightly better at 83.3–83.7%. Notably, there is
+near-parity in Wooden Axe crafting, with both systems achieving a 96.7% success rate. However, the
+largest performance gap in MT1 occurs in Stick production, where MINDSTORES outperforms DEPS
+by 6.3%. In MT2, MINDSTORES maintains a consistent advantage, with an average performance
+improvement of 6.7% across tasks.
+INTERMEDIATE TASKS (MT3–MT5)
+The maximum disparity between the two systems occurs in MT3 painting, where MINDSTORES
+achieves a 96.7% success rate compared to DEPS’s 76.7%, resulting in a 20.0% performance gap.
+In cooked meat tasks, MINDSTORES maintains a 6.7–16.7% advantage over DEPS. For MT5
+armor challenges, the performance gaps are particularly pronounced, with Leather Helmet showing a
+20.0% difference and Iron Boots a 10.3% difference. Overall, MINDSTORES maintains an average
+advantage of +11.0% across intermediate tasks, demonstrating significant divergence in system
+performance.
+7
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+ADVANCED TASKS (MT6–MT8)
+In MT6 iron tool crafting, MINDSTORES achieves an average performance improvement of 12.2%
+over DEPS, with the Iron Axe task showing a particularly large gap (23.3% vs. 6.7%). MT7 highlights
+another standout difference, with Tripwire Hook success rates at 43.3% for MINDSTORES compared
+to 20.0% for DEPS. However, both systems experience a performance collapse in advanced tasks,
+with MT6–MT7 success rates dropping below 21% (DEPS: 6.7–8.3%, MINDSTORES: 17.3–20.5%).
+Notably, neither system can solve the MT8 diamond crafting challenge, with both achieving a 0%
+success rate.
+5.2 L EARNING EFFICIENCY ANALYSIS
+MINDSTORES demonstrates superior learning efficiency, particularly for complex tasks. For basic
+tasks like mining wood and cobblestone, all systems perform comparably (9 to 42 iterations) (see
+Figure 4). However, as complexity increases, MINDSTORES requires fewer iterations (54 to 276)
+compared to V oyager and Reflexion, which show exponential increases in required iterations.
+0 5 10 15 200
+10
+20
+30
+k Value
+Success Rate (%)
+Torch Iron Boots Iron Pickaxe
+Minecart Diamond
+Figure 5: Success rates vs. retrieval context
+sizek for different tasks. Simple tasks improve
+steadily with k, while more complex tasks re-
+quire larger k values. Advanced tasks remain
+unachievable regardless ofk.
+1 2 3 4 5 6 7 8 9 10
+0
+0.2
+0.4
+0.6
+0.8
+1 ·104
+Task Reference Number
+Total Steps
+Completion Steps
+Figure 6: Steps required for task completion with
+continuous building of the experience database.
+(See Appendix Table 1 for corresponding tasks.)
+5.3 S CALABILITY WITH TASK COMPLEXITY
+Performance divergence becomes pronounced with increasing task complexity. MINDSTORES
+maintains efficient novel learning iterations for tasks like crafting a stone sword and mining iron,
+while V oyager and Reflexion require significantly more iterations, even reaching the max range
+(500+) for a relatively simple Mine Iron task (see Figure 4).
+5.4 C ONTINUOUS EXPERIENCE BUILDING ANALYSIS
+Figure 6 shows an experiment in which the experience database is not reset between tasks but is built
+continuously across multiple tasks. We observe that the entire process of completing the Minecart
+task takes only 9112 steps including the previous 9 tasks, compared to the 6000 steps needed in a
+fresh environment. This indicates that only approximately 200 new steps were required. The number
+of new task completion steps decreases non-linearly even as task complexity grows:
+• Basic crafting (Wooden Door): 3000 steps
+• Mid-tier crafting (Furnace): 4879 steps
+• Advanced crafting (Iron Pickaxe): 8598 steps
+8
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+The system maintains a 100% success rate across all tasks, indicating robust skill transfer and
+knowledge utilization from the growing experience database, which expands from 26 entries for
+Wooden Door to 355 entries for Minecart (see Figure 6 and Appendix Table 1).
+6 R ELATED WORKS
+6.1 E MBODIED PLANNING & CLASSICAL METHODS
+Early approaches used hierarchical reinforcement learning (Sutton et al., 1999) and symbolic plan-
+ning (Kaelbling & Lozano-Perez, 2011) but struggled with scalability in open-world domains like
+Minecraft. Hybrid methods like PDDLStream (Garrett et al., 2020) combined symbolic planning with
+procedural samplers, while DreamerV3 Hafner et al. (2024) employed latent world models. However,
+these methods depend on rigid priors, lack causal reasoning, and fail to recover from irreversible
+errors. Reinforcement learning frameworks (e.g., DQN (Mnih et al., 2015), PPO (Schulman et al.,
+2017)) and LLM-RL hybrids like Eureka (Ma et al., 2023) also falter in dynamic, long-horizon tasks
+due to static reward mechanisms and error propagation.
+6.2 Z ERO-SHOT LLM P LANNERS
+DEPS (Wang et al., 2024c) pioneered zero-shot LLM planning through iterative verbal feedback,
+enabling dynamic plan refinement. Subsequent works like V oyager (Wang et al., 2023) (skill libraries),
+ProgPrompt (Singh et al., 2023) (code generation), and Reflexion (Shinn et al., 2023) (feedback loops)
+advance LLM-based planning but share critical flaws. Namely, they suffer from brittle execution due
+to dependency on hardcoded assumptions (e.g., ProgPrompt’s code templates), opaque memory due
+to non-interpretable representations (e.g., V oyager’s code snippets, PaLM-E’s latent vectors (Driess
+et al., 2023)), and the inability to learn from failed task executions (e.g., Inner Monologue (Huang
+et al., 2022b) lacks persistent memory).
+6.3 M EMORY-BASED PLANNERS
+Recent memory-augmented systems like E2CL (Wang et al., 2024a), ExpeL (Zhao et al., 2024), and
+AdaPlanner (Sun et al., 2023) store experiences but face key limitations. Namely, they suffer from
+shallow reasoning capabilities due to lack of environmental context (ExpeL) or causal analysis (ReAct
+(Yao et al., 2023)), especially of failure modes (V oyager). Above all, these systems are often only
+evaluated on narrow, controlled-environment benchmarks (e.g., ALFRED), not open-world tasks.
+6.4 M ENTAL MODELS IN AI
+While cognitive-inspired architectures like predictive coding (Rao & Ballard, 1999) and world models
+(Ha & Schmidhuber, 2018) encode environmental dynamics, they rely on latent vectors (PIGLeT
+(Zellers et al., 2021)) or symbolic logic (RAP (Hao et al., 2023)), sacrificing interpretability and
+adaptability. Neuro-symbolic methods (Garcez & Lamb, 2023) and tree-search frameworks (LATS
+(Zhou et al., 2024)) further struggle with scalability and causal reasoning.
+7 C ONCLUSION
+In this paper we presented MINDSTORES, an experience-augmented planning framework that
+enables embodied agents to build and leverage mental models through natural interaction with their
+environment. Our approach extends zero-shot LLM planning by maintaining a database of natural
+language experiences that inform future planning iterations. Through extensive experiments in Mine-
+Dojo, MINDSTORES demonstrates significant improvements over baseline approaches, particularly
+in intermediate-complexity tasks, while maintaining the flexibility of zero-shot approaches. The
+success of our “artificial mental model” approach, which represents experiences as retrievable natural
+language tuples and enables LLMs to reason over past experiences, demonstrates that incorporating
+principles from human cognition can substantially improve complex reasoning and experiential
+learning capabilities in AI systems.
+9
+
+Presented at the Workshop on Reasoning and Planning for LLMs at ICLR 2025
+However, several limitations remain. Performance degrades significantly for advanced tasks, and
+computational overhead scales with database size. Future work should explore more sophisticated
+experience pruning mechanisms, hierarchical memory architectures for managing larger experience
+databases, and improved methods for transferring insights across related tasks. Additionally, investi-
+gating ways to combine our experience-based approach with traditional reinforcement learning could
+help address the challenge of long-horizon planning in complex environments.

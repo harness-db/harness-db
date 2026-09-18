@@ -1,0 +1,997 @@
+record_id: s2_snowball:4f5945f18c27caeda1b4cf6209c1989a8f8ce096
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2606.20122
+fetched_title: Two Core Challenges in Dynamic Outline
+fetched_at: 2026-09-18T19:00:07Z
+
+ScaffoldAgent: Utility-Guided Dynamic Outline Optimization for
+Open-Ended Deep Research
+Zhibang Yang1,2,3,*, Xinke Jiang1,2,3,*, Yuzhen Xiao1,2,3,*, Ruizhe Zhang1,2,3,*, Yue Fang1,2,*, Xinfei Wan1,
+Zhengxing Song1,Yuxuan Liu 1,Yuheng Huang 4,Junfeng Zhao 2,3,†,Yasha Wang 1,5,†,Xu Chu 2,3,6,†
+1National Engineering Research Center of Software Engineering, Peking University, Beijing, China
+2School of Computer Science, Peking University, Beijing, China
+3Key Laboratory of High Confidence Software Technologies, Ministry of Education, Beijing, China
+4GRG Banking Equipment Co., Ltd., Guangzhou, China
+5Peking University Information Technology Institute (Tianjin Binhai), Tianjin, China
+6Center on Frontiers of Computing Studies, Peking University, Beijing, China
+*Equal contribution †Corresponding authors
+{yangzb, xinkejiang}@stu.pku.edu.cn; {zhaojf, wangyasha, chu_xu}@pku.edu.cn
+Abstract
+Open-ended deep research (OEDR) requires
+systems to acquire knowledge through multi-
+round retrieval and generate coherent long-
+form reports. The outline plays a central role as
+a structural scaffold that coordinates retrieval,
+evidence organization, and generation. How-
+ever, existing methods either fix the outline
+before writing or refine it with local heuris-
+tics, leading to scaffold drift under contin-
+uous information accumulation and delayed
+feedback for evaluating outline modifications.
+We proposeScaffoldAgent, a utility-guided
+dynamic outline optimization framework for
+OEDR. ScaffoldAgent models outline evolu-
+tion as a structured decision process with three
+operations:Expansion,Contraction, andRevi-
+sion, enabling controlled updates to the report
+scaffold. It further introduces a utility-guided
+feedback mechanism that estimates the down-
+stream value of each outline operation from
+retrieval gain, structural coherence, and trial-
+generation quality. The resulting utility signal
+guides node selection, operation scheduling,
+and termination during inference. Experiments
+on DeepResearch Bench and DeepResearch
+Gym show that ScaffoldAgent consistently im-
+proves long-form report generation and factual
+grounding over existing deep research agents.
+1 Introduction
+LargeLanguageModels (LLMs) have become a
+cornerstone for building increasingly capable lan-
+guage agents (Bubeck et al., 2023; Chang et al.,
+2024). Recent advances in reasoning-oriented mod-
+els, such as DeepSeek-R1 (Guo et al., 2025) and
+the OpenAI o-series (Jaech et al., 2024), have sub-
+stantially improved LLM performance on struc-
+tured tasks such as mathematical reasoning and
+complex question answering (Trinh et al., 2024;
+Guo et al., 2026). Beyond single-turn generation,
+(a) Challenge C1 -- Uncontrollable Outline
+Expansion
+t = 0
+(Initial)
+t = 1
+Reduntant
+t = 2
+Irrelevant
+Structural
+lmbalance
+Without structural constraints, the outline accumulates
+redundancy and noise over iterations
+(b) Challenge C2 -- Delayed Feedback
+t = 1
+New Subtopic
+Retrieval Structure Generation
+Semantic
+Overlap
+Low
+Relevance
+Incoherrent
+Output
+Composite Utility: Low
+Delayed Feedback
+The value of an outline operation can only be assessed through
+its downstream impact on retrieval, structure, and generation
+Two Core Challenges in Dynamic Outline
+Optimization
+Figure 1: Challenges in dynamic outline optimization.
+C1: Scaffold Drift.As the outline is repeatedly updated
+with newly retrieved evidence and subtopics, redundant
+branches, uneven topic granularity, and misplaced sec-
+tions gradually accumulate.C2: Delayed Feedback.
+An outline modification yields no immediate feedback,
+as its impact only becomes observable through subse-
+quent retrieval and trial generation.
+tool-augmented LLMs, i.e., agents (Li et al., 2026),
+can now interact with external environments and
+perform iterative planning, searching, and self-
+correction (Jiang et al., 2025; Yao et al., 2023;
+Zhang et al., 2026; Shinn et al., 2023; Schick et al.,
+2023; Liu et al., 2026; Feng et al., 2026).
+This agentic paradigm has shown strong poten-
+tial in software engineering (Jimenez et al., 2024)
+and open-world web navigation (Zhou et al., 2024;
+Mialon et al., 2024). However,open-ended tasks
+that require agents to acquire knowledge through
+multi-round retrieval and synthesize the accumu-
+lated evidence into coherent long-form reportsre-
+main challenging. Such tasks, recently formalized
+asOpen-ended Deep Research (OEDR)(Xiong
+et al., 2026; Du et al., 2025), demand not only
+effective information seeking and content genera-
+tion, but also persistentcontent organizationover
+evolving evidence.
+Unlike task-oriented agents that execute a fixed
+arXiv:2606.20122v2 [cs.AI] 30 Aug 2026
+
+plan toward a well-defined goal (Jimenez et al.,
+2024; Mialon et al., 2024), OEDR is organized
+around an open-ended objective whosescope
+evolves as new evidence is discovered. In each
+round, the system must retrieve new information,
+reconcile it with prior reasoning, and update the or-
+ganization of the emerging report (Xiong et al.,
+2026; Li et al., 2026; Prabhakar et al., 2025).
+Within this loop, the outline is not merely a pre-
+writing plan but an active structural scaffold: it
+guides what to search for, indexes evidence under
+appropriate sections, and constrains final report
+generation (Shao et al., 2024; Xiong et al., 2025;
+Wang et al., 2025).
+However, existing deep research systems still
+face substantial limitations. As a report grows
+in length and topical breadth, a static or poorly
+maintained outline may graduallydrift from the
+evolving evidence space, leading to redundant cov-
+erage, missing perspectives, or incoherent section
+organization. One line of work follows a plan-then-
+write paradigm, where the outline is fixed before
+report generation begins (Shao et al., 2024; Lee
+et al., 2025; Han et al., 2025), causing the planned
+outline to gradually diverge from the evolving in-
+formation space (Xiong et al., 2025). Another line
+of work introduces dynamic outline update mech-
+anisms but relies predominantly on heuristic rules
+or local feedback (Wang et al., 2025; Shi et al.,
+2025; Chen et al., 2025; Wan et al., 2025) and
+lacks a unified optimization objective that jointly
+accounts for retrieval quality, structural soundness,
+and generation quality (Wu et al., 2025; Xiong
+et al., 2025): for instance, updating the outline
+based solely on newly retrieved documents (Xiong
+et al., 2026; Wang et al., 2025), or on signals that do
+not propagate beyond the current step (Wan et al.,
+2025; Chen et al., 2025).
+This limitation gives rise to two core challenges,
+as illustrated in Figure 1. First, without explicit
+control over structural evolution, iterative refine-
+ment may causescaffold drift: newly retrieved
+evidence can trigger redundant branches, uneven
+topic granularity, or misplaced subtopics, progres-
+sively destabilizing the global hierarchy of the out-
+line (C1). Second, the usefulness of an outline
+modification is difficult to assess at the moment
+it is made, since any section modification may re-
+veal its value only after subsequent retrieval and
+trial generation, resulting indelayed feedbackfor
+evaluating downstream utility (C2).
+To address these challenges, we proposeScaf-
+foldAgent, a utility-guided framework for dynamic
+outline optimization in open-ended deep research.
+Rather than treating the outline as a fixed pre-
+writing plan, ScaffoldAgent maintains it as an
+evolving structural scaffold that coordinates re-
+trieval, evidence organization, and report gener-
+ation throughout the research process. To mitigate
+C1, ScaffoldAgent formulates outline evolution as
+a structured decision process with three explicit op-
+erations:Expansion,Contraction, andRevision. In-
+spired by classical belief revision theory (Alchour-
+rón et al., 1985), these operations enable the system
+to incorporate new information, merge redundant
+branches, and revise weakly supported sections
+while preserving hierarchical consistency. To ad-
+dressC2, ScaffoldAgent introduces a utility-guided
+feedback mechanism that estimates the usefulness
+of each outline modification from retrieval gain,
+structural coherence, and trial-generation quality.
+A Reporter Agent performs trial writing under the
+current outline, and its generation quality and cita-
+tion grounding provide downstream feedback. The
+resulting utility estimate serves as an inference-
+time control signal for node selection, operation
+scheduling, and termination, enabling ScaffoldA-
+gent to optimize outline evolution beyond local
+heuristic refinement. Contributions are as follows:
+• We proposeScaffoldAgent, a utility-guided
+framework that treats the outline as an evolving
+structural scaffold and optimizes it through three
+explicit operations:Expansion,Contraction, and
+Revision.
+• We introduce a utility-guided feedback mecha-
+nism that evaluates outline operations along re-
+trieval, structural, and generation dimensions, en-
+abling inference-time control over node selection,
+operation scheduling, and termination.
+• Experiments on DeepResearch Bench and Deep-
+Research Gym show that ScaffoldAgent consis-
+tently outperforms existing deep research agents,
+validating the effectiveness of utility-guided out-
+line optimization for improving long-form report
+generation and factual grounding.
+2 Related Work
+2.1 Open-Ended Deep Research
+Open-Ended Deep Research (OEDR) extends
+bounded question answering to long-horizon ev-
+idence collection and grounded report synthesis, as
+formalized by recent benchmarks (Du et al., 2025;
+Coelho et al., 2025). Built upon tool-augmented
+
+agents and search-augmented reasoning (Yao et al.,
+2023; Trivedi et al., 2023; Jin et al., 2025; Zhang
+et al., 2026), existing OEDR systems have explored
+several directions. STORM and TTD-DR follow
+plan- or refinement-oriented workflows for long-
+form research report generation (Shao et al., 2024;
+Han et al., 2025). WebWeaver and AgentCPM-
+Report further introduce dynamic outlines to con-
+nect evidence acquisition with report writing, either
+through planner-writer collaboration or drafting-
+driven deepening (Xiong et al., 2026; Li et al.,
+2026). EDR, RhinoInsight, and FS-Researcher en-
+hance OEDR from the perspectives of multi-agent
+coordination, behavior/context control, and persis-
+tent external memory (Prabhakar et al., 2025; Lei
+et al., 2025; Zhu et al., 2026). While they improve
+retrieval, memory, agent coordination, or writing
+feedback, outline updates are still largely driven by
+fixed workflows, local heuristics, or single-stage
+feedback. They donot unify retrieval gain, struc-
+tural coherence, and trial-generation quality
+into single utility signal for node selection, oper-
+ation scheduling, and termination.
+2.2 Report Generation
+Grounded report generation builds on retrieval-
+augmented and attributed generation, where ex-
+ternal evidence improves factuality and supports
+citation-aware writing (Lewis et al., 2020; Menick
+et al., 2022; Gao et al., 2023; Liu et al., 2025;
+Xu et al., 2025b; Yang et al., 2026; Zhang et al.,
+2025). For long-form report generation, a common
+solution is the plan-then-write paradigm, which
+first constructs an outline or high-level report plan
+and then generates content section by section to
+maintain global organization (Yao et al., 2019;
+Yang et al., 2023, 2022; Bai et al., 2025; Wan
+et al., 2025). More adaptive methods further up-
+date outlines, memory, or task graphs during ex-
+tended generation: DOME uses dynamic hierar-
+chical outlines with memory enhancement, Write-
+HERE performs heterogeneous recursive planning,
+and survey-generation systems such as SurveyGen-
+I and SciSage use evolving plans, memory-guided
+writing, or reflection to improve cross-section co-
+herence, coverage, and citation quality (Wang et al.,
+2025; Xiong et al., 2025; Chen et al., 2025; Shi
+et al., 2025). These methods improve structure
+and revision of long reports,but mainly optimize
+generated text or local writing plan.
+3 OEDR Task Formulation
+Given a research questionq and access to a large-
+scale document collectionD,Open-ended Deep
+Research (OEDR)aims to generate a structurally
+coherent and well-cited long-form report. Unlike
+one-shot retrieval-augmented generation, OEDR
+requires a system to iteratively search for evidence,
+organize the acquired information, and synthesize
+a coherent final report.
+We formulate OEDR as a dynamic interaction
+among three components:Search,Outline, andRe-
+port. Search retrieves external evidence from the
+document collection; Outline organizes the accu-
+mulated evidence into a hierarchical scaffold that
+defines the scope and structure of the report; and
+Report transforms the organized evidence into co-
+herent long-form text. These three components are
+mutually dependent: the outline determines what
+should be searched next, newly retrieved evidence
+may reshape the outline, and report generation can
+expose gaps in support or structure that call for
+further refinement.
+4 Method
+4.1 ScaffoldAgent Overview
+SCAFFOLDAGENTinstantiates OEDR as a utility-
+guided outline optimization process. Starting from
+a root outline node initialized from the input ques-
+tion, SCAFFOLDAGENTiteratively grows and re-
+fines an outline tree until it becomes a stable scaf-
+fold for long-form report generation. At iteration t,
+we denote the current outline tree as
+Tt = (Vt,P t,Φ t),(1)
+whereVt is the set of outline nodes, Pt denotes
+parent–child relations, and Φt stores node-level
+attributes. Each node v∈ V t corresponds to a
+section or subsection and is associated with
+Φt(v) =
+
+hv,E v,θ v
+
+,(2)
+wherehv is the node’s intent,Ev is the supporting
+evidence and report segment attached to the node,
+andθv records accumulated utility statistics. The
+initial tree contains only the root node derived from
+the input questionT 0 = Init(q).
+SCAFFOLDAGENTcomprises three specialized
+agents. TheOutline Agentserves as the central
+controller: it maintains the evolving outline tree,
+selects which node to visit, and decides how the se-
+lected node should be updated. TheSearch Agent
+
+retrieves external evidence when an update requires
+new information. TheReporter Agentperforms
+trial writing during optimization and produces the
+final report once the outline converges.
+The optimization process is node-centric. At
+each iteration, the Outline Agent first selects a tar-
+get nodevt according to utility feedback, and then
+chooses one structural operationo t from:
+ot∈{Expansion,Contraction,Revision}.(3)
+The selected operation updates the outline tree and
+yields utility feedback:
+Tt+1,U t = Update
+
+Tt,v t,o t;π res,π rep
+
+,(4)
+whereπres andπrep denote the Search Agent and
+the Reporter Agent, respectively. Expansion and
+Revision invoke both the Search Agent and the Re-
+porter Agent, as they require additional evidence
+and downstream writing feedback. Contraction
+reorganizes existing evidence and therefore only
+invokes the Reporter Agent to evaluate whether the
+compressed local structure remains coherent and
+grounded. The resulting utility feedback is used to
+update node statistics and guide subsequent itera-
+tions. When further refinement yields diminishing
+utility gains, SCAFFOLDAGENTterminates the op-
+timization and generates the final report from the
+converged scaffold.
+4.2 Evolving Outline Tree
+The outline tree serves as the central state repre-
+sentation of SCAFFOLDAGENT. It starts from a
+root node derived from the input question and grad-
+ually evolves into a hierarchical report scaffold.
+Each node represents a potential section or subsec-
+tion, carrying an intent description that specifies
+what the section should cover, a set of supporting
+evidence, and utility statistics accumulated from
+previous visits. By attaching evidence directly to
+outline nodes, SCAFFOLDAGENTuses the outline
+not only as a writing plan but also as an evidence
+index that bridges retrieval and generation.
+At each iteration, the Outline Agent must decide
+which node to visit next. An effective selection
+strategy should revisit low-quality nodes that re-
+quire correction while still exploring under-visited
+parts of the tree to avoid early local bias. For each
+nodev, it maintains utility statistics
+θv = (nv,¯u(v)),(5)
+wherenv is the number of visits and ¯u(v)is the
+running mean utility of actions previously applied
+to this node. LetVt denote the set of outline nodes
+at iterationt. The next target node is selected via a
+UCB-style rule:
+vt = arg max
+v∈Vt
+
+−¯u(v) +c
+r
+lnN t
+nv
+!
+,(6)
+whereNt =P
+v∈Vtnv is the total visit count and
+c is the exploration coefficient. The first term pri-
+oritizes low-utility nodes that need improvement,
+while the second term encourages exploration of
+rarely visited nodes.
+After an operation is applied to selected node,
+its statistics are updated with new utilityU t:
+nvt←n vt +1,¯u(vt)←¯u(vt)+ Ut−¯u(vt)
+nvt
+.(7)
+This incremental update allows the system to track
+which parts of the outline remain weak and which
+have already stabilized.
+After a target node is selected, the Outline Agent
+determines how to update it based on its utility pro-
+file. A node with insufficient topical granularity
+typically triggersExpansion; redundant or over-
+lapping sibling nodes tend to triggerContraction;
+and a weakly supported or outdated node tends to
+promptRevision. Outline tree continues evolving
+until marginal utility gain falls below a threshold:
+1
+k
+tX
+i=t−k+1
+∆Ui<ϵ,∆U i =U i−U i−1.(8)
+This criterion indicates that further structural
+changes are unlikely to improve the final report.
+At this point, the Reporter Agent generates the fi-
+nal report from the converged outline.
+4.3 Outline Agent’s Actions
+To mitigate scaffold drift (C1), SCAFFOLDA-
+GENTupdates the outline through three explicit
+operations:Expansion,Contraction, andRevision.
+These operations are inspired by belief revision
+theory (Alchourrón et al., 1985), but serve here
+as practical structural actions rather than formal
+logical operators. Each addresses a common out-
+line deficiency: insufficient granularity, redundant
+branching, or weak evidential grounding.
+• Expansion.Expansion is applied when the se-
+lected node is too broad to support focused re-
+trieval or detailed writing. The Outline Agent
+
+Q: Collect and analyze the actual income and financial situation of the 9 social classes in China. Specifically, study and identify
+the characteristics of the Chinese middle class, the actual number of middle-class individuals, their financial resources, etc.?
+Initialize
+𝒯‘=𝐼𝑛𝑖𝑡(𝑞)
+Add Child nodes
+1. Expansion
+Merge sibling nodes
+2. Contraction
+Refresh node evidence
+3. Revision
+𝑎𝑣𝑔 ∆𝑈<𝜀
+Marginal gain <𝜀
+4. Termination
+Evolving Outline Tree
+tree state
+𝒯Q
+Update
+Outline Agent 𝜋H?Q
+Search Agent 𝜋p
+Reporter Agent 𝜋q
+Utility Function & Diagnostics
+𝑈Q=𝜆G𝑈@8Q+𝜆s𝑈^Q@+𝜆t𝑈u8T
+Generation Utility 𝑈u8T
+Support+Coverage-Redundancy
+Structure Utility 𝑈^Q@
+Cohesion + Balance-Redundancy
+Retrieval Utility 𝑈@8Q
+Relevance + Novelty
+Update
+Utility
+Utility
+Score
+Final Report 𝑦
+Dispatch
+Writing
+Nodes
+Retrieve
+𝛥𝐸U
+1. Select Target Node𝒗𝒕
+2
+1 1
+2 1 2
+0.120.550.61
+0.72
+0.28 0.31
+Select
+Node 𝑣Q
+Utility
+Score
+Visit
+Count
+2. Choose operation 𝒐𝒕
+Contraction ExpansionRevision
+Constraint
+Consider
+Utility and
+Constraint
+1
+3. Execute operation 𝒐𝒕
+Apply
+operation
+Before
+Attach
+evidence
+Construct query
+from node
+Document∆𝑬𝒗
+DFS
+traversal
+Citation/Coverage Check
+Figure 2: Overview of SCAFFOLDAGENT. Starting from a root outline tree, the Outline Agent iteratively selects target nodes
+according to utility feedback and updates them throughExpansion,Contraction, orRevision. The Search Agent provides
+evidence when needed, and the Reporter Agent performs trial writing or final report generation. Utility feedback updates node
+statistics and guides optimization until the outline tree converges.
+decomposes the node into several finer-grained
+child nodes, each with a more specific intent.
+Since newly created subtopics require support-
+ing evidence, Expansion first invokes the Search
+Agent to retrieve relevant documents for each
+child node. The Reporter Agent then performs
+trial writing on the expanded subtree to assess
+whether the new structure improves downstream
+generation quality.
+• Contraction.Contraction is applied when sib-
+ling nodes are semantically overlapping, overly
+fragmented, or repeatedly supported by similar
+evidence. The Outline Agent merges redundant
+branches into representative nodes and regener-
+ates their intents to cover the consolidated con-
+tent. Since Contraction reorganizes existing evi-
+dence rather than introducing new subtopics, it
+does not invoke the Search Agent. The Reporter
+Agent then verifies whether the compressed local
+structure remains coherent, non-redundant, and
+sufficiently grounded.
+• Revision.Revision is applied when the selected
+node is weakly supported, outdated, or mis-
+aligned with its accumulated evidence. The Out-
+line Agent preserves the node’s position in the
+tree but refreshes its intent and evidence ground-
+ing. Revision first invokes the Search Agent to
+retrieve additional evidence and then the Reporter
+Agent to assess whether the revised node better
+supports grounded writing. Unlike Expansion,
+Revision does not alter the size of the tree.
+These three operations govern how the outline
+tree evolves throughout the research process. Ex-
+pansion increases topical granularity, Contraction
+controls redundancy, and Revision strengthens lo-
+cal evidence grounding. Together, they allow
+SCAFFOLDAGENTto maintain a scaffold that is
+stable enough for coherent writing while remaining
+adaptive to newly acquired evidence.
+4.4 Utility-Guided Feedback
+To address delayed feedback (C2), SCAFFOLDA-
+GENTuses utility as an inference-time control sig-
+nal rather than a gradient-based training objective.
+After each node-level operation, the system eval-
+uates the updated local scaffold from three per-
+spectives: whether the operation acquires useful
+evidence, whether it improves structural organiza-
+tion, and whether it supports grounded writing. We
+denote the overall utility at iterationtas:
+Ut =λ 1Uret +λ 2Ustr +λ 3Ugen,(9)
+whereUret, Ustr, and Ugen are retrieval, structure,
+and generation utility, respectively. The coeffi-
+cientsλ 1,λ 2, andλ 3 control relative importance.
+• Retrieval Utility.Uret evaluates whether newly
+acquired evidence is both relevant to the target
+
+node and non-redundant with respect to existing
+evidence:
+Uret =w relRel +w novNov.(10)
+Here, Rel measures semantic relevance between
+retrieved documents and the target node’s intent,
+while Nov measures novelty relative to evidence
+already attached to the outline tree.
+• Structure Utility. Ustr evaluates whether the
+outline scaffold remains coherent, balanced, and
+non-redundant:
+Ustr =w cohCoh +w balBal−w redRed.(11)
+Here, Coh quantifies semantic consistency
+among related nodes, Bal measures structural
+balance, and Red penalizes redundant sibling
+branches.
+• Generation Utility.Ugen evaluates whether the
+current scaffold can support grounded writing.
+The Reporter Agent performs trial writing on the
+affected node or subtree, and the resulting text is
+scored by:
+Ugen =αρ sup +βρ cov−γρ red,(12)
+whereρsup measures citation support,ρcov mea-
+sures alignment between node intent and gen-
+erated content, andρred penalizes cross-section
+redundancy.
+4.5 Multi-Turn Scaffold Refinement
+To support follow-up instructions without regener-
+ating the entire report, SCAFFOLDAGENTextends
+the dynamic scaffold optimization process in two
+stages. ❶ Instruction-Aware Outline Update.
+Given a follow-up instruction, the Outline Agent
+receives it along with the scaffold retained from the
+previous turn. It first identifies the outline nodes
+affected by the new requirement and then updates
+the corresponding local subtrees.Expansionintro-
+duces new subtopics required by the instruction,
+Revisionadjusts existing section intents, andCon-
+tractionremoves branches that become redundant
+after the update. ❷ Localized Agent Collabora-
+tion.The Outline Agent invokes the Search Agent
+when the modified nodes require additional evi-
+dence and engages the Reporter Agent to trial-write
+and evaluate the affected sections. Utility-guided
+optimization is confined to these local subtrees,
+while the structure, evidence, and content of un-
+affected sections are preserved. Once the local
+scaffold converges, the Reporter Agent regenerates
+the modified sections and integrates them with the
+retained content.
+4.6 Lightweight Implementation
+Repeated model-based utility estimation can in-
+crease inference overhead and introduce evalua-
+tor dependence. To reduce this cost,ScaffoldA-
+gent Liteadopts two simplification strategies. ❶
+Hierarchical Candidate Pruning.Before utility
+evaluation, the system reduces the candidate node–
+operation space at two levels. At the node level, it
+ranks outline nodes by their stored utility history
+and a UCB-style exploration bonus, retaining only
+the top-ranked target for evaluation in each itera-
+tion. At the operation level, inexpensive feasibility
+rules filter out currently inapplicable operations:
+Expansionis restricted to leaf nodes,Revisionis
+prioritized for generic or insufficiently supported
+nodes, andContractionis considered only when
+sibling redundancy is detected. Pruning applies
+only to the current iteration. After each scaffold
+update, the candidate set is reconstructed, and a pre-
+viously skipped candidate may be reconsidered if it
+becomes applicable under the updated structure or
+evidence. ❷ Lightweight Utility Estimation.For
+the remaining candidates, the three utility dimen-
+sions are estimated from local signals. Retrieval
+utility considers evidence coverage and the amount
+of non-redundant information introduced relative
+to cached evidence. Structure utility considers tree
+depth, branching, and overlap among sibling titles.
+Generation utility relies on a limited local trial draft
+to estimate evidence support, intent coverage, and
+repetition. All three dimensions can be computed
+efficiently from local statistics and lightweight sim-
+ilarity measures.
+5 Experiments
+We evaluate SCAFFOLDAGENTagainst the follow-
+ing research questions:
+• RQ1:Does SCAFFOLDAGENToutperform exist-
+ing methods in open-ended deep research?
+•RQ2:How much does each internal component
+of SCAFFOLDAGENT—the three outline actions
+(Expansion,Contraction,Revision) and the three
+utility dimensions (Uret, Ustr, Ugen) that score
+them contribute to the final performance?
+• RQ3:Can SCAFFOLDAGENThandle multi-turn
+
+follow-ups by incrementally updating a previ-
+ously built outline tree?
+5.1 Experimental Setup
+❶ Evaluation Benchmarks.We evaluate SCAF-
+FOLDAGENTon two open-ended deep-research
+benchmarks:DeepResearch Bench(Du et al.,
+2025) andDeepResearch Gym(Coelho et al.,
+2025). The former assesses report quality
+via RACE (Overall, Comprehensiveness, Insight,
+Instruction-following, Readability) and factual
+grounding via FACT (effective citation rate Eff.c.
+and citation accuracy C.acc.). The latter scores
+six report dimensions: Clarity, Depth, Balance,
+Breadth, Supportability, and Insightfulness. Fur-
+ther details are deferred to Appendix B.
+❷ Baselines.We compare SCAFFOLDA-
+GENTagainst baselines from three paradigms:
+Naive(direct Prompt and RAG),Single-Agent(Re-
+Act (Yao et al., 2023), IRCoT (Trivedi et al., 2023),
+WebShaper (Tao et al., 2025)), andMulti-Agent
+(STORM (Shao et al., 2024), WebWeaver (Xiong
+et al., 2026), EDR (Prabhakar et al., 2025), Stack-
+Planner (Zhang et al., 2026)). Further details are
+deferred to Appendix C.
+❸ Implementation Details.We useDeepSeek-
+V3.2(Liu et al., 2024) andQwen3-32B(Yang et al.,
+2025) as backbone LLMs, and adopt Bocha as the
+web-search API. Further implementation details
+are deferred to Appendix D.
+5.2 Main Result Analysis (RQ1)
+We evaluate SCAFFOLDAGENTonDeepResearch
+Bench(Table 1, both Qwen3-32B (Yang et al.,
+2025) and DeepSeek-V3.2 backbones) andDeep-
+Research Gym(Table 2, Qwen3-32B).
+Comparison with Baselines.SCAFFOLDA-
+GENTachieves the strongest Qwen3-32B results on
+DeepResearch Bench, reaching 44.70 RACE Over-
+all and improving over the best baseline, IRCoT, by
++2.24 points. The gain is accompanied by stronger
+factual grounding: SCAFFOLDAGENTobtains the
+highest Eff.c. (30.42) and C.acc. (54.32), whereas
+the strongest single-agent baselines remain
+substantially lower in citation accuracy (ReAct
+23.78 and IRCoT 40.04). Multi-agent baselines do
+not close this gap: WebWeaver is competitive in
+RACE. Overall (41.28) but trails by 21.60 points
+in C.acc., while EDR and STORM score below 41
+RACE Overall and below 37 C.acc. These results
+show that SCAFFOLDAGENTimproves report
+quality without sacrificing grounding.
+Robustness across Backbones.On DeepSeek-
+V3.2, SCAFFOLDAGENTremains the best method
+in RACE Overall, reaching 48.27 and surpassing
+StackPlanner by +1.45 points. It also ranks first
+on all five RACE sub-dimensions, indicating that
+the improvement is not driven by a single aspect of
+report quality. Baseline behavior changes substan-
+tially across backbones: IRCoT drops from 42.46
+to 39.73 RACE Overall, while StackPlanner rises
+from 41.55 to 46.82. In contrast, SCAFFOLDA-
+GENTimproves monotonically on every Bench met-
+ric (RACE 44.70→48.27, Eff.c. 30.42 →51.18,
+C.acc. 54.32→62.20), suggesting that the utility-
+guided framework scales with stronger backbone
+capability rather than overfitting to a particular
+model.
+Multi-Dimensional Evaluation on Gym.On
+DeepResearch Gym, SCAFFOLDAGENTachieves
+the highest average score, 75.83, outperforming
+the strongest baseline EDR by +1.78 points. It
+leads two of the six dimensions, Breadth (85.20),
+and Insight (68.80), which is consistent with its
+explicit outline expansion and refinement process.
+Although EDR obtains the highest Supportability
+score (89.50), SCAFFOLDAGENTremains competi-
+tive on Supportability (79.80) and keeps the remain-
+ing dimensions close to the best baseline, showing
+that its gains in depth and insight do not come from
+degrading overall structural quality.
+5.3 Component Analysis
+❶ Outline-Action Behavior and Ablation.For
+RQ2(action side), Table 3 ablates the three
+AGM-aligned outline actions. RemovingCon-
+tractionlets the tree widen unchecked, drop-
+ping RACE 48.27 →44.72 (−3.55) and C.acc.
+62.20→57.79. RemovingRevisionblocks evidence
+refresh and gives the lowest single-action RACE
+(43.09,−5.18); C.acc. slips only to 58.11 because
+the retrieved evidence still locally supports the (ill-
+posed) claims it was fetched for citations stay at-
+tributable, but the underlying arguments are weaker,
+which RACE penalizes and FACT does not. Dis-
+abling both (Expansion-only) yields suboptimal
+results on all three metrics (RACE 41.73, Eff.c.
+45.20, C.acc. 59.32), and we further observe non-
+terminating runs in which the outline keeps inflat-
+ing until the budget is exhausted, confirming that
+the two shrinking actions are load-bearing. Fig-
+ure 3 corroborates this from the behavior side:Ex-
+
+Qwen3-32B DeepSeek-V3.2
+RACE FACT RACE FACT
+Paradigm Approach Over. Comp Ins. Inst Read Eff.c. C.acc. Over. Comp Ins. Inst Read Eff.c. C.acc.
+Naive Prompt 39.54 36.87 35.25 45.34 43.67 – – 43.68 41.77 41.67 47.21 46.35 – –
+RAG 36.68 34.49 33.35 43.07 42.92 2.93 10.86 39.50 36.46 37.19 43.35 42.83 5.51 16.18
+Single-Agent
+ReAct 42.21 40.66 38.65 46.10 44.56 4.69 23.78 43.26 42.70 40.53 46.10 46.43 4.15 17.83
+IRCoT 42.46 40.70 39.55 46.2345.70 15.77 40.04 39.73 36.80 36.81 44.57 40.70 34.83 75.18
+WebShaper 34.93 31.58 26.17 44.81 40.38 – – 34.93 31.58 26.17 44.81 40.38 – –
+Multi-Agent
+STORM 32.81 30.63 31.66 34.88 36.90 15.18 36.90 35.26 33.69 31.52 39.02 39.07 17.42 38.59
+WebWeaver 41.28 39.88 39.68 44.65 39.69 8.42 32.72 43.52 41.27 42.37 47.18 44.91 39.0088.35
+EDR 40.99 39.49 34.61 45.22 39.65 18.78 23.70 43.13 41.95 40.27 46.24 44.50 24.28 34.79
+StackPlanner 41.55 39.84 37.79 46.41 44.79 9.63 26.50 46.82 46.42 46.29 48.25 46.75 32.75 50.40
+SCAFFOLDAGENT 44.70 43.54 45.25 46.49 42.85 30.42 54.32 48.27 46.40 49.67 48.98 47.31 51.18 62.20
+Table 1: Report-generation results onDeepResearch Benchusing Qwen3-32B and DeepSeek-V3.2. RACE
+measures report quality and FACT evaluates factual grounding (effective citation rate, Eff.c.; citation accuracy,
+C.acc.). Best results per backbone are inbold. “–” indicates unavailable results.
+Paradigm Approach Cla Depth Bal Brea Sup Ins Avg.
+Naive Prompt 70.4069.1081.1076.70 0.00 53.20 58.42
+RAG 64.60 67.20 74.60 71.00 4.30 52.40 55.68
+Single-Agent
+ReAct 60.5083.4060.30 74.90 61.90 65.40 67.73
+IRCoT 62.30 73.10 74.60 77.30 83.80 56.60 71.28
+WebShaper 49.40 59.00 54.20 75.20 26.80 59.70 54.05
+Multi-Agent
+STORM 31.00 54.00 67.00 65.50 81.50 46.00 57.50
+WebWeaver 62.10 77.90 71.20 80.50 59.50 67.10 69.72
+EDR 55.80 76.80 74.60 84.9089.5062.70 74.05
+StackPlanner 62.10 69.40 66.10 77.80 31.80 59.20 61.07
+SCAFFOLDAGENT 63.30 82.40 75.50 85.20 79.80 68.80 75.83
+Table 2: Multi-dimensional evaluation onDeepResearch Gymunder the Qwen3-32B backbone. Dimensions:
+Clarity, Depth, Balance, Breadth, Support, Insight. Best inbold.
+Variant RACE Eff.c. C.acc.
+SCAFFOLDAGENT(Full) 48.27 51.18 62.20
+w/o Contraction 44.72 43.76 57.79
+w/o Revision 43.09 50.00 58.11
+Expansion-only 41.73 45.20 59.32
+Table 3: Ablation on the outline-action space.
+pansiondominates the early budget, thenContrac-
+tionandRevisiontake over for merging and refresh,
+with all three active throughout.
+❷ Utility-Dimension Ablation.ForRQ2(util-
+ity side), Table 4 isolates the three utility terms used
+to score candidate actions. RemovingUret mainly
+weakens evidence supply, sharply reducing Eff.c.
+51.18→39.42 (−11.76) while C.acc. drops more
+mildly 62.20→55.68, suggesting that retrieval util-
+ity primarily controls whether the tree acquires
+enough relevant, non-redundant evidence. Re-
+movingUstr disrupts global outline organization,
+Expansion Contraction Revision
+0
+20
+40
+60Share (%)
+Overall Operation Mix (n=525)
+59.0%
+22.9%
+18.1%
+Iter 0 Iter 1 Iter 2 Iter 3 Iter 4
+25
+50
+75
+100Share within iter (%)
+Per-Iteration Operation Share
+38%
+31%
+32%
+Expansion Contraction Revision
+Figure 3: Action behavior analysis. Left: overall dis-
+tribution of planning actions. Right: action frequency
+across outline refinement iterations.
+dropping RACE 48.27→44.17 (−4.10) with only
+moderate FACT degradation (Eff.c. 47.86, C.acc.
+58.41); local claims may remain attributable, but
+redundant or unbalanced branches weaken compre-
+hensiveness, insight, and readability. Removing
+Ugen is most damaging overall, yielding the low-
+est RACE (43.58, −4.69) and the largest C.acc.
+drop 62.20→50.82 (−11.38), since trial writing di-
+
+Ours
+Stack-Planner WebWeaver
+EDR
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Depth (max header level)
+Avg Tree Depth
+3.09
+2.78 2.90
+3.07
+Ours
+Stack-Planner WebWeaver
+EDR
+0
+5
+10
+15
+20
+25Number of sections
+Avg # Nodes
+16.38 16.67
+12.74
+22.07
+Ours
+Stack-Planner WebWeaver
+EDR
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5
+4.0Unique citations / section
+Avg Docs per Node
+3.42
+2.18 2.02
+3.59
+Ours Stack-Planner WebWeaver EDR
+Figure 4: Outline tree statistics across methods. Left: average tree depth. Middle: average number of nodes. Right:
+average documents per node.(DeepResearch Gym)
+Variant RACE Eff.c. C.acc.
+SCAFFOLDAGENT(Full) 48.27 51.18 62.20
+w/oU ret 45.42 39.42 55.68
+w/oU str 44.17 47.86 58.41
+w/oU gen 43.58 44.73 50.82
+Table 4: Ablation on the utility dimensions.
+Setting Ins.↑ Evi.↑ Log.↑ Com.↑ Exp.↑ Tot.↑
+ReAct-FW 13.80 12.20 12.75 6.60 11.40 56.75
+ReAct-GR 12.65 10.85 11.55 10.90 13.75 59.70
+SCAFFOLDAGENT 15.35 13.40 14.55 15.10 14.20 72.60
+Table 5: Multi-turn refinement on 100 follow-up in-
+stances from DeepResearch Bench. Each dimension is
+scored 0–20; Tot. is their sum.
+rectly scores citation support, intent coverage, and
+redundancy. Together, these results show thatUret
+supplies evidence,Ustr regularizes the scaffold, and
+Ugen aligns outline optimization with downstream
+report generation.
+❸ Multi-turn Interaction.ForRQ3, Table 5
+compares three multi-turn refinement strategies.
+Dataset construction and evaluation details are pro-
+vided in Appendix B.ReAct-FWstarts a new re-
+search process from the combined original and
+follow-up queries, whereasReAct-GRglobally
+rewrites the first-turn report according to the follow-
+up instruction. SCAFFOLDAGENTinstead updates
+the retained scaffold through localizedExpansion,
+Revision, andContractionwhile preserving unaf-
+fected content. SCAFFOLDAGENTobtains a total
+score of 72.60, outperforming ReAct-FW (56.75)
+and ReAct-GR (59.70) by 15.85 and 12.90 points,
+respectively. These results indicate that localized
+scaffold refinement more effectively incorporates
+follow-up instructions while retaining prior content
+than either fresh research or global rewriting.
+❹ Outline Tree Statistics.Figure 4 compares
+the outline structures produced by different meth-
+ods. SCAFFOLDAGENTyields the deepest trees
+(3.09) while keeping the node count moderate
+(16.38), close to StackPlanner (16.67) and well
+below EDR (22.07), suggesting that Contraction
+controls tree growth. More importantly, SCAF-
+FOLDAGENTachieves the highest evidence density,
+with 5.85 documents per node versus 3.59 for EDR,
+2.18 for StackPlanner, and 2.02 for WebWeaver.
+Thus, SCAFFOLDAGENTdoes not simply expand
+the outline; it builds a compact scaffold with richer
+evidence support for each section.
+6 Conclusion
+SCAFFOLDAGENTpresents a utility-guided dy-
+namic outline optimization framework for open-
+ended deep research. Instead of treating the out-
+line as a static pre-writing plan, SCAFFOLDA-
+GENTmaintains it as an evolving scaffold that
+coordinates evidence retrieval, content organiza-
+tion, and long-form report generation. By mod-
+eling outline evolution through three explicit op-
+erations, Expansion, Contraction, and Revision,
+the framework enables controllable structural up-
+dates that incorporate new information, reduce re-
+dundant branches, and refresh weakly supported
+sections. SCAFFOLDAGENTfurther introduces a
+utility-guided feedback mechanism that jointly con-
+siders retrieval gain, structural quality, and trial-
+generation quality, providing inference-time sig-
+nals for node selection, operation scheduling, and
+termination. Experiments on DeepResearch Bench
+and DeepResearch Gym show that SCAFFOLDA-
+GENTachieves strong overall performance in re-
+port quality and factual grounding compared with
+existing deep research agents, demonstrating the
+effectiveness of dynamic outline optimization for
+open-ended research tasks.
+
+Acknowledgments
+This work is supported by the Natural Science
+Foundation of China (Grant No.62506010)
+Limitations
+Despite the consistent improvements achieved by
+SCAFFOLDAGENT, several directions remain for
+future work. First, our multi-turn evaluation is still
+preliminary. Current open-ended deep research
+benchmarks are largely single-turn, whereas real-
+istic use often involves longer dialogues in which
+users iteratively revise the scope, constraints, or
+subtopics. Future work could develop longer multi-
+turn trajectories and more comprehensive evalua-
+tion protocols for such interactive research scenar-
+ios. Second, due to the substantial cost of large-
+scale deep research evaluation, our experiments
+are conducted primarily with widely used open-
+source foundation models and a fixed search in-
+terface, rather than the strongest available mod-
+els and search systems. Future work may further
+investigate how the framework scales when com-
+bined with more capable backbone models, ad-
+vanced search infrastructures, and larger retrieval
+budgets. Finally, SCAFFOLDAGENTcurrently re-
+lies on utility-based inference-time control with-
+out explicitly learning an outline-evolution policy.
+While this design is lightweight and effective, dy-
+namic outline optimization naturally forms a se-
+quential decision-making problem. A promising
+direction for future work is to learn such policies
+with reinforcement learning, potentially improv-
+ing outline expansion, refinement, and information
+gathering throughout the report generation process.
+Ethical considerations
+All experiments in this work were carried out on
+publicly available open-ended deep research bench-
+marks, includingDeepResearch BenchandDeep-
+Research Gym, following their respective licenses
+and usage terms. The study does not involve hu-
+man or animal subjects, and we did not collect, use,
+or disclose any personally identifiable information.

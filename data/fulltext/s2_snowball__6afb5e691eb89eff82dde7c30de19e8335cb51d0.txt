@@ -1,0 +1,908 @@
+record_id: s2_snowball:6afb5e691eb89eff82dde7c30de19e8335cb51d0
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2605.29430
+fetched_title: Towards Human-Like Interactive Speech Recognition with Agentic Correction and Semantic Evaluation
+fetched_at: 2026-09-18T19:00:11Z
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+Towards Human-Like Interactive Speech Recognition with Agentic
+Correction and Semantic Evaluation
+Zixuan Jiang, Yanqiao Zhu, Peng Wang, Qinyuan Chen, Xinjian Zhao, Xipeng Qiu, Wupeng Wang, Zhifu Gao,
+Xiangang Li, Kai Yu, and Xie Chen
+Abstract—Automatic speech recognition (ASR) is a core com-
+ponent of human–computer interaction and an increasingly im-
+portant front-end for LLM-based assistants and agents. However,
+most current ASR systems still follow a single-pass paradigm,
+which is poorly aligned with human communication, where
+misunderstandings are resolved through iterative clarification
+and refinement. This mismatch makes it difficult to correct
+meaning-critical errors once they occur. Meanwhile, token-level
+metrics such as WER or CER cannot adequately reflect such a
+problem. To address these limitations, we formulateInteractive
+ASRas a multi-turn refinement task and propose Agentic ASR,
+a closed-loop framework that combines a single-pass ASR front-
+end with semantic correction, intent routing, and reasoning-
+based editing. We further introduce the Sentence-level Semantic
+Error Rate (S 2ER), an LLM-based semantic evaluation metric,
+together with an Interactive Simulation System for scalable
+and reproducible benchmarking. Experiments on multilingual,
+named-entity-intensive, and code-switching benchmarks show
+that iterative interaction consistently reduces semantic errors,
+with much larger gains inS 2ERthan in conventional token-
+level metrics. Human–AI alignment and ablation studies further
+validate the reliability of the semantic judge and the robust-
+ness of the proposed framework. The code is available at:
+https://interactiveasr.github.io/ and the live demo is available at
+https://i-asr.sjtuxlance.com/
+Index Terms—automatic speech recognition, human-computer
+interaction, large language models, semantic evaluation, multi-
+media intelligence
+I. INTRODUCTION
+A
+UTOMATIC speech recognition (ASR)[1] has become
+a core component of human–computer interaction, es-
+pecially as speech increasingly serves as the input inter-
+face for large language model (LLM)-based assistants and
+agents [2], [3]. Recent progress in end-to-end ASR, including
+Zixuan Jiang, Yanqiao Zhu, and Peng Wang contributed equally to this
+work. (Corresponding author: Xie Chen.)
+Zixuan Jiang is with the College of Artificial Intelligence, Xi’an Jiaotong
+University, Xi’an 710049, China (e-mail: andrewjiang@stu.xjtu.edu.cn). This
+work was conducted during his internship at X-LANCE Lab, School of Elec-
+tronic Information and Electrical Engineering, Shanghai Jiao Tong University,
+Shanghai 200240, China.
+Yanqiao Zhu, Kai Yu, and Xie Chen are with X-LANCE Lab, School
+of Electronic Information and Electrical Engineering, Shanghai Jiao Tong
+University, Shanghai 200240, China (e-mail: 1850432206@sjtu.edu.cn;
+kai.yu@sjtu.edu.cn; chenxie95@sjtu.edu.cn). This work was conducted during
+Yanqiao Zhu’s internship at Tongyi Fun Team, Alibaba Group
+Peng Wang is with The Chinese University of Hong Kong, Shenzhen,
+Shenzhen 518172, China (e-mail: pengwang0104@gmail.com).
+Qinyuan Chen, Xingjian Zhao, Xipeng Qiu are with Fudan Uni-
+versity, Shanghai 200433, China (e-mail: chengqy21@m.fudan.edu.cn;
+zhaoxj24@m.fudan.edu.cn; xpqiu@fudan.edu.cn).
+Wupeng Wang, Zhifu Gao, Xiangang Li are with Tongyi Fun Team, Al-
+ibaba Group, Hangzhou 310030, China (e-mail: wangwupeng.wwp@alibaba-
+inc.com; Zhifu.gzf@alibaba-inc.com; lixiangang.lxg@alibaba-inc.com).
+attention-based encoder–decoder architectures [4] and large-
+scale weakly supervised speech models [5], together with
+scaling in model capacity and training data, has substantially
+improved recognition accuracy. However, modern ASR sys-
+tems are still largely designed as single-pass transcription
+engines. This one-shot design departs from natural human
+communication, where misunderstandings are routinely re-
+solved through feedback and repair.
+As illustrated in Fig. 1, the mismatch becomes most evident
+when errors affect meaning-critical content. Cognitive and
+conversation studies suggest that human dialogue is grounded
+through iterative confirmation and self-repair [6], [7]. For
+example, if someone mishearsMeganasMorgan, the speaker
+will usually offer a brief correction, and the listener will adjust
+their understanding accordingly. Conventional ASR systems,
+by contrast, usually interpret a follow-up utterance as new
+input rather than as a correction to an earlier hypothesis. Once
+an error is produced, the system therefore has little ability
+to revise it within the same interaction. This limitation is
+particularly problematic in scenarios involving named entities,
+spelling clarification, accented speech, background noise, or
+code-switching, where ambiguity is common and interactive
+repair is often necessary [8].
+The mismatch is not only procedural but also evaluative.
+Standard ASR metrics such as Word Error Rate (WER) [9]
+and Character Error Rate (CER) [10] quantify token-level
+mismatch, but they do not explicitly distinguish minor surface
+deviations from errors that change the intended meaning. Prior
+studies on semantic ASR evaluation, including Semantic WER
+[11] and SemDist [12], have shown that semantic preserva-
+tion is not always well captured by conventional token-level
+measures. This gap becomes more consequential in interactive
+and agent-oriented settings, where the practical impact of an
+error depends less on its local form than on whether it distorts
+named entities, user intent, or other task-critical content.
+These observations motivate a rethinking of ASR task from
+two complementary perspectives:mechanismandevaluation.
+From the mechanism side, ASR should move beyond one-
+shot prediction and support iterative correction under user
+feedback. From the evaluation side, ASR should be assessed
+not only by token accuracy but also by sentence-level semantic
+equivalence. To this end, we define theInteractive ASRtask,
+in which a system progressively refines its hypothesis through
+multi-turn interaction. We then proposeAgentic ASR, and
+introduce theSentence-level Semantic Error Rate (S 2ER)
+together with anInteractive Simulation System (ISS)for
+scalable and reproducible multi-turn evaluation.
+Our main contributions are summarized as follows:
+arXiv:2605.29430v1 [cs.AI] 28 May 2026
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+Daily Human
+Communication
+Ask Megan to send
+me the budget file.
+OK! I'll ask Morgan.
+No! It's Megan,
+starts with M-e.
+I got it.
+I'll call Megan right now.
+Ask Megan to send
+me the budget file.
+No! It's Megan,
+M-e-g-a-n.
+No! It's Megan,
+M-e-g-a-n.
+Ask Morgan to send
+me the budget file.
+Traditional ASR
+Paradigm
+Interactive ASR
+Paradigm
+Ask Megan to send
+me the budget file.
+Ask Morgan to send
+me the budget file.
+No! It's Megan,
+M-e-g-a-n.
+Ask Megan to send
+me the budget file.
+[New Input]
+[Correction]
+Fig. 1.Comparison between daily human communication, the traditional ASR paradigm, and the proposed Agentic ASR paradigm.In natural
+conversations, misunderstandings can be progressively corrected through multi-turn interactions. In contrast, conventional ASR systems operate in a one-
+shot, open-loop manner, where recognition errors (e.g., confusing “Megan” with “Morgan”) cannot be effectively corrected once produced. The Agentic
+ASR paradigm introduces a closed-loop mechanism that incorporates user feedback, enabling iterative refinement of transcription results and more accurate
+understanding.
+•Interactive ASR task formulation.We defineInterac-
+tive ASRas a stateful multi-turn transcription task, for-
+malizing ASR as iterative refinement under user feedback
+instead of independent single-pass decoding.
+•Agentic solution for interactive correction.We propose
+Agentic ASR, a closed-loop framework with semantic
+correction, intent routing, and reasoning-based correction
+to progressively repair meaning-critical recognition er-
+rors.
+•Semantic evaluation system for Interactive ASR.We
+establish a dedicated evaluation scheme withS 2ERand
+ISS, and verify its reliability and effectiveness through
+human–AI alignment and multi-benchmark experiments.
+II. RELATEDWORK
+A. ASR Metrics
+Word Error Rate (WER) remains the standard metric for
+ASR, but it assigns uniform costs to all tokens and edit
+operations, and therefore does not reflect the unequal semantic
+impact of different recognition errors.
+To address this limitation, prior work has extended edit-
+distance metrics with semantic sensitivity.WWER[13] intro-
+duces context-dependent weights over words and operations.
+NE-WER[8] andSemantic WER[11] place greater emphasis
+on content-bearing tokens, especially named entities.H eval
+[14] further combines lexical edits with semantic-distance
+signals to balance token accuracy and meaning preservation.
+Another line of work evaluates semantic similarity more
+directly.BERTScore[15] measures contextual token-level
+similarity, whileSemDist[12] uses sentence-level embedding
+distance. More recently, LLM-based evaluation has also been
+explored:LASER[16] grades error severity with an LLM, and
+Answer Error Rate[17] evaluates ASR through downstream
+QA behavior.
+Different from these approaches, ourS 2ERuses a binary
+functional criterion: whether the hypothesis preserves suffi-
+cient meaning for correct intent execution in an interactive
+setting. This design explicitly targets interaction success rather
+than fine-grained lexical similarity or constructed downstream
+proxy scores.
+B. Human-Feedback-Based ASR Approaches
+Human feedback has long been used to improve ASR
+outputs, mostly through explicit correction interfaces. Early
+systems support multimodal selection from N-best candidates
+[18] or touch-based text correction in voice-typing interfaces
+[19]. Another practical strategy is acoustic respeaking, where
+users re-utter misrecognized content [20].
+Recent work also uses user corrections to improve ASR
+models themselves.The Gift of Feedback[21] leverages on-
+device corrections via federated learning, mainly for model
+adaptation to long-tail terms. However, this line primarily
+treats feedback as training supervision, rather than as online
+guidance for resolving errors during the ongoing interaction.
+In parallel, NLP agent frameworks such asReAct[22] show
+that natural-language feedback can guide iterative reasoning
+and revision. Building on this paradigm, our framework allows
+users to provide open-form natural-language feedback to repair
+ASR errorsin place, bridging rigid correction interfaces and
+language-driven interactive refinement.
+C. LLM as a Judge
+LLM-as-a-judge methods have been widely studied in ma-
+chine translation [23], dialogue [24], and summarization [25],
+due to strong semantic understanding and comparative reason-
+ing.
+In ASR, [26] evaluates transcription quality using LLM-
+based semantic representations and shows better alignment
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 3
+with downstream task success than purely lexical metrics,
+although hidden-state-based scoring is less interpretable. LAT-
+TEScore [27] makes this direction more explicit by casting
+ASR semantic assessment as a binary semantic-preservation
+decision. OurS 2ERfollows the same binary-evaluation prin-
+ciple, and further focuses on interactive-ASR applicability by
+aligning the judgment target with intent-preserving usability.
+A separate but important issue is judgment stability. LLM-
+Bar [28] shows that rubrics, examples, and swap-and-synthesis
+reduce variance, and [29] reports positional sensitivity in long-
+context evaluation while showing that multi-sample aggrega-
+tion improves robustness. Our evaluation protocol adopts these
+stability practices (e.g., order swapping and multi-round ag-
+gregation) to improve reliability of LLM-based ASR semantic
+judgment.
+III. AGENTICASR
+A. Task Formulation
+A conventional ASR system transcribes each speech input
+in a single pass:
+Y= ASR(I),(1)
+where the output is determined only by the current acoustic
+signal. Once this output is produced, later user feedback is not
+explicitly incorporated into the same decoding process.
+In contrast, Interactive ASR formulates transcription as
+a stateful multi-turn refinement process. LetY [:t−1] =
+{Y0, . . . , Yt−1}denote the transcription history up to turnt−1.
+At the initial turn, the system receives the first speech input
+I0 and produces
+Y0 = InteractiveASR(∅, I0),(2)
+where∅denotes the absence of prior context. For each
+subsequent turnt >0, the system updates the transcription
+state by conditioning on both the new speech input and the
+interaction history:
+Yt = InteractiveASR(Y[:t−1], It).(3)
+This formulation casts Interactive ASR as a recurrent state-
+update problem rather than independent one-shot recognition.
+The key difference from conventional ASR is that each turn
+explicitly uses historical context, enabling progressive repair
+of meaning-critical errors through interaction.
+B. Agentic ASR Framework
+To instantiate the formulation above, we proposeAgentic
+ASR, an architecture that combines a single-pass ASR front-
+end with an LLM-based reasoning-and-editing module. At turn
+t, the framework takes user speechI t and transcription history
+Y[:t−1] as input, and outputs an updated transcription stateY t.
+As shown in Fig. 2, the update is carried out through three
+stages: semantic correction, intent routing, and reasoning-
+based correction.
+Given the current speech inputI t, the ASR front-end first
+generates a textual hypothesis
+Ht = ASR(It).(4)
+Previous
+Transcript
+ASR
+Semantic Correction
+User Speech
+ASR Result
+Intent Router
+Reasoning Corrector
+Locate Reason Modify
+It
+Ht
+H't
+Correction
+New InputConfirmation
+Ht
+corr
+H't
+LLM
+Fig. 2. Agentic ASR framework. At turnt, an ASR front-end first produces
+a hypothesisH t from user speech inputI t. An LLM module then performs
+semantic correction and intent routing into three intent types:confirmation,
+new input, andcorrection. Forcorrectionintents, a structuredLocate–Reason–
+Modifypipeline identifies the editable span, infers the intended edit from
+instruction and history, and applies the edit to update the transcription state.
+At a high level, the LLM module refines this hypothesis
+conditioned on transcription history:
+Yt = LLM(Ht, Y[:t−1];P refine),(5)
+whereP refine specifies the refinement protocol. To improve
+interpretability and controllability, we explicitly decompose
+this refinement process into the following stages.
+a) Semantic correction.:The first stage maps the raw
+ASR hypothesis to an explicit, semantically coherent instruc-
+tion:
+H′
+t = SemanticCorrection(Ht, Y[:t−1]).(6)
+This stage is necessary because user correction utterances are
+themselves recognized by the ASR front-end and may there-
+fore contain semantic inconsistencies. By leveraging interac-
+tion historyY [:t−1], the semantic-correction module rewrites
+Ht into an explicit and executable instructionH ′
+t that is
+consistent with the current context.
+b) Intent routing.:The corrected instructionH ′
+t is then
+classified into one of three intent categories:
+ct∈{confirmation,new input,correction}.(7)
+Here,confirmationindicates that the user accepts the current
+state,new inputindicates that the current utterance should be
+interpreted as newly transcribed content, andcorrectionindi-
+cates that the utterance should edit the existing transcription
+state. The state update rule is then defined as follows:
+Yt =
+
+
+
+Yt−1, c t = confirmation,
+H′
+t, c t = new input,
+Hcorr
+t , c t = correction.
+(8)
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 4
+c) Reasoning-based correction.:Whenc t = correction,
+the framework invokes a reasoning module to revise the
+transcription state according to the current instruction:
+Hcorr
+t = ReasoningCorrector(H′
+t, Y[:t−1];P corr),(9)
+whereP corr is the correction-oriented reasoning prompt.
+Rather than relying on an unconstrained one-step rewrite, we
+decompose correction into three explicit operations:
+ReasoningCorrector = Modify◦Reason◦Locate.(10)
+Specifically,Locateidentifies the span to edit in the current
+history,Reasoninfers the intended modification fromH ′
+t
+and the interaction context, andModifyapplies that edit to
+produce the updated stateH corr
+t . This decomposition makes
+the correction process more controllable and better aligned
+with how users naturally provide partial repair instructions.
+IV. SENTENCE-LEVELSEMANTICERRORRATE(S 2ER)
+A. Definition
+To evaluate meaning preservation at the utterance level, we
+introduce theSentence-level Semantic Error Rate(S 2ER):
+S2ER= 1
+N
+NX
+i=1
+(1−ˆzi),(11)
+whereˆzi ∈ {0,1}indicates whether ASR hypothesisY i is
+semantically equivalent to referenceY GT,i. Specifically,ˆzi = 1
+denotes semantic equivalence, andˆzi = 0denotes a meaning-
+critical error. Therefore,S 2ERmeasures the proportion of
+utterances whose transcriptions fail to preserve intended mean-
+ing.
+The judgment criterion is task-oriented. The judge focuses
+on whether main intent and key meaning-bearing content
+are preserved, especially proper nouns, named entities, and
+other task-critical information, while ignoring non-semantic
+variations such as disfluencies, filler words, and punctuation.
+Because the target is binary semantic equivalence, we use a
+concise prompt specification rather than an exhaustive rule list.
+To improve robustness and reduce order sensitivity, we
+adopt a three-round bidirectional voting protocol, follow-
+ing the LLM-as-a-Judge stability practices discussed in Sec-
+tion II-C. In roundr, the judge is queried twice with reversed
+input order:
+z(1)
+i,r = LLMjudge(Yi, YGT,i;P judge),
+z(2)
+i,r = LLMjudge(YGT,i , Yi;P judge),
+(12)
+wherez (1)
+i,r , z(2)
+i,r ∈{0,1}. A round is counted as positive only
+when both decisions indicate equivalence. The final label is
+obtained by majority voting across the three rounds:
+ˆzi =1
+3X
+r=1
+
+z(1)
+i,r∧z (2)
+i,r
+
+≥2
+!
+.(13)
+This protocol mitigates input-order bias and improves label
+stability.
+Case B: Low WER, Semantically Wrong
+Try Qwen3-ASR to get the transcript!
+Try Kunthreesir to get the transcript!
+GT:
+Hypo:
+S2ER: 0 WER: 16.7%SER: 0
+Case A: High WER, Semantically Correct
+Um, let's maybe just open the window?
+Let's open the window?
+GT:
+Hypo:
+S2ER: 0 WER: 42.9%SER: 0
+Fig. 3. Two illustrative cases comparingS 2ERwith token-level metrics. In
+Case A, several mismatches involve only filler or discourse words, leading
+to high WER but preserved meaning. In Case B, a single local substitution
+corrupts a key entity, yielding lower WER but a semantic failure.
+B.S 2ERversus token-level metrics
+Token-level metrics such as WER and CER measure
+surface-form mismatch, but they do not distinguish seman-
+tically negligible errors from meaning-critical ones. This lim-
+itation is especially problematic in interactive and agent-
+oriented ASR, where downstream success depends primarily
+on whether the transcription preserves the user intent and key
+entities, rather than on exact lexical matching.
+Figure 3 shows two representative cases. In Case A, the ref-
+erence utterance is “Um, let’s maybe just open the window?”
+while the hypothesis is “Let’s open the window?” This yields
+a relatively high WER of42.9%, because several mismatched
+tokens are discourse or filler words. However, the main intent
+remains unchanged, and the utterance is still fully usable
+for downstream execution; it should therefore be judged as
+semantically correct, corresponding toˆz= 1and contributing
+no error toS 2ER. In contrast, Case B changes only one
+local span: “Try Qwen3-ASR to get the transcript!” becomes
+“Try Kunthreesir to get the transcript!” Here the WER is only
+16.7%, yet the substituted token is a meaning-critical entity.
+In an agentic setting, such an error may directly break model
+selection, retrieval, or tool routing, even though the lexical
+deviation is small.
+These examples show thatS 2ERcaptures functional us-
+ability more directly than token-level metrics. A sentence with
+many non-essential token errors may still preserve the intended
+meaning and incur no semantic error, whereas a sentence
+with only one local substitution may become unusable if that
+substitution corrupts a key entity or intent-bearing word. This
+difference also explains why, in later experiments, interaction
+often yields much larger gains inS 2ERthan in WER, CER,
+or MER: iterative correction mainly repairs meaning-critical
+errors rather than merely polishing local surface mismatches.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 5
+User Speech
+Interactive
+ASR System
+Ground Truth
+S2ER Judger
+Success
+Correct
+Wrong
+LLM Corrector
+Turn 0
+User Simulator
+Turn t < T
+Simulation Loop
+TTS Vocalizer
+Fig. 4. Interactive Simulation System (ISS) for automatic multi-round
+evaluation of Interactive ASR. At each round, theS 2ERJudger evaluates
+semantic equivalence between the current transcription and ground truth; if
+equivalence is not achieved, the User Simulator produces corrective spoken
+feedback for the next round.
+C. Interactive Simulation System
+Large-scale human-in-the-loop evaluation of Interactive
+ASR is expensive and hard to reproduce. To enable scalable
+and repeatable benchmarking, we design anInteractive Simu-
+lation System(ISS), illustrated in Fig. 4. ISS simulates multi-
+round user–system interaction and uses theS 2ERJudger in
+Section IV-A as the round-wise semantic stopping criterion.
+For samplei, ISS starts from initial user speechX i,0 and
+ground-truth transcriptionY i,GT. At each round, the evaluated
+Interactive ASR system outputs a transcription, which is
+evaluated by theS 2ERJudger for semantic equivalence. If
+equivalence is not reached, a User Simulator generates the
+next corrective spoken instruction. The interaction stops once
+equivalence is achieved or a predefined maximum number of
+rounds is reached.
+1)S 2ERJudger in ISS:At roundt, given current tran-
+scriptionY i,t, theS 2ERJudger outputs a binary semantic-
+equivalence label
+ˆzi,t∈{0,1},(14)
+by applying the same protocol in Section IV-A to pair
+(Yi,t, Yi,GT). Here,ˆzi,t = 1means semantic equivalence.
+Whenˆzi,t = 1, interaction for sampleiterminates, and
+remaining rounds are marked successful:
+ˆzi,[t:T] := 1,(15)
+whereTis the predefined maximum number of interaction
+rounds. Otherwise,Y i,t is forwarded to the User Simulator to
+generate next-round user input.
+2) User Simulator:The User Simulator consists of an
+LLM-based corrector and a TTS vocalizer:
+Xi,t+1 = TTS
+
+LLM(Yi,t, Yi,GT,P corr)
+
+,(16)
+whereX i,t+1 is simulated user speech at roundt+1. The LLM
+corrector comparesY i,t withY i,GT, identifies the key semantic
+discrepancy, and generates a concise correction instruction.
+The TTS vocalizer converts this instruction into speech and
+feeds it back to the evaluated Interactive ASR system.
+For a dataset withNsamples, round-wiseS 2ERat round
+tis
+S2ERt = 1
+N
+NX
+i=1
+(1−ˆzi,t).(17)
+This quantity measures the proportion of samples that remain
+semantically incorrect after roundt. The same simulation
+framework can be extended to other metrics (e.g., WER and
+CER) by replacing theS 2ERJudger with the corresponding
+metric-specific evaluator.
+V. EXPERIMENTS
+In this section, we evaluate both the proposed Agentic ASR
+framework and the semantic evaluation protocol built around
+S2ER. Section V-A introduces the model configuration and
+evaluation datasets. Section V-B verifies that the LLM judge
+aligns with human semantic judgments. Section V-C analyzes
+the main performance trends across multilingual, named entity
+and code-switching [30][31] benchmarks, and Section V-D
+examines the effects of ASR backbone choice, LLM scale,
+and judge strategy.
+A. Experiment Setup
+1) Model Configuration:Unless otherwise specified,
+Qwen3-ASR-1.7B[3] is used as the backbone ASR model to
+generate initial transcription hypotheses.Qwen3-32B[32] is
+used as the unified LLM for three components: the Reasoning
+LLM in Agentic ASR, the Correction Generator in the User
+Simulator, and the Semantic Judge inS 2ERevaluation. For
+speech synthesis in the simulation framework, we employ
+Index-TTS-1.5[33]. The reference audio of each sample is
+used as the acoustic prompt to preserve speaker consistency
+across interaction turns.
+2) Evaluation Datasets:To evaluate robustness and gener-
+alization under multilingual, named-entity-intensive, and code-
+switching conditions, experiments are conducted on evaluation
+splits from representative benchmarks in three categories.
+a) Multilingual speech.:We useGigaSpeech Test[34]
+andWenetSpeech Test Net[35] to evaluate English and
+Mandarin open-domain ASR performance, respectively.
+b) Named-entity-intensive speech.:We construct
+AISHELL-NER Dev † andAISHELL-NER Test † by
+filtering the AISHELL-1 development and test splits with
+AISHELL-NER annotations [36], [30], retaining only
+utterances containing named entities.
+c) Code-switching speech.:We useASRU2019 Test[37]
+andCS-Dialogue Test † [38] for Mandarin–English code-
+switching evaluation. The latter is constructed by selecting
+code-switching utterances from the original CS-Dialogue cor-
+pus.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 6
+B. Human–AI Alignment Study
+To validate the reliability ofS 2ER, we conduct a human–
+AI correlation study following prior work onSpoken Language
+Assessment[39], [40] and LLM-based evaluation. We sample
+40 utterances each from GigaSpeech (English), WenetSpeech
+(Chinese), and ASRU2019 (code-switching), yielding a val-
+idation set of 120 examples that covers the main linguistic
+conditions considered in this paper.
+Semantic consistency between each ASR output and its ref-
+erence transcript is independently annotated by 25 non-expert
+annotators and 5 domain experts using a binary protocol,
+where 1 denotes semantic consistency and 0 otherwise. For
+each sample, the averaged human score serves as the reference
+target.
+The same validation set is then evaluated by the LLM Judger
+described in Section IV-A. We compute Pearson correlation
+coefficients (r) [41] between the LLM judgments, expert
+judgments, and the human reference scores, and repeat the
+LLM evaluation over five runs to assess stability.
+TABLE I
+CORRELATION BETWEEN THELLM JUDGER,EXPERTS,AND HUMAN
+REFERENCE SCORES ACROSS DATASETS.
+Dataset LLMrStd ExpertrDiff
+GigaSpeech 0.8914 0.0291 0.8534+0.0380
+WenetSpeech 0.8280 0.0252 0.8086+0.0194
+ASRU2019 0.9031 0.0250 0.8871+0.0160
+LLMr: mean Pearson correlation over five runs; Std: standard deviation;
+Expertr: mean Pearson correlation of expert evaluations; Diff: difference
+between LLMrand Expertr.
+Table I shows that the LLM Judger tracks human semantic
+judgments reliably across all three datasets. Its correlation with
+the human reference scores remains above 0.8 throughout,
+and it is consistently slightly higher than that of the domain
+experts. The standard deviations across five runs are also
+small, indicating that the judgment protocol is stable rather
+than sensitive to sampling noise or prompt randomness. Taken
+together, these results support the use ofS 2ERas a reliable
+semantic evaluation signal for ASR.
+C. Main Results
+Table II reports representative checkpoints of the proposed
+Agentic ASR framework, while Fig. 5 shows the full tra-
+jectories from Loop 0 to Loop 10. The central finding is
+that multi-turn interaction consistently improves transcription
+quality across all benchmarks, with the largest gains appearing
+at the semantic level.
+S2ERdecreases monotonically with additional interaction
+on every benchmark. Table II shows large one-step gains
+immediately after the first feedback turn, and Fig. 5 shows
+that the improvement continues through later loops without
+reversal. For example,S 2ERon GigaSpeech Test drops from
+21.47% at Loop 0 to 12.35% after only one interaction and
+reaches 3.49% by Loop 10, while ASRU2019 Test improves
+from 28.57% to 10.32% after one loop and to 1.36% by Loop
+10. This pattern indicates that even limited feedback resolves a
+substantial portion of meaning-critical errors, while additional
+rounds further refine the remaining difficult cases.
+0
+10
+20
+30S2ER (\%)
+0 1 2 3 4 5 6 7 8 9 10
+Interaction Loop
+0
+5
+10
+15
+20CER/WER/MER (%)
+AISHELL-NER-Dev
+AISHELL-NER-Test
+ASRU2019-Test
+CS-Dialogue-Test
+GigaSpeech-Test
+WenetSpeech-Test-Net
+Fig. 5. Performance trends of the proposed Agentic ASR framework from
+Loop 0 to Loop 10. The upper panel showsS 2ERacross all benchmarks,
+while the lower panel reports conventional error rates (WER/CER/MER).
+S2ERdecreases consistently with more interaction, with the largest gains
+typically observed in the first few loops, whereas conventional token-level
+metrics improve more gradually.
+Most of the semantic benefit arrives early. Figure 5 shows
+a steep drop inS 2ERduring the first few interaction rounds,
+followed by gradually diminishing but still positive returns.
+This shape is practically important: the framework recovers
+most semantic errors with a small interaction budget, rather
+than requiring many rounds before becoming useful.
+The benefit is strongest precisely in the scenarios where
+semantic repair matters most. On the named-entity-intensive
+subsets, the finalS 2ERfalls to around 2%, suggesting that
+the framework is effective at repairing errors involving proper
+nouns and other high-value content. On code-switching bench-
+marks, the improvements remain substantial, although CS-
+Dialogue Test† improves less than ASRU2019 Test. This gap
+likely reflects the greater difficulty of spontaneous conver-
+sational code-switching, but the consistent downward trend
+still shows that iterative semantic refinement remains effective
+under realistic interaction conditions.
+The semantic gains are markedly larger than the improve-
+ments observed in conventional token-level metrics. Table II
+and Fig. 5 show thatS 2ERdrops much more sharply than
+WER, CER, or MER across datasets, indicating that the
+proposed framework mainly repairs meaning-critical errors
+rather than merely polishing local token mismatches. This
+discrepancy is precisely why a semantic metric is necessary:
+surface-form metrics alone would substantially understate the
+practical value of interaction.
+Overall, the main results support two conclusions. First,
+Agentic ASR improves transcription quality through iterative
+interaction across multilingual, named-entity-intensive, and
+code-switching settings. Second, the gains are fundamentally
+semantic in nature, which confirms the need to evaluate
+interactive ASR with a meaning-oriented metric such asS 2ER
+rather than with token-level measures alone.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 7
+TABLE II
+MAIN RESULTS OF THE PROPOSEDAGENTICASRFRAMEWORK UNDER DIFFERENT NUMBERS OF INTERACTION LOOPS. REPRESENTATIVE CHECKPOINTS
+(LOOPS0, 1, 3,AND10)ARE REPORTED,WHILE THE FULL TRAJECTORIES FROMLOOP0TO10ARE SHOWN INFIG. 5. INCREASING THE INTERACTION
+BUDGET CONSISTENTLY IMPROVES SEMANTIC CORRECTNESS ACROSS MULTILINGUAL,NAMED-ENTITY-INTENSIVE,AND CODE-SWITCHING
+BENCHMARKS.
+Loop GigaSpeech Test WenetSpeech Test Net AISHELL-NER Dev † AISHELL-NER Test† CS-Dialogue Test† ASRU2019 Test
+S2ERWER S2ERCER S2ERNER S2ERNER S2ERMER S2ERMER
+0 21.47% 11.92% 19.46% 6.91% 17.38% 2.07% 19.91% 2.45% 19.73% 14.44% 28.57% 6.65%
+1 12.35% 11.02% 8.69% 4.73% 8.45% 1.47% 9.55% 1.86% 10.83% 13.77% 10.32% 4.01%
+3 7.00% 10.69% 4.15% 3.92% 4.45% 1.14% 5.47% 1.53% 6.58% 13.29% 3.98% 3.45%
+10 3.49% 10.43% 1.80% 3.45% 1.97% 0.85% 2.02% 1.16% 4.16% 13.28% 1.36% 3.29%
+Note:S 2ERdenotes the proposed Sentence-level Semantic Error Rate. WER, CER, NER, and MER denote Word Error Rate, Character Error Rate,
+Named-Entity Error Rate, and Mixed Error Rate, respectively. WER is reported for English speech, CER for Mandarin speech, NER for
+named-entity-intensive subsets, and MER for code-switching benchmarks.
+0 1 2 3 4 5 6 7 8 9 10
+Interaction Loop
+5
+10
+15
+20S2ER (\%)
+GigaSpeech Test
+0 1 2 3 4 5 6 7 8 9 10
+Interaction Loop
+0
+10
+20
+30
+40
+50S2ER (\%)
+AISHELL-NER Test
+0 1 2 3 4 5 6 7 8 9 10
+Interaction Loop
+0
+10
+20
+30
+40S2ER (\%)
+ASRU2019 Test
+Whisper Qwen3ASR-1.7B FireRedASR2-LLM-8.3B
+Fig. 6. Ablation on different base ASR models under the same proposed Agentic ASR framework. Three representative shared benchmarks are shown:
+GigaSpeech Test for single-language recognition, AISHELL-NER Test † for named-entity-intensive recognition, and ASRU2019 Test for code-switching
+recognition. All backbones benefit from iterative interaction, and even the weak Whisper model reaches much lower finalS 2ERafter multiple loops.
+D. Ablation Study
+1) Different Base ASR Model:We first examine whether
+Agentic ASR depends on a particular ASR backbone by re-
+placing the defaultQwen3ASR-1.7B[3] with two alternatives:
+FireRedASR2-LLM-8.3B[42], a larger and stronger recog-
+nizer, andWhisper[5], a substantially weaker small model.
+All other components of the interactive pipeline are kept un-
+changed. Figure 6 illustrates three representative benchmarks
+covering single-language, named-entity-intensive, and code-
+switching recognition.
+Agentic ASR remains effective across a wide range of ASR
+backbones, including very weak ones. Figure 6 shows the
+same qualitative pattern on all three benchmarks: regardless of
+whether the recognizer is strong, moderate, or weak,S 2ER
+decreases steadily as interaction proceeds. This consistency
+indicates that the gain comes from the interaction mechanism
+itself rather than from a narrow compatibility with one partic-
+ular ASR architecture.
+This point is most clearly demonstrated by the weakest
+backbone, Whisper. Although its starting point is much worse
+than that of the other models, multi-turn interaction still
+produces large and practically meaningful improvements. On
+AISHELL-NER Test† and ASRU2019 Test, Whisper begins
+with Loop-0S 2ERvalues of 47.77% and 46.32%, respec-
+tively, yet iterative interaction reduces them to 6.82% and
+3.75% by the final loop; on GigaSpeech Test, it reaches 3.79%.
+In other words, even when the initial transcription is poor
+enough that nearly half of the utterances contain meaning-
+critical semantic errors, the proposed framework can still
+recover most of these errors after several rounds of user feed-
+back. This result is important because it shows that Agentic
+ASR is not merely polishing already strong hypotheses; it can
+substantially lift weak ASR systems toward usable semantic
+accuracy through interaction alone.
+At the same time, the base recognizer still affects the
+final error floor. Stronger backbones generally retain an ad-
+vantage after the full interaction budget is exhausted: for
+example, the finalS 2ERon AISHELL-NER Test † is 0.55%
+for FireRedASR2-LLM-8.3B, 2.02% for Qwen3ASR-1.7B,
+and 6.82% for Whisper. The correct interpretation is therefore
+twofold. First, better initial ASR quality still improves the ul-
+timate ceiling. Second, and more importantly for this ablation,
+weaker ASR models are not disqualified from the interactive
+setting; with sufficient multi-turn correction, they can still
+achieve strong final semantic performance. Agentic ASR is
+thus both robust to backbone choice and complementary to
+future improvements in base ASR quality.
+2) Size of LLM Reasoner:We study the effect of LLM
+scale by replacing both theReasoning LLMin Agentic ASR
+and theCorrection Generatorin the User Simulator with
+Qwen3-8B, while keeping all other components unchanged.
+A smaller LLM is still sufficient to preserve the basic benefit
+of interaction. Figure 7 shows that the 8B variant maintains
+a monotonic decrease inS 2ERon all benchmarks, indicating
+that even a compact model can support meaningful multi-turn
+correction and user-feedback simulation.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 8
+0
+10
+20
+30
+S2ER (\%)
+0 1 2 3 4 5 6 7 8 9 10
+Interaction Loop
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0Error Rate (%)
+AISHELL-NER-Dev
+AISHELL-NER-Test
+ASRU2019-Test
+CS-Dialogue-Test
+GigaSpeech-Test
+WenetSpeech-Test-Net
+Fig. 7. Ablation on the size of the LLM reasoner. Both the Reasoning LLM in
+Agentic ASR and the Correction Generator in the User Simulator are replaced
+with Qwen3-8B. The 8B variant still benefits from iterative interaction, but
+remains consistently worse than the default 32B setting.
+TABLE III
+EFFECT OF REDUCING THELLMREASONER FROMQWEN3-32BTO
+QWEN3-8B. FINALS 2ERATLOOP10IS REPORTED.
+Dataset Qwen3-32B Qwen3-8B∆
+GigaSpeech Test 3.49% 7.56% +4.07%
+WenetSpeech Test Net 1.80% 4.03% +2.23%
+AISHELL-NER Dev† 1.97% 4.08% +2.11%
+AISHELL-NER Test† 2.02% 4.88% +2.86%
+CS-Dialogue Test† 4.16% 6.58% +2.42%
+ASRU2019 Test 1.36% 4.97% +3.61%
+LLM scale substantially affects the quality of the final
+correction. Table III shows that the 8B model is worse than the
+default 32B model on every dataset at Loop 10, with absolute
+gaps ranging from 2.11 to 4.07 points. The gap is therefore
+not an isolated failure case; it is a systematic penalty that
+appears across multilingual, named-entity-intensive, and code-
+switching settings.
+A more revealing difference is that conventional error rates
+become less stable under Qwen3-8B and may even worsen
+on some benchmarks. For example, WER on GigaSpeech
+Test and MER on CS-Dialogue Test † increase as interaction
+proceeds. This divergence suggests that the smaller model
+often preserves enough global meaning to improveS 2ER,
+but is less reliable when the task requires precise and tightly
+constrained local edits.
+We attribute this behavior to weaker instruction following
+and poorer edit precision in the 8B model. Compared with
+the 32B reasoner, it is more likely to generate ambiguous
+correction instructions, misidentify the target span, or rewrite
+beyond the intended scope. As a result, the interaction loop
+can still repair sentence-level semantics, but may simultane-
+ously introduce local token mismatches, which explains the
+degradation of WER/CER/MER on some datasets.
+Overall, this ablation shows that Qwen3-8B remains useful
+and preserves the main advantage of iterative interaction,
+but stronger LLMs provide more reliable correction and a
+1 round 3 rounds 5 rounds 7 rounds
+Number of V oting Rounds
+0.80
+0.82
+0.84
+0.86
+0.88
+0.90
+0.92
+Human--AI Correlation (Pearson r)
+Overall GigaSpeech WenetSpeech ASRU2019
+Fig. 8. Mean Pearson correlation with human reference scores under different
+LLM-as-a-Judge voting strategies. The reported values are averaged over five
+repeated runs.
+lower final semantic error floor. LLM capability therefore does
+not determine whether Agentic ASR works, but it strongly
+influences how cleanly and how far the correction process can
+go.
+3) LLM-as-a-Judge Strategy:We further examine the effect
+of repeated voting in the LLM-as-a-Judge protocol used for
+S2ER. Specifically, we compare four variants:single, which
+performs one bidirectional judgment, andmajority-Kwith
+K∈{3,5,7}, where the bidirectional judgment is repeated for
+Krounds and the final label is determined by majority voting.
+The purpose of this ablation is to test whether repeated voting
+improves agreement with human judgments, and whether
+additional rounds remain worthwhile once the voting cost is
+taken into account.
+The first conclusion is that a small amount of repeated
+voting is beneficial. Figure 8 shows that a single bidirectional
+judgment already correlates strongly with human reference
+scores, but moving tomajority-3further improves the overall
+correlation on the full validation set from 0.8543 to 0.8628.
+This gain suggests that limited repetition can suppress oc-
+casional judgment errors and yield more reliable semantic-
+equivalence decisions.
+On the other hand, more voting is not necessarily better.
+Althoughmajority-5achieves the best result on GigaSpeech,
+its overall correlation on the full validation set is lower than
+that ofmajority-3, and the same diminishing-return pattern ap-
+pears formajority-7. The extra rounds therefore add cost more
+reliably than they add quality. From a practical perspective,
+majority-3offers the best trade-off between robustness and
+efficiency, making it a sensible default for theS 2ERprotocol.
+VI. CONCLUSION
+In this work, we formulatedInteractive ASRas a multi-
+turn semantic refinement problem. To address this setting, we
+proposedAgentic ASR, which combines single-pass ASR
+with LLM-based semantic correction, intent routing, and
+reasoning-based editing. We further introducedS 2ERto mea-
+sure sentence-level semantic equivalence, and developed an
+Interactive Simulation Systemfor scalable and reproducible
+multi-turn evaluation.
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 9
+Experiments on multilingual, named-entity-intensive, and
+code-switching benchmarks show that iterative interaction
+consistently reduces semantic errors, with most of the benefit
+emerging in the first few rounds. Compared with WER, CER,
+NER, and MER,S 2ERcaptures these gains more faithfully
+because the improvements are primarily semantic rather than
+merely lexical. Ablation studies further suggest that smaller
+LLMs remain usable in this framework, while stronger reason-
+ers deliver more stable editing and better final performance.
+Two directions appear especially promising for future work.
+First, richer interactive supervision, such as real user correction
+traces or automatically constructed interaction data, could be
+incorporated into training to improve robustness under realistic
+deployment conditions. Second, post-training a smaller task-
+specific refinement model is an attractive direction, since
+compact models already exhibit basic correction ability but
+still lag behind larger models in stability and precision.

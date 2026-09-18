@@ -1,0 +1,791 @@
+record_id: arxiv:2603.11935
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2603.11935
+fetched_title: MobileKernelBench: Can LLMs Write Efficient Kernels for Mobile Devices?
+fetched_at: 2026-09-18T19:00:34Z
+
+MobileKernelBench: Can LLMs Write Efficient
+Kernels for Mobile Devices?
+Xingze Zou 1∗ Jing Wang 1∗ Yuhua Zheng1 Xueyi Chen2 Haolei Bai2 Lingcheng Kong3
+Syed A.R. Abu-Bakar4 Zhaode Wang5 Chengfei Lv5 Haoji Hu1† Huan Wang2†
+1Zhejiang University 2Westlake University 3HKUST 4Universiti Teknologi Malaysia 5Alibaba
+{zeezou, j_wang, YuhuaZheng, haoji_hu}@zju.edu.cn
+{chenxueyi, wanghuan}@westlake.edu.cn, Baih0011@e.ntu.edu.sg
+LingchengKong05@outlook.com, e-syed@utm.my
+{zhaode.wzd, chengfei.lcf}@alibaba-inc.com
+Abstract
+Large language models (LLMs) have demonstrated remarkable capabilities in code
+generation, yet their potential for generating kernels specifically for mobile de-
+vices remains largely unexplored. In this work, we extend the scope of automated
+kernel generation to the mobile domain to investigate the central question:Can
+LLMs write efficient kernels for mobile devices?To enable systematic investiga-
+tion, we introduceMobileKernelBench, a comprehensive evaluation framework
+comprising a benchmark prioritizing operator diversity and cross-framework in-
+teroperability, coupled with an automated pipeline that bridges the host-device
+gap for on-device verification. Leveraging this framework, we conduct extensive
+evaluation on the CPU backend of Mobile Neural Network (MNN), revealing that
+current LLMs struggle with the engineering complexity and data scarcity inher-
+ent to mobile frameworks; standard models and even fine-tuned variants exhibit
+high compilation failure rates (over 54%) and negligible performance gains due
+to hallucinations and a lack of domain-specific grounding. To overcome these
+limitations, we propose the Mobile Kernel Agent (MoKA), a multi-agent sys-
+tem equipped with repository-aware reasoning and a plan-and-execute paradigm.
+Validated on MobileKernelBench, MoKA achieves state-of-the-art performance,
+boosting compilation success to 93.7% and enabling 27.4% of generated kernels
+to deliver measurable speedups over native libraries. Our dataset is available on
+Mobilekernelbench.
+1 Introduction
+Large language models (LLMs) have achieved remarkable success in the field of code generation,
+with performance further enhanced by specialized methodologies such as domain-adaptive fine-
+tuning and agentic reasoning frameworks [ 2, 3, 4, 5, 6, 7]. Building on this foundation, a series
+of recent studies have begun to systematically evaluate the application of LLMs in synthesizing
+performance-optimized CUDA kernels [1, 8, 9]. These works demonstrate that LLMs can exhibit a
+significant degree of hardware awareness, enabling them to write high-performance kernels tailored
+for server-grade GPUs. With the rapid surge in demand for mobile AI applications, on-device
+inference has attracted increasing attention for its data safety, low inference latency, and personalized
+service. However, deploying deep learning models on mobile devices also demands substantial effort
+in kernel development, constituting a highly challenging engineering barrier that has not yet been
+investigated. In this work, we extend the scope of automated kernel generation to the mobile domain,
+∗Equal Contribution
+†Corresponding Author
+Preprint.
+arXiv:2603.11935v2 [cs.LG] 15 Mar 2026
+
+20
+405060
+80
+100
+CSR
+FCR
+fast0.5
+fast1.0
+fast1.5
+(b) Methods Performance
+Qw3-32B
+Qw3-32B-LoRA
+Qw3-4B
+Qw3-4B-GRPO
+Claude (@10)
+MoKA (ours)
+10
+20
+30
+40
+50
+CSR
+FCR
+fast0.5
+fast1.0
+fast1.5
+(a) Baseline Models Performance
+Claude
+GPT-5
+Gemini
+Llama
+DeepSeek
+Qwen3
+Figure 1:Performance evaluation on MobileKernelBench across three metrics:compilation
+success rate (CSR), functional correctness rate (FCR), and performance speedup (fast p) [1].(a)
+Baseline LLM performance:We benchmark prevalent open- and closed-source LLMs, revealing sig-
+nificant shortcomings in their ability to generate functional and efficient mobile kernels.(b) Method
+comparison: We compare our proposed MoKA against common training methods, including LoRA
+and GRPO. The red circle (marked at 50%) corresponds to the outer limit of plot (a), highlighting
+that MoKA achieves substantial improvements, surpassing the performance ceiling of both baseline
+models and naive fine-tuning approaches.
+presenting a preliminary investigation into the following question:Can LLMs write efficient kernels
+for mobile devices?
+We first investigate and compare the differences between server-side and mobile-side kernel devel-
+opment in Tab. 1. Mobile kernel development functions as the critical bridge for migrating models
+from training environments to resource-constrained edge devices, characterized by three distinct
+features: (1)Compatibility priority: the primary objective is to ensure broad support, necessitating
+the implementation of a vast spectrum of operators to cover diverse training frameworks; (2)Engi-
+neering complexity: the development process, however, is severely hampered by the fragmentation
+of the mobile ecosystem, where developers must navigate a myriad of heterogeneous backends and
+architectures; and (3)Data scarcity:the nascent nature of the mobile inference landscape results
+in a lack of high-quality reference implementations, creating a data-poor environment that poses
+significant generalization challenges for LLMs. Consequently, existing research is ill-suited for this
+specific domain: current benchmarks prioritize the algorithmic complexity of kernels rather than
+the operator diversity required for edge compatibility, while the tight coupling between kernels and
+the corresponding framework has precluded the establishment of systematic pipelines for evaluating
+LLM-generated kernels directly on mobile devices.
+To address these limitations, we introduceMobileKernelBench, as illustrated in Fig. 2, a compre-
+hensive system comprising a dedicated benchmark and an automated evaluation pipeline tailored
+for mobile frameworks. Diverging from the difficulty-tiered classification of prior works [1, 8], our
+benchmark prioritizes operator diversity by curating 190 tasks across 12 categories of 95 primitive
+operators to facilitate wider model migration. Simultaneously, we ensure cross-framework interop-
+erability via standardized PyTorch and Open Neural Network Exchange (ONNX) test data, acting
+as a universal bridge to mitigate inconsistent framework support and tackle ecosystem fragmenta-
+tion. Complementing the benchmark, we introduce an automated evaluation pipeline to bridge the
+separation between host-side development and device-side testing inherent to mobile deployment.
+By automating the entire lifecycle spanning registration, cross-compilation, and on-device verifi-
+cation, it not only satisfies the concerns mentioned in previous work [ 1] but also streamlines the
+desktop-to-mobile workflow to capture granular debugging and performance data akin to a real-world
+developer’s environment.
+2
+
+Building on the proposed evaluation pipeline design, we establish a concrete evaluation environment
+using Mobile Neural Network (MNN) [10] framework with a CPU backend. We first conduct a com-
+prehensive evaluation of state-of-the-art (SOTA) LLMs on MobileKernelBench. Our experimental
+results show that, due to limited framework-specific knowledge and insufficient optimization capabil-
+ity, LLM-generated kernels achieve performance parity with native framework implementations in at
+most 16.3% of benchmark cases, illustrated in Fig. 1 (a). Strikingly, more than 54.7% of the generated
+kernels fail at the compilation stage, primarily driven by hallucinated APIs or invalid framework
+usage, revealing a critical lack of grounding in framework-specific logic. Notably, only a small
+fraction of kernels achieve measurable speedups over the baseline. Subsequently, we apply standard
+training strategies, including LoRA [11] and GRPO [12], yet observe negligible improvements. We
+attribute these persistent failures to the scarcity of high-quality data within specific mobile inference
+frameworks. This data poverty creates a severe deficit in domain-specific knowledge, spanning
+framework specifications, optimization heuristics, and functional definitions, preventing LLMs from
+mastering this highly specialized domain.
+To further explore the potential of LLMs in mobile kernel generation and address their identified
+limitations, we propose the Mobile Kernel Agent (MoKA), a specialized multi-agent system tailored
+for mobile kernel development. The MoKA follows a multi-round plan-and-execute paradigm, con-
+sisting of a code agent responsible for operator generation and two planning agents that respectively
+formulate execution strategies for compilation, functional correctness verification, and performance
+optimization. These agents are equipped with repository-aware and information parsing tools, en-
+abling them to access and reason over realistic deployment signals. As illustrated in Fig. 1 (b), when
+evaluated on MobileKernelBench, the MoKA substantially outperforms the baseline and establishes
+SOTA performance among all tested LLMs, with 93.7% of kernels achieving successful compilation
+and 27.4% delivering measurable performance speedups. This initiative advances the frontier of
+mobile kernel generation, offering significant insights into enhancing LLM capabilities within such
+highly specialized domains.
+In summary, our contributions are as follows:
+• We present the first systematic study extending automated kernel generation to the mobile
+domain, identifying three distinguishing features of mobile development and revealing the
+fundamental gap between server-side and mobile-side development.
+• We introduceMobileKernelBench, a comprehensive evaluation system comprising a bench-
+mark and an automated pipeline, facilitating systematic mobile kernel evaluation and granu-
+lar information capture.
+• We proposeMoKA, a multi-agent system designed to autonomously navigate the complexi-
+ties of API usage and performance optimization in data-scarce environments.
+• We conduct extensive experiments on MobileKernelBench, revealing that while standard
+LLMs suffer from severe hallucinations and compilation failures, MoKA effectively over-
+comes these barriers, achieving SOTA performance over other LLMs.
+2 Related Work
+2.1 LLM for Kernel Generation
+LLMs have shown proficiency in general code generation [ 13, 14, 2, 3], and recent works have
+focused on leveraging them for high-performance computing [15, 16]. To systematically assess these
+capabilities, benchmarks such as KernelBench [1], MultiKernelBench [8], and TritonBench [9] have
+been developed, evaluating both correctness and efficiency across diverse platforms and paradigms.
+Recognizing the limitations of direct prompting, subsequent studies have integrated iterative feedback
+loops to refine kernel quality. One line of research, including Kevin [17], AutoTriton [18], CUDA-L1
+[19], and CUDA-L2 [ 20], uses reinforcement learning (RL) or supervised fine-tuning (SFT) to
+optimize kernel generation. Alternatively, agentic frameworks such as Astra [ 21], EvoEngineer
+[22], and CudaForge [23] employ collaborative role-playing or Coder-Judge architectures to ground
+reasoning in hardware specifications. However, these efforts predominantly focus on server-grade
+GPUs and CUDA, leaving the distinct constraints and fragmented ecosystems of mobile and edge
+computing largely unexplored.
+3
+
+Table 1:Comparison between server-side and mobile-side computing.Unlike the server side,
+which utilizes unified CUDA-based backends on high-performance GPUs, the mobile side faces a
+fragmented landscape with diverse compute backends primarily optimized for inference tasks.
+Dimension Server Side Mobile Side
+Hardware CPU, GPU, TPU, NPU (ASIC) CPU, GPU, NPU (SoC)
+Backend CUDA, TensorRT, ROCm CPU, OpenCL, Vulkan, CoreML, Metal
+Language CUDA, Triton, PTX C++, Assembly
+Feature Homogeneous Heterogeneous & Fragmented
+Frameworks PyTorch, TensorFlow, JAX MNN, NCNN, TFLite, CANN
+Workload Training & Inference Inference
+Resource Unlimited Limited (Power/Mem/Band)
+Table 2:Comparison between KernelBench and MobileKernelBench.Compared to KernelBench,
+MobileKernelBench emphasizes operator diversity, covering the majority of common operator types
+in ONNX Opset 20. The (PyTorch, ONNX) pairs format facilitates kernel evaluation across different
+frameworks, targeting both framework adaptation and optimization on mobile devices.
+Feature KernelBench MobileKernelBench (Ours)
+Diversity 43 (Level 1) 95
+Tasks 250 190
+Format PyTorch Models (PyTorch, ONNX) Pairs
+Domain GPUs Mobile SoCs (CPU, Adreno, etc.)
+Target Optimization ONLY Framework Adaptation & Optimization.
+2.2 Mobile Inference Engine
+The Open Neural Network Exchange (ONNX) [ 24] serves as the de facto standard for model
+interoperability. By defining a unified intermediate representation and operator schema, ONNX
+decouples model architecture from specific training environments like PyTorch [25] and TensorFlow
+[26]. This standardization is particularly critical for benchmarking, as it establishes a universal
+functional definition for operators, ensuring that evaluations focus on implementation capability
+rather than framework discrepancies. For on-device execution, bridging the gap between abstract
+representation and efficiency remains challenging. While compiler-based stacks like TVM [ 27]
+offer automation, library-based inference engines such as MNN [ 10] and NCNN [ 28] are often
+preferred in industry for their lightweight integration. Achieving high performance in these libraries
+requires meticulous hardware-aware optimizations, including dynamic algorithmic selection and
+specialized memory layouts. Consequently, manually implementing operators involves managing
+complex low-level details like data packing and register allocation, creating a significant barrier that
+motivates the need for automated, expert-level code generation approaches.
+3 MobileKernelBench
+To bridge the gap between existing server-centric benchmarks and the specialized requirements of
+on-device inference, we introduceMobileKernelBench, the first benchmark dedicated to cross-
+framework kernel implementation for mobile deployment. As detailed in Tab. 2, our benchmark
+differs from previous work by focusing on the ONNX standard and incorporating a mobile kernel
+development evaluation pipeline, which verifies the full lifecycle of on-device integration.
+3.1 Data Curation
+Motivated by the mobile ecosystem’s reliance on ONNX as the standard interchange format, our
+benchmark prioritizes comprehensive coverage of the ONNX operator set (Opset). To ensure
+compatibility with existing kernel generation benchmarks and standard LLM evaluation protocols,
+we encapsulate these operators within a PyTorch-based task format. To construct a usable, diverse,
+and robust dataset, we execute a systematic curation pipeline consisting of three stages.
+Standard-aligned operator collection.We ground our benchmark in the ONNX Opset version
+20 to ensure compatibility with modern inference engines. From the full ONNX operator catalog,
+4
+
+ONNX: opset 20
+Node: Einsum
+Input name: input1, input2
+Output name: output
+PyTorch
+class Module()
+def forward():
+return torch.einsum()
+Node
+mapping
+Torch
+export
+Output
+verification
+× M
+Netron
+Node comparison
+Mobile-
+KernelBench
+Data case
+#Operators: 95
+#Tasks: 190
+PyTorch
+ONNX
+Operator
+Registration
+Framework
+Compilation
+Model
+Verification
+Performance
+Evaluation
+Evaluation paradigm
+Schema: name/params
+Kernel: cpp/hpp files
+Compilation
+G++/NDK
+V.S.
+ONNX
+MNN
+model
+adb
+edge
+device
+EvaluationVerification
+MNNV2Basic.out
+ModuleBasic.out
+Performance
+Info. Box
+Compile
+Correctness
+Execution
+Evaluation pipeline
+Op Repo
+Register
+(a) MobileKernelBench
+Coder
+Task:
+gen kernel code
+Plan:
+repair/correct/acc
+Debugger
+Accelerator
+Local/Cross-file error
+Execution failure info
+Tools
+Repo
+repo tree/error location
+error context/model node
+History plan
+Info
+Repair plan
+Correction plan
+History plan
+execution info
+OP performance
+History plan
+Info
+Acceleration plan
+History plan
+Initial
+prompt
+Pipeline
+Kernel
+candidate
+× N
+Failure
+case Best
+Kernel
+Repair/Correction plan Acceleration plan
+plan + code (last iteration)
+(b) MoKA
+Success
+case
+ONNX
+model
+Figure 2:Overview of our proposed framework.The system consists of two core components:(a)
+MobileKernelBench, which establishes the evaluation environment by integrating a target-driven
+data curation process with an automated, hardware-in-the-loop evaluation pipeline; and(b) MoKA, a
+multi-role agentic system where Coder, Debugger, and Accelerator agents collaborate to iteratively
+generate and refine kernels based on feedback from the benchmark.
+we select operators according to two principles: diversity and generality. To ensure diversity, we
+include operators from a wide range of categories to reflect the heterogeneous computation patterns
+in neural network inference. To ensure generality, we prioritize operators that are widely used in
+practice, including those commonly appearing in canonical neural network architectures and those
+already supported by mainstream mobile inference frameworks such as MNN [10] and NCNN [28].
+Following these criteria, we select 95 representative operators that capture the core workloads of
+on-device inference while keeping the benchmark compact.
+Multi-dimensional task expansion.A single operator implementation is often insufficient to
+capture the complexity of varying attributes and input configurations. To rigorously evaluate the
+generalization capability of LLMs, we expand the 95 selected operators into 190 specific tasks
+through a task expansion strategy. Instead of relying on default parameters, we systematically mutate
+the PyTorch model definitions to cover diverse code paths and edge cases. Specifically:
+• Attribute variation:We modify key attributes that directly affect control-flow behavior. For
+example, in reduction operators such as ArgMax and ReduceSum, we vary the keep_dims
+parameter and the reduction axis to evaluate the model’s ability to handle output shape
+inference and loop reduction logic.
+• Dimensionality transformation:We extend input tensors from standard 2D matrices to
+lower or higher-dimensional forms. For matrix multiplication operators including MatMul
+and Gemm, this requires the generated kernel to correctly handle broadcasting semantics and
+batch stride arithmetic, significantly increasing the implementation difficulty.
+Target-driven construction strategy.To ensure the expanded tasks are valid and align with de-
+ployment standards, we employ a target-driven construction strategy. We actively construct paired
+(PyTorch, ONNX) instances as illustrated in Fig. 2(a) and filter them through two criteria:
+• Output fidelity:The implemented PyTorch module must yield results identical to the target
+ONNX operator. We verify this by cross-referencing the execution of the PyTorch code in
+eager mode against the ONNXRuntime 3 execution of the exported model.
+• Topology alignment:The PyTorch implementation must be converted to the precise target
+ONNX operator node rather than a composite subgraph. We validate this by inspecting the
+exported graph topology with Netron 4, iteratively refining the source code until the graph
+structure aligns with the canonical ONNX definition.
+The resulting benchmark comprises 190 tasks covering 95 distinct operators, taxonomized into 12
+categories in Tab. 3. This set spans diverse computational patterns, ranging from memory-bound
+element-wise operations to compute-bound contractions like convolutions.
+3https://github.com/microsoft/onnxruntime
+4https://github.com/lutzroeder/netron
+5
+
+Table 3:Overview of MobileKernelBench.This benchmark comprises 190 tasks derived from
+95 primitive operators. These operators are classified into 12 categories, encompassing common
+operators found in the ONNX ecosystem. A primitive operator may yield multiple distinct tasks
+based on differences in input shapes or parameter settings.
+Categories Representatives #Operators #Tasks
+Unary exp, sign, ceil, floor 11 11
+Binary add, div, mod 7 8
+Trigonometry sin, acos, atanh, tan 12 12
+Activation hardsigmoid, softmax, celu, relu 6 12
+Normalization batchnorm, layernorm, instancenorm 3 12
+Pooling maxpool, averagepool 4 15
+Convolution conv2d, convtranspose, 2 21
+Matrix einsum, gemm, matmul, det 4 19
+Reduction reducemin, reduceprod, reducesum 10 35
+Tensor reshape, concat, topk, tile, slice 19 28
+Logic and, bitwisexor, equal 11 13
+Others RNN, LSTM, STFT, RoiAlign 4 4
+Total 95 190
+3.2 Evaluation Pipeline
+Evaluating mobile kernels presents a unique challenge: code generation occurs on host machines,
+while verification must be executed on resource-constrained edge devices. To address this, we
+propose a generic evaluation protocol for mobile kernels, which is instantiated through an automated,
+end-to-end pipeline as shown in Fig. 2(a). For more detailed configurations, see Sec. C
+Evaluation paradigm.We design a standardized four-stage protocol comprisingOperator Regis-
+tration,Framework Compilation,Model Verification, andPerformance Evaluation. This paradigm
+explicitly decouples operator implementation from runtime execution. By formalizing this separation,
+we ensure the evaluation remains reproducible and accurately simulates the deployment workflow of
+real-world mobile applications.
+Pipeline instantiation on MNN.We instantiate this paradigm within the MNN framework, au-
+tomating the operator lifecycle through four specific stages: (1)Automated registration.Upon
+code generation, the pipeline parses the output and executes an injection strategy. It locates the
+target source path and hot-swaps the existing implementation with the generated code, ensuring
+seamless registration into the global operator factory without manual intervention. (2)Framework
+compilation.The pipeline invokes the CMake build system to compile the modified MNN library.
+This stage acts as a strict filter for syntactic correctness and API validity, where errors trigger im-
+mediate failure termination. (3)Functional verification.Successfully compiled operators undergo
+differential testing. We establish a ground truth baseline using the reference ONNX model with
+randomized inputs. The pipeline converts the ONNX model to MNN format and compares the
+MNN inference output against the baseline, enforcing a strict numerical tolerance for validation. (4)
+On-device performance benchmarking.We employ a cross-compilation and remote execution
+workflow for real-world efficiency evaluation. The modified source is cross-compiled via the Android
+NDK, and the resulting ARM64 binaries are deployed to the target device via a bridge interface. To
+ensure statistically robust measurements, the benchmarking executable follows a strict warm-up and
+multi-iteration protocol to mitigate system noise.
+4 MoKA
+We propose the Mobile Kernel Agent (MoKA), a specialized multi-agent framework designed
+to automate the lifecycle of operator implementation, debugging, and optimization for on-device
+inference engines. As shown in Fig. 2 (b), MoKA follows an iterativeplan-and-executeparadigm. In
+each iteration, the agent generates an operator candidate that probes the deployment environment,
+while the evaluation pipeline returns structured feedback including compilation status, correctness,
+and performance metrics. This feedback loop drives the agents to refine their planning strategies,
+enabling progressive convergence toward high-quality, deployment-ready operators.
+6
+
+4.1 Agent Collaboration Design
+The MoKA architecture decomposes the implementation task into three specialized roles that collabo-
+rate via a shared history memory.
+Coder.The Coder serves as the sole actuator of the system, responsible for synthesizing C++ source
+code. In the initial iteration, it generates a draft implementation based on the task description. In
+subsequent steps, it acts as an executor that translates high-level strategies provided by planning
+agents into concrete code modifications, ensuring adherence to the specified repair or optimization
+logic.Debugger.Activated upon pipeline failures, the Debugger handles two distinct error modes.
+For build failures, it initiates aCompilation Diagnosis (Repair Plan)by utilizing repository-aware
+tools to interpret compiler diagnostics and retrieve cross-file context, thereby formulating plans to fix
+syntactic or dependency errors. For incorrect outputs, it initiates aFunctional Correction (Correction
+Plan)by employing model parsing tools to align the implementation with the ONNX definition,
+identifying semantic discrepancies to generate functionality-preserving fixes.Accelerator.Once an
+operator passes functional verification, the Accelerator pushes performance boundaries. It leverages a
+performance parser to extract fine-grained execution metrics such as backend selection and threading
+efficiency. Combined with historical data, it proposes anAcceleration Planto optimize memory
+access patterns or computational logic without compromising correctness.
+Reflective memory.Crucially, both the Debugger and Accelerator utilize a shared history mechanism.
+By maintaining a trace of past strategies and their outcomes, the agents perform self-reflection to
+avoid repetitive mistakes and prune ineffective optimization paths.
+4.2 Agentic Toolset
+To ground agent reasoning within the rigid constraints of the deployment environment, we equip
+them with two categories of domain-specific tools.
+Repository-aware tools.To address the lack of structural awareness in generic LLMs, we implement
+aRepository Tree Builderthat efficiently constructs a hierarchical view of the codebase, facilitating
+the resolution of dependency errors. Additionally, anError Extractorpowered bytree-sitter-cpp
+citetree-sitter2025 parses compiler logs to pinpoint exact error locations and extract surrounding
+context. These tools enable the Debugger to effectively distinguish between local syntax errors and
+complex cross-file inconsistencies.Information parsing tools.To bridge static graphs and dynamic
+execution, aModel Parserserializes both reference ONNX nodes and converted MNN operators
+into a unified structured representation, providing evidence for semantic mismatches. Furthermore, a
+Performance Parserprocesses raw profiling logs (e.g., backend usage, execution time) into structured
+indicators. This assists the Accelerator in identifying bottlenecks, such as suboptimal data layouts or
+thread contention, to formulate backend-consistent optimization strategies.
+5 Experiments
+In this section, we conduct a comprehensive evaluation on MobileKernelBench to assess the per-
+formance of LLMs in mobile kernel generation. In Sec. 5.2, we first evaluate leading open-source
+and closed-source models accessed directly via cloud service APIs. Furthermore, to investigate the
+efficacy of standard fine-tuning strategies for this task, we implement classic LoRA fine-tuning and
+GRPO training. Finally, we evaluate the performance of our proposed MoKA in Sec. 5.3.
+5.1 Experiment Setups
+Evaluation environment.We utilize MNN (v3.2.2 5) as the foundational inference engine, specifi-
+cally targeting its CPU backend for operator registration and execution (see Sec. A for registration
+details). All evaluations are conducted on a Xiaomi 13 smartphone powered by the Qualcomm
+Snapdragon 8 Gen 2 platform [29], a representative high-end mobile SoC equipped with an 8-core
+Kryo CPU and LPDDR5X memory.
+Evaluation metrics.We assess performance on MobileKernelBench using three metrics: (1)
+Compilation success rate (CSR), the percentage of tasks where generated operators successfully
+5https://github.com/alibaba/MNN/releases/tag/3.2.2
+7
+
+Table 4:Performance comparison of SOTA
+LLMs on MobileKernelBench.The best and
+second-best results are highlighted inboldand
+underlined respectively. Some model names are
+abbreviated for layout purposes, with full identi-
+fiers provided in Sec. 5.2.
+Baseline CSR FCR fast p
+(%) (%)0.5 1.0 1.5
+Claude-Sonnet-4.5 46.3 34.2 31.1 16.3 4.7
+GPT-547.433.2 26.3 13.7 4.2
+Gemini-2.5-Flash 20.5 15.8 13.2 6.8 0.5
+Llama-3.1-405B 11.6 6.3 5.3 4.2 1.1
+DeepSeek-R1 15.3 10.0 8.4 3.2 0.5
+Qwen3-235B 18.9 13.7 11.6 6.3 2.1
+compile correct fast0.5 fast1.0 fast1.5
+Evaluation Pipeline Stages
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5Success Rate
+Clause-Sonnet-4.5
+GPT-5
+Gemini-2.5-Flash
+Llama-3.1-405B-Instruct
+DeepSeek-R1-0528
+Qwen3-235B-A22B-Thinking
+Figure 3:Success rate degradation across eval-
+uation stages.The plot illustrates the perfor-
+mance drop of each model as the evaluation cri-
+teria become stricter, from compilation to func-
+tional correctness and varying levels of perfor-
+mance optimization.
+pass the build process. (2)Functional correctness rate (FCR), the proportion of tasks that pass
+functional verification against the ONNX baseline. (3)fast p [1], this metric quantifies the percentage
+of tasks achieving a speedup greater than a threshold p relative to the native MNN implementation.
+For methods that involve iterative refinement or generate multiple candidates, we report metrics based
+on the best-performing operator for each task.
+LoRA training setups.We fine-tune Qwen-32B via LLaMA-Factory [ 30] using LoRA (rank 64)
+and ZeRO stage-3 [31] on 8 A100 GPUs. The model is trained for 2 epochs with a batch size of 1
+and gradient accumulation steps of 2. The training dataset follows the Alpaca format, pairing GPT-5
+generated descriptions with MNN implementations of 74 ONNX operators. A subset of 20 operators
+and 36MobileKernelBenchtasks is held out for testing.
+GRPO training setups.We explore RL using GRPO [ 12] implemented via the verl [32] framework,
+with Qwen3-4B-Instruct-2507 as the policy model. OurMobileKernelBenchis partitioned into a
+training set of 150 samples and a test set of 40 samples using stratified sampling to ensure a balanced
+representation of operator categories. Based on the reward scheme from Kevin [ 17], we add an
+intermediate compilation reward to avoid extremely sparse rewards in early training stages. Training
+runs on two A100 GPUs for 40 steps, using a global batch size of 30, a learning rate of 1e-6, a group
+size of 5, and a context length of 8192 tokens.
+5.2 Baseline Evaluation
+We benchmark six prevalent LLMs, spanning proprietary leaders (OpenAI GPT-5 [ 2], Anthropic
+Claude-Sonnet-4.5 [3], Google Gemini-2.5-Flash [4]) and open-source frontiers (LLaMA-3.1-405B-
+Instruct [33], DeepSeek-R1-0528 [ 13], Qwen3-235B-A22B-Thinking-2507 [ 5]). All models are
+evaluated using a standardized initial prompt (see Sec. B.1) under default settings via API endpoints.
+The quantitative results presented in Tab. 4 and Fig. 3 demonstrate a substantial gap between code
+generation capabilities and deployment readiness across all evaluated models. Although leading
+proprietary models, such as Claude-Sonnet-4.5 and GPT-5, achieve compilation success rates of
+approximately 47%, their performance declines significantly when strict functional verification criteria
+are applied. Furthermore, open-source models demonstrate considerably lower proficiency, with
+functional correctness rates plateauing between 6.3% and 13.7%, which underscores the complexity
+of synthesizing valid operators for low-resource frameworks. The fastp metrics highlight the difficulty
+in achieving high-performance optimization. Even for the top-performing Claude-Sonnet-4.5, only
+16.3% of the generated operators match or exceed the baseline speed, with just 4.7% realizing a
+significant speedup (>1.5× ). These findings substantiate the hypothesis that base large language
+models lack the intrinsic ability to discover hardware-efficient implementation strategies in the
+absence of external guidance or feedback.
+We further dissect model performance across different operator categories, as illustrated in Fig. 4.
+For computationally lightweight operations such as activation functions, most models exhibit strong
+performance, with Claude-Sonnet-4.5 achieving a functional correctness rate exceeding 70%. In
+contrast, complex operators present a prohibitive challenge. Gemini-2.5-Flash and the leading open-
+source models fail to produce any functionally correct kernels for convolution tasks. Unexpectedly,
+8
+
+Overall Activation Matrix Reduction Convolution T ensor
+0
+20
+40
+60
+80
+100
+Percentage (%)
+46.3
+91.7
+21.1
+74.3
+33.3
+75.0
+34.2
+75.0
+10.5
+57.1
+23.8
+53.6
+16.3
+25.0
+0.0
+25.7
+14.3
+28.6
+Claude-Sonnet-4.5
+Overall Activation Matrix Reduction Convolution T ensor
+47.4
+66.7 63.2
+71.4
+23.8
+50.0
+33.2
+58.3
+52.6 54.3
+9.5
+28.6
+13.7
+25.0 21.1 25.7
+4.8
+10.7
+GPT-5
+Overall Activation Matrix Reduction Convolution T ensor
+0
+20
+40
+60
+80
+100
+Percentage (%)
+20.5
+41.7
+21.1
+48.6
+0.0
+32.1
+15.8
+33.3
+15.8
+40.0
+0.0
+25.0
+6.8 8.3
+0.0
+20.0
+0.0
+10.7
+Gemini-2.5-Flash
+Overall Activation Matrix Reduction Convolution T ensor
+15.3
+58.3
+47.4
+5.7 4.8
+21.4
+10.0
+50.0
+31.6
+0.0 4.8
+14.3
+3.2 8.3
+15.8
+0.0 0.0 3.6
+Deepseek-R1-0528
+Overall Activation Matrix Reduction Convolution T ensor
+0
+20
+40
+60
+80
+100
+Percentage (%)
+11.6 16.7 15.8 17.1
+0.0
+21.4
+6.3 8.3
+0.0
+11.4
+0.0
+17.9
+4.2 8.3
+0.0 4.7 0.0
+14.3
+Llama-3.1-405B-Instruct
+Overall Activation Matrix Reduction Convolution T ensor
+18.9
+33.3 31.6
+40.0
+4.8
+25.0
+13.7
+25.0 26.3
+37.1
+4.8
+14.3
+6.3 8.3 10.5
+20.0
+0.0
+7.1
+Qwen3-235B-A22B-Thinking
+CSR FCR fast1.0
+Figure 4:Fine-grained performance of LLMs across different operator categories.We visualize
+the evaluation metrics for five representative operator types. The results highlight significant dispari-
+ties in model capabilities when handling operators with varying levels of algorithmic complexity.
+GPT-5 and DeepSeek-R1-0528 display specific competence in matrix operations, achieving functional
+correctness rates of 52.6% and 31.6%, respectively. This observation suggests that these models
+may have retained effective algorithmic structures for general matrix multiplication during their
+pre-training phases, despite having lower overall performance averages.
+Supervised fine-tuning result by LoRA.As shown in Tab. 5, the base Qwen3-32B model demon-
+strates limited proficiency in this domain-specific task. Although SFT resulted in marginal improve-
+ments, specifically increasing the compilation success rate to 25.0% and correctness to 18.5%, it
+failed to yield any gains in the strict fast1.5 efficiency metric. We attribute this limitation primarily
+to the inherent data scarcity characterizing mobile operator development. Given the constrained
+volume of available training samples, supervised learning proved insufficient for encoding the deep,
+framework-specific semantic knowledge required for MNN implementation. In contrast, our MoKA
+circumvents this bottleneck by actively retrieving optimization strategies via external tools. This
+distinction underscores that for low-resource, expert-domain tasks, an agentic framework capable of
+dynamic context retrieval and iterative reasoning constitutes a significantly more robust solution than
+static model fine-tuning.
+Reinforcement learning result by GRPO.As shown in Tab. 5, the application of GRPO to the
+Qwen3-4B-Instruct-2507 model results in a significant 15.0% improvement in the compilation
+success rate, effectively validating that our hierarchical reward design can successfully guide the
+model to comply with strict syntactic constraints. However, this method encounters limitations
+in terms of functional logic and performance optimization. The functional correctness rate only
+increases marginally by 2.5%, and the high-performance metric fast1.0 remains unchanged at 5.0%.
+This stagnation indicates that although RL can align the model’s output format, it fails to develop
+the complex reasoning skills needed to identify hardware-efficient strategies in smaller models. The
+superior performance of our MoKA demonstrates that iterative refinement is significantly more
+effective than training-time policy optimization for mobile operator generation.
+5.3 MoKA Results
+We initialize the MoKA using Claude-Sonnet-4.5 and perform N=10 iterations. To isolate the benefits
+of our agentic workflow from simple sampling diversity, we compare it against a pass@10 baseline
+where the same model is queried ten times. As shown in Tab. 5, while the pass@10 strategy yields
+a moderate improvement over baseline, the MoKA demonstrates superior performance across all
+metrics. Specifically, it achieves a functional correctness rate of 75.3%, surpassing the single-query
+9
+
+Table 5:Comprehensive performance evaluation on MobileKernelBench.We compare our
+proposed MoKA against standard prompting, SFT, and RL methods. CSR and FCR represent
+compilation success rate and functional correctness rate, respectively. Bold values indicate the best
+performance, and values in parentheses denote the absolute gains over the corresponding baselines.
+Method CSR FCR fast p
+(%) (%)0.5 1.0 1.5
+Supervised Fine-Tuning (SFT)
+Qwen3-32B 16.7 13.9 8.3 2.8 0.0
+Qwen3-32B-LoRA 25 (+8.3) 18.5 (+5.6) 11.1 (+2.8) 5.6 (+2.8) 0.0 (–)
+Reinforcement Learning (RL)
+Qwen3-4B-Instruct-2507 10.0 5.0 5.0 5.0 0.0
+Qwen3-4B-Instruct-2507-GRPO 25.0 (+15.0) 7.5 (+2.5) 7.5 (+2.5) 5.0 (–) 0.0 (–)
+Agentic Workflow
+Claude-Sonnet-4.5 (Base) 46.3 34.2 31.1 16.3 4.7
+Claude-Sonnet-4.5 (@10) 62.1 47.9 41.6 20.5 5.3
+MoKA (ours) 93.7(+47.4) 75.3(+41.1) 62.6(+31.5) 46.8(+30.5) 27.4(+22.7)
+Overall Activation Binary Convolution Logic Matrix Normalization Pooling ReductionTrigonometry T ensor Unary Others
+0
+20
+40
+60
+80
+100
+Percentage (%)
+93.7
+100 100
+61.9
+92.3 94.7
+100 100 100 100 96.4 100
+75.075.3
+91.7
+75.0
+42.9
+30.8
+78.9
+91.7
+86.7
+100
+50.0
+78.6
+90.9
+25.0
+46.8
+8.3
+50.0
+23.8
+15.4
+47.4
+75.0
+46.7
+65.7
+33.3
+53.6
+45.5
+25.0
+CSR
+FCR
+fast1.0
+Figure 5:Fine-grained performance of MoKA across different operator categories.The agent
+demonstrates robust generalization across diverse operator types, achieving high correctness on struc-
+turally simpler operations (e.g., activation, normalization) while maintaining competitive performance
+on complex tasks like convolution and matrix operations.
+and pass@10 baselines by 41.1% and 27.4%, respectively. Most notably, in the speedup evaluation,
+the MoKA attains a 27.4% success rate at the challenging fast1.5 threshold, whereas baselines fail to
+exceed 6%. This confirms that our iterative feedback loop enables the generation of not only correct
+but also highly efficient code.
+Fig. 5 further breaks down performance by operator category. The MoKA achieves a 100% compila-
+tion success rate in seven categories and yields substantial correctness gains on complex tasks such
+as matrix (>7× ) and convolution (nearly 2×). These results indicate that the Debugger effectively
+leverages repository context to resolve hallucinations and dependency errors. Moreover, the average
+speedup of nearly 3× across successful kernels validates the efficacy of the Accelerator in identifying
+hardware-specific optimizations.
+6 Conclusion
+In this work, we investigate the automation of mobile kernel development using Large Language
+Models (LLMs). We introduce MobileKernelBench, a robust system coupled with an automated
+pipeline to holistically evaluate compilation success, functional correctness, and on-device perfor-
+mance. Our comprehensive evaluation of both off-the-shelf and fine-tuned models reveals that LLMs
+struggle with domain-specific mobile implementation, a failure we attribute to the knowledge deficits
+caused by ecosystem fragmentation and data scarcity. To bridge this gap, we propose MoKA, a
+framework that decomposes kernel refinement into cooperative agents for generation, debugging,
+and acceleration. MoKA achieves SOTA results, validating the efficacy of agentic optimization in
+this specialized domain. Our findings confirm that with principled methodological design, LLMs
+can effectively assist human developers in mobile kernel engineering. Future research directions
+include extending these capabilities to low-level optimizations such as multi-threaded NEON and
+inline assembly, exploring diverse hardware backends and frameworks beyond MNN, and potentially
+automating the generation of entire deployment frameworks.

@@ -1,0 +1,665 @@
+record_id: arxiv:2607.08010
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2607.08010
+fetched_title: Tool-Making and Self-Evolving LLM Agents in Low-Latency Systems
+fetched_at: 2026-09-18T19:01:01Z
+
+Tool-Making and Self-Evolving LLM Agents in Low-Latency Systems
+Kalle Kujanpää Ning Liu Shahnawaz Alam Yeshwanth Reddy Sura
+Tianyu Yang Kristina Klinkner Shervin Malmasi
+Amazon, Fulfillment Technologies & Robotics
+{kujanpaa,malmasi}@amazon.com
+Abstract
+Production LLM agents often waste latency and
+reliability by regenerating code for the same
+procedural steps on every request. We replace
+this inference-time coding loop with an agen-
+tic tool-making pipeline that compiles repeated
+SOP steps into validated, versioned tools before
+deployment. The tool-maker grounds synthe-
+sis in the live environment as it collects exe-
+cution traces, observes backend schemas and
+values, generates candidate tools, and repairs
+them against labeled cases. At runtime, the
+production agent calls these tools directly and
+falls back to code generation only when needed.
+We deploy the approach in a Fulfillment Center
+alarm-triage system, where an agent diagnoses
+alarms against a 44-node SOP over heteroge-
+neous metric backends. In production, tool
+calls reduce p50 latency by 42%. On 1,500
+historical alarms, they reduce end-to-end error
+rate by up to 53% by suppressing run-to-run
+variance in repeated steps. Because tools return
+compact structured verdicts, they also enable a
+simpler direct-call architecture, reducing p50
+latency by a further 62% in a controlled abla-
+tion. Versioned tools also improve auditability
+and expose specification gaps and upstream
+data drift. Our results show that agents that
+build and maintain their own tool libraries, a
+key element of self-evolving agents, can make
+industrial LLM systems faster, more reliable,
+and easier to operate.
+1 Introduction
+LLM coding agents are becoming a practical inter-
+face to complex software and operational systems.
+Instead of a fixed API or hand-written automation
+per task, these agents read natural-language instruc-
+tions, write and execute code, and iterate until they
+produce an answer or action. This flexibility has en-
+abled deployments in on-call incident triage (Chen
+et al., 2024b; Wang et al., 2024b), workflow-guided
+operations (Ye et al., 2025), and general code-based
+tool use (Wang et al., 2024a). In industry settings,
+many procedures are documented as standard op-
+erating procedures (SOPs), while the data needed
+to execute them resides in metric stores, logs, dash-
+boards, and ticketing systems.
+This flexibility, however, creates an efficiency
+and reliability bottleneck. In the prevailing
+CodeAct-style paradigm (Wang et al., 2024a), the
+agent generates and executes fresh code for each
+request at inference time. When the same work-
+flow is repeated against a stable backend, the agent
+re-interprets the same instruction, rediscovers the
+same schema, and regenerates similar code, raising
+latency, cost, and run-to-run variance. Prior bench-
+marks show agents still struggle with workflow-
+guided tasks (Nandi et al., 2025; Wang et al., 2025b;
+Riddell et al., 2026), and even SOP-enhanced multi-
+agent systems leave a substantial accuracy gap on
+operational diagnostics (Pei et al., 2025). In our set-
+ting, most latency and correctness errors are caused
+by translating underspecified SOP text into a con-
+crete query against a production metric backend.
+This has motivated a shift from inference-time
+coding agents to self-evolving agents: systems that
+improve their own action space over time by con-
+structing reusable tools, skills, or programs before
+they are needed in production. Recent work ex-
+plores task-conditioned tool synthesis (Cai et al.,
+2024; Yuan et al., 2024; Wang et al., 2024c), closed-
+loop construction driven by feedback (Wang et al.,
+2023; Wölflein et al., 2025), reusable workflow in-
+duction from demonstrations (Wang et al., 2024d),
+and the translation of operational documents such
+as company policies and troubleshooting guides
+into tools (Zwerdling et al., 2025; Mao et al., 2026).
+The key idea is to amortize cost by identifying pro-
+cedural steps executed repeatedly and compiling
+them into deterministic tools, which are then in-
+voked cheaply and consistently at runtime.
+We study this approach in a production agent
+at a Fulfillment Center (FC), where SOPs pre-
+scribe how alarms on robotic induct, conveyance,
+1
+arXiv:2607.08010v2 [cs.CL] 24 Aug 2026
+
+Online: agent runtime
+Before After
+Trigger Main agent
+Sub-agent
+3–10 per alarm Action Trigger Main agent
+Tool
+3–10 per alarm Action
+Offline tool making
+SOP node
+spec text
+Data-collector
+sub-agent
+Tool-maker
+LLM
+Test
+labeled cases
+Reflector
+LLM Tool
+Pass
+Repair deployed
+Figure 1: Offline (top), each SOP node is compiled into a tool: a data-collector sub-agent runs against MCP,
+producing a trace; a tool-maker LLM writes a candidate from it; and a reflector–tool-maker loop repairs the
+candidate against labeled cases. Online (bottom), the baseline sub-agent writes fresh MCP-querying code per node
+over 10–20 LLM turns, whereas our agent calls the compiled tools inline, one call per node.
+and sortation subsystems are diagnosed and acted
+upon. These SOPs branch on thresholds from het-
+erogeneous metric backends and select interven-
+tions from low-cost flow reallocations to high-cost
+staffing changes, ticket escalations, and equipment
+standbys. Latency and correctness are tightly cou-
+pled: failures cascade across subsystems within
+minutes, while an expensive action taken against
+the wrong cause is difficult to reverse. Manual
+execution by floor operators is slow under concur-
+rent alarms and error-prone given the number of
+metrics, schemas, and conditional branches.
+We report the design and production deployment
+of an agentic tool-making pipeline for this setting,
+triaging outbound dock alarms against a written
+SOP. The system has two modes (Figure 1). At
+build time, a tool-maker constructs a library of per-
+SOP-step tools against the production environment,
+observing schemas and execution traces and vali-
+dating candidates against labeled cases rather than
+relying on SOP text alone. At inference time, the
+agent invokes these tools per alarm, falling back to
+code generation only when a tool is unavailable or
+fails. This preserves the flexibility of coding agents
+while moving repeated, latency-sensitive work into
+a reusable and auditable tool library.
+We make two main contributions: an agentic
+tool-making pipeline that compiles repeated SOP
+steps into validated tools, and its integration into
+a deployed alarm-triage agent, where it cuts p50
+latency by 42%, enables an architectural redesign
+that cuts it a further 62% in a controlled ablation,
+and reduces the end-to-end error rate by up to
+53%. We also report three findings. The data-
+collection trace and test-repair loop are both nec-
+essary. Residual errors then concentrate on un-
+derspecified SOP steps, where targeted fixes raise
+pass@1 from 94.5% to 99.9%. Versioned tools
+with stable inputs and outputs reveal pre-existing
+upstream inconsistencies that run-to-run variation
+otherwise hides. Our results suggest that agents
+that compile their own experience into reusable
+tools are a practical path for bringing coding-agent
+flexibility to latency-sensitive industrial workflows.
+2 Production Setting and Task
+An outbound dock is the final operation in a fulfill-
+ment center, where packages are sorted and loaded
+before they leave for downstream logistics. The
+dock is tightly coupled: a degraded subsystem
+backs up the operations feeding it and cascades
+across the dock within minutes, amplifying a local-
+ized fault into an outsized delay that threatens deliv-
+ery commitments. The agent triages alarms such as
+robotic stations idling due to upstream conveyance
+blockages, or producing elevated error rates from
+camera, sensor, label, or packaging defects.
+The agent follows an SOP encoded as a deci-
+sion tree of 44 decision nodes and 19 action nodes.
+Decision nodes are of three kinds. Observations
+test whether a metric crosses an alert threshold and
+serve as alarm entry points, root causes identify the
+underlying failure, and constraints gate the most
+expensive actions. Actions range from cheap (pro-
+cess alerts, flow reallocation) to costly (equipment
+shutdown, staffing changes). Each node specifies
+which data to query and how to process it.
+The agent evaluates observations to localize the
+failure, reaches candidate root causes, and executes
+the action. Before shutting down a robot with a
+faulty suction cup, for example, constraint nodes
+verify that the shutdown is either safe (remaining
+capacity covers the item flow) or unavoidable (the
+error rate makes operation worse).
+2
+
+3 Method
+We build on the hierarchical multi-agent architec-
+ture of Eluna (Liu et al., 2026b) where a main agent
+traverses the decision tree and delegates each eval-
+uated node to a CodeAct-style sub-agent (Wang
+et al., 2024a) via a free-text question. The sub-
+agent generates and executes code that queries met-
+rics through MCP (Model Context Protocol), iter-
+ating until it returns a free-text answer, which the
+main agent parses into a verdict (true/false/no data)
+to inform subsequent traversal. Delegation keeps
+the multi-turn data-processing context within the
+sub-agent, and sub-agent calls within a decision-
+tree layer run in parallel. Per alarm, the agent
+evaluates 3–10 nodes, and the sub-agent loop can
+exceed 100 LLM turns in the most complex cases.
+The dominant per-alarm cost in this architecture
+is the sub-agent’s loop, as most of its turns trans-
+late the same SOP text into the same MCP queries
+against an unchanging interface. We replace this
+loop with per-node tools, each a build-time com-
+pilation of the loop for one node into a single de-
+terministic call that returns the verdict directly at
+inference. Tools are model-agnostic and regenera-
+ble independently of agent fine-tuning.
+3.1 Tool-Making Pipeline
+SOPs are authored by humans, and the SOP text
+omits execution details that a human reader would
+resolve from domain knowledge or by inspect-
+ing the data, such as field names, datatypes, null
+handling, and boundary-case conventions. These
+omissions cause persistent failures when a tool-
+maker is given only the SOP text. The pipeline
+closes the gap with two grounding mechanisms
+(Figure 1, top): adata-collection traceof real ex-
+ecution against the live schema, and atest–repair
+loopthat corrects each candidate against labeled
+cases. Each tool is a function with a uniform signa-
+ture mapping a (warehouse, timestamp, context) in-
+put to the node’s verdict (true, false, or no data) and
+supporting detail. The context carries site-specific
+parameters and verdicts from parent nodes. Each
+node has a labeled training set, consisting of (in-
+put, verdict) pairs from an offline labeler whose
+logic was specified by subject-matter experts (Ap-
+pendix B discusses the labeling).
+The pipeline has three model components,
+shown left-to-right in Figure 1. Thedata-collector
+sub-agentis the baseline CodeAct sub-agent serv-
+ing as the inference-time fallback, with access to
+the production MCP. For each node, it is run on
+three sampled training cases balanced across ver-
+dict labels, writing and executing query code and
+iterating to a final verdict that is graded against the
+case label. The resulting trace, passed to the tool-
+maker, contains the query code, the MCP responses
+and observed schema (field names, datatypes, value
+ranges), and the graded verdict, supplying the exe-
+cution details the SOP omits.
+Thetool-maker LLMproduces a candidate tool
+conditioned on the SOP node text, the node’s posi-
+tion in the decision tree (its parent and child nodes),
+and the data-collector’s traces. The candidate is
+then tested against the full labeled training set, and
+disagreements are passed to the test–repair loop.
+Thereflector LLMwrites a short diagnosis of the
+failures, after which the tool-maker does a rewrite
+conditioned on the diagnosis and the disagreements.
+The reflector receives the failing (input, expected,
+predicted) triples and the previous candidate, and
+the tool-maker receives the same and the reflec-
+tor’s diagnosis. The loop runs for a budget of three
+rounds and terminates early once a candidate passes
+the full training set. The candidate with the high-
+est training-set pass rate is deployed. Appendix E
+shows an example from a generated tool.
+At inference, tools are used in one of two config-
+urations: the main agent delegates a node to a sub-
+agent that calls the node’s tool, or the main agent
+calls the tool directly (Figure 1, bottom). Each
+tool returns the verdict, the observed value, the
+threshold, and a textual explanation. "No data" is
+reserved for missing metrics, and exceptions trigger
+fallback to the CodeAct sub-agent of the baseline.
+Only the affected node reverts to baseline latency
+and accuracy. The remaining nodes continue using
+their tools.
+3.2 Agent Fine-Tuning
+Production latency constraints cap the deployed
+alarm-triage agent at a small model size, and small
+off-the-shelf models fail to follow the SOP reli-
+ably. We therefore distill a larger teacher into the
+small student model: the teacher generates trajec-
+tories on the alarm-triage task, rejection sampling
+retains only those whose extracted observations,
+root causes, and actions all match ground truth
+(Yuan et al., 2023), and the student is fine-tuned
+on them with LoRA (Hu et al., 2022). To keep
+the student robust when tools are missing or fail,
+the teacher generates trajectories under varied tool
+availability: in 75% of trajectories, the generated
+3
+
+SOP SOP+D SOP+R SOP+D+R
+70
+75
+80
+85
+90
+95
+100pass@1 (%)
+75.7%
+84.9%
+89.3%
+94.5%
+Component Ablations on GLM-4.7
+0
+200
+400
+600
+800
+1000
+1200
+1400
+1600
+T okens per seed (K)
+240K
+377K
+635K
+799K
+Figure 2: Per-node pass@1 (left) and generation cost in
+tokens (right) for each ablation configuration on GLM-
+4.7. +D adds the data-collection trace (Section 3.1); +R
+adds the test-repair loop. Only the deployed configura-
+tion (SOP+D+R) exceeds 90% pass@1.
+Tool Maker SOP +D +R +D+R
+GLM-4.7 75.7 84.9 89.394.5
+GLM-5 76.8 83.4 88.0 93.6
+Qwen3 235B 74.2 71.6 79.9 81.1
+GLM-4.7 Flash 56.4 60.4 58.7 65.8
+Table 1: Per-node pass@1 (%) by tool-maker and con-
+figuration. +D adds the data-collection trace; +R adds
+the test-repair loop. The deployed SOP+D+R column is
+in bold, with GLM-4.7 deployed. Confidence intervals
+and significance tests are in Table 9.
+tools are available but 25% of tools are randomly
+disabled per trajectory, and in the remaining 25%
+all node tools are removed so the teacher falls back
+to the sub-agent for every node.
+4 Tool-Making Experiments
+4.1 Experimental Setup
+Data.The pipeline is evaluated on 44 decision
+nodes. Each node has a labeled training set used
+by the pipeline and a separate held-out evaluation
+set. Per-node case counts range from 100 to 200,
+totaling 8,011 training cases and 8,022 evaluation
+cases. Data labels are evenly distributed.
+Models.We compare the following four models
+as the tool-making agent (Section 3.1): GLM-4.7
+(Zeng et al., 2025), GLM-5 (Zeng et al., 2026),
+Qwen3 235B (Yang et al., 2025), and GLM-4.7
+Flash (Zeng et al., 2025). We use Claude Opus
+4.6 for additional ablations (Anthropic, 2026) to
+prevent model capacity from confounding the com-
+parison. When reflection is used, the reflector
+LLM is the same as the tool-maker LLM. The de-
+ployed alarm-triage agent uses a separately fine-
+tuned model (Section 3.2).
+Evaluation.We evaluate the build-time pipeline
+by per-node pass@1: the probability that one full
+execution of the pipeline produces a tool that passes
+the held-out evaluation set for that node, where a
+tool passes only if it returns the correct verdict on
+every case in the set. Pass@1 is averaged across
+the 44 decision nodes. Confidence intervals and
+significance tests are reported in Appendix G.
+4.2 Main Results
+Figure 2 shows the per-node pass@1 and genera-
+tion cost of each configuration on GLM-4.7, and
+Table 1 reports pass@1 for all four tool-makers.
+The full configuration adds the data-collection trace
+(+D) and the test-repair loop (+R) to the SOP text,
+reaching 94.5% pass@1 on GLM-4.7 and 93.6%
+on GLM-5. Both components are necessary: re-
+moving the repair loop reduces pass@1 by 9.6pp
+and removing the trace by 5.2pp, and only the full
+SOP+D+R configuration exceeds 90%. The two
+strong tool-makers, GLM-4.7 and GLM-5, behave
+alike, with the trace and the repair loop each adding
+a significant gain, whereas the weaker Qwen3 235B
+and GLM-4.7 Flash gain less and do not improve
+monotonically. We deploy GLM-4.7, which attains
+the highest pass@1 of the four. The appendices re-
+port further results (Appendix C). Repair compute
+cannot substitute for the trace, whose components
+each contribute a gain, and reflection-based repair
+outperforms repairing from raw failures only when
+the trace is present. The pipeline also approaches
+the full-data ceiling from a handful of labeled cases
+per node, with a label-free variant within a few
+points (Appendix D).
+Across the 30 GLM-4.7 pipeline runs, each gen-
+erated library contains 39–43 tools that pass their
+full held-out sets (median and mode: 42 of 44), and
+38 of the 44 nodes succeed in all 30 runs. Failures
+are concentrated in three nodes, which succeed in
+19, 3, and 0 of the 30 runs, respectively. When they
+fail, each misses only one to three fixed edge cases
+out of roughly 200. Thus, although these tools fail
+the strict pass@1 criterion, they remain correct on
+the overwhelming majority of their cases, which
+allows us to deploy them. The deployed library
+was produced by a single pipeline run under this
+configuration and contains 42 of 44 tools that pass
+all held-out cases.
+4.3 Specification Quality as the Bottleneck
+At this 94.5% ceiling, four of the 44 nodes account
+for almost all remaining errors. Three have edge
+4
+
+Configuration pass@1
+Original SOP, original data 94.5
+Original SOP, augmented data 96.6
+Clarified SOP, augmented data99.9
+Table 2: Effect of targeted specification and data im-
+provements on the four residual nodes (Opus). Augmen-
+tation adds labeled cases for the edge-case nodes.
+cases (negative denominators, null MCP values)
+that neither the SOP nor the training labels cover,
+so no failing case reaches the repair loop. The
+fourth has an ambiguous averaging window that
+the repair loop overfits away from the SOP (Ap-
+pendix E). Two undeployed Opus runs confirm the
+cause: augmenting the training data raises pass@1
+to 96.6%, and clarifying the ambiguous SOP raises
+it to 99.9% (Table 2). The headline 94.5% pass@1
+in Section 4.2 is unaffected.
+5 Agent Experiments and Deployment
+The deployed alarm-triage agent uses small lan-
+guage models to meet production latency targets
+and calls the GLM-4.7-generated tool library from
+Section 4. We report runs with two such models
+(Qwen3 32B (Yang et al., 2025) and GLM-4.5-
+Air (Zeng et al., 2025)), while the tool-making
+pipeline (Section 3.1) runs offline with stronger
+models, paying their reasoning cost once per tool
+and amortizing it across every production call. We
+evaluate end-to-end correctness on 1,500 histori-
+cal alarm scenarios with ground-truth observations,
+root causes, and actions, and latency from produc-
+tion. The evaluation alarms are separated from
+the fine-tuning trajectories (Section 3.2) by a tem-
+poral split and are disjoint from the cases used
+for tool generation. Non-deployed configurations
+are evaluated by offline ablation. Before a candi-
+date agent is promoted to production, it runs in
+shadow: it executes on live alarms in parallel with
+the production agent without affecting outcomes,
+and discrepancies between the two are reviewed by
+humans. Since deployment, our tools have been
+invoked across over 5,000 production alarms.
+5.1 Latency
+Table 3 reports production p50 and p99 latency
+across three configurations. Replacing the sub-
+agent’s CodeAct loop with tool calls cuts per-alarm
+production p50 by 42% on Qwen3 32B under the
+original two-tier sub-agent architecture (rows 1–2).
+The same comparison reduces per-alarm output to-
+Model Configuration p50 p99
+Qwen3 32B Sub-agent writes code 100 100
+Qwen3 32B Sub-agent calls tools 58 59
+GLM-4.5-Air Main-agent direct calls 26 29
+Table 3: Production p50/p99 latency, relative to the no-
+tools sub-agent baseline (set to 100, lower is better).
+Rows 1 and 2 differ only in whether the agent uses tools.
+Row 3 changes both the architecture (direct calls) and
+the model (GLM-4.5-Air). A controlled ablation iso-
+lates the architecture-only effect, a 62% p50 reduction
+(Section 5.1).
+No tools Sub-agent Main-agent
+Qwen3 32B 97.2 98.2 ∗∗ —
+GLM-4.5-Air 98.3 99.2 ∗∗∗ 99.3∗∗∗
+Table 4: End-to-end agent accuracy (%, N=1,500 ).
+"No tools": the sub-agent writes MCP code, fine-tuned
+without tools. "Sub-agent" and "Main-agent" both use
+generated tools, the latter called directly by the main
+agent. Significance vs. no-tools baseline: ∗∗p <0.01,
+∗∗∗p<0.001(Tables 12–14).
+kens by 58% (14,998 to 6,225) and sub-agent turns
+by 45% (33.7 to 18.7). A per-component break-
+down (Appendix F) shows the reduction is domi-
+nated by an 80% fall in sub-agent code-generation
+tokens, with main-agent tokens also falling.
+Because tool outputs are small (a few tokens),
+reading them inline costs little, so the main agent
+can call tools without a sub-agent, removing the
+original rationale for the sub-agent layer (Sec-
+tion 3). This direct-call configuration’s p50 is a
+further 55% below row 2, but it also runs GLM-
+4.5-Air, confounding the two effects. To isolate the
+architecture, we run an offline ablation that holds
+the model and inference framework fixed (GLM-
+4.5-Air, three seeds, 1,500 alarms): direct calls
+alone reduce p50 by 62% and p99 by 30% relative
+to the sub-agent architecture.
+5.2 End-to-End Agent Evaluation
+Table 4 reports end-to-end agent accuracy on the
+1,500 historical alarms across the same three con-
+figurations. Tools reduce the error rate from 2.8%
+to 1.8% on Qwen3 32B and from 1.7% to 0.8%
+on GLM-4.5-Air, relative reductions of 36% and
+53%. Manual inspection of trajectories on which
+the sub-agent and tool configurations disagree re-
+veals two recurring sub-agent failure modes. First,
+it deviates from the SOP, using a similar but differ-
+ent metric or aggregating where the SOP specifies
+5
+
+a per-entity check. Second, it reaches the correct
+conclusion but reports it incorrectly to the main
+agent. Deterministic tools eliminate both.
+The agent is fine-tuned on a mixture of trajec-
+tories with and without tools (Section 3.2) so that
+it can fall back to manual reasoning when a tool
+is unavailable. When the Qwen3 32B agent fine-
+tuned with tools is evaluated with tools disabled,
+its action accuracy (97.4%) and overall accuracy
+(96.9%) are statistically indistinguishable from the
+97.4% and 97.2% obtained without tools, so mixed-
+trajectory fine-tuning preserves the fallback.
+6 Discussion and Production Insights
+Tools transfer across agents and models with
+a one-time generation cost.The library gener-
+ated by GLM-4.7 serves both the Qwen3 32B and
+GLM-4.5-Air agents without regenerating any tool.
+Generating the full 44-node library is a one-time
+cost of800K tokens (Figure 2).
+Parameterized tools cover a family of deploy-
+ments.A generated tool generalizes across de-
+ployments when the quantities that vary between
+them are tool inputs. In our case these are numeric
+thresholds, which differ across physical sites with
+alarm preferences and baseline robot error rates.
+Each tool resolves them from a runtime parameter
+store, so one library can serve multiple sites.
+Logging tool outputs makes upstream data and
+environment inconsistencies visible.Because
+a tool returns the same value on the same input,
+its logs reveal environment issues that run-to-run
+variation in generated code hides. Every invoca-
+tion logs the tool version, inputs, and outputs, and
+a monitoring agent reviews these logs in batch,
+surfacing drift that no single trajectory would re-
+veal. A flagged tool is corrected by rerunning the
+generate-test-repair loop and promoting a new ver-
+sion once it passes the held-out set and manual
+review. Because the agent is decoupled from any
+specific tool version, deploying or reverting a fix is
+a configuration change requiring no retraining, and
+no rollback has been needed since deployment.
+This mechanism has revealed three pre-existing
+inconsistencies in the upstream environment. First,
+one field differed in type between the offline and
+production MCPs. Generated code silently adapted,
+whereas the tool raised a reproducible exception
+that localized the issue. Second, a node’s MCP re-
+ported cumulative events while the SOP referred to
+currently active ones: the tool passed offline evalua-
+tion, and the monitoring agent flagged the resulting
+high positive rate in production. Third, an endpoint
+silently changed its return format from percentages
+(75) to decimals (0.75), which the monitoring agent
+caught from the shifted value distribution.
+7 Related Work
+Tool use and tool-making.Early LLM tool use
+focused on calling fixed APIs (Schick et al., 2023;
+Patil et al., 2024). A parallel line gave agents an
+action space of executable code (Gao et al., 2023;
+Yao et al., 2022; Wang et al., 2024a). A more re-
+cent line of work has the agent construct its own
+tools. These include methods that synthesize tools
+from task descriptions or datasets (Cai et al., 2024;
+Qian et al., 2023; Yuan et al., 2024; Wang et al.,
+2024c) and agents that iteratively generate and re-
+fine tools through repeated execution and testing
+(Wang et al., 2023; Zheng et al., 2025; Wölflein
+et al., 2025). Operational documents can also be
+transformed into tools (Zwerdling et al., 2025; Mao
+et al., 2026; Ye et al., 2025). Recent research con-
+firms that prompting-based agents fail to follow
+SOPs reliably when evaluated against the origi-
+nal SOP code as a verifier (Li et al., 2025; Nandi
+et al., 2025), with recurring failure modes includ-
+ing route blindness and calculation errors (Wang
+et al., 2025b). Recent industrial deployments in-
+clude frameworks for alert triage and root cause
+analysis in production systems (Liu et al., 2026a;
+Bharadwaj and Tu, 2026). The closest peer work
+for SOP-to-code is Pei et al. (2025), but it is only
+evaluated on a benchmark. We contribute to this
+line of work by compiling SOPs into tools validated
+against labeled production cases.
+Iterative refinement and data grounding.Our
+work is closely related to the execution-feedback
+refinement family (Chen et al., 2024a; Zhang et al.,
+2023; Zhong et al., 2024; Ridnik et al., 2024).
+Olausson et al. (2024) conclude that the success of
+self-repair depends on the feedback. Our finding
+that the pipeline plateaus without environmental
+grounding is consistent with this. The text-to-SQL
+literature also finds that schema alone hits a ceil-
+ing and grounding in database values is required
+(Li et al., 2023; Wang et al., 2025a; Cao et al.,
+2026). Our findings on the importance of specifica-
+tion quality for tool generation echo what has been
+reported earlier in the code and SQL generation
+literature (Wretblad et al., 2024; Jin et al., 2026).
+6
+
+8 Conclusion
+We show that repeated inference-time code gen-
+eration can be optimized for production LLM
+agents. By compiling SOP nodes into environment-
+grounded, validated, and versioned tools, our sys-
+tem moves recurring procedural work out of the
+latency-critical path while preserving fallback flex-
+ibility for failures. In a deployed fulfillment-center
+alarm-triage agent, this reduces latency and im-
+proves end-to-end accuracy.
+The broader contribution is an operating pattern,
+a step toward self-evolving industrial agents: the
+agent maintains the implementation of its action
+space, building, testing, and repairing tools offline
+rather than improvising code on every request. The
+action space itself, defined by the SOP, and tool pro-
+motion remain human decisions. Once grounded
+tools are in place, the limiting factor becomes
+the quality of the underlying SOP specification
+instead of the agent’s ability to rediscover schemas
+or rewrite boilerplate. This makes agent behav-
+ior faster, more consistent, and more auditable,
+suggesting a practical route to reliable low-latency
+LLM systems in operational workflows.
+Limitations
+Our agentic tool-making loop has been deployed on
+one application, outbound dock alarm triage. Gen-
+eralization to other application domains, such as
+free-form runbooks, is not established. The setting
+nonetheless shares properties with typical agentic
+workflows: a written procedure that the agent must
+follow and that is executed against a stable backend,
+and latency or auditability constraints that make
+inference-time code generation less appealing as
+an alternative.
+The improvement loop retains human oversight
+for production safety. It already automates parts of
+the cycle, such as drift detection and candidate tool
+generation, but we cannot yet guarantee that every
+failure would be caught without human review, so
+fully automating it remains open. Clarifying an
+underspecified SOP is inherently a human task,
+because the SOP encodes the author’s intent for
+how the procedure should behave. Creating a new
+tool still benefits from labeled cases. Our label-free
+configuration trails the labeled ceiling by less than
+3pp, and a fully label-free pipeline would remove
+the need for hand-labeled cases when adding new
+nodes.

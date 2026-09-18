@@ -1,0 +1,1293 @@
+record_id: arxiv:2608.10504
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2608.10504
+fetched_title: MEGA: Self-EvolvingAgentOptimizationInfrastructure viaWisdomGraph
+fetched_at: 2026-09-18T19:01:12Z
+
+Mind AI Tech Report 1
+MEGA:
+Self-Evolving Agent Optimization Infrastructure
+via Wisdom Graph
+Jung Hwan Lee
+paul@megacode.ai
+Kyu Ho Lee
+reeyan@megacode.ai
+Abstract
+As coding agents increasingly handle implementation, the central challenge shifts from building individual
+agents to building an infrastructure that systematically improves them. Current approaches optimize agent systems
+without accumulating transferable knowledge, accumulate knowledge with-out compositional reasoning over it,
+and lack a mechanism for that knowledge to self-evolve through operational evidence. MEGA (Meta Evaluation-
+Grounded Adaptation) addresses these gaps as a self-evolving infrastructure: each optimization cycle produces
+durable assets, compositional reasoning over those assets guides subsequent optimization, and operational
+evidence refines both the accumulated wisdom and the reasoning that governs it. Layer 1 distills reusable wisdom
+from agent sessions through behavioral-pattern clustering and empirical A/B validation, transforming each process
+into a durable asset. Layer 2 decomposes these assets into atomic PCR (Primary-Context-Resultant) units within a
+typed Wisdom Graph and performs deductive, abductive, and inductive reasoning to expand implicit re-lations; it
+then assembles context-specific execution plans through compositional retrieval that surfaces bridging knowledge
+unreachable by embedding similarity alone. Layer 3 performs multi-agent col-laborative optimization over
+heterogeneous agent workflows (code nodes, LLM calls, and tool-using agents), attributing improvement effects
+to specific strategy changes through controlled evaluation that eliminates data variance. Evidence fed back from
+Layer 3 drives the self-evolution of both the curation strategies that govern wisdom composition and the
+optimization trajectories accumulated across runs. The result is an infrastructure in which optimizing an agent
+system and evolving the knowledge that guides optimization are one and the same process.
+1 The Infrastructure Bottleneck in Agent Development
+Agent-basedsoftwaredevelopmentisenteringanewparadigm. Codingagentsareincreasinglyperforming
+implementation,whilethehumanroleshiftstowarddefiningoptimizationobjectives,designingevaluation
+data,andinterpretingresults. Inthistransition,thecentralquestionisnolongerwhetheranagentcansolve
+a single task well, but whether there exists aninfrastructurethat systematically and repeatedly improves
+agentsystemsbasedondata.
+Tools for automating agent development are proliferating. Stateless automation loops such as the
+RalphLoop[11]repeatexecutioncycles,andtest-drivendevelopmentprovidesverificationatsmallscale.
+Promptoptimizers(DSPy[13],GEPA[2])andworkflowoptimizers(AFlow[38],Flow[6])automatically
+improveagentsystems. Skilllibraries(Voyager[31],Memento-Skills[41])storereusableproceduresfor
+recurringtasks,whileadaptivememories(Reflexion[28],ACE[39],ReasoningBank[22])distillreason-
+ingstrategies and reflective insightsfrom past attempts to guidefuture behavior. Eachof these advances
+addressesanimportantaspectoftheproblem. Whatremainsopenisaninfrastructurethat,beyondmerely
+connecting these approaches, unifies them through a self-evolving cycle in which agent sessions are dis-
+tilled into verified knowledge, compositional reasoning over that knowledge guides optimization, and
+optimizationevidencerefinesboththeknowledgeandthereasoningthatgovernsit.
+1.1 Three Limitations of Current Agent Development Automation
+First, optimization does not accumulate knowledge, and memory alone does not solve it. Stateless
+loops [11] automate execution without learning from prior cycles [12], and test-driven verification is of-
+Gwang Hoon Yoo
+gwanghoon@megacode.ai
+
+Mind
+AI Tech Report 2
+ten insufficient to guarantee correctness [36]. Prompt and workflow optimizers (GEPA [2], DSPy [13],
+AFlow [38], Flow [6]) can substantially improve agent systems within a single project, but the rationale
+behindsuccessfuloptimization—whichstrategiesworkedunderwhichconditions—remainsunstructured
+andnon-transferable. Whenanewprojectbegins,strategysearchrestartsfromscratch. Addingamemory
+layerdoesnotresolvethis,becausetheproblemisnottheabsenceofstoragebuttheabsenceofcomposi-
+tionalreasoningoverwhatisstored.
+Second, stored knowledge lacks compositional reasoning. Skill libraries (Voyager [31], Memento-
+Skills [41]) store procedural knowledge but cannot reason aboutwhich skills to compose, in what or-
+der , under what conditions. Skill orchestration frameworks such as AgentSkillOS [15] and SkillNet [16]
+havebeguntoaddressthisthroughhierarchicalorganizationandtypedrelationgraphs,demonstratingthat
+structuredcompositionoutperformsflatinvocation. However,theunitofcompositionremainsthewhole
+skill—neithersystemdecomposesskillsintoatomicsub-units,norperformslogicalinferencetodiscover
+implicitrelations—andknowledgegraphsforfactualdomains[4,8,9]faceananalogouslimitation. Press
+etal.[26]formalizethisasthe compositionality gap: modelssolvesub-problemsyetfailtocomposethem,
+andthisgapdoesnotshrinkwithscale.
+Third, knowledge that is never verified through execution cannot improve. Even if compositional
+reasoningwereachieved,knowledgethatisnottestedagainstoperationaloutcomesremainsungrounded.
+Without a feedback loop in which optimization evidence verifies whether a composition was actually
+effective,unverifiedandoutdatedknowledgeaccumulatesalongsidevalidknowledge,andretrievalquality
+graduallydegrades. Themissingpieceisaself-evolvingcycle: optimizationproducesevidence,evidence
+refinesaccumulatedknowledge,andrefinedknowledgeguidessubsequentoptimizationmoreeffectively.
+Insummary,currentagentdevelopmentautomationoptimizeswithoutaccumulatingknowledge,accu-
+mulatesknowledgewithoutcompositionalreasoning,andlacksamechanismforknowledgetoself-evolve
+throughoperationalevidence. Thesethreecapabilitieshaveneverbeenunifiedintoasingleinfrastructure.
+1.2 MEGA: Evaluation-Driven Agent Development with Self-Evolving Curation
+MEGA is an agent development infrastructure that transforms each optimization process into a durable
+asset,reasonsoveraccumulatedassetstocomposecontext-specificexecutionplans,andevolvesthecom-
+positionlogicitselfthroughoperationalevidence. ThekeymechanismisatypedWisdomGraphinwhich
+wisdom is decomposed into atomic PCR (Primary-Context-Resultant) units; logical reasoning discovers
+implicit relations among them; and compositional retrieval assembles plans that include bridging knowl-
+edge unreachable by embedding similarity alone. This reasoning substrate is not static—it self-evolves
+throughattributedevidenceproducedbyamulti-agentoptimizationloop.
+1. Layer 1 (Session-based Wisdom Generation): distills reusable wisdom from agent sessions through
+two-stage clustering and multi-stage quality gating including behavioral A/B validation, transforming
+eachprocessintostructured,reasoning-readymaterial.
+2. Layer 2 (Wisdom Reasoning and Curation): decomposes wisdom into atomic PCR triplets, performs
+deductive, abductive, and inductive reasoning to expand implicit relations, and assembles context-
+specific execution plans through compositional retrieval based on the Prize-Collecting Steiner Tree
+(PCST)[5]formulation,withROI-drivenself-evolution.
+3. Layer 3(Evaluation-DrivenOptimization): performsmulti-agentcollaborativeoptimization,attributes
+improvementeffectstospecificstrategychangesthroughcontrolledevaluation,andfeedsevidenceback
+toLayer2—drivingtheself-evolutionofbothcurationstrategiesandoptimizationtrajectories.
+Thearchitectureisdesignedsothat,asoptimizationcyclesaccumulateacrossprojects,theWisdomGraph
+maturestowarddeliveringeffectiveoptimizationguidancefromthefirstqueryalone.
+
+Mind AI Tech Report 3
+Scope of Disclosure. This report presents the architectural principles and design rationale of MEGA.
+As portions of the system constitute proprietary technology, algorithmic details are selectively disclosed
+at the level of design objectives and formal properties. The content is intended to enable independent
+architecturalevaluationandtoestablishthescientificfoundationsoftheapproach.
+2 Related Work
+Recentliteraturehasrapidlyadvancedalongthreeaxesrelevanttoagentdevelopmentautomation: agent
+memoryandproceduralreuse,structuredknowledgeandskillcomposition,andautomaticoptimizationof
+agentsystems. Eachaxishasachievedmeaningfulprogressinisolation;thissectionreviewstheminturn
+andidentifiesthegapsthatremainwhentheyoperateindependently.
+2.1 Agent Memory and Skill Reuse: Progress and Remaining Bottlenecks
+Recentworkhasrapidlyexpandedpersistentmemoryfromsimplestoragetowardreflectiveorganization,
+procedural reuse, and cross-agent transfer. In the skill-reuse line, Voyager [31] built a library in which
+agentsgenerateandaccumulatecode-basedskillsinaMinecraftenvironment. Memento-Skills[ 41]gener-
+alizedthisideatogeneral-purposeagents,automaticallygeneratingmarkdownskillfilesontheSRDP[ 32]
+framework, rewriting skills upon failure, and selecting them via an InfoNCE and offline-RL behavioral
+router. ProcMEM[20]formalizesreusableproceduralSkillsasnatural-languageunitswithactivation,ex-
+ecution,andterminationconditions,convertingepisodicexperienceintoexecutableproceduralmemory.
+Reflective and adaptive memory is also active. Reflexion [28] proposed verbal reinforcement learn-
+ing that feeds linguistic self-reflection into subsequent attempts. Self-Refine [19] demonstrated an itera-
+tive critique-and-improve loop driven entirely by the model’s own feedback. MemGPT [23] formalized
+long-termmemoryarchitecturethroughtieredmemoryandvirtualcontextmanagement. DynamicCheat-
+sheet[30]buildsself-curatedmemoryattesttimetoadaptproblem-solvingstrategies;ACE[ 39]addresses
+itscontext-collapseproblem—wheremonolithicrewritingprogressivelylosesaccumulatedknowledge—
+bydecomposingmemoryintoatomicbulletunitswithincrementaldeltaupdates(ICLR2026).
+Agrowingbodyofworkextractsreusableexperiencefromtrajectoriesandtransfersitacrosstasksor
+agents. DS-Agent [7] reuses expert cases through a case-based reasoning pipeline (ICML 2024). Agent
+KB [3] proposes a shared memory infrastructure across heterogeneous agent frameworks, foreground-
+ing the foundation for collective agent intelligence. Agent Workflow Memory [33] extracts multi-step
+routines from successful trajectories for reuse. SWE-Exp [35] accumulates both successful and failed
+trajectories as a multi-layered experience bank for reusing repair expertise in software issue resolution.
+ReasoningBank[22]distillsgeneralizablereasoningstrategiesfrombothsuccessfulandfailedtrajectories
+intostructuredmemoryitems,demonstratingagentself-evolutionattesttime(ICLR2026).
+This line of work has made meaningful progress in agent memory. However, most systems treat ac-
+cumulated artifacts as independent units retrieved by similarity, without modeling the relations among
+them—prerequisite dependencies, mutual exclusions, or conditional applicability. Whether the unit is a
+procedural skill, a reflective strategy, or a cross-agent experience bank, stored items remain structurally
+isolated: the system knowswhat it has, but not how those items relate to one another. The authors of
+ReasoningBank explicitly identify compositional memory as an open direction [22]. The next section
+examinesworkthatimposessuchrelationalstructure.
+2.2 Structured Knowledge, Skill Graphs, and the Limits of Current Composition
+Aparallellineofworkimposes structureonknowledge—rangingfromcommonsensefactstooperational
+skills—andattemptsreasoningorcompositionoverit.
+ConceptNet [29] and ATOMIC [27] organize commonsense relations in fixed-type node ontologies,
+whilePearl[ 25]formalizesthenotionsofsufficiencyandnecessityincausalinference,providingtheoret-
+ical tools for reasoning beyond mere correlation. On the retrieval side, GraphRAG [4] improved answer
+quality through entity graphs and community-level summaries, LightRAG [8] introduced graph-aware
+
+Mind AI Tech Report 4
+indexing with incremental updates, and HippoRAG 2 [9] unified factual, sense-making, and associative
+memory through non-parametric continual learning (ICML 2025). These systems demonstrate that im-
+posingstructureon factualknowledgeenablesbetterretrieval,buttheydonotaddressthecompositionof
+operationalskillsandstrategies.
+More recent work moves beyond storing skills toward orchestrating and curating them. AgentSkil-
+lOS[15]organizesskillsintoahierarchicalcapabilitytreeandcomposesthemthroughtask-specificDAG
+orchestration with three composition strategies (quality-first, efficiency-first, simplicity-first), demon-
+strating that structured composition substantially outperforms flat invocation. SkillNet [16] connects
+skills through a typed multi-relational graph with four relation categories (similar_to, belong_to,
+compose_with, depend_on) and provides a multi-dimensional quality evaluation framework, achiev-
+ingconsistentrewardimprovementsacrossmultipleagentarchitectures. Together,thesesystemsvalidate
+a key premise: the bottleneck in skill-based agents is not skill availability but orchestration—how skills
+areorganized,selected,andcomposedforagiventask.
+Thesesystemsvalidatethatthebottleneckliesinorchestrationratherthanavailability. However,com-
+position still operates at the whole-skill level—neither system decomposes a compound skill into atomic
+sub-units whose internal dependencies can be individually reasoned about. Relational structures also re-
+main relatively coarse: a hierarchical tree without cross-branch edges, or a small set of discrete relation
+typesthatdonotdistinguishthestrengthofassociation. Nordothesesystemsperformlogicalinferenceto
+discoverrelationsthatwereneverexplicitlyrecorded,orself-refinethroughoperationalevidence—oncea
+skillisregisteredorarelationlabeled,itremainsstaticregardlessofwhetherdownstreamexecutioncon-
+firmsorcontradictsit. Thenextsectionexamineswhetheroptimizationsystemsaddressthesegapsfrom
+theotherdirection.
+2.3 Automatic Optimization of Agent Systems: From Prompts to Workflows
+Research on automatically improving agent system performance is growing rapidly and bifurcating into
+twotiersdefinedbytheoptimizationobject.
+Thefirsttieroptimizesprompts,instructions,demonstrations,andrelatedsettingsoverfixedLMpro-
+grams. DSPy[13]framesLMcallsasdeclarativeprogramswhosepromptsandexamplesareautomatically
+optimized by a compiler. MIPROv2 [21] jointly searches instructions and few-shot demonstrations for
+multi-stageLMprograms,demonstratingstrongimprovementswithinfixedprogramstructures. GEPA[ 2]
+reflectively analyzes trajectories—including tool calls and intermediate outputs—to evolve prompt up-
+dates,achievingstrongresultsacrossmultiplebenchmarksforprompt-andinstruction-leveloptimization.
+FeedbackDescent[ 14]generalizestext-leveloptimizationthroughpairwisecomparisonwithcumulative
+textual rationale. Optimas [34] optimizes heterogeneous configurations including prompts, hyperparam-
+eters, and model parameters while maintaining component-level local rewards for globally aligned opti-
+mizationofcompoundAIsystems. Thecommonthreadisthat,evenastheoptimizationsurfacebroadens,
+theprimaryinterventiontargetremainsinternaltoafixedsystem—prompts,instructions,demonstrations,
+hyperparameters,andcomponentsettings—ratherthancode-levelworkflowmodificationitself.
+The second tier treats the workflow as a mutable optimization target at the code-node level, rather
+than refining prompts within an LM program. AFlow [38] formalizes agentic workflow optimization as
+a search problem over code-represented workflows; the core of optimization lies not in better-phrasing
+promptchainsbutinrestructuringLLM-invokingnodes,theirconnections,taskdecomposition,execution
+order,andcontrolflowatthecodelevel. Flow[ 6]representsworkflowsasactivity-on-vertexgraphsand
+performsdynamicsubtaskallocationandcontinuousworkflowrefinementbasedonhistoricalperformance
+andpriorAOVstructures,focusingonrestructuringexecutionprocedures—parallelism,dependencies,and
+module boundaries—rather than refining individual prompt wording. The defining characteristic of this
+tieristhatittreatsagentsystemsasmutablecode/graphsandoptimizesnodecomposition,edgestructure,
+taskdecomposition,andexecutionpoliciesasfirst-classoptimizationvariables.
+The two tiers share two structural limitations. First, neither accumulateswhy a particular strategy
+workedunderparticularconditionsasstructured,cross-projecttransferableknowledge. Therationalebe-
+hind successful optimization typically remains in execution logs or search traces rather than being orga-
+
+Mind AI Tech Report 5
+nized as transferable optimization knowledge that becomes the starting point for the next project. Con-
+sequently, even as powerful automatic optimization becomes available, the strategy search restarts from
+scratchwhenanewsystemornewtaskisencountered. Second, bothtiersassumethatevaluationdatais
+externallyprovidedandtreatitasfixedinput,eventhoughagrowingbodyofworkdemonstratesthatsyn-
+theticdatameaningfullyimprovesagentcapabilities—SWE-Next[ 18]forcodingagents,ProgSearch[ 24]
+for web research agents, and SandMLE [42] for ML engineering agents—leaving the evaluation dataset
+itselfoutsidetheoptimizationloop.
+Recentempiricalstudiesindependentlycorroboratethefirstlimitationinthebroaderautomationland-
+scape. Yuetal.[ 36]demonstratethattest-drivenverificationisofteninsufficient—345erroneouspatches
+passed SWE-bench tests due to inadequate coverage—and Joshi et al. [12] characterize existing SWE-
+bench agents as stateless, treating each issue independently without cross-task experience accumulation.
+StatelessautomationloopssuchastheRalphLoop[ 11]exhibitthesamepattern: eachcycledoesnotlearn
+frompriorcycles,soproductiveworkandwasteareautomatedequally. Takentogether,theseobservations
+suggestthatcurrentautomationtoolsdonotstructure which optimization approach was effective for which
+type of problem under which conditions astransferableknowledge.
+Theprecedingreviewrevealsaconsistentpattern. Memorysystemsaccumulateexperiencebutdonot
+decomposeitintocompositionallyreasonableunits(Section2.1). Graph-basedsystemsandskillorchestra-
+tionframeworksimposestructurebutdonotdecomposeskillsintoatomicreasoningunits,discoverimplicit
+relationsthroughlogicalinference,orself-refinethroughexecutionevidence(Section2.2). Optimization
+systemsimproveagentperformancebutdonotstructuretransferableknowledgeaboutwhyastrategysuc-
+ceeded, nor do they generate the evaluation data on which optimization depends (Section 2.3). MEGA
+addresses these gaps not by combining existing tools but by introducing a new architectural element—
+a typed Wisdom Graph with logical reasoning and evidence-driven self-evolution—that transforms the
+relationshipbetweenoptimizationandaccumulatedknowledge.
+3 Architecture and Design Principles
+MEGA’scorefunctionisevaluation-drivenoptimizationofagentsystems. Thethreelayersformacyclein
+whichoptimizationproducesevidence,evidencerefinestheWisdomGraph,andtherefinedgraphguides
+subsequentoptimization:
+W (t) = L1
+(
+T (t) ∪ T (t−1)
+3
+)
+, Π(t) = L2
+(
+W (t), E (t−1))
+, E (t), T (t)
+3 = L3
+(
+Π(t))
+(1)
+Here, t indexes the outer self-evolution cycle of MEGA (distinct from the Seed-Epoch indexe used
+inside Layer 3, defined in Section6.4). T (t) denotes general agent session traces, whileT (t)
+3 denotes
+executionsessionsproducedbyLayer3’soptimizationloop. Theunion T (t)∪T (t−1)
+3 indicatesthatLayer1
+consumesbothtracesourcesthroughasinglePCRextractionpipelinewithoutdistinguishingtheirorigin.
+Weinitialize E (0) = ∅and T (0)
+3 = ∅,sothefirstcycleoperateswithoutpriorevidence.
+The three layers form a self-reinforcing cycle. Layer 3 produces two outputs that flow backward:
+evaluation evidenceE (t) refines Layer 2’s curation and planning, while execution sessionsT (t)
+3 become
+newinputtoLayer1forfreshwisdomdistillation. Thisstructureensuresthatoptimizationoutputsreshape
+theknowledgethatguidesfutureoptimization. Figure 1visualizesthecycle.
+
+Mind AI Tech Report 6
+Layer1
+Session-based
+WisdomGen.
+Layer2
+WisdomReasoning
+&Curation
+Layer3
+Evaluation-Driven
+Optimization
+BIRCH ·QualityGate PCR ·WG-DB ·PCST ·ROI Seed-Epoch ·Evidence
+W Π(q)
+E: evidence
+T3: sessions
+Session
+Traces T
+Figure1: MEGAarchitecture. W comprisesfourwisdomtypes(skill,strategy,curationpattern,optimiza-
+tion trajectory). Π(q) is a context-specific execution plan. EvidenceE (red) includes verdicts, curation
+feedback,andoptimizationtrajectoriesthatLayer2usestogeneratecurationpatternandoptimizationtra-
+jectorywisdomwithinWG-DB.Executionsessions T3(purple)feedintoLayer1asnewextractioninput.
+3.1 Inter-Layer Artifact Contract
+Specifyingeachlayer’sinputsandoutputsmakesthesystemboundariesprecise. Table 1summarizesthis
+contract.
+Table1: Inter-layerartifactcontract. Theinput,output,andcoretransformationofeachlayerarespecified.
+Layer Input Output Core Transformation
+1 Sessiontraces T ∪ T 3 Wisdomassets W Clustering+qualitygating
+2 W +evidence E Executionplan Π(q) PCRreasoning+PCST+ROI
+3 Π(q)+executionresults Evidence E,sessions T3 Fixed-seedattribution
+3.2 Four Types of Wisdom
+Fourdistincttypesofwisdomcoexistwithinthesystem,eachcarryingcausaljudgment:
+Table2: Fourtypesofwisdom. MEGAaccumulatesnotonlyskillsbutalsostrategies, curationpatterns,
+andoptimizationtrajectoriesascausaljudgments.
+Type Description Producer Consumer
+Skill Reusableproceduralknowledge Layer1 Layer2retrieval
+Strategy Decisionrulesandjudgmentcrite-
+ria
+Layer1 Layer2curation
+Curationpattern Which skills and strategies
+worked in what order and under
+whatconditions
+Layer2/3 Layer2planning
+Optimizationtrajectory Which optimization trajectories
+succeededorfailed
+Layer3 Layer2/3
+This distinction matters because MEGA’s unit of learning extends beyond “what skills exist” to en-
+compass “which combinations worked in which contexts,” “which execution orders were reproducible,”
+and“whichtrajectoriesreducedfailures.”
+Curationpatterns,inparticular,createsubstantialvalueinpractice. Manyfailuresstemnotfromtheab-
+senceofindividualskillsbutfrominvokingtherightskillsinthewrongorder,underthewrongconditions,
+orwithprematureconfidence. Knowingwhichorderingswerestable,whichevidencethresholdsmustbe
+met before proceeding to the next step, and which failure signals should trigger a return to exploration
+mode—theseareWisdom-leveljudgmentsthatcannotbecapturedattheKnowledgelevel.
+Optimization trajectories are likewise not mere logs. They encode operational wisdom about “what
+changes were attempted, what improved, and what broke,” serving as higher-order wisdom that Layer 2
+
+Mind AI Tech Report 7
+referenceswhendeterminingexploration/exploitationstrategiesforfuturetasks. Allfourtypesofwisdom
+sharePCRsemanticswithinWG-DBandaresubjecttothesamereasoningandcurationmechanisms.
+3.3 Wisdom Graph as a Reasoning Substrate
+IntheDIKWpyramidofinformationscience[ 1],thetransitionfromKnowledgetoWisdomhastradition-
+allybeendiscussedintermsofvaluejudgmentandeffectiveness. Wereinterpretthattransitioncomputa-
+tionally.
+AKnowledgeGraphisanetworkrepresentationofinformation. Itstructuresfactualrelationsasnodes
+and edges—“A is related to B,” “X is a type of Y.” ConceptNet [29] can store “a car runs on a road,”
+but it cannotderive on its own that “when the road is wet, the car’s braking distance increases.” This is
+structured storage,not reasoning. Existingmemorysystemsandknowledgegraphsoperateatthislevel.
+MEGA’s WG-DB operates beyond this representational level. We use the termwisdom to denote
+a reusable causal judgment of the form “under contextvC, action vP produces resultant vR, realized
+via method m”; each wisdom asset decomposes into atomic PCR (Primary-Context-Resultant) triplets
+withtypeddependencies—prerequisite,exclusion,conditionalbranching,andfallback—amongsub-units,
+and four disjoint subtypes (skills, strategies, curation patterns, optimization trajectories; Table2) share
+these PCR semantics. TheWisdom Graph (WG-DB) is then the directed typed multi-graphG = ( V, E)
+whose nodes are these PCR components and whose edges carry Sufficiency/Necessity scoresσ(e) =
+(S(e), N(e)) ∈ [0, 1]2inspiredbyPearl’s[ 25]causalcalculus,witharole-fluidnodepoolthatletsthesame
+concept serve as Primary in one triplet and as Context in another. Over this structure, MEGA performs
+deduction (transitive logical inference), abduction (reverse logical inference), and induction (statistical
+pattern discovery) to derive relations that were never explicitly recorded, and operational evidence feeds
+back to enable the graph to self-refine. Section5.2 formalizes the triplet, the scoring, and the inference
+proceduresinfull.
+Furthermore, WG-DB does not remain a reasoning substrate for a single project. Skills, strategies,
+curation patterns, and optimization trajectories accumulated across multiple projects mitigate the cold-
+start problem of new projects, enabling them to begin from previously validated structures. This is what
+makesWG-DBacollectiveintelligencesubstratetransferableacrossprojects.
+4 Layer 1: Session-based Wisdom Generation
+Layer1distillsrawconversationsessionsintoreusablewisdomassets. Thisisnotsimplelogstoragebut
+knowledgedistillation: itextractsstructuredrules,workflows,andstrategiesfromsessionsspanninghun-
+dredstothousandsofturns,andpassesonlythosethatsurvivemulti-stagequalityverification—structural
+filtering, self-evaluation scoring, and behavioral A/B testing—to Layer 2. As a prerequisite, privacy-
+preservingfiltering—includingsecretmaskingandpathanonymization—isappliedclient-sidebeforeany
+data leaves the local environment, ensuring that the entire pipeline operates on sanitized traces. Figure2
+summarizesthispipelineend-to-end.
+
+Mind AI Tech Report 8
+Privacy-PreservingFiltering
+TaskLabeling&EvidenceGrounding
+DomainPre-Clustering
+BIRCHBehavioralPatternDiscovery
+LLM-basedKnowledgeSynthesis
+ConflictResolution&StructuralFiltering
+BehavioralA/BValidation
+Cross-RunDeduplication
+RawSessionTraces T
+ValidatedWisdomAssets W
+Client-side,beforenetwork
+CF-Tree, O(n)single-pass
+Hashdedup+LLMconflict
+With-skillvs.baseline
+Figure2: Layer1extractionpipeline. Client-sideprivacyfilteringprecedesallprocessing. BIRCHdiscov-
+ersbehavioralpatternsinasingle O(n)pass,andmulti-stagequalitygatingadmitsonlyverifiedwisdom.
+4.1 Distillation over Raw Trace Storage
+Many memory systems [23, 28, 33] either feed entire sessions back as long context or vectorize session
+fragments for retrieval in similar situations. This approach is useful for short FAQ-style problems but
+reveals three limitations in complex agent workflows. First, raw traces mix signal and noise, making the
+unit of reuse unclear. Second, when sessions that solved the same problem with different strategies are
+mixed, retrieval may return conflicting instructions. Third, returning entire sessions blurs the boundaries
+ofprivacyfilteringandevidenceattribution.
+Distilledwisdom,bycontrast,firstdetermines“whatistheessentialpattern”beforestoringit. Layer1’s
+taskisnottextcompressionbuttheseparationofonlythosestructuresfromasessionthathavereusevalue.
+Onlybyexplicitlystructuringwhicherrorsignalwasthestartingpoint,whichactionwasthekeyfix,which
+resultwasverified,andwhichexceptionconditionsapplycanLayer2accepttheoutputasareasoningsub-
+strate. Inotherwords,Layer1’sdistillationisnotstorageoptimizationbutformalpreprocessingrequired
+forLayers2and3tofunction.
+This difference manifests clearly in operational quality. Raw trace memory shows “similar past con-
+versations,” whereas distilled wisdom provides “candidate actions to execute now and their conditions.”
+While raw traces may assist human practitioners, they still impose substantial interpretation cost on ma-
+chines; distilled wisdom is an artifact directly composable by the next layer. MEGA therefore redefines
+long-termmemorynotasasession-preservationproblembutasatransformation-to-actionable-formprob-
+lem.
+4.2 Two-Stage Clustering: Domain Separation and Behavioral Pattern Discovery
+ThetechnicalcoreofLayer1istwo-stageclustering.
+Stage 1 (Domain Pre-Clustering): Sessions are classified by domain via greedy assignment based
+on embedding similarity, where domains emerge from the data rather than being predefined. This stage
+narrowsthesearchspaceforsubsequentBIRCHclustering,improvingefficiency.
+
+Mind AI Tech Report 9
+Stage 2 (Behavioral Pattern Discovery): BIRCH [40] is applied within each domain cluster. Each
+sub-cluster is represented by a Clustering Feature (CF) tuple CF= ( N, ⃗LS, SS ), whereN is the count,
+⃗LS = ∑N
+i=1 ⃗ xi is the linear sum, andSS = ∑N
+i=1∥⃗ xi∥2 is the squared sum. CFs are additive—merging
+twodisjointsub-clustersrequiresonly:
+CF1 +CF2 =
+(
+N1 + N2, ⃗LS1 + ⃗LS2, SS 1 + SS2
+)
+(2)
+This O(1)mergeoperationiswhatenablessingle-pass O(n)processingoverthefullsessionset. Usingthe
+radius-basedthresholdcriterion,anewsessionembedding ⃗ xisassignedtotheclosestexistingsub-cluster
+whentheresultingradiusremainswithinthethreshold T:
+R(CF′) =
+√
+SS ′
+N ′ − ∥ ⃗LS
+′
+∥2
+N ′2 ≤ T (3)
+whereCF ′ =CF + (1, ⃗ x,∥⃗ x∥2). Iftheconditionisviolated,anewsub-clusteriscreated. Thismechanism
+producesanadaptivenumberofsub-clusterswithoutrequiringapre-specified k—acriticalpropertysince
+thenumberofbehavioralpatternsinagentsessionscannotbeknownapriori. TheCF-Treestructurefurther
+ensuresmemoryefficiencybyboundingtreewidththroughabranchingfactor.
+Thistwo-stagestructuretransformsLayer1from“conversationstorage”intobehavioral-pattern-based
+knowledge distillation. Sessions that are semantically similar but behaviorally distinct—sessions that
+solved the same error with different strategies—are separated and synthesized into independent wisdom
+assets.
+4.3 Synthesis and Structural Filtering
+Behavioral patterns extracted from clusters are synthesized by an LLM into structured wisdom. This
+synthesisisnotsimplesummarizationbutaprocessofgeneralizingcommonpatternswithinaclusterand
+specifyingexceptionconditions.
+Synthesizedcandidatesundergostructuralfiltering: (1)hash-basedexactdeduplication( O(n)),(2)LLM-
+basedconflictdetection—identifyingandresolvingcontradictoryinstructionsandmutuallyexclusivecan-
+didates, (3) cross-run embedding-similarity deduplication—merging candidates extracted from different
+sessionsthataresemanticallyidentical. Thisstructuralfilteringpreventsknowledge-basecontamination.
+For sessions where extraction could not complete (due to network failures, timeouts, etc.), a pending
+management mechanism preserves partial results, enabling subsequent retries to skip already-completed
+stagesandresumeprocessing.
+4.4 Behavioral A/B Validation
+Evaluatingextractedknowledgetypicallyreliesonproxysignals—metadataquality,LLM-generatedrat-
+ings,orstructuralcompleteness. Thesesignalsassesstheartifactitselfratherthanitseffectondownstream
+agentbehavior. MEGALayer1introducesbehavioralA/Bvalidation,whichdirectlymeasuresthecausal
+impact of each wisdom candidate on task performance. Test cases are generated alongside each wisdom
+candidateusinganautomatedteacher-studentevaluationprotocol[ 10]: ahigh-capabilitymodelproduces
+both the wisdom document and its associated test suite; the same or a stronger model then executes the
+test suite under treatment and control conditions. For each wisdom candidate that passes synthesis and
+structuralfiltering,thesetestcasesareexecutedinparallelundertwoconditions:
+• Treatment group: executionwiththeextractedwisdominjectedintothesystemprompt
+• Control group: executionwiththesameinputunderthebaselineconditionwithoutwisdom
+Theoutputsofthetworunsarecomparedtoempiricallymeasureperformancelift(accuracyimprove-
+ment)andtokenefficiency(costchange). ThesetwoROIaxesformthebasisforaccept/rejectdecisions.
+Three key differentiators define this design. First, the evaluation criterion is observable behavioral
+change,notsubjectivequalityjudgment. Second,thetwoaxesofperformanceliftandtokenefficiencyare
+independentlyvaluable—wisdomthatsignificantlyreducescostevenatequivalentaccuracycanstillpass.
+
+Mind AI Tech Report 10
+Third,thisvalidationrunsautomaticallyforallcandidates,maintainingwisdomqualityattheoperational
+stagewithouthumanreview.
+Consequently, Layer 1’s quality assurance comprises three tiers: structural filtering (deduplication
+and conflict removal), self-evaluation scoring, and behavioral A/B validation (empirical ROI measure-
+ment). Self-evaluationscoringcollectsfactual,countablepropertiesofthegenerateddocument—suchas
+the ratio of rules backed by concrete commands or code examples—and aggregates them via a weighted
+harmonicmeanthatnaturallypenalizesanysingleweakdimension. Topreventself-inflation, thesystem
+cross-verifies the model’s self-reported counts against an independent parse of the output, adopting the
+independently parsed values—either directly or as an upper bound—for each objective dimension. Only
+wisdomthatpassesthisentirepipelineentersLayer2’sreasoningsubstrate.
+5 Layer 2: Wisdom Reasoning and Curation
+Layer 2 connects wisdom distillation (Layer 1) with optimization (Layer 3). Before any asset enters the
+graph,asecurityscreeninggateinspectsthefullskillpackage—instructiondocuments,prompttemplates,
+andattachedscripts—fortwoclassesofcontamination: instruction-levelthreatssuchaspromptinjection
+orworkflowhijackingembeddedintext,andexecution-levelthreatssuchasexfiltrationlogicordestructive
+commandsincode. Onlypackagesthatpassscreeningbecomeeligibleforgraphinsertion. Atbuild-time,
+Layer 2 decomposes incoming wisdom into atomic PCR units, normalizes nodes, and expands the graph
+through logical inference; at query-time, it assembles context-specific execution plans through composi-
+tionalretrievalandevidence-drivencuration.
+5.1 Compositional Retrieval beyond Skill Selection
+Onthesurface,MEGAmayappearsimilartoaskillcombinationsysteminthatitbundlesmultipleskills
+intoaplan. However,theessenceofacombinationengineisscoringandcombiningagivencandidatepool.
+Inthatcase,thegraphistypicallyclosetoastaticindex,andtheretrievalresultreducestoselectingasubset
+ofexistingitems. InMEGA,bycontrast,Layer2 extendsthegraphthroughreasoningbeforecombination.
+Thatis,thesystemdoesnotstopatselectingalready-storeditems;itinfersbridge,prerequisite,exclusion,
+andfallbackrelationsamongstoreditemsthathavenotyetbeenmadeexplicit.
+Thisdistinctionbecomessharperatquerytime. Acombinationenginetypicallyselects“threesimilar
+skills” and lists them in a prompt. MEGA, however, first identifies which types of wisdom are jointly
+needed,thendecomposestheroleeachwisdomplayswithintheplan. Someitemsbecomedirectexecution
+targets, others become conditionals, and still others become fallback rules activated only upon failure.
+Plan generation in MEGA is therefore not the construction of a candidate set but the placement of role-
+differentiatedartifactsintoanexecutiongraph.
+Moreover, MEGA accumulates negative evidence alongside positive evidence. Even if a skill com-
+binationenginelearns“combinationsthatworked,”itcannotreducerepeatedfailureswithoutstructuring
+why a particular combination failed under particular conditions. Through trajectories and verdict feed-
+back, MEGA produces conditional wisdom about “whennot to invoke.” This is why MEGA’s graph is
+notasimplerecommendationsurfacebutareasoningsurfacethatsimultaneouslylearnstheboundariesof
+successandfailure.
+5.2 PCR Atomic Decomposition and the Role-Fluid Graph
+EachwisdomassetundergoeshierarchicalPCRdecomposition: acompoundskillisfactoredintoatomic
+sub-skillunits,eachrepresentedasaPCRtriplet. Thelogicaldependenciesamongsub-skills—prerequisite
+ordering,mutualexclusion,andconditionalbranching—arecapturedastypededgeswithinthePCRgraph.
+This decomposition enables Layer 2 to reason about the internal structure of complex skills, not merely
+theirexternalinterfaces,therebysupportingcompositionalretrievalatsub-skillgranularity.
+Definition 1(WisdomTriplet) . ω = (vP , vC, vR, m) ∈ V 3 × M. vP (Primary): thecoreaction, vC (Con-
+text): theapplicationcondition, vR (Resultant): theexpectedoutcome, m(Method): implementationde-
+
+Mind AI Tech Report 11
+tails. Each edgee = ( u, v) carries a dual-axis score inspired by Pearl’s [25] notions of sufficiency and
+necessity:
+σ(e) = ( S(e), N (e)) ∈ [0, 1]2 (4)
+S(e)denotesthedegreetowhichthetargetnodefollowswhenthesourcenodeispresent(sufficiency),and
+N (e)denotesthedegreetowhichthetargetnodeisunlikelytooccurwithoutthesourcenode(necessity).
+WG-DBusesaRole-Fluidnodepool: thesamenodecanserveas P inonetripletandas C inanother.
+UnlikestructuressuchasConceptNetorATOMICthatassignfixedtypestonodes,thisdesignallowsthe
+same concept (e.g., “Git branching strategy”) to function naturally as an action to perform (Primary) in
+one context and as a precondition (Context) in another. This role fluidity naturally generates cross-skill
+connections and forms a richer relational network while reducing the node count compared to fixed-type
+graphs.
+5.3 PCR Reasoning: PCR as a Logical Inference Layer
+PCRtripletsarenotmerelyastorageformat. TheyarewhattransformsLayer2from“aknowledgegraph
+withretrievalpreprocessing”intoalogicalinferencelayer. Thedirectionalrelationsamong P, C,and R
+providethestructuralbasisforthreeclassicalmodesofreasoning.
+Deduction: Transitive Causal Inference. When P σ1
+− →C and C σ2
+− →R relations exist in the PCR
+structure, P σ′
+− →Risinferredtransitively. Multiplicativescoredecayisappliedateachhopsothatlonger-
+rangeinferencesreceiveexponentiallymoreconservativescores,suppressingfalsepositives. Forexample,
+if “execute index rebuild (P)” is linked to the condition “when ORM N+1 error occurs (C),” and that
+condition leads to “query performance improvement (R),” the transitive relationP → R—index rebuild
+directly improves query performance—is inferred. This inference applies not only within a single triplet
+butequallytocross-wisdomcausalchainsformedwhenonewisdom’sresult( R)matchesanotherwisdom’s
+action( P).
+Abduction: Reverse Causal Inference. When P → R and C → R edges exist—that is, when action
+P and conditionC share the same resultR—the system back-traces “why the same result?” to discover
+a hiddenP → C relation. The key premise is that the Necessity score ofC → R must be sufficiently
+high: there must be a strong dependency such thatR almost certainly requiresC, making the abductive
+inference “P must also go throughC to reach R” reliable. A Bayesian posterior estimate combining
+observed result coverage, the causal strength ofC → R, and semantic relatedness yields the confidence
+ofcandidaterelations. Thisisparticularlyusefulfordiscovering“preconditionsthatwereneverexplicitly
+documented.”
+Induction: Statistical Pattern Discovery. Whenmultiple P nodesaresimultaneouslyconnectedtothe
+same C and the sameR—Pn → C, Pn → R—the system examines the possibility of a direct relation
+C → R. Ahypergeometrictestverifieswhetherthisco-occurrenceexceedschance,andthe C → Redge
+isinferredonlyifstatisticallysignificant.
+Thethreereasoningtypesareappliediteratively. First,theedgesetismonotonicallyexpanding: edges
+areonlyadded,neverremoved,andadeduplicationindexpreventsthesameedgefrombeingaddedtwice.
+Then, each reasoning mode applies stage-specific acceptance thresholds—minimum causal strength for
+deduction (with a dynamic penalty that rises logarithmically with target in-degree), Bayesian posterior
+boundsforabduction, andhypergeometricsignificancetestsforinduction—sothatprogressivelyweaker
+inferencesarefilteredout. Whenareasoningcycleproduceszeronewedgesthatsurvivethesethresholds,
+thesystemhasreachedafixedpointandterminates.
+
+Mind AI Tech Report 12
+P C
+R
+σ1
+σ2inferred
+(a)Deduction: P → R
+P
+R
+C
+inferred
+(b)Abduction
+P1 P2
+C Rp < α
+Pn → C, P n → R
+(c)Induction: C → R
+Figure 3: PCR Reasoning. The directionalP→C→R structure of PCR provides the structural basis for
+three classical modes of reasoning. Solid lines denote observed edges; red dashed lines denote inferred
+edges.
+5.4 PCST-Based Compositional Retrieval
+Embedding similarity search returns only knowledge directly similar to the query. It cannot discover
+“bridging knowledge”—knowledge essential for connecting multiple skills but exhibiting low similarity
+tothequery—whichiscriticalforcomplextasks.
+WG-DB formalizes this as a Prize-Collecting Steiner Tree (PCST) [5] problem over the undirected
+projection ¯G of WG-DB, obtained by retaining the maximum causal strength for each undirected node
+pair:
+T ∗ =arg max
+T ⊆ ¯G
+T connected
+
+ ∑
+v∈V (T )
+π(v; q) −
+∑
+e∈E(T )
+c(e)
+
+ (5)
+π(v; q)isaprizeproportionaltoqueryrelevance,and c(e)isacostproportionaltocausalweakness. Since
+c(e) ≥ 0,anyoptimalconnectedsolutionisatree. Non-seednodesinthePCSTsolution—thosewithlow
+querysimilaritybutessentialforconnectingseeds—constitutethebridgingwisdom.
+Crucially,PCSTdoesnotretrieveonlyskill-typewisdom. Sinceallwisdomtypescoexistinthesame
+graph, PCST performs mixed-type subgraph assembly that cross-composes heterogeneous wisdom types
+includingstrategies,curationpatterns,andtrajectories.
+s1
+s2
+s3
+b1
+b2
+o1
+o2
+Seed(highsim) Bridge(lowsim,essential) Excluded
+Figure 4: PCST-based retrieval. Seed nodes have high query similarity, while Bridge nodes have low
+similaritybutareincludedintheSteinertreesolutionasessentialconnectorsbetweenseeds.
+5.5 From Subgraph to Execution
+TheoutputofPCSTisnotanimmediatelyexecutablescript. Itisareasoningsubgraphrepresenting“what
+should be considered together.” Here, Layer 2 performs a second transformation: converting the mixed-
+typesubgraphintoaplanartifactwithexecutionordering. Skillnodesbecomeexecutioncandidates;strat-
+egy nodes become gating rules and priority constraints; curation patterns provide topological constraints
+anddependencyordering;andtrajectoriesprovideinitialbiasinconservative/exploratorybranches.
+
+Mind AI Tech Report 13
+This transformation is what takes MEGA one step beyond a “retrieval system.” Instead of listing
+retrieved results in the prompt context, it separates the roles of retrieved wisdom: some are executed
+immediately, some are used as pre-execution conditions, and some are preserved as fallback paths upon
+failure. Theoutput Π(q)ofLayer2isthereforenotasimpletop- klistbutthelinearizationofaplangraph
+withassignedexecutionrules. ThisdistinctionseparatesMEGAfromskillcombinationapproaches.
+5.6 ROI-Based Wisdom Curation: Self-Evolution, Not Simple Ranking
+The second core role of Layer 2 is to continuously evaluate and refine the effectiveness of accumulated
+wisdom. This is not simple ranking—it is a self-evolution mechanism in which the system calibrates its
+ownjudgmentsagainsthistoricalperformance. Theformulationsbelowconveythekeydesignintuitions
+ofthismechanism;detailedparametersettingsandstatisticalassumptionsareomitted.
+Predicted Utility Estimation. Foreachwisdom ωi:
+pi = τ (simi,stagei) × η(ωi) (6)
+τ (simi,stagei)is the historical transfer rate—the empirically observed average effectiveness for items at
+asimilarsimilaritylevelandworkflowstage. Itstartsfromapriordistributionatcoldstartandconverges
+to the empirical mean as observations accumulate.η(ωi) is a saturation-based evidence confidence that
+scaleswithfeedbackaccumulation,guaranteeingaminimumexplorationopportunityevenforitemswith
+noevidence.
+Step-Level Aggregation. Pstep = 1 −exp(− ∑
+i pi). A saturation form is used to reflect diminishing
+marginalutilityofredundantskills.
+Adaptive Gating. The system adaptively switches between a cold-start gate (permissive, exploration-
+first)andawarmgate(conservative,LCB-based)accordingtosystemconfidence:
+groi(ωi) =
+{
+pi ≥ θcold ifconf < θ c
+lcbi > θwarm otherwise (7)
+Four-Axis Composite Scoring. Foritemsthatpassthegate,acompositescoreiscomputedacrossfour
+axes: embeddingsimilarity( sim),evidencestrength( evi),stagefitness( stage_fit),andbenchmark( bench).
+Missingaxesarehandledbyrenormalizingweightsovertheavailableaxes.
+Portfolio ROI Estimation and Calibration. Expected performance is estimated as a score-weighted
+average, and a Correction Factor CF= E[δactual/δpredicted]is applied to calibrate against past prediction–
+outcomediscrepancies. ThisCFconstitutesthesystem’s“self-awareness”: itlearnshowaccurateitsown
+predictionshavebeenandcalibratessubsequentpredictionsaccordingly.
+5.7 Wisdom Self-Evolution: A System That Improves with Use
+After each curation session completes, per-wisdom attributions are extracted from the session outcome,
+decomposing the session-level result into individual contribution levels, observed effects, and optional
+revision suggestions. These attributions drive self-evolution along three axes. Figure5 illustrates the
+feedbackloop.
+
+Mind AI Tech Report 14
+Individual-Level Calibration. Per-wisdom effectiveness predictions are calibrated against observed
+outcomes. Thesystemmaintainsatransferfunction τ thatmapssimilaritydistanceandworkflowstageto
+expectedeffect:
+τ (n) =
+
+
+
+τprior n = 0
+¯τobs + τprior
+2 0 < n ≤ k
+¯τobs n > k
+(8)
+where n is the observation count andk is the blending threshold. Cold-start items receive prior-based
+estimates; well-observed items converge to their empirical effectiveness profile. This is the transfer rate
+τ (simi,stagei)referencedinthepredictedutilityestimationofSection5.6.
+Compositional-Level Reinforcement. The system records which wisdomcombinations succeeded or
+failedundersimilarqueryconditions. Acombination cispromotedtoacurationstrategywhenitmeetsa
+frequency–qualitythreshold:
+promote(c) ⇐ ⇒ |S(c)| ≥ nmin ∧ ¯r(c) ≥ rmin (9)
+where S(c)isthesetofsessionsinwhich cwasobservedand ¯r(c)isthemeanratingacrossthosesessions.
+Promotedpatternsarereusabletemplatessuggestedasin-contextguidanceinsubsequentsessions. Com-
+binationsthatconsistentlyco-occurwithhighratingsarefurtherpromotedtoorchestrationstrategiesthat
+inform both plan decomposition and candidate prioritization. Per-wisdom reviews, maintained as com-
+pact summaries updated through delta operations, provide qualitative context that sharpens stage-fitness
+judgmentsacrosscycles.
+Content-Level Evolution. When revision suggestions accumulate beyond a threshold for a given wis-
+domitem,theitemisflaggedasanevolutioncandidate:
+evolve(ω) ⇐ ⇒ |U(ω)| ≥ θevo (10)
+where U (ω)isthesetofunconsumedrevisionsuggestionsforwisdom ωand θevoistheevolutionthreshold.
+The accumulated suggestions are preserved as durable signal for the maintenance pipeline (Section 5.8),
+whichmakesthefinalupdatedecisionwithfullcontext.
+Offline Pattern Consolidation. Whenapatterngroupaccumulatessufficientmembers,anofflinesyn-
+thesisstep—executedinbatch,outsidethelivecurationloop—compressesthemintoasinglebest-practice
+pattern capturing the common successful structure and weighted average performance. Previous synthe-
+sesserveascontextforincrementalrefinement,preventingpatternproliferationwhilepreservingdistilled
+operationalknowledge.
+
+Mind AI Tech Report 15
+Curation Session
+query →plan →execution →outcome
+Attribution Decomposition
+per-wisdom: contribution,effect,suggestions
+Individual
+τ: prior→observed
+Compositional
+pattern&strategy
+promotion
+Content
+revisiontrigger
+Evidence&
+TransferState
+(persistent)
+PatternSynthesis
+(offline)
+ContentUpdate
+(→Sec.5.8)
+Next Curation Cycle
+calibratedpredictions,provenpatterns,strategyhints,reviewcontext
+Figure5: Self-evolutionfeedbackloop. Per-wisdomattributionsfromeachcurationsessionupdatethree
+axes—individualeffectivenesscalibration,compositionalpatternandstrategypromotion,andcontentevo-
+lutiontriggers. Offlinesynthesisconsolidatespatternsintobest-practicetemplates. Alllearnedstatefeeds
+intothenextcurationcycle.
+5.8 Wisdom Maintenance: Auto Graph Hygiene
+Self-evolutionimproveswisdomovertime,butwithoutactivemaintenancethegraphcandegradethrough
+duplication, contradiction, and staleness. Layer 2 performs three maintenance operations directly on the
+PCRstructure.
+PCR-Based Deduplication. Wisdom pairs whoseP, C, andR nodes are semantically equivalent (up
+tonodenormalization)areidentifiedandmerged. Evidencecounts,cumulativereviews,andcausaledge
+scores are consolidated into the surviving variant, ensuring that retrieval is not diluted by near-identical
+entries.
+Contradiction Resolution. Wisdompairsthatsharethesame P and Cbutyieldopposing Routcomes—
+orsharethesame Rbutprescribecontradictoryactionsunderthesameconditions—aredetectedthrough
+polarity analysis over the PCR graph. The variant with stronger operational evidence is retained; the
+weaker variant is either deprecated or annotated with exclusion conditions that restrict its applicability,
+convertingaglobalcontradictionintoacontext-boundedjudgment.
+Evidence-Triggered Content Update. Wisdomitemsthataccumulatenegativefeedbackorreceiveex-
+plicit update signals are candidates for automated content update. The system cross-references domain-
+similar wisdom within the graph and performs external validation to identify outdated facts, deprecated
+interfaces, or changed configurations, then applies targeted content updates while preserving the PCR
+structure and evidence history. This ensures that the graph reflects current operational reality rather than
+thestateatthetimeoforiginalextraction. Figure 6summarizesthethreemaintenanceoperations.
+
+Mind AI Tech Report 16
+PCR-Based
+Deduplication
+e.g.sub-skillvectors
+sim(Pi, Pj ) ∧ sim(Ci, Cj ) ∧ sim(Ri, Rj ) > τ
+mergeentries
+consolidateevidence
+Contradiction
+Resolution
+e.g.same P, C →opposing R
+polarityanalysis+verification
+retainstrongerevidence
+deprecateoraddexclusion C
+Evidence-Triggered
+Content Update
+e.g.feedbackcount ≥ θ
+clusteredrevisionsignals
+externalvalidation
+targetedcontentpatch
+WG-DB:consistent,non-redundant,current
+Figure6: Threegraphhygieneoperations. DeduplicationmergessemanticallyequivalentPCRtripletsvia
+sub-skill vector matching. Contradiction resolution detects opposing resultants through polarity analysis
+and converts global conflicts into context-bounded judgments. Content update triggers on accumulated
+feedbackandappliestargetedpatcheswhilepreservingevidencehistory.
+6 Layer 3: Evaluation-Driven Multi-Agent Optimization
+As discussed in Section 2.3, existing automation approaches share a common limitation: they do not
+learn optimization strategies themselves. TDD-based verification causes test infrastructure to become
+technicaldebtduringworkflowredesign;statelessretryloopssuchasRalphLoop[ 11]failtodistinguish
+productive work from waste; and prompt/parameter optimization retains only the results while leaving
+“howtheoptimizationwasperformed”unstructured. Layer3targetsthisgap.
+Thereis,however,amorefundamentallimitationthathasreceivedlessattention. Currentpromptand
+workflowoptimizersdefineeachLLMinvocationasamodule Mi = (πi, θi, Xi, Yi)andoptimizeprimar-
+ilyatthepromptlevel[ 13,2]. Amulti-hopQAsystem, forexample, isdecomposedintoachainofsuch
+modules—a query generator, a document summarizer, an answer extractor—each improved by refining
+itsprompt πi. Thisprompt-centricparadigmscaleslinearlyinthenumberofmodules: astaskcomplexity
+grows,moremodulesareintroduced,eachduplicatingpreamblecontextinitsprompt,increasingaggregate
+tokencostandmaintenanceburden.
+We therefore take a broader view of the optimization target. Following prior formalizations of agen-
+tic workflows [38, 6], we model an agent workflow as a directed graphA = ( N , E) whose nodes are
+of three heterogeneous types—deterministic code nodes, single LLM calls parameterized by prompt and
+decodingsettings,andtool-usingagentnodesperformingmulti-turnreasoningwithtoolinvocations—and
+whoseedgesdefineexecutionorder;a workflow stage denotesacontiguoussegmentof Acorresponding
+toafunctionalrole(e.g.,retrieval,synthesis,verification),andservesasthegranularityatwhichLayer2
+aligns wisdom to operational context. Under this formulation, a prompt-centric optimizer restricts opti-
+mizationtothe π-componentofLLM-callnodesalone,whereasLayer3targetsthefulltuple(prompt,tool
+configuration,codelogic,orchestrationstructure)acrossallnodetypes.
+Real-world agent systems, built on frameworks such as OpenAI/Claude Agent SDK, Google ADK,
+and Vercel AI SDK, exhibit exactly this heterogeneous structure. Not every LLM call warrants an agent
+node—agent nodes incur substantially higher cost due to multi-turn reasoning and tool invocation—but
+where a task requires tool use, context management, and conditional branching, a single agent node can
+subsumewhatwouldotherwisebemultipleprompt-onlymodules. Theoptimizationchallengeisthatthese
+heterogeneousnodetypescoexistinoneworkflow: apromptchangeinanagentnodecanaltertool-calling
+behavior,contextmanagementstrategy,anddownstreamcontrolflowsimultaneously. Jointlyoptimizing
+prompt, tool configuration, code logic, and orchestration structure across all node types is the scope that
+Layer3targets. Figure 7illustratesthisdistinction.
+
+Mind AI Tech Report 17
+Prompt-centric
+Optimization
+CodeNode
+Preprocessing
+LLMCall
+π2
+LLMCall
+π3
+LLMCall
+π4
+Optimize
+πi only
+Heterogeneous
+Workflow
+CodeNode
+Preprocessing
+Agent Node
+LLM+Tools+Context
+LLMCall
+π′
+4
+Search
+Code
+Optimize
+prompt+tools
++code+flow
+code+3LLMcalls − → code+1agent+1LLMcall
+Figure7: Prompt-centricvs.heterogeneousworkflowoptimization. Prompt-centricoptimizerstreateach
+LLM call as an independent module and optimize promptsπi individually. In a heterogeneous agent
+workflow, a tool-using agent node subsumes multiple LLM calls where multi-turn reasoning is required,
+whiledeterministiccodenodesandsimpleLLMcallsremainunchanged. Layer3jointlyoptimizesprompt,
+toolconfiguration,codelogic,andorchestrationflowacrossallnodetypes.
+Layer 3 addresses both the strategic learning gap and the optimization scope gap. Given a user-
+specifiedagentsystemandtask,itoperatesasamulti-agentautomaticoptimizationengineinwhichmulti-
+plespecializedagentscollaboratetoiterativelyimprovethetargetsystem—includingitsagentnodes,code
+logic,andorchestrationstructure. Ateachcycle,ameta-learningagentextractsnotonlytheoptimization
+outcomes but also structured optimization trajectories capturing which strategies proved effective under
+whichconditions,accumulatingtheminLayer2. Whenasimilarsituationarisesinasubsequentproject,
+thesystembeginsfromapreviouslyvalidatedoptimizationpathratherthanengaginginunverifiedexplo-
+ration. In other words, Layer 3 improves not only the agent system but also the method of optimization
+itself.
+Where Layer 2 determines which knowledge to compose and how, Layer 3 measures whether that
+composition actually works and feeds the resulting evidence back to refine both the knowledge and the
+compositionstrategy.
+Concretely, Layer 3 is realized as a multi-agent system in which a central optimization agent coordi-
+natesspecializedsub-agents(scientist,codereviewer,redesignagent),withtheWisdomGraphproviding
+compositional retrieval over PCR-decomposed wisdom, the Seed-Epoch regime (Section6.4) providing
+attribution discipline, and the specialized-agent pipeline providing separation of concerns between diag-
+nosis, hypothesis, execution, and measurement. The optimization gains reported in Section7.2therefore
+reflectthecombinedcontributionofthesemechanisms.
+6.1 The Adapt Pipeline
+The optimization target of Layer 3 is not a single prompt but an entire heterogeneous workflow encom-
+passing code nodes, LLM calls, tool-using agents, orchestration logic, and evaluation pipelines. Given
+an existing agent system, Layer 3 inventories its assets, reverse-engineers a formal specification, gener-
+ates evaluation data where absent, and initiates iterative optimization against the resulting baseline. The
+principle throughout is to respect the existing code structure while making targeted improvements, with
+mandatory user interaction gates at critical decisions—intent confirmation, data strategy approval, and
+architecturalfeedback—ensuringthattheinfrastructureoperatesasacollaborativetoolratherthananun-
+supervisedloop.
+Thepipelineproceedsthroughthefollowingstages:
+1. Asset Scan: Inventoriesthetargetsystem’ssourcecode, LLMcallstructure, existingevaluationmet-
+
+Mind AI Tech Report 18
+rics,andanyavailableevaluationdata,characterizingthecurrentstateastheoptimizationbaseline.
+2. Adaptive Entry: Determinesthestartingpointofthepipelinebasedonwhatthescansurfaces—code
+only,PRDonly,dataonly,oranycombinationthereof—skippingsubsequentstageswhoseoutputsare
+alreadypresent.
+3. Research Agents (conditional): When the Asset Scan finds that an evaluation dataset or evaluation
+codeismissing,specializedresearchagentsareinvokedinparalleltogathertheexternalgroundingre-
+quiredforsynthesis—surveyingstate-of-the-arttechniquesandtheirreportedperformanceandidenti-
+fyingpubliclyavailabledatasetsandtheirrelevance—producingastructuredreportthatgroundsdown-
+stream decisions in external evidence. When both an evaluation dataset and evaluation code already
+exist,thisstageisskipped.
+4. Reverse PRD / Data Synthesis: AReverseEngineeragentreconstructsa Pipeline Requirement Doc-
+ument (PRD) from the existing codebase, capturing the I/O schema, scenario taxonomy, evaluation
+criteria,andreferencedatasetsimplicitinthecurrentsystem(augmentedwithfindingsfromResearch
+when invoked). When the workflow lacks an evaluation dataset—a common situation in which only
+a pipeline exists but no data to evaluate it against—the Data Agent generates one directly from the
+PRD: a data analysis step derives a category–difficulty matrix, seed scenarios spanning the full space
+aredesignedandpresentedatamandatoryhumanapprovalgate,andapprovedseedsanchorthedistri-
+butionforparallelworkersthatproducestratifiedtrainingandvalidationsets,togetherwithanoptional
+document store for retrieval-augmented scenarios. When a dataset already exists, this stage reduces
+to verification and hands control to the coverage-gap augmentation of Section6.3. The generation
+scopeisboundedbywhatLLMsynthesiscanproduce—text-basedinput–outputpairsandoptionaltext
+documentstores;non-textualmediasuchasimages,audio,andvideofalloutsidethecurrentpipeline.
+5. Shared Optimization Loop: Executes Seed-Epoch-based iterative optimization (Section6.4), with a
+centraloptimizationagentcoordinatingspecializedsub-agents(scientist,codereviewer,redesignagent)
+throughadisciplinedcycleofdiagnosis,hypothesis,execution,andmeasurement.
+6. Meta-learning Agent:Atoptimizationcompletion,extractspatternsdiscoveredduringtherun—which
+strategiesworkedunderwhichconditions,whichtrajectoriesreducedfailures,andwhichcurationsteps
+requiredwisdomthatwasnotavailable—asstructuredwisdomandregisterstheminLayer2; thesur-
+facedcapabilitygapsarethenclusteredandmaterializedasnewatomicskillsintheglobalskilllibrary,
+expandingthepoolthatsubsequentoptimizationsdrawfrom.
+Figure8illustratesthepipelineanditsconnectiontoLayer2.
+
+Mind AI Tech Report 19
+UserInput
+AssetScan
+AdaptiveEntry
+ResearchAgents
+(conditional)
+ReversePRD/
+DataSynthesis
+PRDonly?
+Dataonly?
+Code?
+Layer2
+WG-DB
+Shared Optimization Loop
+Epoch k: fixedseed ξk →50samples
+Iter0: Baseline+Diagnose
+Iter1..N:Deltamode→Saturation
+ValTest→Epochboundary→Epoch k+1
+Π(q)
+Meta-learningAgent
+E: evidence
+Figure 8: The Adapt pipeline of Layer 3. Asset Scan inventories existing system state; Adaptive Entry
+choosesthestartingpointandconditionallyinvokesResearchAgentswhenevaluationdataorevaluation
+codeismissing;ReversePRDreconstructsthespecificationand,whenrequired,synthesizestheevaluation
+dataset. The pipeline then enters the Seed-Epoch-based Optimization Loop. Layer 2 (WG-DB) supplies
+curationplans Π(q)totheloop,andafteroptimizationtheMeta-learningAgentfeedsevidence E backto
+Layer2,closingthecycle.
+6.2 Multi-Agent Collaboration Inside the Optimization Loop
+Layer 3 employs over a dozen specialized agents, each with strictly bounded responsibilities. Table3
+summarizesthekeyagentsbyphase.
+Table3: SomekeyagentsintheLayer3pipeline.
+Phase Agent Role
+Research(conditional) SOTAResearch Surveys state-of-the-art techniques and bench-
+marks
+DatasetSearch Searchesforexistingopendatasets
+PRD ReverseEngineer Reverse-engineers existing codebase into a
+PipelineRequirementDocument
+Data
+DataAnalysis DesignssyntheticdatastrategyfromthePRD
+DataSampleWorkers 3 parallel workers by difficulty
+(easy/medium/hard)
+DataDocWorkers 2parallelworkersfordocumentstoregeneration
+DataDownloader Downloadsandpreparesopendatasets
+Optimization
+Scientist Error pattern analysis with root-cause vs. victim
+distinctionandROI-basedprioritization
+CodeReviewer Static analysis + dry-run validation + anti-
+heuristicenforcement
+OptimizationAgent Centraldeliberation: diagnosis →hypothesis →
+fix →measurement
+RedesignAgent Architecturalrestructuringwhenincrementalop-
+timizationstagnates
+Post-opt. Meta-learningAgent Extracts optimization trajectories and registers
+theminLayer2
+
+Mind AI Tech Report 20
+The optimization loop proceeds in two stages. InIteration 0 (Baseline Analysis) , the initial sys-
+temisevaluatedandthescientistagentperformsmulti-faceteddiagnostics: errorpatternclassificationby
+fixability (prompt-fixable, code-fixable, architecture-required), per-node root-cause analysis that distin-
+guishes genuine failure sources from downstream victims via error propagation tracing, and ROI-based
+prioritization that ranks nodes by (error rate× case count) / cost. A five-signal architectural verdict—
+error concentration, context loss ratio, error type diversity, uniform failure rate across LLM nodes, and
+user goal gap—determines whether incremental improvement or full architectural redesign is warranted;
+threeormoresignalstriggerredesign,withthegoalgapsignalcarryingsufficientweighttotriggerredesign
+on its own. The system then computes a target accuracy based on the fixability distribution of observed
+errors,ratherthanrelyingonarbitrarytargets.
+Iteration 1+ (Delta Mode):Thecentraloptimizationagentdirectlyperformsdeltaanalysisandrepeats
+fixed-seed evaluation under the Seed-Epoch structure. At each iteration, the agent applies up to three
+targeted fixes (prompt improvement, structural code fix, or parameter tuning), submits them to the code
+reviewer for validation, and measures the result. The code reviewer performs static analysis and dry-run
+testingbeforeeachevaluation,catchingruntimeerrorsandspecviolationsbeforetheyconsumeevaluation
+budget.
+The architectural principle is centralized deliberation with specialized execution. In deep delegation
+chains, context is lost at each boundary and optimization direction becomes diluted. Layer 3 avoids this:
+thecentraloptimizationagentdirectlydecides“whatistheproblem,whatshouldbetried,andhowshould
+the results be interpreted,” while specialized agents perform only well-bounded tasks. From the user’s
+perspective,optimizationproceedsasasystematiccycleofdiagnosis →hypothesis →execution →mea-
+surement →nexthypothesis.
+6.3 Data-Aware Optimization
+Most agent optimization systems treat training data as fixed and optimize only the workflow [13,21,2].
+Layer3extendstheoptimizationscopetoincludethedataitself: beforeenteringtheworkflowoptimiza-
+tionloop,thesystemanalyzeswhetherobservedfailuresstemfromworkflowlimitationsorfromgapsin
+trainingdatacoverage,andintervenesaccordingly.
+Layer 3 addresses this through a conditional data augmentation step that executes between baseline
+evaluationandtheoptimizationloop. Thesystemfirstclassifiestheevaluationstructureintooneofthree
+types: discretecheckerswithenumerablescoringunits,rubric-basedevaluationwithnatural-languagecri-
+teria,orcontinuousmetricswithoutexplicitdimensions. Foreachtype,atype-specificmethoddiscovers
+the full set of evaluation dimensions—by static analysis of evaluation code for discrete checkers, by ex-
+tractingaxesfromrubricprompts,orbyclusteringinputsandcorrelatingwithmetricscoresforcontinuous
+cases.
+Each discovered dimension is then assessed along three axes: density (how many training examples
+coverit),diversity(howvariedthoseexamplesare),andbaselineperformance. Thecriticalinsightisthe
+distinction betweendata gaps and workflow problems: a dimension with sufficient, diverse training data
+but low performance indicates a workflow problem that augmentation cannot solve, while a dimension
+withabsentorsparsedataindicatesagenuinecoveragegap. Augmentationtargetsonlythelatter.
+When gaps are identified, targeted synthetic data is generated for the specific missing dimensions,
+merged with the original training set under a synthetic ratio bounded by the gap-detection signal itself—
+scaledtothemagnitudeofthedetectedcoveragedeficitsothataugmentationclosesthegapwithoutover-
+whelming the empirical distribution, and validated through dry-run evaluation. The baseline is then re-
+evaluated on the augmented dataset before the optimization loop begins. When no gaps are found, this
+stepisskippedentirelywithzeroadditionallatency. Figure 9illustratesthisconditionalflow.
+
+Mind AI Tech Report 21
+BaselineEvaluationComplete
+EvalStructureClassification(A/B/C)
+DimensionDiscovery+CoverageAnalysis
+Gaps?
+TargetedSynthesis+Merge
+Re-baselineonAugmentedData
+OptimizationLoop
+Yes
+No—skip
+discrete/rubric/continuous
+density,diversity,baseline
+50%cap
+Figure 9: Coverage-driven data augmentation. The system classifies the evaluation structure, discovers
+evaluationdimensions,anddistinguishesdatagapsfromworkflowproblems. Augmentationexecutesonly
+whengenuinecoveragegapsexist;otherwise,thestepisskippedwithzerooverhead.
+6.4 Seed-Epoch: Overfitting Regulation
+Even when multiple agents iteratively improve a system, whether those improvements are genuine is a
+separate question. If evaluation data is resampled at every iteration, it becomes impossible to determine
+whetherobservedperformancegainsresultfromstrategychangesorsimplyfromdrawingeasiersamples.
+This“meaninglessdelta”problemstructurallyunderminesthereliabilityofoptimization.
+Definition 2 (Seed-Epoch). An evaluation datasetDe = Sample(Dtrain, n, ξe) fixed by a deterministic
+seed ξe atepoch e. Alliterations iwithinanepochareevaluatedonthesame De:
+∆i =Acc(De, vi) −Acc(De, vi−1) (11)
+Since the evaluation dataset is identical for all iterations within the same epoche, data variance is elimi-
+nated,and ∆icanattributeitsprimarysourceofvariationtotheeffectofstrategychanges. Here, videnotes
+the i-thsystemvariant.
+The core idea is “changing only the strategy while keeping the same test problems.” This discipline
+ensuresthatinsteadofmerelyanimpressionthatperformanceimproved,thereisarecordofwhichchanges
+produced which differences under identical conditions. Layer 2 uses this attributed evidence to decide
+whichwisdomtopromoteandwhichtodefer. Ifattributionisinfeasible,thegraphbecomescontaminated
+withanindiscriminatemixtureofsuccessstoriesandcoincidences.
+When |∆i| < ϵfor mconsecutiveiterations,optimizationwithinthecurrentepochisdeemedsaturated,
+and the epoch advances to a new seedξe+1. The new epoch evaluates on fresh data, thereby naturally
+validatingwhetherstrategiesoverfittedtothepreviousepoch.
+Acomplementarydesignchoicegoverns whentorunvalidation. Runningvalidationateveryiteration
+is wasteful; running it only at epoch boundaries risks missing critical generalization signals mid-epoch.
+MEGA adopts a momentum-triggered validation policy: validation is executed at three points—(1) the
+baseline iteration, (2) epoch boundaries, and (3) momentum events, defined as recovery from a regres-
+sionortheachievementofanewbestscore. Thisselectiveschedulingconcentratesvalidationbudgeton
+iterationswheregeneralizationinformationismostactionable.
+
+Mind AI Tech Report 22
+6.5 Optimization Safeguards
+Seed-Epoch ensures that performance deltas are attributable. Three additional safeguards ensure that the
+improvementsthemselvesaregenuine.
+Anti-Heuristic Enforcement. Codemodificationsarerestrictedtostructuraltransforms: JSONparsing,
+encodingnormalization,nullhandling,typecoercion,anderrorrecovery. Content-awarepatterns—regular
+expressions that match specific answer formats, conditional branches for particular question types, and
+lookuptablesmappinginputstooutputs—areprohibited. Thecoderevieweragentenforcesthisconstraint
+throughstaticanalysisanddry-runtestingbeforeeachevaluation,rejectingfixesthatwouldoverfittothe
+trainingsetratherthanimprovethesystem’sgeneralcapability.
+Overfitting Detection. Thesystemtracksthegapbetweentrainandvalidationaccuracyacrossepochs.
+When the gap exceeds a threshold at epoch saturation, the next epoch restricts optimization to prompt
+improvementsonly,prohibitingcodefixesthataremoresusceptibletotraining-set-specificpatterns. This
+constraint, combined with Seed-Epoch’s automatic generalization check upon epoch transition, provides
+alayereddefenseagainstoverfitting.
+Fixability-Based Goal Calibration. Ratherthanpursuinganarbitraryaccuracytarget,thesystemcom-
+putes a realistic ceiling from the baseline error distribution. Errors classified as prompt-fixable receive a
+high recovery estimate; code-fixable errors receive a moderate estimate; architecture-required errors de-
+fineahardceiling. Theresultingtargetreflectswhatthecurrentsystemstructurecanrealisticallyachieve,
+preventingwastediterationsonunreachablegoals.
+6.6 Cross-Layer Compounding Cycle
+Mostoptimizationsystemsimproveperformanceonthecurrentprojectandstop. Whenthesametypeof
+problemisencounteredinasubsequentproject,thereisnostructuralmechanismtoreuseinsightsdiscov-
+eredduringpreviousoptimization. Layer3closesthisgapbyfeedingstructuredevidencebacktoLayer2
+aftereachoptimizationcycle.
+Definition 3 (Verdict). A verdictis a multi-dimensional judgment tuple(∆acc, ∆lat, ∆tok)recording the
+accuracydelta,latencychange,andtokenusagechangeobservedafterapplyingawisdom-informedstrat-
+egychangeunderfixed-seedevaluation.
+EveryverdictgeneratedduringoptimizationisfedbacktoLayer2toupdatetwoquantities:
+• η(ω): Theevidenceconfidenceofwisdomthatreceivedaneffectiveverdictisincreased,boostingitin
+subsequentretrieval,whilerepeatedlyfailedwisdomispushedtolowerranks.
+• τ (·): The historical transfer rate for the corresponding similarity range and workflow stage is updated
+withtheobservedoutcome,makinginitial pestimatesforsimilarnewwisdommoreaccurateinsubse-
+quentcycles.
+Theseverdictsarenotsinglescalars. Ifastrategyimprovedaccuracybutdoubledlatency,itbecomes
+conditional wisdom valid only in certain contexts. MEGA does not treat “good wisdom” as an absolute
+category;instead,itaccumulateswisdomthathasbeenvalidatedconditionallyoncontext.
+Furthermore, the meta-learning agent extracts patterns discovered during the optimization process
+itself—whichstrategycombinationsworkedunderwhichconditions,whichtrajectoriesreducedfailures—
+asstructuredoptimizationtrajectoriesandregisterstheminLayer2. Thesetrajectoriesenablethesystem,
+whenencounteringasimilarsituationinafutureproject,tostartfromavalidatedpathratherthanexploring
+fromscratch.
+This is what makes Layer 3 not a one-shot optimizer but a self-reinforcing optimization engine that
+drives the compounding cycle of the entire MEGA framework. Within Layer 3, the cycle of diagnosis
+→ hypothesis → execution → measurement repeats in a self-reinforcing manner, and its outputs refine
+Layer2sothatthenextprojectstartsfromahigherbaseline.
+
+Mind AI Tech Report 23
+7 Experiments and Evaluation
+TheevaluationofMEGAisorganizedalongtwoaxes: (1)whetherthecurationqualityofaccumulatedwis-
+domtranslatesintoimproveddownstreamperformance,and(2)whetherMEGA’soptimizationsurpasses
+existing LM-centric optimizers. Experiment configurations, optimization, and per-benchmark results for
+bothaxesareavailableat https://github.com/mega-edo/mega_benchmark.
+7.1 Wisdom Curation Quality
+To measure whether WG-DB’s compositional curation translates into downstream task performance, we
+evaluate on SkillsBench [17], a benchmark of 84 tasks across 11 domains where each task is verified by
+deterministicpytestassertionsinisolatedDockercontainerswithbinarypass/failverdicts.
+Setup. AllconditionsrunonaGCP n2d-standard-128VMusingGeminiCLIwithGemini3Flashas
+theagent,with5attemptspertaskand43concurrentDockertrials. Theskillpoolcomprises4,207assets
+including SkillsBench’s golden skills for all curation systems. Gemini 3 Flash is also used for all LLM
+componentsinthecurationpipelinessothatnoconditionbenefitsfromastrongermodelatanystage. We
+compare four conditions that share the same agent, skill pool, tasks, verifiers, and Docker environment;
+theonlyvariableistheskilldiscoveryandorchestrationmethod:
+• No Skills: theagentreceivesonlythetaskinstruction.
+• SkillNet[16]: LLM-basedmetadatamatchingfollowedbyLLM-generatedproceduralguidance. We
+use SkillNet’s original prompts (retrieve_relevant_skills_prompt,
+generate_overall_procedure_prompt)withoutmodification. 1
+• AgentSkillOS [15]: hierarchical tree search via the originalTreeBuilder and Searcher modules,
+followedbyQuality-FirstDAGplangenerationviatheoriginal build_planner_prompt—thebest-
+performing strategy reported by the authors.2 The DAG is topologically linearized for SkillsBench’s
+sequentialexecutionenvironment.
+• MEGA (WG):PCST-basedcompositionalretrievalfromWG-DB,followedbyrole-differentiatedplan
+assembly(Section5).
+Eachmethodretrievesfromthesharedpoolandtheretrievedsubsetisinjectedintoexecution. Thereported
+results therefore reflect end-to-end pipeline performance in which retrieval and curation are measured
+jointly,meaninganinaccuratecurationplancandegradeperformanceevenwhenretrievalisaccurate. In
+deployment, where all available skills’ summaries are already loaded into the agent’s context, curation
+qualitybecomesthedominantfactor;thebenchmarksetting,bycontrast,focusesontheretrieval–curation
+pipelineasawhole.
+Results. Table4 reports pass rate, average token consumption per task, curation latency (time to dis-
+cover and orchestrate skills before execution), and curation ROI—defined as pass-rate improvement per
+additionalmegatokenconsumedrelativetotheNoSkillsbaseline.
+Table4: WisdomcurationqualityonSkillsBench(84tasks,Gemini3Flash). Passrateistheprimarymet-
+ric;tokenusageandcurationlatencycaptureefficiency. Efficiencyisdefinedaspassratepermegatoken
+consumed(score/Mtok).
+Pass Rate Avg Tokens/Task Curation Latency Efficiency
+(%) (k) (sec/task) (score/Mtok)
+NoSkills 31.5 894 — 0.353
+AgentSkillOS 41.1 1189 403.4 0.345
+SkillNet 41.7 983 37.8 0.424
+MEGA(WG) 46.5 822 11.8 0.566
+1https://github.com/zjunlp/SkillNet/tree/main/experiments
+2https://github.com/ynulihao/AgentSkillOS/tree/main/src
+
+Mind AI Tech Report 24
+0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.6525
+30
+35
+40
+45
+50
+NoSkills
+AgentSkillOS SkillNet
+MEGA(WG)
+Efficiency(score/Mtok)
+PassRate(%)
+Figure10: Passratevs.efficiencyonSkillsBench. Higherandfurtherrightisbetter.
+Threeobservationsstandout. First,skillcurationisnotautomaticallybeneficial—themethodofcura-
+tionmatters. AgentSkillOSachieves41.1%andSkillNetreaches41.7%,bothsubstantiallyabovetheNo
+Skills baseline (31.5%), confirming that skill curation provides meaningful lift. However, AgentSkillOS
+incursthehighesttokencost(1189k)andcurationlatency(403.4s)forapassratecomparabletoSkillNet’s
+simplertwo-callapproach(983ktokens,37.8s). MEGA(WG)achievesthehighestpassrate(46.5%)with
+thebestefficiency(0.566score/Mtok),indicatingthat howskillsareselectedandcomposed—notmerely
+that they are provided—determines downstream performance. Second, token consumption reveals a key
+difference. Both SkillNet and AgentSkillOS inflate context by injecting whole-skill content (procedural
+text or linearized DAG with per-step skill references), while MEGA (WG) injects only the atomic PCR
+unitsrelevanttothetaskthroughrole-differentiatedplacement,reducingcontextoverheadwhilepreserv-
+ingactionableguidance.
+Third,curationlatencyvariesdramaticallyacrossmethodsduetodifferingLLMdependencies. Agent-
+SkillOSrequiressequentialLLMcallsateachlevelofitscapabilitytreeduringskilldiscovery(uptosix
+levels),plusanadditionalcallforDAGplangeneration,resultinginthehighestper-tasklatency. SkillNet
+requirestwoLLMcallspertask(skillretrievalandproceduregeneration). MEGA(WG)’sPCSTretrieval
+operates over a pre-indexed graph with subgraph pruning and requires no LLM calls during the retrieval
+phase itself, yielding the lowest curation latency. Together, these results indicate that compositional re-
+trievaloveratypedWisdomGraph—whereskillsaredecomposedintoatomicunitsandassembledthrough
+graph reasoning—outperforms both flat metadata matching and hierarchical tree search, not only in task
+performancebutalsointokenefficiencyandcurationspeed.
+7.2 Optimization Performance
+TomeasurewhetherMEGA’soptimizationsurpassesexistingLM-centricoptimizers,wecompareagainst
+MIPROv2 [21], TextGrad [37], GEPA [2], and Feedback Descent [14] on GPT-4.1 Mini. All baselines
+operate on ground-truth evaluation data, and MEGA is run against the same ground-truth datasets for a
+faircomparison.
+Setup. EachbenchmarkispairedwithacompoundAIsystem(multi-hopretriever,instruction-following
+rewriter, claim verifier, or privacy-aware delegator) taken from GEPA’s released evaluation code.3 We
+stripallDSPyandGEPAoptimizerdependenciestoobtainapureworkflow—i.e.,abaremulti-stageLLM
+pipelinewithnooptimizer-specificscaffolding—andusethisasboththestartingpointforMEGA’sopti-
+mizationandthebaselinerowinTable 5. Theevaluationcheckersandscoringartifactsremainidenticalto
+3https://github.com/gepa-ai/gepa-artifact/tree/main/gepa_artifact/benchmarks
+
+Mind AI Tech Report 25
+thoseintheGEPAcodebase,ensuringthatallmethodsaremeasuredunderthesamegradingcriteria. Base-
+line scores for MIPROv2, TextGrad, and GEPA are cited directly from [2]; Feedback Descent scores are
+citedfrom[ 14]. TheevaluationusesfourbenchmarksfromGEPA’ssuitewithidenticaltrain/testsplitsand
+seeds: HotpotQA(150/100/300),IFBench(150/100/294),HoVer(150/100/300),andPUPA(111/111/221),
+where each tuple denotes (train/val/test). MEGA uses smaller validation sets than GEPA’s original splits
+(e.g., 100 vs. 300 for HotpotQA) to reduce optimization cost. These benchmarks collectively require di-
+verse capabilities including multi-hop reasoning, instruction following, retrieval-based verification, and
+privacy-preserving delegation. MEGA’s Layer 3 optimization runs as a multi-agent loop, drawing from
+thesame4,207-assetWisdomGraphevaluatedinSection 7.1.
+Table 5: Benchmark results on GPT-4.1 Mini (gpt-4.1-mini-2025-04-14). Baseline, MIPROv2,
+TextGrad,andGEPAscoresarecitedfromGEPA[ 2]. FeedbackDescentscoresarecitedfrom[ 14]. GEPA
+(best)reportstheper-benchmarkmaximumofGEPAandGEPA+Mergevariants.
+HotpotQA IFBench HoVer PUPA Agg.
+Baseline 38.00 47.79 46.33 78.57 52.67
+MIPROv2 58.00 49.15 48.33 83.37 59.71
+TextGrad 62.33 48.64 47.67 85.68 61.08
+FeedbackDescent 68.33 54.59 57.67 85.66 66.56
+GEPA(best) 69.00 55.95 56.67 96.46 69.52
+MEGA 72.67 61.05 74.67 97.81 76.55
+Results. MEGAachievesanaggregatescoreof76.55,outperformingthestrongestbaselineGEPA(69.52)
+by +7.03 points and the next-strongest Feedback Descent (66.56) by +9.99 points. The improvement is
+consistent across all four benchmarks. The largest absolute gain appears on HoVer (+18.00 over GEPA),
+wheremulti-hopretrievalbenefitsmostfromcompositionalwisdomthatchainsretrievalstrategiesacross
+hops. On IFBench, MEGA achieves +5.10 over GEPA, suggesting that structured constraint-handling
+wisdom transfers effectively to instruction-following tasks. HotpotQA (+3.67) and PUPA (+1.35) show
+consistentgains;bothbenchmarksapproachtheceilingreachablethroughworkflowandpromptoptimiza-
+tiononGPT-4.1Mini, beyondwhichfurtherimprovementrequiresamorecapablebasemodel. Notably,
+theseresultsareachievedwithsmallervalidationsetsthanGEPA’soriginalsplits,indicatingthatMEGA’s
+optimizationlooprequireslessvalidationdatatoconverge.
+Within Layer 3, the Wisdom Graph supplies compositional retrieval over PCR-decomposed wisdom,
+andtheSeed-Epochregimesuppliestheattributiondisciplinethatisolatesstrategy-drivengainsfromdata
+variance. SincethebaselineoptimizersthemselvesoperateovercapableLLMs,themeasuredgapreflects
+whatthesestructuralelementsaddontopofcapableagenticreasoning. Theabovegainsthereforemeasure
+theintegratedinfrastructure—acuratedWisdomGraphsupplyingcompositionalcontext,plusevaluation-
+drivenoptimizationwithdisciplinedattribution—ratherthananysinglecomponent.
+
+Mind AI Tech Report 26
+BL
+MIPROv2
+TG FD GEPA MEGA
+30
+40
+50
+60
+70
+80
+38
+58
+62.33
+68.33 69
+72.67
+Score
+(a)HotpotQA
+BL
+MIPROv2
+TG FD GEPA MEGA
+45
+50
+55
+60
+65
+47.79
+49.15 48.64
+54.59
+55.95
+61.05
+Score
+(b)IFBench
+BL
+MIPROv2
+TG FD GEPA MEGA
+40
+50
+60
+70
+80
+46.33 48.33 47.67
+57.67 56.67
+74.67
+Score
+(c)HoVer
+BL
+MIPROv2
+TG FD GEPA MEGA
+75
+80
+85
+90
+95
+100
+78.57
+83.37
+85.68 85.66
+96.46
+97.81
+Score
+(d)PUPA
+Figure 11: Per-benchmark comparison on GPT-4.1 Mini across four benchmarks. Each panel uses a
+benchmark-specific y-axis range. Values are shown above each bar. BL = Baseline, TG = TextGrad,
+FD=FeedbackDescent.
+8 Conclusion
+ThisreportpresentsMEGA,aninfrastructurethatunifiesevaluation-drivenagentoptimizationwithself-
+evolvingwisdomcuration. Layer1distillsagentsessionsintoverifiedknowledgethroughbehavioralA/B
+validation,ensuringthatonlyempiricallyconfirmedwisdomentersthesystem. Layer2decomposesthis
+knowledge into atomic PCR units within a typed Wisdom Graph, performs logical reasoning to discover
+implicitcompositionalrelations,andassemblescontext-specificexecutionplansthroughcompositionalre-
+trieval. Layer3jointlyoptimizesheterogeneousagentworkflows—codenodes,LLMcalls,andtool-using
+agents—andattributesperformancechangestospecificstrategymodifications,producingoperationalev-
+idencethatcontinuouslyrefinesboththeWisdomGraphandthecurationlogicthatgovernsit.
+Empiricalresultssupportthisdesignalongtwoaxes. OnSkillsBench(84tasks,11domains),MEGA
+achieves a 46.5% pass rate with an efficiency of 0.566 score/Mtok, surpassing SkillNet (41.7%, 0.424)
+andAgentSkillOS(41.1%,0.345)whileconsumingfewertokenspertask. Onfourestablishedworkflow
+benchmarks,MEGAattainsanaggregatescoreof76.55onGPT-4.1Mini—7.03pointsabovethestrongest
+reported baseline. These gains reflect the architecture as a whole: behavioral validation gating graph
+entries,compositionalreasoningshapingexecutionplans,andattributablemeasurementisolatingstrategy-
+driveneffects.
+Theseresultsarenotattributabletoanysinglelayerinisolation. Layer1’sbehavioralvalidationcon-
+trols the precision of graph entries; Layer 2’s compositional reasoning determines the structural quality
+ofexecutionplans; Layer3’sattributablemeasurementprovidestheempiricalsignalthatcalibratesboth.
+Thethreelayersformaclosedloop—distillationfeedsreasoning,reasoningguidesoptimization,andop-
+timization produces evidence that refines both the knowledge and the curation logic—and the observed
+gainsreflectthisloopoperatingendtoend.
+Thedeeperarchitecturalsignificanceliesinthisfeedbackcycle. Eachoptimizationrunrefinesnotonly
+thetargetsystembutalsothecurationstrategiesandoptimizationtrajectorieswithintheWisdomGraph—
+the optimizer optimizes itself. As this cycle repeats across projects, the graph is intended to accumulate
+
+Mind AI Tech Report 27
+validatedcompositionalpatternssothatnewprojectsbeginfromabaselineshapedbyprioroptimization
+rather than from scratch. In this design, optimizing an agent system and optimizing the very process by
+whichoptimizationisperformedareoneandthesame—ameta-optimizationthatcompoundsovertime.

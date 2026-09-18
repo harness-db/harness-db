@@ -1,0 +1,253 @@
+record_id: s2_snowball:d987b87fecfe6b1887987ae580b1b3c65a851932
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2604.03697
+fetched_title: SGTA: Scene-Graph Based Multi-Modal Traffic Agent for Video Understanding
+fetched_at: 2026-09-18T19:00:14Z
+
+SGTA: Scene-Graph Based Multi-Modal Traffic
+Agent for Video Understanding
+Xingcheng Zhou1 , Mingyu Liu1 , Walter Zimmer1 , Jiajie Zhang1 , and
+Alois Knoll1
+Technical University of Munich, Chair of Robotics, Artificial Intelligence (AI) and
+Embedded Systems, Boltzmannstraße 3, 85748 Garching bei München, Germany
+xingcheng.zhou@tum.de,mingyu.liu@tum.de,walter.zimmer@tum.de,
+jiajie.zhang@tum.de, knoll@in.tum.de
+Abstract.We presentScene-Graph Based Multi-ModalTrafficAgent
+(SGTA), a modular framework for traffic video understanding that com-
+bines structured scene graphs with multi-modal reasoning. It constructs
+a traffic scene graph from roadside videos using detection, tracking, and
+lane extraction, followed by tool-based reasoning over both symbolic
+graph queries and visual inputs. SGTA adopts ReAct to process inter-
+leaved reasoning traces from large language models with tool invoca-
+tions, enabling interpretable decision making for complex video ques-
+tions. Experiments on selected TUMTraffic VideoQA dataset sample
+demonstrate that SGTA achieves competitive accuracy across multiple
+question types while providing transparent reasoning steps. These results
+highlight the potential of integrating structured scene representations
+with multi-modal agents for traffic video understanding.
+Keywords:Traffic Video Understanding·Multi-Modal Agent·Traffic
+Scene Graph.
+1 Introduction
+Understanding complex traffic scenes from roadside videos is essential for intel-
+ligent transportation systems, traffic safety monitoring, and autonomous driv-
+ing. Recent advances in large language models (LLMs), vision–language models
+(VLMs), and multi-modal agent have enabled visual question answering on traf-
+fic scenraios [1,2,3]. However, existing methods often lack interpretability and
+struggle with fine-grained spatio-temporal reasoning, especially in traffic sce-
+narios [3]. To address these limitations, we propose theScene-Graph Based
+Multi-Modal Traffic Agent (SGTA)for traffic video understanding. SGTA
+first constructs a traffic scene graph [4] that encodes spatio–temporal relations
+among objects, lanes, and frames using detection, tracking, and map priors.
+Based on this structured representation, SGTA employs a ReAct-style [5] rea-
+soning framework that interleaves reasoning traces from an LLM with tool calls
+over the scene graph and visual inputs. This design allows SGTA to decompose
+complex queries into sequences of interpretable reasoning steps while integrating
+both symbolic and visual information.
+arXiv:2604.03697v1 [cs.CV] 4 Apr 2026
+
+2 Authors Suppressed Due to Excessive Length
+2 Related Work
+(a) Traffic digital twin approach.
+(b) End-to-end traffic VQA models.
+(c) Scene-graph based multi-modal traffic agent (ours).
+Fig.1: Comparison of paradigms for traffic scene understanding.
+2.1 Roadside Traffic Digital Twin
+Roadside traffic digital twin is a digital representation of the traffic state that
+mirrors the physical environment in real time. Building such a system normally
+requires roadside sensing with cameras, lidars, and radars, calibration and syn-
+chronization across sites, and multi-sensor fusion that outputs object position
+within unified coordinate system. Networking and edge-cloud computing are in-
+tegrated to satisfy bandwidth and latency requirements. As a pioneer system,
+Providentia [6] demonstrated the feasibility of highway-scale traffic digital twins
+on the A9 test field and later extended the concept to urban intersections us-
+ing distributed architectures with multi-modal sensor fusion. The traffic digital
+twin system is shown in Fig 1-(a). Autotech.agil project [7] provides modu-
+lar, service-oriented architectures beyond vehicles to the entire traffic system to
+enable scalable and updatable digital twin frameworks for cooperative mobility.
+For roadside perception algorithms, BEVHeight [8] generates BEV features from
+roadside images to construct 3D roadside detection, and WARM-3D [9] intro-
+duces a semi-supervised domain adaptation framework to improve the real-world
+3D roadside perception ability. Recent datasets such as TUMTraf series [10], and
+DAIR-V2X [11] provide large-scale roadside data that benchmark the perception
+ability of roadside traffic digital rwin systems.
+2.2 Traffic Scene Understanding with Language Models
+With the success of LLMs and VLMs, they have been increasingly adopted for
+traffic scene understanding, aiming to interpret visual observations and answer
+natural language queries in complex road environments. VLMs directly process
+multi-modal inputs and provide end-to-end scene interpretation, as shown in Fig.
+1-(b). Zhou [12] evaluates multi-modal foundation models on traffic event anal-
+ysis, showing the ability to reason over complex traffic events. Other work [13]
+automates scenario-level traffic categorization with large VLMs to reduce label-
+ing costs in large datasets. TUMTraffic-VideoQA [14] establishes a benchmark
+of roadside videos with QA pairs, captions, and grounding annotations. Besides,
+
+Title Suppressed Due to Excessive Length 3
+LLM-based methods integrate visual tools to analyze traffic scenes. Compared
+to end-to-end VLMs, LLM-based frameworks follow a modular and structured
+paradigm. Yang [8] employs GPT-4o to coordinate smaller VLMs for highway
+scene analysis, covering weather, pavement, and congestion. SeeUnsafe [15] in-
+troduces a multimodal framework that converts traffic video into structured
+accident assessments and supports interactive video QA. In this work, we adopt
+the concept of scene graph as traffic representation for scene understanding and
+reasoning, and introduce a multi-modal agent for structural reasoning based on
+LLMs, as shown in Fig. 1-(c).
+3 Methods
+We present the proposed SGTA in this section. An overview is shown in Fig. 2.
+Fig.2: Overview of Scene-graph based multi-modal traffic agent (ours).
+3.1 Scene Graph Generation
+We construct a traffic scene graphGfor each videoVas a structured spatio-
+temporal representation of the dynamic scene. Formally,G= (N,E)consists of
+nodesNand edgesEencoding spatio-temporal relations.
+As shown in Fig. 2, the traffic scene graph consists of three types of nodes,
+i.e., frame nodes, lane nodes, and instance nodes. Instance nodes are generated
+by applying object detection, tracking, and re-identification, yielding robust 2D
+representations of dynamic participants across video. Camera parameters and
+external spatio priors are used to project 2D pixel coordinate detection into
+3D road coordinates. Each instance node is enriched with attributes including
+category, bounding box, and 3D position. Besides, instance velocity and heading
+are further derived from temporal consistency and spatial relations. Similarly,
+lane nodes are extracted from lane detection models and map priors, and provide
+spatial references for instance driving maneuvers like lane changes. Frame nodes
+act as temporal anchors, linking all entities that appear at a given time frame.
+Edges are constructed based on spatio-temporal relations among nodes. Tem-
+poral edges connect the same instance across consecutive frames, ensuring in-
+stance trajectory continuity. Spatial edges encode pairwise relations such as dis-
+tance, relative position, and lane assignment. Frame-to-instance edges register
+
+4 Authors Suppressed Due to Excessive Length
+which participants are present in each frame, while instance-to-lane edges de-
+scribe alignment with lanes to traffic participants. Together, these relations en-
+ableGto capture both geometry and dynamics of traffic in a compact, queryable
+structure. For storage and retrieval, we adopt a Neo4j graph database, which al-
+lows efficient querying of node attributes and edge relations, and provides a
+scalable backend for multi-modal reasoning.
+Algorithm 1:Workflow of SGTA
+Input:VideoV, QuestionQ, Large Language ModelL, Vision Language
+ModelΦ, Tool SetU, Max StepsT
+Output:Answerˆy, Trajectory{s t,a t,o t|1≤t≤T}wheres t,a t, ando t
+denote context, tool choice, and observation respectively
+1Stage 1 Traffic Scene Graph Construction
+2Inputs:V, Object/Lane Detector, External Priors
+3Outputs:Scene GraphGcapturing nodes and relations
+4begin
+5Create frame, object, and lane nodes from detections and tracking
+6Project detections into road coordinates using external priors and assign
+kinematic attributes to object nodes
+7Construct edges inGencoding spatio-temporal relations
+8Stage 2 Querying and Reasoning overGandV
+9Inputs:Q,V,G,U,Φ
+10s 1←initial context summarizingQand a compact view ofG
+11fort= 1toTdo
+12ˆy t←L⟨Q,s t⟩
+13h t←L.plan⟨Q,s t,ˆyt⟩//h t is intermediate planning output ofL
+14ifstop_signal⟨Q,s t,ˆyt⟩then
+15a t←stop
+16break
+17select toolu t∈Uand inputx t viaπ ReAct⟨st,Q,h t,G⟩
+18a t←⟨u t,x t⟩
+19o t←u t⟨xt⟩// queryGor analyze frames withΦ
+20s t+1←s t∪o t
+21returnˆy t and the trajectory{s t,a t,o t|1≤t≤T}
+3.2 Tool Set of SGTA
+The tool setUprovides the interface between the language model and the traffic
+video together with its structured scene graphG. We group the tools into two
+categories according to their target modality.
+Scene Graph Tools.These tools are based on Cypher queries executed over
+the structured scene graphG. Each tool call is mapped into an action written in
+Cypher, which retrieves or aggregates node and edge attributes. Single-instance
+tools access properties of one node, for exampleQueryObjectsAtFramelists ob-
+jectsandattributes,MotionAtFramereturnsvelocityandheading,CountObjects
+computes per-class counts,TimeWindowreports the lifespan of a track, and
+TrajectorySummarysamples positions across frames. Multi-instance tools cap-
+
+Title Suppressed Due to Excessive Length 5
+Tool Class Main input Main output
+ParseInstancesSingle SG instance-tuple instance f-ID, t-ID
+QueryObjectsAtFrameSingle SG f-ID, (class) bbox, speed, pos3d
+MotionAtFrameSingle SG f-ID, t-ID speed, heading, vel3d
+CountObjectsSingle SG f-ID, (class) count
+TimeWindowSingle SG t-ID start, end, duration, fps
+TrajectorySummarySingle SG t-ID instance center list
+ListAllTracksMulti SG video ID, (class) all t-IDs
+RelativePositionMulti SG f-ID, t-ID a, t-ID b relation,dx,dy, distance
+CropImageVisual Tools f-ID, t-IDs cropped image regions
+Visual QAVisual Tools image, question answer
+Table 1: Summary of SGTA tool sets. Single- and Multi- correspond to tools
+with single/multi-node queries. (.) means optional, v-ID, f-ID, and t-ID denote
+video ID, frame ID, and instance tracking ID, respectively.
+ture relations or dataset-level statistics, such asListAllTracksto enumerate
+all participants in a video andRelativePositionto compute pairwise spatio
+relations. By formalizing all queries as Cypher expressions, these tools enable
+the agent to traverse the scene graph and reason efficiently over temporal and
+relational structures.
+Visual Tools.In addition to the scene graph queries, visual tools directly
+invoke the VLMΦon specified visual regions. They complement the symbolic
+graph by grounding reasoning in appearance cues, descriptive analysis, and
+queries beyond structured attributes.CropImageextracts image regions corre-
+sponding to selected track IDs and frame IDs, whileVisual QAanswers visual
+questions on given visual inputs.
+3.3 Multi-Modal Reasoning
+SGTA performs reasoning over the traffic scene graphGand the raw video
+through reasoning process following the ReAct framework [5]. The key idea is
+to interleave reasoning (thought) with acting (tool usage) in order to iteratively
+refine context and reach a grounded answer.
+At each stept, LLMLproduces a reasoning traceh t (“Thought”), which
+records its current interpretation of the question and the available contextst.
+Based on(Q,s t,h t), a policyπ ReAct selects an actiona t =⟨u t,x t⟩, whereu t
+is one of the predefined tools inUandx t is the textual input. The action
+is executed either as a Cypher query overG(e.g.,query_objects_at_frame,
+relative_position) or as a visual interface to the VLMΦ(e.g.,CropImage,
+Visual QA). The tool returns an observationot that is appended to the context,
+yieldings t+1 =s t∪o t. The process continues untilLemits a stop signal, at
+which point the final answerˆyis generated together with the complete trajec-
+tory{s t,a t,o t|1≤t≤T}. This design allows the agent to decompose complex
+video-based traffic questions into a sequence of interpretable reasoning steps,
+where each step is explicitly linked to a tool invocation and its result.
+
+6 Authors Suppressed Due to Excessive Length
+4 Experiments
+4.1 Datasets and Implementation
+Dataset.We evaluate SGTA on the TUMTraffic VideoQA dataset [14], which
+contains real-world traffic accident videos paired with QA annotations. We se-
+lect a representative sample video together with its associated VQA example to
+evaluate the performance of SGTA.
+Implementation.SGTA employs GPT-4o-mini [16] for both LLM and VLM
+components. YOLOv11 [17] and RT-DETR [18] serve as detection backbones,
+and ByteTrack performs multi-object tracking. We adopt the multi-scale trick to
+improve the recall of small instances. Lane detection is performed with YOLOP
+lane detector [19], skeletonized into polylines and projected to road coordinates
+via calibrated camera parameters. Instances adopt default 3D size priors and are
+projected by inverse mapping under the ground-plane constraint.
+4.2 Quantitative and Qualitative Evaluation
+Table 2 summarizes SGTA performance on the selected video QAs across five
+question types under H0, H1, and overall settings. SGTA attains 55% accuracy
+on H0, 53% on H1, and 54% overall. Existence and class questions achieve the
+highest accuracy (59% and 64%), while positioning remains the most challenging
+(36%). These results indicate that SGTA handles object-level reasoning well
+but struggles with fine-grained spatio-temporal relations. We show a qualitative
+example for better illustration on the right side of Fig. 2.
+Type H0 Num. H0 Acc H1 Num. H1 Acc All Num. Avg. Acc
+Class 4/7 0.57 5/7 0.71 9/14 0.64
+Motion 3/7 0.43 4/7 0.57 7/14 0.50
+Positioning 3/7 0.43 2/7 0.29 5/14 0.36
+Existence 4/6 0.67 6/11 0.55 10/17 0.59
+Counting 4/6 0.67 9/17 0.53 13/23 0.57
+Average 18/33 0.55 26/49 0.53 44/82 0.54
+Table 2: Performance of QA across H0, H1, and overall accuracy
+5 Conclusion and Future Work
+In this work, we introduced SGTA, a scene-graph based multi-modal traffic agent
+that integrates structured scene representations for interpretable traffic video
+understanding. SGTA constructs a traffic scene graph from roadside videos, em-
+ploys tool-based reasoning over both symbolic queries and visual inputs, and
+achieves competitive performance across diverse question types on the TUM-
+Traffic VideoQA dataset. Future work includes extending SGTA in three direc-
+tions. First, we can scale SGTA to larger and more diverse traffic datasets with
+real-time constraints. Second, we will explore integrating trajectory forecasting
+and risk assessment into the reasoning process for safety-critical applications.
+Third, combining SGTA with multi-agent communication frameworks to enable
+collaborative reasoning across multiple intersections and cameras.
+
+Title Suppressed Due to Excessive Length 7
+Acknowledgments.This work was supported by the project VIDETEC-2
+(Grant No.01F2232E) and the Federal Ministry for Digital and Transport of
+Germany (BMDV).

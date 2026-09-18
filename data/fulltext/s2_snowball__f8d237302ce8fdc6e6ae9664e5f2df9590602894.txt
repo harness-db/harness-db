@@ -1,0 +1,721 @@
+record_id: s2_snowball:f8d237302ce8fdc6e6ae9664e5f2df9590602894
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2606.10394
+fetched_title: STAGE-Claw: Automated State-based Agent Benchmarking for Realistic Scenarios
+fetched_at: 2026-09-18T19:00:49Z
+
+STAGE-Claw: Automated State-based Agent Benchmarking
+for Realistic Scenarios
+Sirui Liang1,3,4,6*, Bohan Yu1,2,4,6*, Peiyu Wang1,3,4, Shiguang Guo6, Wenxing Hu6, Pengfei Cao1,3,
+Jian Zhao4,5,Cao Liu 6,Ke Zeng 6,Xunliang Cai 6,Kang Liu 1,3†
+1The Key Laboratory of Cognition and Decision Intelligence for Complex Systems, Institute of Automation,
+2School of Advanced Interdisciplinary Sciences, University of Chinese Academy of Sciences,
+3Chinese Academy of Sciences, Beijing, China, University of Chinese Academy of Sciences,
+4Zhongguancun Academy, 5Zhongguancun Institute of Artificial Intelligence, 6Meituan
+{liangsirui2024, yubohan2025}@ia.ac.cn, kliu@nlpr.ia.ac.cn
+Abstract
+Large language models are increasingly used
+to power personal agents for everyday appli-
+cations, but evaluating these agents remains
+a challenge. Existing benchmarks still rely
+on sandboxed artifacts, static task design, and
+coarse scoring, which hinder scalability and
+limit progress toward reliable personal-agent
+evaluation. This paper introduces STAGE-
+Claw, an automated framework for building and
+evaluating realistic personal-agent scenarios in
+state-based personal-computing environments.
+Given a task hint, STAGE-Claw automatically
+creates and validates a realistic benchmark task
+with its environment, task prompts, ground
+truth, and related verification programs. Agents
+are then evaluated in realistic operating envi-
+ronments, where performance is measured by
+the correctness of the final system state rather
+than only the textual response. Using STAGE-
+Claw, this paper creates a benchmark with 40
+challenging real scenario agent tasks, evalu-
+ates 11 frontier models, and analyzes their task
+scores, costs, tool-call reliability, and common
+failure patterns. Overall, STAGE-Claw offers a
+scalable, state-based way to evaluate agents in
+realistic user scenarios. Code is available here.
+1 Introduction
+Large language models (LLMs) are increasingly
+being adopted as the reasoning backbones of au-
+tonomous agents (Wang et al., 2024; Xi et al., 2025;
+Yao et al., 2022), as exemplified by systems such
+as Claude Code (Anthropic, 2025) and OpenClaw
+(OpenClaw, 2026), which augment LLMs with tool
+interfaces, execution environments, memory mech-
+anisms, and control logic. This shift changes eval-
+uation (Liu et al., 2024; Ye et al., 2026; Li et al.,
+2026), agents must not only answer textual prompts
+but also plan over multiple steps, coordinate hetero-
+geneous tools, and interact with environments. For
+* Co-first authors, they contributed equally to this work.
+† Corresponding author.
+example, agent integrated with email, calendars,
+files, browsers, and other everyday applications
+(OpenClaw, 2026), benchmarks must measure reli-
+able action in persistent, cross-tool user scenarios
+(Li et al., 2026).
+Recent agent benchmarks have moved beyond
+text-only evaluation, covering tool use and multi-
+step reasoning, web instruction following, desktop
+interaction, and visually grounded web tasks (Mi-
+alon et al., 2024; Deng et al., 2023; Xie et al., 2024;
+Zhou et al., 2024; Koh et al., 2024). However,
+they are still limited in three crucial aspects.First,
+most existing evaluations replace real applica-
+tion state with sandboxed artifacts.For example,
+PinchBench (Kilo AI, 2026) evaluated calendar
+scheduling ability through generated .ics files
+and email-related tasks through synthetic inboxes
+stored as workspace text files. This file-based for-
+mulation simplifies task completion evaluation, but
+it could ignore some operations in real scenarios,
+such as software-permission and tool-access er-
+rors. Consequently, it mainly evaluates artifact
+generation rather than an agent’s ability to interact
+with the applications.Second, existing evaluation
+tasks are typically constructed manually and are
+therefore difficult to scale.GAIA (Mialon et al.,
+2024) and Claw-Eval (Ye et al., 2026) rely on fixed
+question-answer instances or human-verified tasks
+and rubrics. However, personal agents must adapt
+to diverse user preferences, goals, workflows, and
+evolving contexts, requiring evaluation tasks that
+scale across personalized and dynamic scenarios.
+Such coverage is difficult and costly to achieve
+with manually curated static benchmarks.Third,
+existing evaluations often lack process-aware di-
+agnostics.Only final results scoring or checkers
+(Ma et al., 2024; Trivedi et al., 2024) may fail to
+diagnose where errors occur within the completion
+workflow. For instance, an incorrect conference-
+tracking related calendar operation produced by an
+agent may result from errors in intermediate steps,
+arXiv:2606.10394v1 [cs.AI] 9 Jun 2026
+
+Task hint input:
+AI Conference
+Stage 1: Authoring
+Explore: Considered realistic AI conference
+Choose: Personal conference schedule task
+Build: Created a AI conference Schedule task
+Check: Completeness and complexity
+Stage 2: Validation
+Reset: Initialize the environment
+Snapshoot: Export snapshot
+Compare: Determine reproducibility
+Stage 3: Execution
+Reset and Read Prompt
+Complete tasks in the
+environment and save
+snapshot.
+Stage 4: Evaluation
+Task Hint
+Vertify: Check snapshots
+Score: Assign 100 points
+Tasks: Act as a personal assistant for a researcher attending AI Conf 2025.
+Read four local source files, reconcile schedule updates and preferences,
+and decide which sessions to attend.
+Create Calendar events, Reminders, and an Notes summary.
+Repair if failed
+Figure 1: The workflow of STAGE-Claw.1) Benchmark authoring: Explore a task hint and generate the task.2)
+Benchmark validation: Check task correctness, difficulty, and reproducibility, revising if needed.3) Agent execution:
+Target agent attempts the task in the environment.4) State-based evaluation: Score results by verifying system state.
+such as time-zone conversion, conflict resolution,
+or reconciling inconsistent message sources, which
+final-result-only checkers cannot localize. Overall,
+these limitations motivate a state-based and scal-
+able evaluation paradigm that assesses agents in
+realistic scenarios.
+To address these limitations, this paper proposes
+STAGE-Claw(State-based,Tool-integrated,Agent
+taskGeneration andEvaluation), an automated
+framework for constructing and evaluating agent
+benchmarks in realistic environments. STAGE-
+Claw addresses these challenges from three as-
+pects.State-based evaluationverifies whether an
+agent’s actions produce the expected state changes
+in the environment, rather than merely checking
+outputs or artifacts.Automated constructionand
+Process-aware diagnosisrefer to evaluating agents
+by automatically generating and validating bench-
+mark instances and analyzing fine-grained metrics
+to localize task failure reasons. As shown in Fig-
+ure 1, STAGE-Claw automatically creates task in-
+stances from the task hint word, validates their ver-
+ifiability, difficulty, and reproducibility, executes
+target agents in the generated environments, and
+evaluates their performance by verifying persis-
+tent system-state changes across tools. This design
+shifts the evaluation from final-artifact checking to
+state-based assessment of agent behavior in realis-
+tic scenarios. We build 40 challenging tasks and
+conduct a detailed analysis of 11 frontier models’
+test results. Overall, our contributions are summa-
+rized as follows:
+• This paper proposes STAGE-Claw, a frame-
+work that systematically automates the con-
+struction and validation of state-based agent
+evaluation instances in realistic scenarios.
+• Using STAGE-Claw, we build a state-based
+benchmark of 40 challenging tasks grounded
+in 5-group realistic scenarios, covering work-
+flows that require cross-source reasoning, tool
+state updates, and cross-tool consistency.
+• We evaluate 11 frontier models on STAGE-
+Claw and conduct a detailed analysis of the
+task trajectory and results, which contribute
+insights for developing reliable, state-based,
+and extensible agent evaluation systems.
+2 STAGE-Claw
+In this section, we introduceSTAGE-Claw, a four-
+stage automated framework for constructing and
+evaluating state-based agent benchmarks.
+Formalized Definition.Each benchmark in-
+stance is formulated as a state-transformation prob-
+lem over a reconstructable real environment:
+B= (q,E 0,G,R,V),
+whereq is a task prompt, E0 is an initial tool en-
+vironment, G specifies a target final state, R is
+a scoring rubric, and V is an executable verifier.
+An agent observes only (q,E 0) at the beginning,
+while (G,R,V) is reserved for evaluation to pre-
+vent information leakage. Given an agent policy
+π, execution from the initial state s0 produces a
+trajectory
+τπ = (s0,o 0,a 0,...,a H−1,oH,sH),
+whereot is the environment observation,at is the
+agent’s action for tool use, and sH is the final envi-
+ronment state. The agent succeeds not by merely
+
+Figure 2: Statistics of task categories.
+producing a final textual answer, but by transform-
+ingE0 into a final stateG where aV is utilized to
+evaluate its correctness.
+Implementation Environment.STAGE-Claw
+evaluates agents in real computing environments,
+where user requests often span multiple applica-
+tions. The environment can be regarded as a collec-
+tion of all the states of the tools. Initial environment
+E0 = (T,s 0), where T denotes the set of available
+tools and s0 denotes their initial joint state. The
+global environment state at step t is represented
+as st ={s τ
+t }τ∈T , where sτ
+t is the state of tool τ.
+Agents receive user-level access to realistic tools,
+including the file system, browser, terminal, cal-
+endar, email, reminders, and notes, which support
+read, write, and execution operations over persis-
+tent application states. Tasks are modeled as tran-
+sitions from the initial state s0 to an acceptable
+final-state set SG specified by a targetG, and are
+considered successful when sH ∈ SG, indicating
+that the agent has produced the required persistent
+changes while preserving relevant existing state.
+2.1 Stage 1: Benchmark Authoring
+The first stage automatically constructs executable
+benchmark instances from task hint words. We
+manually curate 40 real assistant scenarios as task
+hint words. For each task hint, STAGE-Claw in-
+vokes a benchmark-authoring agent to instantiate
+an executable task. The authoring agent acts only
+as a benchmark designer. Explore realistic user
+needs and imagine several challenging scenarios,
+then select a scenario with sufficient complexity.
+Based on the selected scenario, the authoring agent
+constructs a task instance containing a task prompt,
+an environment-construction guide, the correspond-
+ing ground truth, and an executable verification
+program aligned with the ground truth.
+To ensure sufficient complexity, each task is de-
+signed to be multi-step, involve multiple tools or in-
+formation sources, be reconstructable from a clean
+state, and support objective state-based evaluation.
+We also deliberately add some operators with dif-
+ferent difficulty types (illustrated in Table 5 in Ap-
+pendix A.3) to model the complexity of real-world
+scenario tasks. In general, we build 40 tasks into 5
+groups. Figure 2 shows the task distribution.
+2.2 Stage 2: Benchmark Validation
+Before admission into the evaluation set, each task
+instance is checked by an independent validation
+agent that does not solve or modify the task. The
+checker verifies four properties.Structure, ensur-
+ing that each task includes environment construct
+guidance, visible task prompt, hidden ground truth,
+and the corresponding executable verify program.
+Reproducibility, rebuilding the environment twice
+from a clean state and comparing snapshots across
+tool states such as files, calendars, reminders, notes,
+and email. Ensure that the task environment can
+be consistently reconfigured to the same initial
+state each time.Verifiability, assessing whether
+the scoring is objective and executable.Difficulty
+calibration, checking whether the difficulty level
+of the task includes the following types of difficulty.
+Such as cross-source conflicts, hidden dependen-
+cies, noisy data, entity alignment, tool state updates,
+and cross-tool consistency.
+Each dimension receives a status ofPASS,FAIL,
+BLOCKED, orWARN. These statuses are aggre-
+gated into a weighted 100-point checker score. In-
+stances scoring above a threshold (80 in our experi-
+ments) are accepted. Failed instances are returned
+toStage 1with diagnostics for targeted repair and
+re-submitted until they pass or reach the maximum
+number of repair attempts.
+2.3 Stage 3: Agent Execution
+This stage involves testing the qualified tasks. For
+each validated benchmark, STAGE-Claw resets the
+initial state, reconstructs the environment from the
+environment-construction guide, and creates an iso-
+lated execution workspace containing only the visi-
+ble task prompt, related documents, and tools. The
+evaluated agent must complete the task within a
+predefined time budget using only the available
+
+Benchmark State-based Multi-tool Auditable Auto Construction Perturbation
+AgentBench (Liu et al., 2024) ✗ ✗
+GAIA (Mialon et al., 2024)✗ ✗ ✗ ✗
+τ-bench (Yao et al., 2024)✓ ✓ ✓ ✗ ✗
+WebArena (Zhou et al., 2024)✓ ✓ ✗
+OSWorld (Xie et al., 2024)✓ ✓ ✓ ✗
+ToolBench (Qin et al., 2024)✗ ✓ ✓ ✗
+Terminal-Bench (Merrill et al., 2026)✓ ✓ ✗ ✗
+PinchBench (Kilo AI, 2026) ✗ ✗
+Claw-Eval (Ye et al., 2026)✓ ✓ ✓ ✓
+STAGE-Claw (Ours)✓ ✓ ✓ ✓ ✓
+Table 1: Comparison of agent evaluation benchmarks along STAGE-Claw.State-basedchecks explicit environment
+states;Multi-toolrequires coordinated tool use;Auditablesupports traces, snapshots, rubrics checkers;Auto
+Constructionenables automatic or programmatic task construction; andPerturbationintroduces controlled noise,
+conflicts, or errors. Green checks, yellow circles, and red crosses denote full, partial, and no core support.
+instructions and tools. During execution, it may in-
+terpret requirements, interact with tools and update
+tool states, inspect intermediate results, and pro-
+duce final outputs. Once the agent finishes, STAGE-
+Claw records execution metadata, including run
+status, elapsed time, and tool-interaction traces. It
+also captures a snapshot of the final environment.
+These recorded states are sent to the evaluation
+stage, where the evaluator assesses whether the
+agent’s outputs and final-state record satisfy the
+task requirements.
+2.4 Stage 4: State-Based Evaluation
+The final stage performs a state-based evaluation
+after the evaluated agent completes the task exe-
+cution. After execution, STAGE-Claw runs the
+task-specific verifier to check whether the recorded
+states align with the hidden ground truth G. The
+evaluator checks file output, tool-state updates, and
+formatting constraints, then returns a structured
+evaluation report. LLM-assisted adjudication is
+used only as a guarded fallback. It is triggered
+when executable verification fails to execute, times
+out, or cannot access a required snapshot field be-
+cause of evaluator-side tool instability. All eval-
+uation paths enforce a unified total-score format
+for automatic parsing and aggregation. Finally,
+STAGE-Claw records the agent score, execution
+status, and evaluation metadata and links them with
+execution logs to support detailed analysis.
+Overall, we constructed 40 challenging tasks
+using STAGE-Claw. As summarized in Table
+1, STAGE-Claw combines state-based evaluation,
+multi-tool workflows, auditable verification, auto-
+mated construction, and controlled perturbation in
+one workflow. This design makes STAGE-Claw a
+scalable state-based evaluation framework rather
+than a collection of manually written agent tasks.
+3 Evaluation
+3.1 Task Construction
+Construction Settings.Benchmark authoring
+agent is instantiated with Claude-Sonnet-4.6 (An-
+thropic, 2026b). The full prompts are shown in
+Appendix C. Each candidate task is checked by
+the checker agent (test results exceeded 80 points),
+which requires an average of 2.67 repair iterations.
+All accepted tasks can be verified by executable
+verification programs without the need for LLM-
+assisted adjudication. Finally, human annotators
+check each accepted task for scenario realism, task
+completeness, instruction clarity, ground-truth cor-
+rectness, and evaluator-rubric alignment. The an-
+notation details are provided in Appendix A.7. All
+task construction, repair, and checker-based vali-
+dation are fully automated, human involvement is
+only used for quality review.
+Construction Budget and Scope.Each STAGE-
+Claw task requires automated construction, veri-
+fication, evaluation, and human audit. Building
+an accepted task costs about 35 to 40$ and takes
+1-2 hours, excluding model-evaluation runs. The
+time cost to each task for each model is 3 to 15
+minutes, and the API cost is 0.17 to 6.55$. Con-
+sidering the substantial time and API costs of con-
+structing and evaluating tasks, we build a set of 40
+challenging tasks and position it as a high-quality
+pilot benchmark rather than an exhaustive coverage
+of all personal-agent scenarios. We evaluate each
+model on each task once in our experiments and
+include a limited repeated-run diagnostic in Ap-
+
+Model Score First-Pass Time (s) Tokens (M) Cost ($) Tool Calls
+Claude-Opus-4.7 77.1 80.0%422.8 1.242 $6.55 40.6
+Claude-Sonnet-4.669.43 65.0% 733.8 1.265 $3.98 42.2
+GPT-5.569.19 65.0% 316.4 0.405 $1.33 28.9
+GPT-5.465.37 52.5%192.5 0.236$0.6921.8
+Gemini-3.1-Pro65.5 67.5% 742.4 0.642 $2.65 52.6
+DeepSeek-V4-Pro59.78 60.0% 744.4 0.620 $0.28 28.3
+Doubao-Seed-2.0-Pro61.07 50.0% 325.6 0.531 $0.27 28.4
+GLM-567.40 60.0% 423.7 0.694 $0.73 40.5
+Kimi-K2.659.05 55.0% 641.3 0.921 $0.93 54.9
+MiniMax-M2.747.53 35.0% 937.5 0.529$0.1734.8
+Qwen3.5-Plus59.74 57.5% 406.2 0.882 $0.30 59.3
+Table 2: Performance and efficiency comparison of large language models on STAGE-Claw. Score is the average
+valid run task score. First-Pass denotes the proportion of tasks scoring above 60 in the first round. Time, Tokens,
+Cost, and Tool Calls report average run time, token usage, API cost, and tool invocations of each task. Bold values
+indicate the best result for each metric, and underlined values indicate the second-best result.
+pendix A.6. Our goal is to demonstrate the feasibil-
+ity and diagnostic value of automated state-based
+evaluation in realistic environments.
+3.2 Evaluated Models
+We evaluated 11 state-of-the-art models span-
+ning multiple model families: Claude-Opus-
+4.7 (Anthropic, 2026a), Claude-Sonnet-4.6 (An-
+thropic, 2026b), DeepSeek-V4-Pro (DeepSeek,
+2026), Qwen3.5-Plus (Alibaba Cloud, 2026), GPT-
+5.5 (OpenAI, 2026a), GPT-5.4 (OpenAI, 2026b),
+Gemini-3.1-pro-preview (Google, 2026), Doubao-
+Seed-2.0-Pro (ByteDance Seed, 2026), GLM-5
+(GLM-5-Team et al., 2026), Kimi-k2.6 (Moonshot
+AI, 2026), and MiniMax-M2.7 (MiniMax, 2026).
+All models were assessed in the 40 benchmark
+tasks constructed for this study.
+3.3 Evaluation Settings
+All models were tested within the framework of
+OpenClaw, with reasoning disabled and tempera-
+ture set to 0 when configurable (otherwise using
+the provider-fixed temperature). This setting min-
+imizes sampling variability and improves repro-
+ducibility across runs. Each benchmark task was
+executed in an isolated operating-system environ-
+ment, and a freshly initialized OpenClaw agent was
+instantiated for each run to avoid interference from
+persistent memory, cached state, or prior context.
+Scores in Table 2 show each model’s first valid
+run per task. A valid run requires a correctly recon-
+structed environment and a completed evaluation.
+Given that tasks involve interactions with real tools,
+including calendar events, emails, and reminders,
+executions were performed serially to avoid con-
+flicts between concurrent tasks. This setup ensures
+that each trial reflects the agent’s ability to com-
+plete the task based solely on the visible prompt and
+accessible tool interfaces, providing a controlled
+and reproducible evaluation environment.
+3.4 Main Results
+Table 2 reports the performance and efficiency of
+different LLMs in STAGE-Claw under the Open-
+Claw framework. Overall, the results reveal a clear
+trade-off between task performance and execution
+efficiency.
+Model performance and execution efficiency
+exhibit a clear trade-off.Claude-Opus-4.7
+achieves the strongest overall performance, with
+the highest average score of 77.1 and the highest
+First-Pass rate of 80.0%, demonstrating the highest
+reliability among all evaluated models. Claude-
+Sonnet-4.6 obtains the second-best average score,
+while Gemini-3.1-Pro achieves the second-best
+First-Pass rate. However, these strong-performing
+models generally require higher computational
+overhead, such as longer execution time, larger
+token consumption, or higher API cost. In con-
+trast, GPT-5.4 shows the best efficiency profile,
+achieving the lowest latency, the lowest token us-
+age, and the fewest tool calls while maintaining
+a competitive score. GPT-5.5 further provides a
+strong balance between performance and efficiency,
+approaching Claude-Sonnet-4.6 in score while us-
+ing substantially fewer resources.
+
+Figure 3: Performance comparison between the unit
+model api price, and the task score. The x-axis repre-
+sents the unit price of the API, and the y-axis represents
+the average model task score.
+Tool-use frequency does not directly deter-
+mine task performance.Models such as Qwen3.5-
+Plus (59.3) and Kimi-K2.6 invoke tools (54.9) far
+more frequently than GPT-5.4 (21.8), yet obtain
+lower average scores. Conversely, GPT-5.4 com-
+pletes tasks with the fewest tool calls while out-
+performing several models with heavier tool usage.
+This suggests that effective tool use depends more
+on planning quality, tool selection, and result veri-
+fication than on the raw number of tool invocations.
+Excessive tool calls may therefore indicate ineffi-
+cient coordination rather than stronger task-solving
+ability.
+Higher API unit price is positively correlated
+with stronger task performance, but does not
+fully explain model quality.As shown in Fig-
+ure 3, model average task score exhibits a strong
+positive linear correlation with model API price.
+This suggests that more expensive models tend to
+achieve better task performance on STAGE-Claw.
+Claude-Opus-4.7 is a representative example, com-
+bining a high API price with the highest average
+score. However, the correlation is not absolute.
+GLM-5 achieves a relatively high score at a low
+API price, while GPT-5.5 is more expensive but
+does not outperform Claude-Opus-4.7 or Claude-
+Sonnet-4.6. We speculate that GPT-5.5’s relative
+underperformance may partly stem from its config-
+uration with reasoning (thinking) modules turned
+off, which prioritizes execution efficiency over de-
+liberative planning and multi-step reasoning. These
+observations indicate that price is an important but
+insufficient proxy for agent capability and that cost-
+effectiveness varies substantially across models.
+These findings show that STAGE-Claw evaluates
+not only final task success, but also how reliably
+and efficiently models operate in realistic scenarios.
+The results highlight the need to jointly consider
+task performance, latency, realized run cost, token
+usage, API unit price, and tool-use behavior when
+assessing LLM agents.
+4 Analysis
+4.1 Failure Analysis
+We further analyze non-passing runs to character-
+ize common failure patterns. Since a single run
+may exhibit multiple errors, our analysis is multi-
+label rather than mutually exclusive. Figure 4.a
+summarizes the resulting distribution.
+The most prevalent failure mode isTool Failure,
+appearing in 95.4% of non-passing runs. These
+failures involve missing, incomplete, or incorrectly
+routed writes to real tools such as calendar, notes,
+reminders, or email, indicating that agents often
+generate plausible intermediate outputs but fail to
+correctly update the underlying environment. The
+second most frequent category isInvalid Format
+(75.0%), including incorrect JSON format, miss-
+ing required fields, incorrect filenames, or verifica-
+tion reports without required metadata.Trap and
+Reconciliation Failures(69.7%) andVerification
+Failures(59.2%) further show that agents strug-
+gle with source-of-truth selection, entity alignment,
+timezone and deadline reasoning, deduplication,
+noise filtering, and evidence-backed validation.In-
+formation Coverage Errors(52.6%),Incomplete
+Execution(49.3%), andSpurious Outputs(44.1%)
+are also common, suggesting that current agents
+have difficulty integrating reliable extraction, ver-
+ification, and conservative state updates into a co-
+herent workflow. Figure 4.b shows the percentages
+in model of failed outcomes.
+4.2 Tool-Use Analysis
+In this section, we analyze the frequency of tool
+calls and the errors that occur in the frequent tool
+calls. Figure 4.c reports both the tool call usage dis-
+tribution and the failure cause composition, where
+failure causes are normalized over failed tool calls
+within each category. Among all categorized tool
+calls, Shell/Session tools are used most frequently,
+accounting for 79.8% of calls, followed by File I/O
+tools at 13.4%. State/Messaging tools are invoked
+much less often, representing only 6.7% of calls.
+Despite their different usage frequencies, the
+failure patterns vary substantially across tool cat-
+
+Figure 4: Failure-type analysis over non-passing outcomes. Categories are multi-label, so percentages do not sum
+to 100.a.prevalence of each failure type among failed outcomes.b.model-wise percentage of failed outcomes
+containing each type.c.proportion of tool usage and the error types for the corresponding tools
+egories. Shell/Session failures are dominated by
+command or script errors (53.3%), followed by
+missing resources or paths (27.3%). This suggests
+that shell-based interaction primarily fails due to
+incorrect command construction, missing depen-
+dencies, or invalid assumptions about the runtime
+environment. File I/O failures exhibit a distinct pat-
+tern: missing resources or paths account for 59.5%
+of failed calls, while tool runtime errors account for
+33.3%. This indicates that accurate resource local-
+ization and path validation are critical for reliable
+file operations. By contrast, all observed State/Mes-
+saging failures are attributed to tool runtime errors,
+suggesting that operations involving persistent ap-
+plication state or external communication channels
+remain particularly brittle.
+Overall, tool failures are category-specific rather
+than driven by a single generic error mode. Shel-
+l/Session tools require more robust command gen-
+eration and dependency checking. File I/O tools
+depend heavily on reliable resource validation, and
+State/Messaging tools require stronger recovery
+mechanisms for persistent-state updates.
+4.3 Effectiveness of State-based Evaluation
+To examine whether state-based evaluation can bet-
+ter capture unexpected failures in realistic scenar-
+ios, we construct a virtual-state variant of STAGE-
+Claw. In this setting, each task is modified to re-
+place actual tool-state changes with textual out-
+ModelState-based Virtual∆
+DeepSeek-V4-Pro 59.78 66.71 +6.93
+Qwen3.5-Plus 59.74 64.57 +4.83
+Cause category#Tasks Proportion Avg.∆
+Execution failure 7 8.75% +76.57
+Real-state gap 13 16.25% +14.05
+Other errors 3 3.75% -2.67
+Table 3: The upper section shows a comparison between
+state-based and virtual evaluation, ∆ denotes Virtual -
+State-based. The lower section breaks down the causes
+of these gaps.
+puts that simulate the expected state updates. We
+run this virtual setting on the same tasks using
+two representative models, DeepSeek-V4-Pro and
+Qwen3.5-Plus, and compare the results with the
+original state-based evaluation.
+As shown in Table 3, the virtual setting yields
+higher scores than the state-based setting for both
+models. However, this gap does not reflect better
+task completion. Instead, it suggests that output-
+only evaluation can overestimate agent perfor-
+mance by ignoring whether the agent actually mod-
+ifies persistent tool states. In real tool-integrated
+environments, agents may fail due to execution fail-
+ure and real-state gap, such as invalid state writes,
+missing generated artifacts, and tool-side effects.
+These failures are naturally exposed by state-based
+evaluation, but can be hidden when the task is re-
+duced to textual state simulation. Therefore, the
+
+Task Base Noise Misleading Conflict
+AI Conference Tracker 77.023.0 −54.0 23.0−54.0 23.0−54.0
+Benchmark Administrator 85.056.0 −29.0 35.0−50.0 49.0−36.0
+Competitor Radar 62.057.0 −5.0 55.0−7.0 55.0−7.0
+Email Message Triage Center 45.040.0 −5.0 22.0−23.0 22.0−23.0
+Average 67.344.0 −23.3 33.8−33.5 37.3−30.0
+Table 4: Qwen3.5-Plus scores under manually con-
+structed memory perturbations on four STAGE-Claw
+tasks. Subscripts indicate score drops relative to the
+Base setting.
+comparison indicates that the state-based evalua-
+tion provides a more faithful assessment of agent
+capability in realistic tool-use scenarios.
+4.4 Memory Perturbation Analysis
+Persistent memory can also affect state-based agent
+execution, especially when it contains irrelevant,
+stale, or conflicting information. We therefore con-
+duct a small diagnostic study on four STAGE-Claw
+tasks using Qwen3.5-Plus. For each task, we move
+key task-specific requirements from the visible in-
+struction into the agent’s persistent memory and
+lightly revise the task prompt so that the task re-
+mains natural and memory-dependent. We then
+manually construct three perturbation types:Noise,
+which adds irrelevant memory entries around the
+key facts,Misleading, which injects plausible but
+incorrect rules or values andConflict, which intro-
+duces inconsistent versions of the same key facts.
+Table 4 reports the resulting scores. All three
+perturbation types reduce performance relative to
+the base memory-dependent setting, withMislead-
+ingandConflictcausing larger drops in our sample.
+These results are intended as diagnostic evidence
+rather than a comprehensive benchmark-wide con-
+clusion. They suggest that memory quality can in-
+fluence both agent decisions and downstream state
+updates, motivating future evaluation protocols and
+agent mechanisms that track memory provenance,
+recency, and conflicts in addition to tool-execution
+reliability.
+5 Related Work
+Agent Benchmarks for Tool Use and Interactive
+Environments.Recent agent benchmarks have
+expanded LLM evaluation beyond isolated text
+generation toward tool use, multi-step reasoning,
+and interactive task completion. General-purpose
+benchmarks such as AgentBench (Liu et al., 2024)
+and GAIA (Mialon et al., 2024) evaluate plan-
+ning, reasoning, web access, and external tool
+use, while function-calling benchmarks such as
+BFCL (Patil et al., 2025) focus on whether mod-
+els can correctly select, parameterize, and invoke
+tools. Another line of work evaluates agents in
+interactive environments. Mind2Web (Deng et al.,
+2023), WebArena (Zhou et al., 2024), VisualWe-
+bArena (Koh et al., 2024), and WorkArena (Drouin
+et al., 2024) study web and enterprise workflows,
+and OSWorld (Xie et al., 2024) evaluates agents
+in real operating-system and desktop applications.
+AppWorld (Trivedi et al., 2024) andτ-bench (Yao
+et al., 2024) further emphasize controllable app
+or tool-agent-user interactions. These benchmarks
+provide progress in realistic interaction, but they
+are primarily designed around fixed tasks, simu-
+lated APIs, GUI control, or transactional tool use.
+Personal-Agent Benchmarks and State-based
+Evaluation.Recent benchmarks have moved
+closer to OpenClaw-oriented personal agents,
+where LLMs interact with tools, memory, execu-
+tion environments, and control logic (OpenClaw,
+2026; Li et al., 2026). PinchBench (Kilo AI, 2026),
+WildClawBench (WildClawBench, 2026), Claws-
+Bench (Li et al., 2026), and Claw-Eval (Ye et al.,
+2026) evaluate practical workflows such as schedul-
+ing, email, research, file management, and multi-
+turn tool use. Many existing agent benchmarks
+rely on manually curated tasks, sandboxed artifacts,
+simulated workspaces, or coarse rubrics, limiting
+their scalability and ability to diagnose persistent-
+state errors. STAGE-Claw addresses these limita-
+tions by automatically generating benchmark in-
+stances from task hint words, instantiating them
+in real-application environments, and evaluating
+agents via snapshots of the final system state.
+Conclusion
+This paper introduces STAGE-Claw, an automated
+state-based framework for constructing and evalu-
+ating realistic scenario benchmarks. By assessing
+state-based snapshots rather than textual responses,
+STAGE-Claw enables more faithful evaluation of
+agent ability in multi-tool workflows. In addition,
+the automated pipeline provides a practical path
+toward scaling realistic scenario agent benchmarks
+while preserving reproducibility and auditable eval-
+uation. Experiments on 40 tasks show that current
+agents still struggle to complete complex tasks that
+involve multiple tool invocations in real scenarios.
+These results highlight the need for state-based
+evaluation and provide practical insights for build-
+ing more reliable assistant agents.
+
+Limitations
+STAGE-Claw is designed for realistic state-based
+evaluation, but this design also brings limitations.
+First, the benchmark currently contains 40 accepted
+tasks, and the main evaluation follows a first-valid-
+run protocol with only limited repeated-run diag-
+nostics. Thus, the results should be viewed as a con-
+trolled snapshot rather than a statistically exhaus-
+tive leaderboard. Second, constructing high-quality
+state-based tasks remains resource-intensive. Al-
+though task authoring, repair, and checker-based
+validation are automated after human-provided task
+hints, each accepted task still requires realistic sce-
+nario design, deterministic environment setup, exe-
+cutable verifier implementation, and quality check-
+ing, which together incur nontrivial time and API
+costs. Third, evaluation in real personal-computing
+environments means that scores may reflect not
+only model capability but also OpenClaw, tool
+wrappers, OS configuration, permissions, and run-
+time stability. This improves realism but may intro-
+duce platform-dependent failures.

@@ -1,0 +1,1470 @@
+record_id: arxiv:2504.04220
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2504.04220
+fetched_title: AdaCoder: An Adaptive Planning and Multi-Agent Framework for Function-Level Code Generation
+fetched_at: 2026-09-18T18:59:51Z
+
+ARXIV PREPRINT 1
+AdaCoder: An Adaptive Planning and Multi-Agent
+Framework for Function-Level Code Generation
+Yueheng Zhu, Chao Liu, Xuan He, Xiaoxue Ren, Zhongxin Liu, Ruwei Pan, Hongyu Zhang
+Recently, researchers have proposed many multi-agent
+frameworks for function-level code generation, which aim to
+improve software development productivity by automatically
+generating function-level source code based on task descrip-
+tions. A typical multi-agent framework consists of Large
+Language Model (LLM)-based agents that are responsible
+for task planning, code generation, testing, debugging, etc.
+Studies have shown that existing multi-agent code generation
+frameworks perform well on ChatGPT. However, their gener-
+alizability across other foundation LLMs remains unexplored
+systematically. In this paper, we report an empirical study
+on the generalizability of four state-of-the-art multi-agent
+code generation frameworks across six open-source LLMs
+with varying parameter sizes, architectures, and performance
+levels. Our study reveals the unstable generalizability of ex-
+isting frameworks on diverse foundation LLMs. Based on
+the findings obtained from the empirical study, we propose
+AdaCoder, a novel adaptive planning, multi-agent framework
+for function-level code generation. AdaCoder has two phases.
+Phase-1 is an initial code generation step without planning,
+which uses an LLM-based coding agent and a script-based
+testing agent to unleash LLM’s native power, identify cases
+beyond LLM’s power, and determine the errors hindering
+execution. Phase-2 adds a rule-based debugging agent and
+an LLM-based planning agent for iterative code generation
+with planning. Our evaluation shows that AdaCoder achieves
+higher generalizability on diverse LLMs. Compared to the best
+baseline MapCoder, AdaCoder is on average 27.69% higher
+in Pass@1, 16 times faster in inference, and 12 times lower
+in token consumption.
+Index Terms —Large Language Model, Function-Level Code
+Generation, Multi-Agent Framework
+I. I NTRODUCTION
+Code generation refers to the automatic translation of
+natural language descriptions of software development tasks
+into code snippets written in a programming language [1].
+Intelligent programming assistants such as GitHub Copilot [2]
+can help developers reduce their programming efforts in writ-
+ing repetitive code functions and improve their development
+productivity [3], [4]. Essentially, these assistants are powered
+Yueheng Zhu, Chao Liu, Xuan He, Ruwei Pan, Hongyu Zhang
+were with Chongqing University, Chongqing, China (e-mail:
+zhuyueheng@stu.cqu.edu.cn, liu.chao@cqu.edu.cn, xuanhe@stu.cqu.edu.cn,
+panruwei@stu.edu.cqu.cn, hyzhang@cqu.edu.cn). Xiaoxue Ren and
+Zhongxin Liu were with Zhejiang University, Hangzhou, China (e-mail:
+xxren@zju.edu.cn, liu zx@zju.edu.cn)
+Chao Liu is the corresponding author.
+Manuscript received xx xx, 2025; revised xx xx, 2025.
+by Large Language Models (LLMs), such as Codex [2] and
+DeepSeek-Coder [5].
+To evaluate the performance of LLMs, researchers have
+developed various benchmarks, which can be categorized
+into function-level (e.g., HumanEval [2]), class-level (e.g.,
+ClassEval [6]) and repository-level (e.g., RepoCoder [7]).
+Function-level benchmarks assess the functional correctness
+of the generated code, while class- and repository-level bench-
+marks evaluate whether a generated code matches the context
+requirement of a given class or repository. This paper focuses
+on the function level, which satisfy developers’ fine-grained
+programming requirements [2], [8], supports many intelligent
+programming assistants [9], [10], and serves as a research
+foundation for class- and repository-level generation [7].
+Recently, researchers presented the multi-agent framework
+for the generation of function-level code [11], [12], [13], [14],
+[15]. The multi-agent framework first leverages an LLM (e.g.,
+GPT-4) as an independent agent serving for a programming
+task, such as task planning, code generation, test case genera-
+tion, or bug repairing [14]. The framework then determines
+the workflow for collaboration of several included agents
+[12]. For example, Self-Collaboration proposed by Dong et
+al. [14] uses GPT-4 [16] and GPT-3.5 [17] as the foundation
+LLM, enhancing code generation capabilities at the function
+level by forming a team of agents for collaborative work.
+MapCoder presented by Islam et al. [12] consists of four
+LLM-based agents that simulate the entire cycle of human
+developers writing code, greatly enhancing the performance
+of code generation.
+However, while these frameworks [11], [12], [13], [14], [15]
+perform well on ChatGPT series models, it is unclear how they
+can be generalized to other foundation LLMs with varying
+parameter sizes, architectures, and performance levels. To
+address this, we conduct an empirical study to investigate the
+generalizability of existing multi-agent frameworks. Specifi-
+cally, we evaluate four state-of-the-art multi-agent frameworks
+(AgentCoder [11], MapCoder [12], INTERVENOR [13], and
+Self-Collaboration [14]) using six diverse open-source LLMs
+(CodeLlama-Python 7B/13B/34B [18] and DeepSeek-Coder
+1.3B/6.7B/33B [5]) on the widely used HumanEval benchmark
+[2]. Compared to the ChatGPT series models with more than
+175B parameters [19] and Pass@1 results ranging from 60.3%
+to 90.2% [20], these LLMs span relatively smaller parameter
+scales (1.3B to 34B), have different architectures, and exhibit a
+wide range of lower performance levels (Pass@1 from 32.69%
+to 64.63%). The empirical study showed that:
+• MapCoder achieves the best results because of its LLM-
+based task planning, but at an extremely high inference
+arXiv:2504.04220v1 [cs.SE] 5 Apr 2025
+
+ARXIV PREPRINT 2
+cost; non-planning generation is highly complementary
+to planning.
+• INTERVENOR’s collaboration among LLM-based agents
+is relatively simple, providing consistent performance
+improvements for base models, but still falls short of
+MapCoder.
+• AgentCoder and Self-Collaboration show poor general-
+izability with degraded performance. The iterative work-
+flow of all frameworks is ineffective.
+Based on our empirical findings, we designed an adaptive
+planning framework for multi-agent code generation called
+AdaCoder. The framework has two phases. Phase-1 is an
+initial code generation without planning, using an LLM-based
+agent Programming Assistant for coding and a script-based
+agent Code Evaluator for testing. This phase unleashes the
+LLM’s native power and identify cases beyond LLM’s power
+or errors hindering execution. To reduce inference cost and
+ensure accurate information transfer, the Code Evaluator as-
+sesses code correctness using the sample test cases given in the
+task description, instead of using LLM-based test case genera-
+tion as AgentCoder does. Phase-2 adds a rule-based debugging
+agent Debug Specialist and an LLM-based planning agent
+Prompt Engineer for iterative code generation with planning.
+The Debug Specialist adaptively fixes superficial errors using
+a rule-based method, derived from our prior work [21], based
+on the error feedback from the Code Evaluator. This replaces
+costly LLM-based bug localization [22] and debugging [23].
+The Prompt Engineer guides the Programming Assistant to
+address in-depth errors by adaptively generating a step-by-
+step plan explaining past failures and correct solutions based
+on error feedback.
+To evaluate the effectiveness and generalizability of Ada-
+Coder, we applied it to six different LLMs used in our
+empirical study and four ChatGPT series LLMs (i.e., GPT-3.5-
+turbo, GPT-4, GPT-4-turbo, and GPT-4o). We tested them on
+HumanEval and MBPP [8] code generation benchmarks. The
+experimental results show that AdaCoder can effectively im-
+prove the performance of all LLMs with high generalizability,
+and can significantly outperform the best baseline MapCoder
+by 27.69% on average in terms of Pass@1. Moreover, Ada-
+Coder achieves 16X faster inference speed and 12X less token
+consumption than MapCoder.
+In summary, the major contributions of this paper are as
+follows:
+• Evaluating the generalizability of four state-of-the-art
+multi-agent frameworks across six different LLMs, cover-
+ing a wide spectrum of parameter scales and performance.
+• Identifying the influential factors on the design of multi-
+agent frameworks and proposing an adaptive planning
+framework AdaCoder [24].
+• Demonstrating AdaCoder’s generalizability across LLMs
+with varying parameter sizes, architectures, and perfor-
+mance levels, while showcasing its high effectiveness and
+low computational cost over baselines.
+II. R ELATED WORK
+A. LLMs for Function-Level Code Generation
+Code generation [2], [8], [25] is an automated process for
+producing program code, aiming to reduce manual coding
+efforts and improve software development efficiency. Code
+generation methods cover many techniques [26], [27], [28],
+[29], [18], [30], ranging from template-based approaches [30],
+[31], [32] to deep learning models capable of comprehend-
+ing complex requirements [33], [34], [35]. Recently, LLMs
+have brought new breakthroughs in code generation tasks.
+Compared to traditional models, LLMs can better understand
+the programming requirements expressed by developers and
+generate more satisfactory code [36]. Currently, various LLMs
+have been developed for code generation tasks [37], [38], [2],
+[8], [39], [40], [18], [41], [42], [16].
+B. Prompt Engineering for LLM-based Code Generation
+Although there are numerous LLMs with robust code gen-
+eration capabilities such as CodeLlama [18] and DeepSeek-
+Coder [5] currently exist [43], there remains a significant
+potential for further performance enhancement [16] including
+Prompt Engineering and Iterative Refinement. Prompt engi-
+neering is an advanced technique that optimizes LLM’s output
+through meticulously designed input prompts. Liu et al. [36]
+discovered that LLMs’ performance is highly sensitive to
+prompts, particularly to programming requirements expressed
+in natural language. Wei et al. [44] introduced the innovative
+Chain-of-Thought prompting technique, which substantially
+improved the performance of LLM in reasoning tasks and code
+generation. Yao et al. [45] proposed the Tree-of-Thought (ToT)
+method, which enables LLMs to engage in deliberate decision
+making by considering multiple reasoning paths and self-
+evaluating choices to determine the next course of action, thus
+significantly enhancing LLMs’ capability to solve complex
+tasks.
+C. Iterative Refinement for LLM-based Code Generation
+Iterative refinement is an advanced method that progres-
+sively enhances the quality of the code through multiple
+modifications. This approach ingeniously mimics the process
+of human programmers writing and debugging code. Olausson
+et al. [46] conducted an in-depth study on the effectiveness
+of Self-Repair in code generation tasks. Their experimental
+results indicate that Self-Repair can, to a certain extent,
+improve the quality of code generated by LLMs, albeit at the
+cost of increased GPU resources and time investment. Chen
+et al. [47] proposed the innovative Self-Debug method, which
+teaches LLMs how to debug their generated code through
+examples, achieving state-of-the-art performance across multi-
+ple code generation benchmarks. Zhang et al. [48] introduced
+the Self-Edit technique, which cleverly utilizes the execution
+results of LLM-generated code to enhance its performance
+in code generation tasks. This method achieved significant
+performance improvements ranging from 31% to 89% on nine
+code-generating LLMs and three code-generation benchmarks.
+
+ARXIV PREPRINT 3
+D. LLM-Based Multi-Agent Framework
+Multi-agent frameworks have emerged as an innovative
+approach in recent months, ingeniously simulating the process
+of multiple experts collaborating to solve problems. Huang et
+al. [11] proposed the AgentCoder framework, which comprises
+three LLM-based agents and utilizes test cases generated by
+LLM agents to improve reasoning performance. Islam et al.
+[12] designed the MapCoder framework, which consists of
+four LLM agents and a planning mechanism. This mechanism
+first instructs the LLM to generate five distinct problems,
+then creates a step-by-step plan for each problem, and finally
+generates corresponding code based on these diverse plans.
+This mechanism is referred to as “multi-plan coding” in
+this paper. Multi-plan coding achieves state-of-the-art results
+across multiple code generation benchmarks. Wang et al. [13]
+introduced INTERVENOR (INTERactiVE chaiN Of Repair),
+an innovative method that simulates the human process of
+writing and debugging code, incorporating two LLM agents
+and significantly improving LLM performance in code gener-
+ation and translation tasks. Dong et al. [14] proposed a three-
+LLM agent collaboration framework called Self-Collaboration,
+where each LLM assumes a different role, forming a virtual
+team for collaborative work and significantly improving code
+generation performance. However, these studies only evaluated
+their effectiveness using the ChatGPT series as foundation
+models.
+III. E MPIRICAL STUDY
+We perform an empirical study to evaluate the gener-
+alizability of state-of-the-art multi-agent frameworks across
+diverse LLMs with varying parameter sizes, architectures, and
+performance levels. We also analyze the influential factors
+on the performance, thereby providing insights for designing
+a multi-agent framework with higher generalizability, faster
+inference time, and less token consumption.
+A. Research Questions
+This empirical study aims to investigate the following two
+research questions (RQs).
+RQ1: How is the generalizability of the state-of-the-
+art multi-agent frameworks on diverse LLMs? Exist-
+ing multi-agent frameworks [11], [12], [13], [14], [15] only
+demonstrated effectiveness when applied to ChatGPT series
+LLMs, while their effectiveness on other LLMs with varying
+parameter sizes, architectures, and performance levels remains
+unexplored.
+RQ2: What factors influence the effectiveness of multi-
+agent frameworks? By combining the evaluation results
+of these multi-agent frameworks using LLMs with varying
+parameter sizes, architectures, and performance levels, we aim
+to identify the factors that affect the performance of these
+frameworks. This can shed light into the development of new,
+effective, and efficient multi-agent frameworks.
+B. Dataset and Evaluation Measure
+For our empirical study, we used the HumanEval dataset
+[2], a benchmark developed by OpenAI and widely used to
+evaluate LLMs [18], [5]. This dataset comprises 164 Python
+programming challenges, each accompanied by an average
+of 7.7 test cases to verify functional correctness. HumanEval
+consists of five key components: task id, a unique identifier for
+each challenge; prompt, a textual description of the generation
+requirements; canonical solution, the standard solution for the
+task; test, a function with multiple test cases to assess the
+generated code’s compliance with requirements; entry point,
+the name of the main function to be generated.
+On this dataset, an LLM is required to produce functionally
+correct code that passes all test cases based on the given
+prompt. To evaluate the performance of code generation, Chen
+et al. [2] introduced the metric P ass@k, which represents the
+percentage of tasks successfully solved by an LLM. A task is
+considered solved if any of the top- k generated code samples
+pass all test cases. To address the high variance associated with
+Pass@k, Chen et al. [2] presented an unbiased version. Our
+study takes Chen et al.’s version as the evaluation measure.
+The inference cost is measured by the token consumption
+and inference time. Token consumption serves as an indicator
+of the LLM’s input-output complexity, as it determines the
+amount of data processed during each interaction with the
+LLM. Lower token consumption not only reduces the cost of
+API calls but also decreases memory and processing overhead
+for open-source models. Inference time measures the frame-
+work’s speed and responsiveness, which directly affects the
+quality of user experience.
+C. Baselines (LLM-Based Multi-Agent Frameworks)
+We leveraged four state-of-the-art multi-agent frameworks
+as our baselines. AgentCoder [11] and MapCoder [12] are
+two top-performing multi-agent frameworks [49], while IN-
+TERVENOR [13] and Self-Collaboration [14] represent the
+latest peer-reviewed state-of-the-art. All these multi-agent
+frameworks are reproduced by using the replication pack-
+ages provided by their original studies under default settings.
+Specifically, 1) AgentCoder [11] employs GPT-4 and GPT-3.5
+as the foundation LLMs, featuring three agents: Programmer
+for generating or repairing code, Test Designer for creating
+test cases, and Test Executor for evaluating code. If tests fail,
+error feedback is sent to the Programmer for regeneration.
+2) MapCoder [12], utilizing GPT-4 as its foundation LLM,
+consists of four agents: Retrieval Agent for generating t
+similar questions based on the original problem description,
+Planning Agent for creating a plan for each question and
+assigning confidence scores, Coding Agent for converting the
+highest-confidence plan into code, and Debugging Agent for
+debugging the code up to k attempts. If debugging fails after k
+attempts, the process is reverted to the Planning Agent to select
+the next highest-confidence plan. With t plans in total, the
+entire workflow iterates up to t times, resulting in a complexity
+of O(kt). 3) INTERVENOR [13], based on GPT-3.5, uses two
+agents: Code Learner for generating and fixing code and Code
+Teacher for providing repair feedback. 4) Self-Collaboration
+[14], also using GPT-3.5, features Analyst for decomposing
+tasks and creating plans, Coder for implementing solutions,
+and Tester for evaluating code and providing feedback. In
+
+ARXIV PREPRINT 4
+all frameworks, iterative cycles refine code until success or
+maximum attempts are reached.
+D. Foundation LLMs
+To comprehensively evaluate the performance of multi-
+agent frameworks, we have carefully selected six diverse open-
+source LLMs with varying parameter scales and performance
+characteristics as foundation LLMs. These models are as
+follows.
+CodeLlama [50] was introduced by Meta AI. The
+CodeLlama-Python series is specifically optimized for Python
+code generation, offering four parameter scales: 7B, 13B,
+and 34B. We reproduced their Pass@1 performance on the
+HumanEval dataset, achieving 32.69%, 36.65%, and 43.72%,
+respectively. Considering hardware resource constraints, we
+excluded the 70B version for our experiments.
+DeepSeek-Coder [5] is proposed by DeepSeek. This open-
+source code LLM family includes two series: base and instruct,
+each with three parameter specifications: 1.3B, 6.7B, and 33B.
+We chose the instruct series for our experiments because of
+its superior performance. For simplicity, we will refer to the
+instruct version as DeepSeek-Coder hereafter. We reproduced
+their Pass@1 performance on the HumanEval dataset, yielding
+results of 49.39%, 58.54%, and 64.63% for the 1.3B, 6.7B, and
+33B versions, respectively.
+By selecting these six LLMs from two series, our research
+encompasses a wide range of parameter scales from 1.3B
+to 34B, including small (1.3B), medium (6.7B-13B) and
+large (33B-34B) models. The performance levels of these
+models span from 32.69% to 64.63%, providing us with
+a wide spectrum performance. Furthermore, the CodeLlama
+and DeepSeek-Coder series exhibit significant differences in
+architecture and training methodologies, where CodeLlama is
+pre-trained based on the Llama2 architecture, while DeepSeek-
+Coder is trained from scratch using a high-quality, project-
+level code corpus. The diverse foundation LLMs allow for a
+comprehensive analysis of multi-agent framework generaliz-
+ability across varying architectures, complexities, and capa-
+bilities. All open-source LLMs are tested using HuggingFace
+parameters on a server with four NVIDIA RTX3090 GPUs
+under default settings.
+E. Generalizability of Multi-Agent Frameworks on Open-
+Source LLMs (RQ1)
+1) Pass@1 Analysis of Code Generation: Table I presents
+the effectiveness of the four multi-agent frameworks on the
+HumanEval benchmark, using six selected LLMs as founda-
+tion models.
+From the perspective of multi-agent frameworks , both
+MapCoder and INTERVENOR enhance the code generation
+capabilities of these LLMs, but MapCoder achieves the most
+significant improvement, with an average increase of nearly
+40%. MapCoder’s enhancement ranges from 4.72% to 68.76%,
+with DeepSeek-Coder-33B showing the smallest improvement
+and CodeLlama-Python-34B showing the largest, resulting in
+an average improvement of 38.86%. INTERVENOR’s en-
+hancement spans from 3.78% to 31.43%, again with the
+DeepSeek-Coder-33B model showing the smallest improve-
+ment and the CodeLlama-Python-13B model showing the
+largest, leading to an average improvement of 18.59%.
+In contrast, Self-Collaboration and AgentCoder tend to
+diminish these capabilities. Self-Collaboration’s influence on
+selected LLM code generation performance fluctuates between
+-30.22% and 13.12%. DeepSeek-Coder-6.7B experiences the
+largest performance decline, while CodeLlama-Python-13B
+shows the most notable performance enhancement. On aver-
+age, Self-Collaboration decreases the code generation pass@1
+of the six LLMs by 10.55%. Similarly, AgentCoder’s impact
+on the code generation performance of the six LLMs ranges
+from -30.86% to 10.18%. DeepSeek-Coder-1.3B shows the
+largest performance decrease, while CodeLlama-Python-34B
+demonstrates the most significant performance improvement.
+On average, AgentCoder reduces the code generation capabil-
+ity of the six LLMs by 8.29%. We observed that when testing
+AgentCoder with the six LLMs, it often generated buggy code
+that cannot be fixed by the subsequent agents.
+In summary, MapCoder and INERVENOR show improve-
+ments on all selected LLMs while the others do not. Also,
+MapCoder achieves the best performance.
+From the perspective of foundation LLMs , for the
+CodeLlama-Python series, models with parameter scales of
+7B, 13B, and 34B demonstrated average improvements in
+code generation capabilities of 19.85%, 26.03%, and 27.27%,
+respectively, after applying multi-agent frameworks, showing
+an increasing trend with larger parameter sizes.
+However, we observed a different scenario with the
+DeepSeek-Coder series models. Models with parameter scales
+of 1.3B, 6.7B, and 33B exhibited average changes in code
+generation capabilities of -4.01%, +1.03%, and -12.27%,
+respectively, after applying multi-agent frameworks. These
+results suggest that there is no apparent correlation between
+performance change and parameter scale for the DeepSeek-
+Coder series. Notably, the 33B model, which has the largest
+parameter count, showed the most substantial decrease in code
+generation capability after applying multi-agent frameworks,
+contrasting sharply with the earlier conclusion.
+In summary, the effectiveness of the multi-agent frameworks
+correlates to architecture of LLMs, instead of the generation
+capability and parameter size of LLMs.
+2) Cost Analysis of Code Generation: To analyze the
+resource consumption, we measured the average number of
+tokens consumed and inference time per sample as presented
+in Tables II-III.
+From the perspective of multi-agent frameworks , Agent-
+Coder, MapCoder, INTERVENOR, and Self-Collaboration
+demonstrated average increases in token consumption by fac-
+tors of 10.44, 23.02, 10.65, and 20.53, respectively. Mean-
+while, their average inference times increased by factors
+of 4.57, 15.72, 6.26, and 8.76, respectively. Among these,
+AgentCoder exhibited the smallest increase in both token
+consumption and inference time. MapCoder showed signif-
+icantly higher increases in both metrics compared to the
+
+ARXIV PREPRINT 5
+TABLE I: Pass@1 performance of multi-agent frameworks combined with the six selected LLMs on the HumanEval benchmark. “Direct” refers to instructing
+LLMs to generate code without the use of any multi-agent framework, relying solely on the inherent capabilities of the LLM. In subsequent tables, “Direct”
+consistently carries this meaning.
+LLMs Direct AgentCoder MapCoder INTERVENOR Self-Collaboration
+CodeLlama-Python-7B 32.69 31.71 ( ↓03.00%) 52.44 ( ↑60.42%) 40.85 ( ↑24.96%) 31.71 ( ↓03.00%)
+CodeLlama-Python-13B 36.65 35.98 ( ↓01.83%) 59.15 ( ↑61.39%) 48.17 ( ↑31.43%) 41.46 ( ↑13.12%)
+CodeLlama-Python-34B 43.72 48.17 ( ↑10.18%) 73.78 ( ↑68.76%) 56.10 ( ↑28.32%) 44.51 ( ↑01.81%)
+DeepSeek-Coder-1.3B 49.39 34.15 ( ↓30.86%) 60.37 ( ↑22.23%) 53.05 ( ↑07.41%) 42.07 ( ↓14.82%)
+DeepSeek-Coder-6.7B 58.54 60.37 ( ↑03.13%) 67.68 ( ↑15.61%) 67.68 ( ↑15.61%) 40.85 ( ↓30.22%)
+DeepSeek-Coder-33B 64.63 46.95 ( ↓27.36%) 67.68 ( ↑04.72%) 67.07 ( ↑03.78%) 45.12 ( ↓30.19%)
+∆ Average - ↓08.29% ↑38.86% ↑18.59% ↓10.55%
+TABLE II: Average token consumption for inference by multi-agent frameworks with the six selected LLMs on the HumanEval benchmark, ” ×” represents
+multiple of increase.
+LLMs Direct AgentCoder MapCoder INTERVENOR Self-Collaboration
+CodeLlama-Python-7B 00.91K 13.15K ( ↑13.47×) 24.72K ( ↑26.20×) 16.59K ( ↑17.25×) 27.94K ( ↑29.73×)
+CodeLlama-Python-13B 00.92K 12.72K ( ↑12.81×) 21.79K ( ↑22.66×) 14.33K ( ↑14.56×) 21.19K ( ↑22.01×)
+CodeLlama-Python-34B 00.95K 10.91K ( ↑10.45×) 19.72K ( ↑19.69×) 11.20K ( ↑10.75×) 19.87K ( ↑19.85×)
+DeepSeek-Coder-1.3B 01.13K 12.82K ( ↑10.36×) 27.30K ( ↑23.20×) 08.26K ( ↑06.33×) 18.32K ( ↑15.24×)
+DeepSeek-Coder-6.7B 01.16K 09.62K ( ↑07.29×) 29.92K ( ↑24.77×) 09.54K ( ↑07.22×) 22.38K ( ↑18.27×)
+DeepSeek-Coder-33B 01.18K 10.88K ( ↑08.23×) 26.60K ( ↑21.58×) 10.36K ( ↑07.79×) 22.50K ( ↑18.10×)
+∆ Average - ↑10.44× ↑ 23.02× ↑ 10.65× ↑ 20.53×
+TABLE III: Average inference time of multi-agent frameworks with the six selected LLMs on the HumanEval benchmark, ” ×” represents multiple of increase.
+LLMs Direct AgentCoder MapCoder INTERVENOR Self-Collaboration
+CodeLlama-Python-7B 27.33s 130.5s ( ↑03.78×) 851.0s ( ↑30.14×) 276.4s ( ↑09.11×) 357.8s ( ↑12.09×)
+CodeLlama-Python-13B 41.42s 363.4s ( ↑07.77×) 781.6s ( ↑17.87×) 416.2s ( ↑09.05×) 387.2s ( ↑08.35×)
+CodeLlama-Python-34B 76.49s 404.7s ( ↑04.29×) 865.0s ( ↑10.31×) 435.8s ( ↑04.70×) 636.5s ( ↑07.32×)
+DeepSeek-Coder-1.3B 22.52s 109.3s ( ↑03.85×) 286.3s ( ↑11.71×) 135.0s ( ↑05.00×) 174.1s ( ↑06.73×)
+DeepSeek-Coder-6.7B 20.65s 96.20s ( ↑03.66×) 292.7s ( ↑13.18×) 119.3s ( ↑04.78×) 223.6s ( ↑09.83×)
+DeepSeek-Coder-33B 88.27s 448.9s ( ↑04.08×) 1071s ( ↑11.13×) 523.1s ( ↑04.93×) 817.6s ( ↑08.26×)
+∆ Average - ↑04.57× ↑ 15.72× ↑ 06.26× ↑ 08.76×
+other three multi-agent frameworks. For instance, when using
+CodeLlama-Python-7B as the foundation model, MapCoder’s
+inference time was 6.52 times that of AgentCoder. This phe-
+nomenon indicates that while MapCoder excels in improving
+code generation performance, it also incurs notably higher
+GPU resource and time costs.
+In summary, multi-agent frameworks generally result in a
+several-fold increase in inference cost, while the best state-of-
+the-art MapCoder exhibiting the highest increase.
+From the perspective of foundation LLMs , after ap-
+plying multi-agent frameworks, the token consumption of
+CodeLlama-Python 7B, 13B and 34B models increased by
+average factors of 21.66, 18.01, and 15.19, respectively, de-
+creasing as parameter size grows. Similarly, their inference
+times increased by average factors of 13.78, 10.76, and 6.66,
+respectively, also showing a decreasing trend as parameter size
+increases. In contrast, for the DeepSeek-Coder series, after
+applying multi-agent frameworks, the token consumption of
+1.3B, 6.7B, and 33B models increased by average factors
+of 13.78, 14.39, and 13.93, respectively, with a standard
+deviation of 0.32. Their inference times increased by average
+factors of 6.82, 7.86, and 7.10, respectively, with a standard
+deviation of 0.54. The standard deviations for both metrics
+are less than 10% of their respective means, indicating low
+variability in the increase factors of token consumption and
+inference time for the DeepSeek-Coder models. This finding
+further corroborates that the application effects of multi-agent
+frameworks demonstrate distinct preferences for models with
+different architectures.
+In summary, the increase in inference cost is also signifi-
+cantly influenced by the architecture of the foundation LLMs.
+Answer to RQ1: AgentCoder and Self-Collaboration
+yield poor generalizability on the six open-source LLMs.
+MapCoder achieves the best performance and good gen-
+eralizability but with high inference cost.
+F . Factors Analysis on the Performance of Multi-Agent Frame-
+works (RQ2)
+1) Effectiveness Analysis of Iterative Refinement: The it-
+erative workflow is one of the key designs of all multi-
+agent frameworks. We investigated the impact of the iteration
+number and the underline limitations.
+Impact on Varied Iterations. We assume that this process
+may not have achieved its intended effect due to the poor
+performance observed in RQ1. To verify this hypothesis, we
+performed an in-depth analysis. By varying the number of
+iterations k from 1 to 5, we recorded the experimental results.
+We plot line graphs of pass@1 for each selected LLM in dif-
+ferent multi-agent frameworks, as shown in Figure 1. It reveals
+that the iterative refinement process has a limited impact on
+improving LLM’s code generation capabilities in most cases.
+For example, Self-Collaboration using CodeLlama-Python-7B
+maintains a constant pass@1 of 31.71%, regardless of changes
+
+ARXIV PREPRINT 6
+(a) CodeLlama-Python-7B (b) CodeLlama-Python-13B (c) CodeLlama-Python-34B
+(d) DeepSeek-Coder-1.3B (e) DeepSeek-Coder-6.7B (f) DeepSeek-Coder-33B
+25
+30
+35
+40
+45
+50
+55
+1 2 3 4 5
+Pass@1(%)
+k value
+AgentCoder MapCoder INTERVENOR Self-Collaboration
+25
+30
+35
+40
+45
+50
+55
+1 2 3 4 5
+Pass@1(%)
+k value
+Direct
+30
+35
+40
+45
+50
+55
+60
+65
+1 2 3 4 5
+Pass@1(%)
+k value
+Direct
+40
+45
+50
+55
+60
+65
+70
+75
+1 2 3 4 5
+Pass@1(%)
+k value
+Direct
+30
+35
+40
+45
+50
+55
+60
+65
+1 2 3 4 5
+Pass@1(%)
+k value
+Direct
+35
+40
+45
+50
+55
+60
+65
+70
+1 2 3 4 5
+Pass@1(%)
+k value
+Direct
+40
+45
+50
+55
+60
+65
+70
+1 2 3 4 5
+Pass@1(%)
+k value
+Direct
+Fig. 1: Line graphs of pass@1 for six selected LLMs under different multi-agent frameworks, with k values on the x-axis and pass@1 on the y-axis.
+in k. More notably, for MapCoder based on CodeLlama-
+Python-13B, increasing k leads to a decrease in the pass@1
+of code generation. Even for the combination that showed the
+most significant improvement, AgentCoder with CodeLlama-
+Python-34B, the pass@1 only increased from 41.46% to
+48.17% after five rounds of iteration. This result represents
+a total improvement of 16.18%, or an average of merely
+3.82% per round. In addition, each additional round of iterative
+refinement results in a multiplying increase in both token
+consumption and inference time.
+Limitation of Iterative Refinement. To further investigate the
+effectiveness of iterative refinement, we conducted a analysis
+of the detailed response content from each multi-agent frame-
+work during code generation tasks. Focusing particularly on
+samples that failed to be successfully repaired, we extracted
+pairs of code before and after refinement for in-depth manual
+analysis. Based on our meticulous examination of 1,859 code
+pairs, we categorized the model’s refinement performance into
+five types, considering both the code content before and after
+refinement and their respective test results. This classification
+is presented in detail in Table IV.
+According to Table IV, Error Type Consistency and Mis-
+cellaneous Refinement are the two most common normal
+refinement types. The former indicates that the LLM attempted
+to fix a previous issue but failed, while the latter suggests
+that the LLM’s attempt to address the original problem re-
+sulted in the introduction of new types of errors. In contrast,
+Code Invariance, Error Message Persistence, and Function
+Emptying are considered abnormal behaviors in the iterative
+refinement process. Code Invariance refers to instances where
+the code remains identical before and after refinement; Error
+Message Persistence indicates that the error message remains
+unchanged, which, given that error messages contain informa-
+tion about the error type and location, implies minimal changes
+to the code; Function Emptying describes cases where the
+refined function implementation is empty, completely failing
+to achieve the intended refinement effect. Notably, these three
+abnormal categories collectively account for a substantial
+45.46% of the cases, approaching half of the sample. This
+high proportion of ineffective refinements further illustrates
+the ineffectiveness of the process of iterative refinement.
+2) Effectiveness Analysis of MapCoder: Section III-E1 re-
+veals that MapCoder achieves the most significant improve-
+ment on six selected diverse LLMs. It is worthwhile to inves-
+tigate the factors contributing to MapCoder’s effectiveness.
+Impact on Multi-Plan Coding. Experimental results pre-
+sented in Section III-F1 have confirmed that the iterative
+refinement process hardly improves the pass@1 of code gen-
+eration. Instead, it leads to a multiplicative increase in token
+consumption and inference time. The key distinction between
+MapCoder and the other three multi-agent frameworks lies in
+its planning mechanism “Multi-Plan Coding”. This mechanism
+first instructs an LLM to generate t tasks relevant to the
+given task prompt, then creates a step-by-step generation plan
+for each new task, and finally guides the LLM-based code
+generation.
+This approach of repeatedly generating new code from the
+beginning differs fundamentally from executing refinement op-
+
+ARXIV PREPRINT 7
+TABLE IV: Classification of six selected LLMs’ performance in iterative refinement.
+Refinement Type Description Proportion Example
+Code Invariance Cases where the code remains entirely unchanged before and after
+refinement
+326 (17.54%) Fig. 7 in Appendix
+Error Message Persistence Excluding the above category, cases where the error messages
+remain completely identical before and after refinement
+428 (23.02%) Fig. 8 in Appendix
+Error Type Consistency Excluding the previous two categories, cases where the error types
+remain consistent before and after refinement
+281 (15.12%) Fig. 9 in Appendix
+Function Emptying Excluding the previous three categories, cases where the function
+becomes completely empty after refinement
+91 (4.90%) Fig. 10 in Appendix
+Miscellaneous Refinement Other refinement scenarios not covered by the previous four
+categories
+733 (39.42%) Fig. 11 in Appendix
+30
+35
+40
+45
+50
+55
+60
+65
+70
+75
+1 2 3 4 5
+Pass@1(%)
+t value
+CodeLlama-Python-7B CodeLlama-Python-13B CodeLlama-Python-34B
+DeepSeek-Coder-1.3B DeepSeek-Coder-6.7B DeepSeek-Coder-33B
+45
+50
+55
+60
+65
+70
+75
+80
+85
+90
+95
+100
+1 2 3 4 5
+Pass@1(%)
+t value
+CodeLlama-Python-7B CodeLlama-Python-13B CodeLlama-Python-34B
+DeepSeek-Coder-1.3B DeepSeek-Coder-6.7B DeepSeek-Coder-33B
+GPT-3.5-turbo GPT-4 GPT-4-turbo
+GPT-4o
+Fig. 2: A pass@1 line graph for six selected LLMs under MapCoder’s
+influence, with t values on the x-axis and test accuracies on the y-axis.
+erations on existing problem code. We hypothesize that this in-
+novative operation is the primary factor enabling MapCoder to
+significantly enhance code generation capabilities. To validate
+this hypothesis, we conducted additional tests by varying the
+number of plans from 1 to 5, and recorded experimental results
+in Figure 2. The analysis of the line graphs demonstrates
+that Multi-Plan Coding significantly enhances code generation
+capabilities. Among the models tested, CodeLlama-Python-7B
+showed the most substantial improvement, with its pass@1
+increasing from 31.10% to 52.44%, representing a remarkable
+68.62% improvement. Even the DeepSeek-Coder-33B model,
+which exhibited the smallest improvement, still achieved a
+considerable 26.13% increase.
+Pros and Cons of Multi-Plan Coding. Although MapCoder
+achieves the best performance, it still has some drawbacks.
+Firstly, the inclusion of the additional Multi-Plan Coding step
+t different problems (t=5)
+Problem 1
+Generated plans based on the problems
+Plan 1
+Check if in given list of numbers,
+are any two numbers closer to
+each other than given threshold.
+1. Sort the list of numbers
+2. Iterate through the list and check if the difference
+between two consecutive numbers is less than the threshold
+3. If any two numbers are closer than the threshold,
+return True, otherwise return False
+Problem 2
+Check if in given list of numbers,
+are any two numbers closer to
+each other than given threshold.
+Problem 3
+Check if in given list of numbers,
+are any two numbers closer to
+each other than given threshold.
+Problem 4
+Check if in given list of numbers,
+are any two numbers closer to
+each other than given threshold.
+Problem 5
+Check if in given list of numbers,
+are any two numbers closer to
+each other than given threshold.
+Plan 2
+1. Sort the list of numbers
+2. Iterate through the list and check if the difference
+between any two consecutive numbers is less than the
+threshold
+3. If any two numbers are found to be closer than the
+threshold, return True, else return False
+Plan 3
+1. Sort the list of numbers
+2. Iterate through the list and check if any two numbers
+are closer than the threshold
+Plan 4
+1. Sort the list of numbers
+2. Iterate through the list and check if the difference
+between two consecutive numbers is less than the threshold
+3. If any two numbers are closer than the threshold,
+return True
+4. If no two numbers are closer than the threshold, return
+False
+Plan 5
+1. Sort the list of numbers
+2. Iterate through the list and check if any two numbers
+are closer to each other than given threshold
+Fig. 3: The t different problems and the corresponding plans generated by
+MapCoder are highly similar.
+in MapCoder increases its time complexity from O(k), as seen
+in the other three multi-agent frameworks, to O(kt). This
+significantly increases the number of tokens consumed and
+the inference time. Secondly, its plan generation mechanism
+is unreliable because the quality of the plans is scored by
+another LLM, making the selection of the best plan heavily
+dependent on the inherent capabilities of the LLMs. Thirdly,
+the generated plans lack diversity. As shown in Figure 3,
+the t different problems generated by its retrieval agent are
+highly similar, leading to the generation of identical plans. We
+assume that different plans could lead to better performance
+and validate this in Section V.
+In addition, we collect the output results for each problem
+from the planning framework of MapCoder and the other three
+non-planning frameworks, based on six selected open-source
+LLMs. For each problem, we extracted one result from each
+type of framework and counted whether they passed the test
+or not. This process was repeated three times and the average
+was taken to create the final Venn diagram as shown in Figure
+4. We can observe that the number of samples passed by the
+non-planning frameworks is lower than that of the planning
+
+ARXIV PREPRINT 8
+HumanEval Total (164)
+Planning
+Passed
+Both Passed (56)
+Non-Planning
+Passed(97) (77)
+Planning Only (41) Non-Planning Only (21)
+Fig. 4: Venn diagram of HumanEval sample pass for Planning and Non-
+Planning Frameworks.
+framework (77 vs. 97). However, they are not a subset of
+each other with an intersection of 56 samples. Thus, 41 and 21
+samples exclusively passed for the planning and non-planning
+frameworks, respectively. This result implies that combining
+planning and non-planning mechanisms is expected to lead to
+better performance, with computational resource requirements
+lower than those of using only the planning mechanism.
+Answer to RQ2: Iterative refinement offers no sub-
+stantial effectiveness but causes significant increase in
+inference cost. The multi-plan coding provides major
+contribution to MapCoder but incurs high computational
+cost; the planing and non-planning generation is comple-
+mentary to each other.
+IV. M ETHODOLOGY
+Based on our empirical findings, we design an adaptive
+planning framework for multi-agent code generation called
+AdaCoder. Our goal is to develop a cost-effective multi-agent
+framework that achieves better generalizability across LLMs
+with varying parameter sizes, architectures, and generation
+capabilities.
+A. Overall Workflow
+AdaCoder consists of four collaborative agents to generate
+code: a Programming Assistant, a Code Evaluator, a Debug
+Specialist, and a Prompt Engineer. The details can be found
+in Algorithm 1 in Appendix. Figure 5 illustrates the overall
+workflow of AdaCoder using an example task: finding the
+largest prime factor of a number n. The process includes two
+phases.
+Phase-1 focuses on Initial Code Generation without Plan-
+ning, aiming to leverage the LLM’s native capabilities di-
+rectly. Initially, the Programming Assistant receives the task
+description and sample test cases. It then generates the initial
+code without a plan, as depicted in the top-left of Figure 5.
+This code may contain superficial errors, which are defined as
+errors in syntax or structure (like missing imports, incorrect
+indentation, or incomplete function definitions as shown in the
+example) that prevent the code from being compiled or run
+correctly. Consequently, these errors hinder code execution,
+meaning the program cannot produce an output that can be
+compared against expected test results. Subsequently, the Code
+Evaluator performs “Goal-Oriented Testing.” In this phase, its
+primary goal is specifically to detect these execution-hindering
+superficial errors within try-except blocks. If no such errors are
+found and the code passes all tests, the process ends. However,
+the flawed code and specific error details are passed forward
+to initiate Phase-2.
+Phase-2 involves Iterative Code Generation with Planning
+and is triggered only upon Phase-1 failure. It consists of two
+steps, repeated up to t times. First, in Step 1, the Debug
+Specialist takes the code and error information, applying rule-
+based fixes for common superficial issues (e.g., adding import
+math, correcting indentation) to produce syntactically correct
+code. The Code Evaluator then performs “Goal-Oriented Test-
+ing” again, but now with the goal shifted to detecting logic
+errors (also referred to as in-depth errors). These are defined
+as flaws in the algorithm’s reasoning or implementation that
+cause the code to produce incorrect results (i.e., fail test case
+assertions), even if it runs without crashing. For instance, the
+debugged code in Figure 5 runs but returns 5 instead of the
+expected 29, indicating a logic error. If the tests pass, the
+process ends. If logic errors are detected, the failure feedback
+proceeds to the next step. In Step 2, the Prompt Engineer
+uses the original task description and the specific logic error
+feedback to generate a tailored step-by-step plan to correct the
+issue (like the while-loop plan in Fig. 5). The Programming
+Assistant then regenerates the code, guided by this plan.
+Finally, the Code Evaluator tests this new code. Success leads
+to termination; failure leads back to the beginning of Phase-
+2 (Step 1) with the latest error information, iterating until
+success or the maximum t attempts are reached.
+Generally, AdaCoder employs “Adaptive Planning”, which
+is achieved through two strategies: 1) It only applies the plan-
+ning mechanism for iterative regeneration when the LLM’s
+native capability proves insufficient (i.e., the initial non-
+planning generation fails), rather than using planning for every
+attempt; 2) During the planning phase, it generates a plan
+that is adapted to the specific error feedback from the failed
+regeneration attempt.
+B. Programming Assistant
+The Programming Assistant is an LLM-based agent re-
+sponsible for generating code. It takes the task description
+provided by the benchmark (such as HumanEval) and the
+plan formulated by the Prompt Engineer (if any) as input and
+outputs a code corresponding to the task.
+Technical Implementation. This agent is powered by an
+arbitrary LLM, which generates code based on a given prompt,
+as illustrated in Fig. 12 in Appendix. The prompt can take
+two forms: 1) When generating code for a given task for the
+first time, the prompt consists solely of the task description.
+This approach corresponds to the non-planning mechanism,
+as illustrated in Fig. 12(a) in Appendix. 2) When the initial
+code generation fails, even after the Debug Specialist has
+been applied, the prompt is formed by concatenating the
+task description with the step-by-step plan devised by another
+LLM-based agent, the Prompt Engineer. This approach corre-
+sponds to the planning mechanism, as shown in Fig. 12(b) in
+Appendix.
+Design Rationale. The Programming Assistant employs the
+non-planning mechanism during the initial code generation
+
+ARXIV PREPRINT 9
+Goal-Oriented
+Testing
+Programming
+Assistant
+for non-planning
+prompt
+Generated Code:
+def largest_prime_factor(n):
+for i in range(2, int(math.sqrt(n)) + 1):
+if n % i == 0:
+return i
+return n
+def lar
+Unleashing LLM’s native power
+Non-planning LLM-based code generation
+Code Evaluator
+for non-planning
+generation
+Identifying cases that hinder code execution and beyond LLM’s power
+Lightweight script-based testing with given test cases
+Three Syntactic Errors:
+1. The math module is not imported.
+2. The line if n % i == 0: is missing an indentation.
+3. An incomplete function definition def lar is left at the end.
+Prompt
+Phase-1: Initial Code Generation without Planning
+Task Description: Return the largest prime factor of n. Assume n > 1 and is not a prime.
+Test Cases: largest_prime_factor(13195) == 29, largest_prime_factor(2048) == 2
+Input
+Goal-Oriented
+Testing
+Debug
+Specialist
+Debugged Code:
+import math
+def largest_prime_factor(n):
+for i in range(2, int(math.sqrt(n)) + 1):
+if n % i == 0:
+return i
+return n
+Using a rule-based method to adaptively fix superficial errors in 10ms
+Identifying cases with three common errors of LLMs
+Code Evaluator for
+debugged code
+Ruling out superficial errors that hinder code execution
+Lightweight script-based testing with given test cases
+Logic Error: For input 13195,
+expected 29 but got 5
+Step 1: Adaptive Error Fixing and Lightweight Evaluation
+t-th Code
+Regeneration
+Prompt
+Engineer
+Generated Plan
+(concatenated with prompt to form planning prompt):
+1. Previous approach returned 5 for input 13195, but the
+expected result is 29. Since 5 is the smallest prime factor and
+the task requires the largest, I need to fix this logic.
+2. Use a while-loop repeatedly dividing n by its current factor.
+3. Initialize a variable i = 2. While i * i ≤ n, if n is divisible by i,
+repeatedly divide n by i; otherwise, increment i.
+4. After the loop, n will hold the largest prime factor. Return n.
+Adaptively generating plan for code regeneration based on LLMs
+Understanding why cases fail with error feedback
+Adaptively addressing in-depth errors by plan-guided
+regeneration
+Varied comprehension with given new plan
+Regenerated Code:
+def largest_prime_factor(n):
+i = 2
+while i * i <= n:
+if n % i == 0:
+n //= i
+else:
+i += 1
+return n
+Programming
+Assistant
+for planning
+prompt
+Step 2: Adaptive Planning for Code Regeneration
+Pass
+Pass
+Fail
+Fail
+End
+Success
+Adaptive Planning Framework (AdaCoder)
+Phase-2: Iterative Code Generation with Planning
+compiler
+compiler
+Goal-Oriented
+Testing
+Code Evaluator for
+planning generation
+Identifying errors that
+hinder code execution
+Lightweight script-based
+testing with given test cases
+Test Passed
+compiler
+Pass
+Fail
+Success
+Success
+Fail at t=5
+Fig. 5: The Workflow of AdaCoder.
+and adaptively switches to the planning mechanism for sub-
+sequent regeneration attempts. This design aligns with the
+findings in RQ2 that “combining planning and non-planning
+mechanisms shows potential for better performance and re-
+duced computational resources”, effectively leveraging the
+strengths of both approaches.
+C. Code Evaluator
+The Code Evaluator is a script-based agent designed to
+assess the correctness of the code. It takes the code generated
+by the Programming Assistant (or the code debugged by the
+Debug Specialist) and the sample test cases provided in the
+benchmark as input, and outputs the test results (pass/fail)
+along with the error information (if the test fails).
+Technical Implementation. The pseudocode for this agent is
+presented in Algorithm 2 in the appendix. It first embeds the
+code generated by the Programming Assistant (or debugged by
+the Debug Specialist) into a try-except block for compilation to
+collect error feedback. If no exception is captured, it indicates
+a successful compilation. The sample test cases provided
+by the benchmark (e.g. HumanEval) are then appended to
+the code and executed within another try-except block. If
+no exceptions are raised during execution, it indicates that
+the code passes the test. Otherwise, the try-except block
+captures detailed compilation or runtime error information,
+such as “SyntaxError: unterminated triple-quoted string literal
+(detected at line 68) ( <string>, line 41)”. If the tested code
+is provided by the Programming Assistant, this information is
+fed back to the Debug Specialist for debugging. If the tested
+code is provided by the Debug Specialist, the information is
+instead fed back to the Prompt Engineer for planning.
+Design Rationale. Existing research (e.g., AgentCoder [11])
+often relies on LLMs to automatically generate test cases.
+However, test case generation is as challenging as code gen-
+eration [51], and incorrect test cases can lead to erroneous
+code [12]. Blindly editing code based on these test cases can
+undermine problem-solving capabilities [52]. Therefore, we
+use benchmark-provided sample test cases to evaluate code
+
+ARXIV PREPRINT 10
+correctness, consistent with the approach of other frameworks
+(e.g., INTERVENOR [13], MapCoder [12], Self-Collaboration
+[14]). These test cases are extracted from the prompt field,
+thereby avoiding the risk of the LLM generating incorrect test
+cases that could introduce noise. Additionally, while existing
+methods [12], [14] merely evaluate the code, the Code Eval-
+uator incorporates a try-except block to automatically collect
+the error information for debugging or planning, making full
+use of the available test information.
+D. Debug Specialist
+The Debug Specialist is a rule-based agent used to fix
+simple errors in the code. It takes the code generated by the
+Programming Assistant and the error information collected by
+the Code Evaluator as input, and outputs the debugged code.
+Technical Implementation. This agent is a script derived
+from our previous research, LlmFix [21], which addresses
+three types of common and simple code errors: Inconsistent
+Indentation, Function Overflow, and Missing Import. Our
+previous studies [21] show that only these three types of
+syntax-related errors are well-suited for lightweight, rule-based
+fixes. For other more complex logic errors, we employ the
+planning agent Prompt Engineer, as discussed in Section IV-E.
+The Debug Specialist resolves the three types of errors through
+the following three steps. 1) Code Filtering . The Debug
+Specialist checks and normalizes the indentation according
+to the logic outlined in Algorithm 3 in Appendix, addressing
+Inconsistent Indentation errors. 2) Code Truncation. Based on
+our prior research [21], syntax errors often occur when LLMs
+exceed output length limits, leading to truncated functions with
+incomplete syntax at the end of the code, namely Function
+Overflow. To address this, we need to remove incomplete
+functions from the end of the code. However, such incomplete
+functions can take various forms (e.g., different function
+names and truncation patterns), making it difficult to extract
+them using only regular expressions. We achieve this by
+iteratively removing the last line of the code and compiling
+the modified code to check if the incomplete function has been
+fully removed: if the code compiles successfully, it indicates
+that no incomplete functions remain, as they would cause
+syntax issues and prevent compilation. If the code still fails
+to compile, it suggests that incomplete functions remain at
+the end and further removal is needed. Our prior research
+has shown that this removal process is fast, with an average
+execution time of approximately 10ms. 3) Missing Modules
+Injection. If the error type provided by the Code Evaluator is
+a NameError, it indicates that the code may be using a module
+or function that has not been imported (i.e., Missing Import).
+This step extracts the name causing the NameError (e.g.,
+math, re, functools) through the regular expression “ name
+’(.+?) ’ is not defined ” and attempts to match it
+against a pre-built database containing all common module
+names and their internal function names. If the match is
+found, the corresponding import statements (e.g., import
+math) is inserted. Otherwise, it indicates that the name refers
+to an undefined variable rather than a module or library
+function. The pseudocode of the Debug Specialist’s workflow
+is presented in Algorithm 3 in Appendix.
+Design Rationale. The Debug Specialist employs a rule-
+based method to fix errors in generated code. According to
+the empirical findings in RQ2, using LLMs to iteratively
+fix errors (i.e., iterative refinement) is ineffective and costly,
+achieving only an average improvement of 1.6% over five
+iterations. In contrast, our prior research [21] demonstrates
+that a rule-based fixing method yields a 7.5% improvement
+while requiring only 11.50 ms per fix. This highlights that
+the code generation capabilities of low-performance LLMs are
+unstable and unreliable, resulting in poor performance during
+iterative refinement. In comparison, rule-based methods are
+more deterministic, interpretable, and efficient.
+E. Prompt Engineer
+The Prompt Engineer is an LLM-based agent responsible
+for creating step-by-step plans to complete tasks. It takes the
+task description from the benchmark and the error information
+collected by the Code Evaluator after testing the debugged
+code as input, and outputs a step-by-step plan to accomplish
+the task.
+Technical Implementation. This agent is powered by an
+arbitrary LLM consistent with the Programming Assistant. The
+agent generates a step-by-step plan based on a given prompt,
+as illustrated in Fig. 13 in Appendix. The prompt is formed by
+concatenating the task description with the error information
+fed by the Code Evaluator.
+Design Rationale. This plan generation mechanism differs
+from existing mechanisms, such as the one used in MapCoder.
+MapCoder first generates multiple similar tasks based on the
+original task description and then creates a plan for each
+of these tasks. However, according to the empirical findings
+in RQ2, the similar tasks generated by MapCoder are often
+identical, leading to nearly identical plans. As a result, its
+Coding Agent does not significantly improve its understanding
+of the task, and the generated code remains largely unchanged.
+In contrast, AdaCoder’s planning mechanism is based on
+explicit actual error feedback. Since the errors encountered
+in the code vary each time, this enhances the diversity of
+the generated plans, enabling the Programming Assistant to
+attempt different plans during the iterative regeneration process
+and ultimately improving generation performance.
+V. E VALUATION
+A. Research Questions
+RQ3: Can AdaCoder outperform existing multi-agent
+frameworks on diverse foundation LLMs? Our empiri-
+cal studies show that existing multi-agent frameworks often
+design a large number of agents centered around LLMs,
+incorporate complex workflow (e.g., iterative generation of
+multiple results [12] and repeated self-refinement processes
+[11], [12], [13], [14]). This significantly increases the time
+and GPU resources required for code generation [12]. Simpler
+and faster approaches are generally more practical for real-
+world production applications. Thus, we present AdaCoder
+
+ARXIV PREPRINT 11
+TABLE V: The pass@1 performance of AdaCoder compared to the direct
+method when applied to ten selected diverse LLMs.
+LLMs Direct AdaCoder
+HumanEval MBPP HumanEval MBPP
+CodeLlama-Python-7B 32.69 42.12 63.41 (↑93.97%) 68.40 (↑62.39%)
+CodeLlama-Python-13B 36.65 46.86 71.95 (↑96.32%) 70.40 (↑50.23%)
+CodeLlama-Python-34B 43.72 49.82 81.10 (↑85.50%) 76.40 (↑53.35%)
+DeepSeek-Coder-1.3B 49.39 47.80 76.83 (↑55.56%) 71.80 (↑50.21%)
+DeepSeek-Coder-6.7B 58.54 58.60 85.98 (↑46.87%) 78.00 (↑33.11%)
+DeepSeek-Coder-33B 64.63 66.40 90.85 (↑40.57%) 81.40 (↑22.59%)
+GPT-3.5-turbo 60.30 52.20 96.95 (↑60.78%) 89.40 (↑71.26%)
+GPT-4 67.00 68.30 96.95 (↑44.70%) 90.40 (↑32.36%)
+GPT-4-turbo 87.10 63.40 98.17 (↑12.71%) 90.40 (↑42.59%)
+GPT-4o 90.20 67.20 98.17 (↑08.84%) 91.40 (↑36.01%)
+∆ Average - - ↑54.58% ↑45.41%
+in Section IV according to our empirical findings. This RQ
+aims to investigate the effectiveness and cost of AdaCoder
+and confirm the assumptions behind the design.
+RQ4: Are all agents of AdaCoder necessary? As de-
+scribed in Section IV, among AdaCoder’s four agents, the
+Programming Assistant and Code Evaluator are the core
+components thus cannot be removed. In contrast, the Prompt
+Engineer and Debug Specialist are designed to enhance code
+generation capabilities and can be removed in ablation studies.
+Consequently, we selected a total of ten LLMs from RQ1
+and RQ3 as foundation models to evaluate the pass@1 of
+AdaCoder under three conditions on the HumanEval dataset:
+without the Prompt Engineer, without the Debug Specialist,
+and without both the Prompt Engineer and Debug Specialist.
+B. Experimental Settings
+We apply AdaCoder and the other four multi-agent frame-
+works to six diverse LLMs as adopted in Section III and
+four ChatGPT series LLMs including GPT-3.5-turbo, GPT-4,
+GPT-4-turbo, and GPT-4o. We evaluated the performance of
+these frameworks on HumanEval and another dataset MBPP.
+The MBPP dataset is also widely used [17], [2], [53]. It is a
+comprehensive collection of 974 Python programming tasks
+designed to evaluate code generation and program synthesis
+capabilities [54].
+C. Performance of AdaCoder on Ten Diverse LLMs (RQ3)
+1) Pass@1 Analysis of Code Generation: Table V presents
+the results of AdaCoder with a maximum of t = 5 iterations
+on the HumanEval and MBPP datasets. The performance
+of the baseline multi-agent frameworks on the two datasets
+is shown in Tables I and VI, respectively. We can observe
+that AdaCoder improves the performance of ten LLMs by
+54.58% on HumanEval and 45.41% on MBPP, totaling an
+average improvement of 50.00%. In contrast, MapCoder, the
+most effective baseline framework, only achieves an average
+improvement of 50.43% on HumanEval and 14.04% on MBPP,
+resulting in a total average improvement of 32.24%. These
+results demonstrate that AdaCoder outperforms the state-of-
+the-art multi-agent frameworks.
+2) Impact on Iteration Number t: In RQ2, we validated
+the ineffectiveness of Iterative Refinement by conducting
+repeated experiments with varying iteration counts k across
+30
+35
+40
+45
+50
+55
+60
+65
+70
+75
+1 2 3 4 5
+Pass@1(%)
+t value
+CodeLlama-Python-7B CodeLlama-Python-13B CodeLlama-Python-34B
+DeepSeek-Coder-1.3B DeepSeek-Coder-6.7B DeepSeek-Coder-33B
+45
+50
+55
+60
+65
+70
+75
+80
+85
+90
+95
+100
+1 2 3 4 5
+Pass@1(%)
+t value
+CodeLlama-Python-7B CodeLlama-Python-13B CodeLlama-Python-34B
+DeepSeek-Coder-1.3B DeepSeek-Coder-6.7B DeepSeek-Coder-33B
+GPT-3.5-turbo GPT-4 GPT-4-turbo
+GPT-4o
+Fig. 6: Line graphs with t values as the x-axis and pass@1 as the y-axis.
+four selected multi-agent frameworks. Similarly, we performed
+repeated tests on the HumanEval dataset by adjusting the
+maximum iterations t from 1 to 5, as shown in Figure 6.
+We observe that for ChatGPT series LLMs, increasing val-
+ues of t has a minimal impact. For example, when AdaCoder
+uses GPT-4o as the foundation model, increasing t from 1 to 5
+only improves pass@1 from 94.51% to 98.17%, a mere 3.87%
+increase. Among the four closed-source LLMs, only GPT-4
+showed a notable improvement when t increased from 1 to
+2: from 86.59% to 93.29% with a 7.74% increase. Statistical
+analysis indicates that each increase in the t value results in
+an average improvement of only 1.69% in code generation
+pass@1. However, it is noteworthy that even with a single
+execution of the workflow shown in Figure 5, these closed-
+source models perform exceptionally well, far surpassing base-
+line results. For example, GPT-4-turbo and GPT-4o achieved
+93.29% and 94.51% precision, respectively, with t set to 1.
+Therefore, these results imply that the limited improvement
+effect of AdaCoder on closed-source models is due to their
+inherently strong code generation capabilities. After just one
+round of the workflow shown in Figure 5, their pass@1 is
+already very high, leaving limited room for improvement and
+resulting in the less pronounced enhancement effect of Ada-
+Coder. However, for the other six LLMs, increasing the values
+of t significantly enhances the code generation capabilities.
+For example, when AdaCoder uses CodeLlama-Python-34B
+as the foundation LLM, increasing t from 1 to 2 improves
+pass@1 from 60.37% to 72.56%, an approximately 20%
+
+ARXIV PREPRINT 12
+TABLE VI: The pass@1 performance of selectd four multi-agent frameworks compared to the direct method when applied to the six selected open-source
+models on the MBPP benchmark.
+LLMs Direct AgentCoder MapCoder INTERVENOR Self-Collaboration
+CodeLlama-Python-7B 42.12 36.80 ( ↓12.63%) 55.00 ( ↑30.58%) 47.00 ( ↑11.59%) 35.20 ( ↓16.43%)
+CodeLlama-Python-13B 46.86 36.60 ( ↓21.90%) 61.60 ( ↑31.46%) 53.00 ( ↑13.10%) 40.40 ( ↓13.79%)
+CodeLlama-Python-34B 49.82 51.60 ( ↑03.57%) 66.40 ( ↑33.28%) 56.40 ( ↑13.21%) 43.20 ( ↓13.29%)
+DeepSeek-Coder-1.3B 47.80 21.60 ( ↓54.81%) 37.40 ( ↓21.76%) 37.00 ( ↓22.59%) 38.60 ( ↓19.25%)
+DeepSeek-Coder-6.7B 58.60 60.20 ( ↑02.73%) 44.60 ( ↓23.89%) 67.80 ( ↑15.70%) 53.40 ( ↓08.87%)
+DeepSeek-Coder-33B 66.40 48.00 ( ↓27.71%) 60.40 ( ↓09.04%) 61.20 ( ↓07.83%) 53.20 ( ↓19.88%)
+∆ Average - ↓18.46% ↑06.77% ↑03.86% ↓15.25%
+increase. Even for the DeepSeek-Coder-6.7B, which showed
+the smallest improvement, increasing t from 1 to 5 still yielded
+a 13.72% performance boost. Statistical analysis indicates that
+each increase in the t value results in an average 6. 33%
+improvement in the pass@1 of the generation. Furthermore,
+we compared the improvement magnitudes when increasing
+t from 1 to 3 and from 3 to 5, finding them to be 20.44%
+and 6.24% respectively, with the latter significantly lower.
+This shows a marginal effect on the improvement of code
+generation capabilities as the values of t increase.
+3) Cost Analysis of Code Generation: To assess the in-
+ference cost of AdaCoder, we recorded the average token
+consumption and inference time. As the inference time of
+closed-source LLMs depends on multiple factors such as
+network, device, etc., we only considered open-source LLMs
+in our controlled computing environment. Tables II-III in our
+empirical study presented the cost analysis of four multi-agent
+frameworks on HumanEval. In this experiment, we analyzed
+their cost on MBPP dataset as shown in Tables VII-VIII.
+In terms of token consumption , Table IX reveals that,
+compared to the foundation LLMs, AdaCoder shows a token
+increase of 2.00 and 2.42 times on HumanEval and MBPP,
+respectively, on average. The average increase of two datasets
+is 2.21 times. In contrast, MapCoder, the most effective
+baseline, leads to 23.02 and 30.61 times token increase on
+HumanEval and MBPP, respectively, on average. This results
+in an increase of 26.81 times among two datasets. Thus,
+MapCoder costs 12.13 times more tokens than AdaCoder for
+these two datasets.
+Regarding inference time , Table X shows that, compared
+to not using any multi-agent framework (i.e., Direct), using
+AdaCoder increases inference time by only 0.68 and 1.34
+times (including the running time of the Code Evaluator and
+the Debug Specialist) on HumanEval and MBPP, respectively,
+with an average increase of 1.01 times. Meanwhile, MapCoder
+leads to an average increase of 15.72 and 16.35 times of
+inference time on HumanEval and MBPP, respectively, totaling
+an average of 16.04 times. Therefore, MapCoder requires
+15.88X longer inference time than AdaCoder. These results
+demonstrate AdaCoder’s low token consumption and inference
+time for code generation, compared with the best baseline.
+Answer to RQ3: AdaCoder demonstrates the best per-
+formance with high generalizability, significantly outper-
+forming the best baseline MapCoder by 27.69% on ten
+LLMs on average; its computation cost is low with 12.13
+times less tokens and 15.88 times shorter inference time
+than MapCoder, respectively.
+D. Ablation Study of AdaCoder’s Agents (RQ4)
+Table XI shows that in all three scenarios, compared to the
+complete AdaCoder, the code generation capabilities of all
+LLMs decreased to varying degrees. Specifically, removing
+the Prompt Engineer resulted in a decrease in code generation
+capability ranging from 6.84% to 23.07% across the LLMs,
+with an average decrease of 16.87%. CodeLlama-Python-7B
+experienced the largest decrease, while GPT-4-turbo and GPT-
+4o showed the smallest decrease. This phenomenon may be
+attributed to the latter two’s inherently strong code generation
+capabilities, rendering the strategies designed by the Prompt
+Engineer less impactful. Removing the Debug Specialist led to
+a decrease in code generation capability ranging from 4.35% to
+22.15%, with an average decrease of 9.60%. DeepSeek-Coder-
+33B exhibited the largest decrease, while GPT-4o showed the
+smallest. This disparity might be due to GPT-4o being less
+prone to generating simple errors. Simultaneously removing
+both the Prompt Engineer and Debug Specialist resulted in a
+decrease in code generation capability ranging from 8.08% to
+34.62%, with an average decrease of 23.98%. CodeLlama-
+Python-7B experienced the largest decrease, while GPT-4-
+turbo showed the smallest. These results demonstrate the
+contributions of each component in AdaCoder.
+Answer to RQ4: All agents individually contribute to
+the performance of AdaCoder, indicating their effective-
+ness and necessity to our design.
+VI. T HREATS TO VALIDITY
+We set the iteration count to five by default for AdaCoder’s
+performance and demonstrate how the count can be adjusted
+to proportionally gain performance at the expense of time and
+token consumption in Figure 6. However, for other foundation
+LLMs and code generation tasks, this parameter may require
+some adjustment to achieve an optimal balance between
+pass@1 and resource consumption. Moreover, although our
+experiments are designed to mirror real-world scenarios, the
+specific datasets and foundation LLMs may restrict the broader
+applicability of our findings. To mitigate this, we plan to
+
+ARXIV PREPRINT 13
+TABLE VII: The average inference token consumption of AgentCoder, MapCoder, INTERVENOR and Self-Collaboration on MBPP.
+LLMs Direct AgentCoder MapCoder INTERVENOR Self-Collaboration
+CodeLlama-Python-7B 00.81K 12.18K ( ↑14.06×) 32.46K ( ↑39.16×) 14.09K ( ↑16.43×) 24.52K ( ↑29.33×)
+CodeLlama-Python-13B 00.76K 12.40K ( ↑15.37×) 28.31K ( ↑36.37×) 12.06K ( ↑14.91×) 18.88K ( ↑23.91×)
+CodeLlama-Python-34B 01.06K 10.48K ( ↑08.90×) 24.74K ( ↑22.37×) 09.77K ( ↑08.22×) 16.86K ( ↑14.92×)
+DeepSeek-Coder-1.3B 01.11K 14.49K ( ↑12.02×) 33.06K ( ↑28.70×) 15.25K ( ↑12.70×) 18.45K ( ↑15.58×)
+DeepSeek-Coder-6.7B 01.16K 08.79K ( ↑06.56×) 37.78K ( ↑31.50×) 09.50K ( ↑07.18×) 16.73K ( ↑13.39×)
+DeepSeek-Coder-33B 01.17K 10.29K ( ↑07.83×) 30.95K ( ↑25.56×) 11.46K ( ↑08.84×) 18.15K ( ↑14.57×)
+∆ Average - ↑10.79× ↑ 30.61× ↑ 11.38× ↑ 18.62×
+TABLE VIII: The average inference time of AgentCoder, MapCoder, INTERVENOR and Self-Collaboration on MBPP.
+LLMs Direct AgentCoder MapCoder INTERVENOR Self-Collaboration
+CodeLlama-Python-7B 15.12s 123.4s ( ↑07.16×) 319.5s ( ↑20.14×) 170.7s ( ↑10.29×) 226.9s ( ↑14.01×)
+CodeLlama-Python-13B 21.85s 306.8s ( ↑13.04×) 515.0s ( ↑22.57×) 212.3s ( ↑08.72×) 345.2s ( ↑14.80×)
+CodeLlama-Python-34B 70.53s 393.7s ( ↑04.58×) 916.1s ( ↑11.99×) 367.2s ( ↑04.21×) 611.8s ( ↑07.67×)
+DeepSeek-Coder-1.3B 12.06s 90.88s ( ↑06.54×) 182.1s ( ↑14.10×) 111.3s ( ↑08.23×) 97.33s ( ↑07.07×)
+DeepSeek-Coder-6.7B 20.90s 88.83s ( ↑03.25×) 359.8s ( ↑16.22×) 112.8s ( ↑04.40×) 194.6s ( ↑08.31×)
+DeepSeek-Coder-33B 86.59s 392.4s ( ↑03.53×) 1217.2s ( ↑13.06×) 541.5s ( ↑05.25×) 706.0s ( ↑07.15×)
+∆ Average - ↑06.35× ↑ 16.35× ↑ 06.85× ↑ 09.84×
+TABLE IX: The average inference token consumption of AdaCoder on
+HumanEval and MBPP.
+LLMs Direct AdaCoder
+HumanEval MBPP HumanEval MBPP
+CodeLlama-Python-7B 00.91K 00.81K 04.79K (↑04.26×) 03.29K (↑03.07×)
+CodeLlama-Python-13B 00.92K 00.76K 04.01K (↑03.36×) 03.10K (↑03.09×)
+CodeLlama-Python-34B 00.95K 01.06K 03.46K (↑02.64×) 03.06K (↑01.89×)
+DeepSeek-Coder-1.3B 01.13K 01.11K 03.86K (↑02.42×) 03.81K (↑02.42×)
+DeepSeek-Coder-6.7B 01.16K 01.16K 02.87K (↑01.47×) 03.23K (↑01.78×)
+DeepSeek-Coder-33B 01.18K 01.17K 02.92K (↑01.47×) 03.20K (↑01.75×)
+GPT-3.5-turbo 00.40K 00.29K 00.83K (↑01.07×) 01.08K (↑02.72×)
+GPT-4 00.41K 00.50K 01.05K (↑01.56×) 01.76K (↑02.54×)
+GPT-4-turbo 00.46K 00.46K 00.89K (↑00.93×) 01.57K (↑02.42×)
+GPT-4o 00.37K 00.41K 00.66K (↑00.78×) 01.43K (↑02.48×)
+∆ Average - - ↑02.00× ↑02.42×
+TABLE X: The average inference time of AdaCoder on HumanEval and
+MBPP.
+LLMs Direct AdaCoder
+HumanEval MBPP HumanEval MBPP
+CodeLlama-Python-7B 27.33s 15.12s 48.61s (↑00.78×) 32.88s (↑01.18×)
+CodeLlama-Python-13B 41.42s 21.85s 70.24s (↑00.70×) 69.80s (↑02.20×)
+CodeLlama-Python-34B 76.49s 70.53s 145.9s (↑00.91×) 144.7s (↑01.05×)
+DeepSeek-Coder-1.3B 22.52s 12.06s 28.55s (↑00.27×) 30.38s (↑01.52×)
+DeepSeek-Coder-6.7B 20.65s 20.90s 35.55s (↑00.72×) 43.29s (↑01.07×)
+DeepSeek-Coder-33B 88.27s 86.59s 149.2s (↑00.69×) 176.4s (↑01.04×)
+∆ Average - - ↑00.68× ↑01.34×
+validate our approach using more diverse datasets and in
+various environments in future research.
+VII. C ONCLUSION
+In this study, we first evaluate the generalizability of four
+state-of-the-art multi-agent frameworks by applying them to
+six different LLMs from two families (i.e., CodeLlama-Python
+and DeepSeek-Coder). Our empirical findings on the Hu-
+manEval dataset reveal that their generalizability is unstable:
+MapCoder has the highest generalizability but with high
+inference cost. Its effectiveness can be attributed to its planning
+mechanism, i.e., Multi-Plan Coding, which guides LLMs
+in generating solutions through various plans. Subsequent
+analysis suggests that combining planning and non-planning
+mechanisms could achieve better performance and lower cost
+than using only the planning mechanism. In addition, iterative
+refinement process is both ineffective and costly.
+Motivated by these findings, we designed AdaCoder, an
+adaptive planning framework for multi-agent code generation.
+Evaluations demonstrate that AdaCoder achieves high general-
+izability compared to the best baseline MapCoder, surpassing
+it by 27.69% in pass@1 while being applicable to LLMs
+of varying parameter scales, architectures, and performance
+levels. Furthermore, AdaCoder is 16 times faster and consumes
+12 times fewer tokens than MapCoder. Additionally, ablation
+studies confirm the necessity of each agent in AdaCoder.
+Our source code and experimental data are available at https:
+//github.com/YXingo/AdaCoder.

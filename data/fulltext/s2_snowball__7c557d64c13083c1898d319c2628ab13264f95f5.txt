@@ -1,0 +1,1006 @@
+record_id: s2_snowball:7c557d64c13083c1898d319c2628ab13264f95f5
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2604.20183
+fetched_title: Dual-Cluster Memory Agent: Resolving Multi-Paradigm Ambiguity in Optimization Problem Solving Agent (DCM-Agent)to enhance performance Process AMaterialsObjective
+fetched_at: 2026-09-18T19:00:21Z
+
+Dual-Cluster Memory Agent: Resolving Multi-Paradigm Ambiguity in
+Optimization Problem Solving
+Xinyu Zhang1,2*, Yuchen Wan 1,2∗, Boxuan Zhang 1,2, Zesheng Yang 1,2,
+Lingling Zhang1,2†,Bifan Wei 1,2,Jun Liu 1,3
+1School of Computer Science and Technology, Xi’an Jiaotong University
+2Ministry of Education Key Laboratory of Intelligent Networks and Network Security, China
+3Shaanxi Province Key Laboratory of Big Data Knowledge Engineering, China
+zhang1393869716@stu.xjtu.edu.cn, {zhanglling,liukeen}@xjtu.edu.cn
+Abstract
+Large Language Models (LLMs) often strug-
+gle with structural ambiguity in optimization
+problems, where a single problem admits multi-
+ple related but conflicting modeling paradigms,
+hindering effective solution generation. To ad-
+dress this, we proposeDual-Cluster Memory
+Agent (DCM-Agent)to enhance performance
+by leveraging historical solutions in a training-
+free manner. Central to this is Dual-Cluster
+Memory Construction. This agent assigns his-
+torical solutions to modeling and coding clus-
+ters, then distills each cluster’s content into
+three structured types:Approach,Checklist,
+andPitfall. This process derives generalizable
+guidance knowledge. Furthermore, this agent
+introducesMemory-augmented Inferenceto
+dynamically navigate solution paths, detect and
+repair errors, and adaptively switch reasoning
+paths with structured knowledge. The experi-
+ments across seven optimization benchmarks
+demonstrate that DCM-Agent achieves an av-
+erage performance improvement of 11%- 21%.
+Notably, our analysis reveals a “knowledge in-
+heritance” phenomenon: memory constructed
+by larger models can guide smaller models to-
+ward superior performance, highlighting the
+framework’s scalability and efficiency.
+1 Introduction
+Optimization problems underpin operations re-
+search, supporting applications from supply chain
+logistics to economic forecasting (Liu et al., 2025b,
+2023; Belil et al., 2018). Traditionally, solving
+these problems requires an intensive process (Meer-
+schaert, 2013), where domain experts manually
+translate textual descriptions into formulations.
+Recently, Large Language Models (LLMs) have
+demonstrated remarkable reasoning capabilities
+across diverse domains, including science reason-
+ing (Zhang et al., 2025a,d,e), cognitive reasoning
+*These authors contributed equally to this work.
+†Corresponding author
+Integer Linear
+Programming
+500 Units Gold
+300 Units Wires
+?
+Maximize Total
+Plated Coins
+3 Gold, 2Wires
+5 Coins / Run
+Process AMaterials
+5 Gold, 3Wires
+9 Coins / Run
+Process B
+Objective
+Constraint
+Programming
+Dynamic
+Programming
+Approach: Linear
+Branch & Bound, ...
+Checklist: Linearity,
+Variable Bounds, …
+Pitfall: Integrality
+Gap, Stochastic, …
+Approach: Pruning
+& Propagation, …
+Checklist: Global
+Constraints, …
+Pitfall: The Weak
+Propagation, …
+Approach: State
+Transition, …
+Checklist: No After-
+effect, Base Cases, …
+Pitfall: Curse of
+Dimensionality,, …
+(1)Run Balance: The difference in run counts between A and B is less than 10.
+(2)Setup Fee: A one-time 50 Gold cost applies if Process B is utilized.
+(3)Batch Constraint: Process B must operate in exact multiples of 5.
+Constraint
+Figure 1: Illustration of a single production planning
+problem formalized via distinct algorithmic paradigms.
+(Zhang et al., 2025c), and temporal analysis (Zhang
+et al., 2022). These advances have also reshaped
+optimization modeling, leveraging domain knowl-
+edge to automate the conversion of textual descrip-
+tions into optimization models, thereby mitigating
+dependency on human expertise (Sinha et al., 2025;
+Zhao and Cheong, 2025). However, harnessing
+LLMs for this purpose remains a challenge, lead-
+ing to diverse preliminary explorations (Wang et al.,
+2025; Jiang et al., 2025a; Chen et al., 2025b).
+A fundamental bottleneck impeding current
+methods is cognitive interference from entangled
+modeling paradigms. As shown in Figure 1, this
+presents conflicting signals, where logical con-
+straints (e.g., exact multiples) suggest Constraint
+Programming (CP), resource maximization implies
+Integer Linear Programming (ILP), and sequential
+stage dependencies signal Dynamic Programming
+(DP). While these features are relevant, their simul-
+taneous presence acts as a confounding distractor.
+This complexity exposes deficiencies in current
+paradigms. Fine-tuning approaches are misled by
+this interference, mechanically applying memo-
+rized templates when subtle variations necessitate
+arXiv:2604.20183v2 [cs.CL] 2 Jun 2026
+
+alternative strategies (Wang and Li, 2025). Agentic
+frameworks struggle with these trade-offs during
+verification; facing ambiguous algorithmic choices,
+they rely on the static prompts (e.g., “Check if cor-
+rect”) that lack the granularity to detect paradigm-
+specific pitfalls (Huang et al., 2024), such as dis-
+tinguishing between linearity gaps in ILP and re-
+currence validity in DP (Zhang and Luo, 2025).
+This reveals a fundamental tension: the interference
+problem demands flexibility to navigate paradigm
+ambiguity, yet also requires targeted knowledge to
+verify paradigm-specific correctness.
+To address this, we propose theDual-Cluster
+Memory Agent (DCM-Agent), a training-free
+framework that balances flexibility and structure
+by externalizing reasoning patterns into historical
+archives. Instead of relying on parameter updates,
+this framework decouples abstract modeling from
+precise coding by directly capitalizing on historical
+solution archives. Central to this framework is the
+Dual-Cluster Construction, which resolves struc-
+tural ambiguity by organizing historical data, rang-
+ing from canonical successes to persistent failures,
+into a bipartite graph that quantifies the relation-
+ships between the independentModeling Cluster
+and theCoding Cluster. This process distills the
+raw experience nodes within each cluster into three
+cluster-level structured knowledge tiers:Approach,
+Checklist, andPitfall. By explicitly mapping the
+decision space, this design enables the agent to
+filter out interfering noise and translate isolated
+solutions into robust structural knowledge.
+Building upon the dual-cluster memory, we intro-
+duceMemory-Augmented Inference. Unlike con-
+ventional static prompting, this mechanism effec-
+tively solves new problems by retrieving relevant
+clusters that offer corresponding structured knowl-
+edge to guide. The inference is executed through an
+iterative generate-verify-repair-backtrack pipeline
+that operates dynamically. By leveraging the re-
+trievedPitfallsandChecklists, this pipeline sys-
+tematically steers the generation process, allow-
+ing the agent to detect method-specific errors (e.g.,
+integrality gaps versus recurrence failures) and
+autonomously backtrack to alternative reasoning
+paths when a chosen paradigm proves infeasible.
+We evaluate DCM-Agent across seven diverse
+optimization benchmarks, where it achieves an av-
+erage performance improvement of 11%–21% com-
+pared to standalone LLMs. The results demonstrate
+that DCM-Agent maintains consistent state-of-the-
+art accuracy across various model scales without
+the computational overhead of training, offering
+a superior trade-off between solution precision
+and efficiency. Crucially, our analysis reveals a
+“knowledge inheritance” phenomenon: memory
+constructed by larger models can be effectively
+transferred to guide smaller models toward superior
+performance, verifying the framework’s scalability
+and the transferability of its training-free logic.
+2 Related Work
+2.1 LLM-based Optimization Modeling
+LLM-based optimization modeling reduces the
+expertise required for complex formulation via
+prompt-based strategies or fine-tuning methods.
+Prompt-based frameworks utilize multi-agent work-
+flows (Xiao et al., 2023; AhmadiTeshnizi et al.,
+2024; Zhang et al., 2025b) or tree-search algo-
+rithms (Liu et al., 2025c; Astorga et al., 2025) to
+improve reasoning and code generation in general-
+purpose LLMs. Conversely, fine-tuning methods
+like FOARL (Jiang et al., 2025b), ORLM (Huang
+et al., 2025a), and SIRL (Chen et al., 2025a) de-
+velop specialized models by training on domain-
+specific operations research datasets to internalize
+modeling patterns.
+2.2 Retrieval-Augmented Reasoning
+Despite the progress of reasoning LLMs (OpenAI,
+2024; Guo et al., 2025), reliance on internal knowl-
+edge often leads to hallucinations that prompting
+alone cannot resolve (Huang et al., 2025b; Wei
+et al., 2022). Retrieval-Augmented Reasoning ad-
+dresses this by integrating external verification
+into the reasoning process (Barry et al., 2025).
+While frameworks like ReAct (Yao et al., 2022)
+and Retrieval-Augmented Thoughts (Wang et al.,
+2024) dynamically revise traces with retrieved data,
+this paradigm is also effective for optimization. For
+example, OptiTree (Liu et al., 2025c) retrieves anal-
+ogous subproblems to ground reasoning, ensuring
+complex modeling steps remain verifiable.
+3 Methodology
+3.1 Overview
+We formalize optimization problem solving via
+LLMs as a composite structured process spanning
+the problem spaceX , modeling space M, and cod-
+ing spaceC. The solutionˆyis derived via:
+ˆy=E(hψ(c|m)| {z }
+Coding
+◦gϕ(m|x)| {z }
+Modeling
+)(1)
+
+Cluster-Level Evolution
+Cluster-Assignment
+Embeddings
+𝑒𝑚 & 𝑒𝑐
+Embedding
+Retrieval
+LLM Verifier
+Merged to
+Create New
+or
+Bipartite Graph Construction
+Coding
+Clusters
+strong edges serve as critical priors
+Knowledge Update
+LLM𝑠𝑦𝑛𝑡ℎ
+If the trigger condition is met
+𝒦𝑎𝑝𝑝𝑟𝑜𝑎𝑐ℎ
+𝒦𝑐ℎ𝑒𝑐𝑘𝑙𝑖𝑠𝑡
+𝒦𝑝𝑖𝑡𝑓𝑎𝑙𝑙
+[𝜙𝑛𝑗, … 𝜙𝑛𝑗+𝑁]
+𝒦
+Modeling
+Clusters
+(2) Memory-Augmented Inference
+New Problem (𝑥𝑛𝑒𝑤)
+Instance-Level
+Retrieval
+Cluster-Level
+Retrieval
+Candidate Modeling Cluster
+Trajectory Pool
+Bipartite Graph
+LLM𝑠𝑒𝑙𝑒𝑐𝑡
+Path queue:
+𝒬 = 𝑝1, … , 𝑝𝑀
+Modeling Phase
+1. Generation ෝ𝑚𝑟𝑎𝑤
+with 𝒦𝑖
+𝑎𝑝𝑝𝑟𝑜𝑎𝑐ℎ
+2. Verification ෝ𝑚
+with 𝒦𝑖
+𝑐ℎ𝑒𝑐𝑘𝑙𝑖𝑠𝑡
+Coding Phase
+1. Generation Ƹ𝑐𝑟𝑎𝑤
+with 𝒦𝑗
+𝑎𝑝𝑝𝑟𝑜𝑎𝑐ℎ
+2. Verification Ƹ𝑐
+with 𝒦𝑗
+𝑐ℎ𝑒𝑐𝑘𝑙𝑖𝑠𝑡
+Code executor
+ℰ ⋅
+Error?
+Fix with 𝒦𝑝𝑖𝑡𝑓𝑎𝑙𝑙
+and 𝒦𝑐ℎ𝑒𝑐𝑘𝑙𝑖𝑠𝑡
+Error?
+Output
+Output
+Backtrack
+Yes
+No
+NoYes
+Node-Level Construction
+Problem
+Node Categories
+Type A: Always Correct
+Type B: Recovered
+Type C: Persistent Failure
+Categorization
+Structured Knowledge
+𝜙𝑎𝑝𝑝𝑟𝑜𝑎𝑐ℎ: Solution
+templates and strategies
+𝜙𝑐ℎ𝑒𝑐𝑘𝑙𝑖𝑠𝑡: Criteria and
+validity checks
+𝜙𝑝𝑖𝑡𝑓𝑎𝑙𝑙: Errors and
+failure constraints
+Successful Cases
+Failure Cases
+Modeling Code
+(1) Dual-Cluster Memory Construction
+Figure 2: Overview of the Dual-Cluster Memory Agent (DCM-Agent). This agent operates in two distinct phases:
+(1)Dual-Cluster Memory Construction:Historical solutions are stratified into three types to distill structured
+knowledgeK. These are organized into decoupled Modeling Clusters and Coding Clusters, bridged by a weighted
+bipartite graphG. (2)Memory-Augmented Inference:For a new problem, the agent retrieves relevant cluster
+paths to guide the sequential generation of the mathematical formulationˆmand executable codeˆc.
+wheregϕ generates the modeling logicˆm,hψ syn-
+thesizes the executable code ˆc, andE(·) serves as
+the code executor. The core challenge lies in the
+intrinsic one-to-many nature of this x→ˆm→ˆc
+mapping: as a single problem admits diverse valid
+modeling logics and coding implementation (Fig-
+ure 1), the model must possess robust judgment
+capabilities to navigate these possibilities.
+We propose theDual-Cluster Memory Agent
+(DCM-Agent), designed to manage this complex-
+ity by explicitly decoupling modeling ( gϕ) from
+coding (hψ), as shown in Figure 2. DCM-Agent
+operates in two phases: (1)Dual-Cluster Memory
+Construction, which distills instance-level experi-
+ence nodes into generalized structured knowledge,
+and (2)Memory-Augmented Inference, which ap-
+plies the knowledge to solve novel problems.
+To support this, DCM-Agent maintains ady-
+namic memoryD with a novel hierarchical struc-
+ture: specific experience nodes are organized into
+decoupled Modeling Clusters and Coding Clusters.
+While individual nodes store trajectory details, each
+cluster maintains a high-level generalized knowl-
+edge (K) synthesized from its constituent nodes.
+At the same time, DCM-Agent constructs a spe-
+cialized bipartite graphG to bridge these clusters,
+modeling the compatibility between abstract mod-
+eling logics and concrete coding strategies.
+3.2 Dual-Cluster Memory Construction
+This phase transforms raw problem-solution trajec-
+tories into a structured, decoupled memory system.
+The process follows a rigorous bottom-up lifecycle,
+progressing from the discrete analysis of individual
+instances to collective knowledge synthesis.
+3.2.1 Node-Level Construction
+We first curate a dataset of distinct samples, disjoint
+from the evaluation benchmarks. To ensure the
+quality of extracted knowledge, we classify the
+solutions of these samples into three categories:
+• Type A (Always Correct):Samples are consis-
+tently solved correctly across multiple attempts.
+These represent canonical problem-solving pat-
+terns and serve as standard references.
+• Type B (Recovered):The samples that ini-
+tially failed but yielded correct solutions upon re-
+attempting. These instances capture the boundary
+between failure and success, providing critical
+information on specific failure modes and their
+corresponding recovery reasoning.
+•Type C (Persistent Failure):The solutions per-
+sist in failure despite exhaustive attempts (e.g.,
+
+Guidance Tier Source Type Content Definition
+ϕapproach Type A + Type B Solution templates
+(How to solve) (Success) and logical steps
+ϕchecklist Type A + Type B Validity criteria and
+(What to verify) (Success) boundary checks
+ϕpitfall Type B + Type C Common errors and
+(What to avoid) (Failure) constraint violations
+Table 1: Mapping from sample types to guidance tiers.
+exceeding 3 rounds). These encode fundamental
+mismatches between problems and approaches.
+This stratification facilitates differential knowledge
+extraction: the successful instances (Types A and
+B) provide positive references and caveats, while
+failures (Types B and C) reveal critical pitfalls.
+To transform these raw samples into action-
+able memory, we first decompose each problem-
+solution pair into distinct modeling logic and cod-
+ing implementation components. For each compo-
+nent, we generate embeddings (em,ec) to enable
+semantic retrieval, and simultaneously extract a
+tuple of instance-specific knowledge, denoted as
+Φn =⟨ϕ approach
+n ,ϕ checklist
+n ,ϕ pitfall
+n ⟩, as summarized
+in Table 1. Here, Φn represents local insights spe-
+cific to noden. Specifically, we synthesize canon-
+ical approaches (ϕapproach
+n ) and verification check-
+lists (ϕchecklist
+n ) from successful nodes (Types A and
+B), while deriving explicit pitfall warnings (ϕpitfall
+n )
+from failure trajectories (Types B and C).
+3.2.2 Cluster-Level Evolution
+Once individual nodes are processed, DCM-Agent
+organizes them to form generalized knowledge.
+This involves clustering nodes, synthesizing knowl-
+edge, and establishing graph connectivity.
+Cluster Assignment.Each experience node is
+integrated into the memory via a rigorous assign-
+ment process. First, embedding-based retrieval
+identifies top-k candidate clusters by comparing
+the node’s embedding (em or ec) with cluster cen-
+troids µ. Second, an LLM-based verifier checks
+semantic consistency to either merge the node into
+a matched candidate or initialize a new cluster.
+Knowledge Update.To resolve the ambiguity
+between the specific examples and general patterns,
+we employ an incremental update mechanism.
+Each cluster maintains a generalized knowledge
+K=⟨K approach,K checklist,K pitfall⟩, which serves as
+the consolidated schema for that cluster (distinct
+from the raw Φn of individual nodes). When a clus-
+ter accumulates a threshold of new nodes (such as
+Pitfall: 1. Do not use non-linear objectives with
+similar LP solvers without quadratic support ……
+Approach: Formulates a Facility Location and
+Distribution problem to minimize total costs.
+Decisions involve facility and shipment quantities,
+subject to capacity and fixed-charge constraints.
+Checklist: 1. Ensuring logical consistency
+between binary location decisions and continuous
+flow variables. 2. Verification of Mass Balance
+Constraints (Supply = Demand) …….
+Approach: A reusable object-oriented pattern
+for MIP problems using Gurobipy, featuring
+an architecture that decouples initialization,
+model construction, and solution.
+Checklist: 1. Ensuring no terms are omitted
+from linear constraint expressions or the
+objective function. 2. Verifying bounds and
+types to prevent infeasibility ……
+Modeling Cluster Example Coding Cluster Example
+Pitfall: 1. Do not proceed without validating
+solver initialization ……
+Pitfall: 1. Do not use non-linear objectives with
+similar LP solvers without quadratic support ……
+Approach: Formulates a Facility Location and
+Distribution problem to minimize total costs.
+Decisions involve facility and shipment quantities,
+subject to capacity and fixed-charge constraints.
+Checklist: 1. Ensuring logical consistency
+between binary location decisions and continuous
+flow variables. 2. Verification of Mass Balance
+Constraints (Supply = Demand) …….
+Approach: A reusable object-oriented pattern
+for MIP problems using Gurobipy, featuring
+an architecture that decouples initialization,
+model construction, and solution.
+Checklist: 1. Ensuring no terms are omitted
+from linear constraint expressions or the
+objective function. 2. Verifying bounds and
+types to prevent infeasibility ……
+Modeling Cluster Example Coding Cluster Example
+Pitfall: 1. Do not proceed without validating
+solver initialization ……
+Figure 3: Two examples in our Dual-Cluster Memory.
+N= 5), we trigger a knowledge update step:
+K(t+1) =LLM synth
+
+K(t) ∪
+N[
+j=1
+Φnj
+
+ (2)
+Here, LLMsynth is used to abstract generalized pat-
+terns from the new batch of instance knowledge
+Φnj and merge them into the generalized knowl-
+edgeK(t). This ensures thatK evolves to capture
+robust, non-redundant insights while retaining spe-
+cific pitfall warnings, and is not overly influenced
+by extreme samples, as shown in Figure 3.
+Bipartite Graph Construction.At the same
+time, we introduce a bipartite graph G to model
+the associations between the these decoupled clus-
+ters. Since each experience noden naturally maps
+to a pair of clusters (CM
+i ,CC
+j ), these linkages ag-
+gregate into a global structure. We formalize this
+as a bipartite graphG= (V M,VC,E) , where the
+edge weightwij quantifies the co-occurrence fre-
+quency of modeling logicCM
+i and coding strategy
+CC
+j . The strong edges represent proven pathways,
+providing critical priors for subsequent usage.
+3.3 Memory-Augmented Inference
+3.3.1 Dual-Retrieval
+For a new problemxnew, DCM-Agent leverages the
+memory to efficiently navigate the solution space
+by retrieving relevant historical experiences. We
+first encode the problem into the modeling logic
+embedding enew and employ two complementary
+retrieval mechanisms to balance the problem rele-
+vance with general algorithmic applicability:
+Instance-Level Retrievalcaptures the granular
+problem similarity by retrieving specific nodesH
+closest to enew, thereby identifying relevant experi-
+ence nodes that share detailed semantic features:
+H= arg max
+K
+{sim(enew,ei)|x i∈D}.(3)
+Cluster-Level Retrievaltargets abstract patterns
+by comparing enew directly with cluster centroids
+
+µM
+k , which ensures capturing the modeling logic
+beyond surface-level textual matches:
+Scluster = arg max
+K
+{sim(enew,µM
+k )}(4)
+These two sources are united to yield a robust
+final set of candidate modeling clusters, integrating
+both specific exemplars and general categories:
+R={C M(xi)|x i∈H}∪S cluster.(5)
+To effectively bridge modeling logic with coding
+implementation, we query the graphG to exploit
+learned associations. For each identifiedCM
+i ∈R ,
+we retrieve the top-K coding neighborsNk with
+the highest edge weights to form a diverse trajec-
+tory poolP. Finally, an LLM selector serves as a
+verifier to rank these combinations based on their
+logical alignment withxnew, returning a prioritized
+queueQof the most promisingMsolution paths:
+Q=Top-M
+(p)∈P
+(LLMselect(P,x new))(6)
+3.3.2 Solving via Generalized Knowledge
+DCM-Agent processes the prioritized queueQ us-
+ing a Generate-Verify-Repair-Backtrack pipeline.
+Crucially, all the steps are conditioned on theK of
+the selected clusters, rather than node knowledgeϕ,
+as shown in Figure 2. For a pathp t = (CM
+i ,CC
+j ):
+1. Generation & Verification.The LLM gen-
+erates the modeling logic ˆmraw using the cluster’s
+canonical approachKapproach
+i . Immediately, it veri-
+fiesˆmraw against the cluster’s checklistK checklist
+i :
+ˆmraw =LLM gen(xnew|K approach
+i )(7)
+ˆm=LLMverify( ˆmraw|K checklist
+i )(8)
+Once the ˆmis established, DCM-Agent transitions
+to code generation. The executable code ˆcis gener-
+ated using the coding cluster’s templatesKapproach
+j
+and rigorously checked against guidelinesKchecklist
+j ,
+ensuring the robustness of the code structure
+2. Repair & Backtracking.If the execution
+E(ˆc)fails, resulting in the runtime error e, DCM-
+Agent initiates a knowledge-guided repair mecha-
+nism. Instead of blind debugging, it systematically
+analyzese in the context of the cluster’s specific pit-
+fall warningsKpitfall
+j , which contain common error
+patterns associated with this algorithm type:
+ˆcfixed =LLM fix(ˆc,e|K pitfall
+j ,K checklist
+j )(9)
+If repair attempts fail to yield a solution within a
+limit, the agent triggers a backtracking protocol. It
+discards the path and activates the nextpt+1 from
+Q, preventing the system from getting stuck in
+local optima and ensuring robust problem-solving.
+4 Experiment
+4.1 Experiment Setups
+Datasets.To comprehensively evaluate our DCM-
+Agent framework across a spectrum of complexi-
+ties, we utilize a diverse suite of seven optimization
+benchmarks. We employ NL4Opt (Ramamonjison
+et al., 2023) and NLP4LP (AhmadiTeshnizi et al.,
+2024) as standard baselines for linear and mixed-
+integer programming. To ensure rigorous testing on
+more demanding tasks, we incorporate OptiBench
+(Yang et al., 2025b), OptMATH (Lu et al., 2025),
+and the ComplexLP subset of MAMO (Huang et al.,
+2025c). Finally, we assess real-world applicabil-
+ity using IndustryOR (Huang et al., 2025a) and
+ComplexOR (Xiao et al., 2023) datasets. The mem-
+ory is constructed using 500 problems randomly
+sampled from the mathematical programming and
+combinatorial optimization domains within Opti-
+Verse benchmark (Zhang et al., 2026), ensuring no
+intersection with the evaluation benchmarks.
+Baselines.We systematically compare DCM-
+Agent with diverse methods on different LLMs
+of varying sizes, ranging from generic standard
+LLMs to advanced specialized optimization frame-
+works. We first establish a fundamental baseline us-
+ing LLMs of varying sizes, including Qwen3 series
+(8B, 30B, 235B) (Yang et al., 2025a), DeepSeek-
+V3.2 (Liu et al., 2025a), and GPT-5.1 (OpenAI,
+2025). Subsequently, we compare against repre-
+sentative specialized methods: (1) OptiMUS (Ah-
+madiTeshnizi et al., 2024), a multi-agent workflow
+that enhances reliability through structured input
+processing; (2) AF-MCTS (Astorga et al., 2025),
+which employs Monte Carlo Tree Search to sequen-
+tially identify variables, constraints, and objectives;
+and (3) OptiTree (Liu et al., 2025c), which tackles
+high-complexity tasks by adaptively decomposing
+problems into manageable sub-problems.
+Evaluation.Consistent with prior research, we
+adopt strictend-to-end solving accuracyas our pri-
+mary evaluation metric. Our protocol evaluates the
+complete resolution pipeline: given a problem, the
+model generates the code c to produce execution
+outputo=Python(c) , where the allowed libraries
+areGurobi,PuLP,OR-Tools,SciPy, andNetworkX.
+A problem is considered solved if the extracted nu-
+merical answers for both the requirement and the
+
+Method Datasets Avg.
+NL4Opt ComplexLP NLP4LP OptiBench OptMATH IndOR ComplexOR
+Size230 211 242 605 166 100 18 -
+Qwen3-8B
+Baseline 41.74 16.11 35.12 30.58 10.24 19.00 22.22 27.99
+OptiMUS 53.48 23.22 43.39 44.13 15.06 23.00 33.33 38.04
+AF-MCTS 47.39 19.43 39.26 36.53 12.65 21.00 33.33 32.70
+OptiTree 55.22 25.59 46.28 45.12 16.26 25.00 38.89 39.76
+DCM-Agent 64.35 32.23 62.40 55.37 21.69 30.00 50.00 49.43
+Qwen3-30B
+Baseline 55.22 28.44 52.07 43.64 16.87 25.00 38.89 40.52
+OptiMUS 63.48 33.64 63.64 56.20 24.70 29.00 50.00 50.25
+AF-MCTS 65.65 34.60 68.18 57.68 25.90 31.00 50.00 52.22
+OptiTree 70.88 36.49 70.25 59.50 27.71 30.00 55.56 54.45
+DCM-Agent 77.39 41.23 76.03 64.30 32.53 34.00 61.11 59.61
+Qwen3-235B
+Baseline 78.13 40.76 74.38 60.83 31.33 32.00 55.56 57.74
+OptiMUS 83.48 44.55 77.27 64.30 37.95 34.00 66.67 61.77
+AF-MCTS 87.39 46.92 78.93 68.26 40.36 37.00 61.11 64.82
+OptiTree 89.56 48.82 80.16 70.74 41.57 36.00 66.67 66.66
+DCM-Agent 93.48 54.76 84.71 75.21 46.39 40.00 72.22 71.28
+Deepseek-V3.2
+Baseline 82.61 38.39 71.73 58.68 36.75 34.00 61.11 57.61
+OptiMUS 86.09 43.60 75.21 62.15 39.76 36.00 66.67 61.20
+AF-MCTS 89.13 46.92 78.10 67.27 43.98 39.00 66.67 65.14
+OptiTree 90.87 47.87 79.34 70.08 47.59 38.00 72.22 67.18
+DCM-Agent 95.22 53.55 83.06 74.05 52.73 41.00 77.77 71.47
+GPT5.1
+Baseline 87.39 55.45 84.30 68.26 43.38 44.00 66.67 67.62
+OptiMUS 90.43 58.77 86.78 71.07 45.78 46.00 72.22 70.42
+AF-MCTS 94.47 60.66 88.84 74.71 51.20 51.00 77.77 73.93
+OptiTree 95.65 62.56 90.08 76.86 53.61 49.00 77.77 75.51
+DCM-Agent 97.83 65.40 93.39 80.16 55.42 53.00 83.33 78.50
+Table 2: Solving accuracy (%) comparison across different datasets. The best results are highlighted inbold.
+Method NLP4LP OptiBench OptMATH
+Baseline 8.3s 13.7s 21.7s
+OptiMUS 26.5s 46.6s 86.3s
+AF-MCTS 85.3s 110.8s 205.7s
+OptiTree 17.7s 33.5s 61.6s
+DCM-Agent 22.1s 41.3s 73.4s
+Table 3: Time cost statistics (in seconds) of the Qwen3-
+235B model across selected benchmarks.
+objective function match the ground truth.
+4.2 Main Results
+By carefully analyzing the accuracy results in Ta-
+ble 2 alongside the detailed time cost statistics in
+Table 3, we derive the following key insights:
+Superiority of Our DCM-Agent across Model
+Scales.DCM-Agent consistently achieves the high-
+est accuracy across all evaluated model sizes, rang-
+Ratio0% 10% 40% 70% 100%
+NLP4LP 74.38 78.51 81.40 82.64 84.71
+OptiBench 60.83 66.45 71.57 74.05 75.21
+OptMATH 31.33 36.75 40.36 44.58 46.39
+Table 4: Performance comparison under different mem-
+ory budgets (10%, 40%, 70%, and 100%) with Qwen3-
+235B across selected datasets. The results demonstrate
+the impact of memory constraints on solving accuracy.
+ing from the 8B parameter scale to GPT5.1. This
+uniform success demonstrates the framework’s ro-
+bustness and its capability to serve as a universal
+performance enhancer for optimization tasks re-
+gardless of the underlying backbone architecture.
+Lower Capability Requirements for Memory
+Construction.The performance gains of DCM-
+Agent are most pronounced on smaller LLMs be-
+cause its structured memory construction process is
+
+Memory NLP4LP OptiBench OptMATH
+Qwen3-8B
+Baseline 35.12 30.58 10.24
+Qwen3-8B 62.40 55.37 21.69
+Qwen3-30B 67.36 59.34 23.49
+Qwen3-235B69.42 60.17 25.30
+DeepSeek-V3.2 66.53 58.68 24.10
+GPT-5.1 65.28 57.52 22.89
+Qwen3-235B
+Baseline 74.38 60.83 31.33
+Qwen3-8B 78.51 69.59 40.96
+Qwen3-30B 82.64 73.22 43.98
+Qwen3-235B 84.71 75.21 46.39
+DeepSeek-V3.2 85.54 76.03 47.59
+GPT-5.186.36 77.36 48.19
+Table 5: Cross-model knowledge transfer: Impact of
+memory construction model on performance (%).
+/uni00000034/uni0000005a/uni00000048/uni00000051/uni00000016/uni00000010/uni0000001b/uni00000025/uni00000034/uni0000005a/uni00000048/uni00000051/uni00000016/uni00000010/uni00000016/uni00000013/uni00000025/uni00000034/uni0000005a/uni00000048/uni00000051/uni00000016/uni00000010/uni00000015/uni00000016/uni00000018/uni00000025/uni00000027/uni00000048/uni00000048/uni00000053/uni00000036/uni00000048/uni00000048/uni0000004e/uni00000010/uni00000039/uni00000016/uni00000011/uni00000015/uni0000002a/uni00000033/uni00000037/uni00000010/uni00000018/uni00000011/uni00000014
+/uni00000013
+/uni00000015/uni00000013
+/uni00000017/uni00000013
+/uni00000019/uni00000013
+/uni0000001b/uni00000013/uni00000031/uni00000058/uni00000050/uni00000045/uni00000048/uni00000055/uni00000003/uni00000052/uni00000049/uni00000003/uni00000026/uni0000004f/uni00000058/uni00000056/uni00000057/uni00000048/uni00000055/uni00000056
+/uni00000014/uni00000014
+/uni00000014/uni0000001b
+/uni00000016/uni0000001a
+/uni00000018/uni00000017
+/uni0000001a/uni0000001b
+/uni00000019 /uni0000001c /uni00000014/uni00000014
+/uni00000014/uni0000001b
+/uni00000015/uni00000017
+/uni00000030/uni00000052/uni00000047/uni00000048/uni0000004f/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000026/uni0000004f/uni00000058/uni00000056/uni00000057/uni00000048/uni00000055/uni00000056/uni00000026/uni00000052/uni00000047/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000026/uni0000004f/uni00000058/uni00000056/uni00000057/uni00000048/uni00000055/uni00000056
+Figure 4: Statistical distribution of the number of two
+clusters obtained from LLMs of different sizes.
+relatively less demanding on the model’s inherent
+reasoning power. By offloading constraint manage-
+ment to an external memory module, DCM-Agent
+allows smaller models to overcome their parameter
+limitations and thereby achieve competitive results
+typically reserved for much larger models.
+Balanced Efficiency and Computational Over-
+head.As shown in Table 3, DCM-Agent signif-
+icantly reduces the cost time compared to heavy
+search-based methods like AF-MCTS while main-
+taining superior accuracy. This suggests that DCM-
+Agent’s memory-driven reasoning is more compu-
+tationally purposeful than exhaustive tree explo-
+ration, providing an optimal overall trade-off be-
+tween solving performance and time efficiency.
+4.3 Dual-Cluster Memory Analysis
+Cluster Statistics across LLMs.We investigate
+the number of Modeling Clusters (MC) and Con-
+straint Clusters (CC) generated by different LLMs
+during the memory construction phase. As illus-
+trated in Figure 4, stronger models (e.g., GPT-
+5.1) tend to generate a significantly higher number
+/uni00000031/uni0000002f/uni00000033/uni00000017/uni0000002f/uni00000033/uni00000032/uni00000053/uni00000057/uni0000004c/uni00000025/uni00000048/uni00000051/uni00000046/uni0000004b/uni00000032/uni00000053/uni00000057/uni00000030/uni00000024 /uni00000037/uni0000002b
+/uni00000013
+/uni00000015/uni00000013
+/uni00000017/uni00000013
+/uni00000019/uni00000013
+/uni0000001b/uni00000013
+/uni00000014/uni00000013/uni00000013/uni00000024/uni00000046/uni00000046/uni00000058/uni00000055/uni00000044/uni00000046/uni0000005c/uni00000003/uni0000000b/uni00000008/uni0000000c
+/uni0000001b/uni00000017/uni00000011/uni0000001a
+/uni0000001a/uni00000018/uni00000011/uni00000015
+/uni00000017/uni00000019/uni00000011/uni00000017
+/uni0000001a/uni0000001a/uni00000011/uni0000001a
+/uni00000019/uni0000001b/uni00000011/uni00000014
+/uni00000016/uni0000001c/uni00000011/uni0000001b
+/uni0000001b/uni00000014/uni00000011/uni00000013
+/uni0000001a/uni00000015/uni00000011/uni00000014
+/uni00000017/uni00000015/uni00000011/uni0000001b
+/uni00000027/uni00000026/uni00000030/uni00000024/uni0000005a/uni00000012/uni00000052/uni00000003/uni00000030/uni00000052/uni00000047/uni00000048/uni0000004f/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000026/uni0000004f/uni00000058/uni00000056/uni00000057/uni00000048/uni00000055/uni0000005a/uni00000012/uni00000052/uni00000003/uni00000026/uni00000052/uni00000047/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000026/uni0000004f/uni00000058/uni00000056/uni00000057/uni00000048/uni00000055
+Figure 5: Ablation study on NLP4LP, OptiBench, and
+OptMATH datasets using Qwen3-235B.
+Setting NLP4LP OptiBench OptMATH
+Retrieval Top-Kin construction and inference
+K= 179.34 70.91 40.36
+K= 384.71 75.21 46.39
+K= 583.06 74.05 43.98
+Memory Update Threshold (N) in construction
+N= 184.30 74.21 44.58
+N= 584.71 75.21 46.39
+N= 1082.64 72.73 42.77
+Planning Candidates (M) in inference
+M= 182.23 72.56 42.17
+M= 384.71 75.21 46.39
+M= 585.54 75.87 46.99
+Table 6: Parameter sensitivity analysis on key hyperpa-
+rameters (K,M,N) across three benchmarks.
+of Modeling Clusters compared to smaller mod-
+els (e.g., Qwen3-8B). This suggests that advanced
+LLMs possess a more granular understanding of
+abstract problem structures, allowing them to disen-
+tangle subtle differences in mathematical formula-
+tions that smaller models might otherwise conflate.
+Impact of Memory Nodes.We assess the sys-
+tem’s robustness by varying the available memory
+budget from 0% to 100% using Qwen3-235B as
+the backbone. As shown in Table 4, performance
+improves progressively as the number of memory
+nodes increases. This confirms that the breadth of
+historical experiences directly correlates with the
+system’s ability to generalize to novel problems.
+Cross-Model Memory Transferability.A piv-
+otal advantage of DCM-Agent lies in the archi-
+tectural decoupling of memory construction from
+inference, enabling flexible cross-model synergy.
+As shown in Table 5, we observe a compelling
+“knowledge inheritance” effect: structural priors
+generated by superior models significantly elevate
+the performance of smaller counterparts. How-
+ever, performance eventually declines as memory-
+generating LLMs become exceptionally powerful;
+
+Question: Lucy wants to mix dog food to minimize cost while meeting nutrients (15 Ca, 20 Vit, 20 Protein). Regular brand costs $20/ba g
+(4 Ca, 7 Vit, 10 Protein). Premium brand costs $35/bag (12 Ca, 10 Vit, 16 Protein). How many bags of each brand should Lucy mix?
+Baseline DCM-Agent
+from ortools.linear_solver import pywraplp
+def solve_dog_food_mix():
+# Create the linear solver using the GLOP backend.
+solver = pywraplp.Solver.CreateSolver('GLOP')
+if not solver:
+return "Solver could not be created."
+# Decision variables: number of bags of regular and premium brands.
+x_reg = solver.NumVar(0, solver.infinity(), 'x_reg') # Regular bra
+nd bags
+x_prem = solver.NumVar(0, solver.infinity(), 'x_prem') # Premium b
+rand bags
+# Nutritional constraints:
+# Calcium: 4*x_reg + 12*x_prem >= 15
+solver.Add(4 * x_reg + 12 * x_prem >= 15, 'calcium')
+# Vitamin mix: 7*x_reg + 10*x_prem >= 20
+solver.Add(7 * x_reg + 10 * x_prem >= 20, 'vitamin')
+[Error: Uses Continuous
+LP Solver]
+[Error: Defines
+Continuous
+Variables for
+discrete items]
+Generate Solver Code Generate Solver Code
+Optimal solution found:
+Regular brand bags = 2.05 ❌
+Premium brand bags = 0.57 ❌
+Minimum total cost = $60.80❌
+（Physically Impossible: Fractional Bags）
+(Deceptive/Underestimated Cost)
+Execution Output (Infeasible Solution) Execution Output (Feasible Real-World Solution)
+from ortools.linear_solver import pywraplp
+def solve_dog_food_mix():
+solver = pywraplp.Solver.CreateSolver('CBC')
+if not solver:
+return
+# Decision variables - integer bags
+x1 = solver.IntVar(0, solver.infinity(), 'x1') # bags of regular
+brand
+x2 = solver.IntVar(0, solver.infinity(), 'x2') # bags of premium
+brand
+# Objective function: minimize total cost
+solver.Minimize(20 * x1 + 35 * x2)\n\n # Constraints
+# Calcium: 4*x1 + 12*x2 >= 15
+solver.Add(4 * x1 + 12 * x2 >= 15, 'Calcium')
+# Vitamin mix: 7*x1 + 10*x2 >= 20
+solver.Add(7 * x1 + 10 * x2 >= 20, 'VitaminMix')
+[Correct: Uses Mixed Integer
+(MIP) Solver]
+[Correct: Defines Integer
+Variables]
+Optimal solution found:
+Bags of regular brand (x1) = 0 ✅
+Bags of premium brand (x2) = 2 ✅
+Minimum total cost = $70.00 ✅
+（Feasible Integer Solution）
+(Actual Real Cost)
+Figure 6: Comparison between the baseline and DCM-Agent on a discrete optimization task. DCM-Agent correctly
+identifies integrality constraints, whereas the baseline produces a physically infeasible fractional solution.
+we hypothesize that the resulting high-density clus-
+ter information exceeds the processing capacity of
+smaller models. This confirms that while weaker
+models can inherit superior structural reasoning
+from stronger ones, the complexity remains within
+the target model’s processing threshold.
+4.4 Ablation Studies
+To assess the impact of DCM-Agent’s components,
+we conduct ablation studies using Qwen3-235B
+by selectively removing the Modeling and Coding
+Clusters. As illustrated in Figure 5, the complete
+framework consistently yields the highest accuracy,
+validating the synergy of the dual-cluster mecha-
+nism. We observe that the removal of Modeling
+Clusters results in a sharper performance drop com-
+pared to removing Coding Clusters (e.g., the blue
+bars are consistently lower than the orange ones).
+This result confirms that while executable code
+guidance is beneficial, decoupling and retrieving
+precise mathematical logic is the decisive factor for
+solving complex optimization problems.
+4.5 Parameter Analysis
+We systematically evaluate DCM-Agent’s sensitiv-
+ity to retrieval size (K), update threshold (N), and
+planning candidates (M), summarized in Table 6.
+BothK andN exhibit a distinct bell-shaped trend,
+peaking atK= 3 andN= 5 . Lower values suffer
+from insufficient context or unstable generalization
+(overfitting to isolated samples), while higher val-
+ues are hampered by excessive input context length
+or delayed knowledge consolidation. In contrast,
+increasingM yields consistent monotonic gains by
+broadening the search space. However, given the
+marginal improvement at M= 5 relative to the
+incurred computational overhead, we adoptM= 3
+to ensure the optimal cost-effectiveness.
+4.6 Case Study
+As shown in Figure 6, DCM-Agent identifies im-
+plicit integrality constraints (e.g., discrete bag quan-
+tities) and selects an appropriate Mixed-Integer Pro-
+gramming (MIP) solver. Conversely, the baseline
+overlooks these constraints due to semantic mis-
+alignment, treating the problem as a continuous
+linear task. While the baseline reports a nominally
+lower cost ($60.80 vs. $70.00), its reliance on
+fractional quantities results in an infeasible solu-
+tion. This “deceptive optimality” underscores that
+numerical performance is secondary to the founda-
+tional correctness of the modeling logic, such as the
+proper distinction betweenIntVarandNumVar.
+5 Conclusion
+We presented the novel Dual-Cluster Memory
+Agent (DCM-Agent), which addresses structural
+ambiguity in optimization by decoupling abstract
+modeling logic from concrete code implementa-
+tion. By leveraging Dual-Cluster Organization
+
+and Evolutionary Experience Stratification, DCM-
+Agent provides precise algorithm-specific guidance
+through stratified historical insights. Empirical re-
+sults across seven benchmarks confirm that DCM-
+Agent achieves consistent state-of-the-art accuracy
+across various model scales while not introducing
+too much computational overhead. This framework
+effectively bridges the critical gap between math-
+ematical formulation and executable solver code,
+significantly improving overall solution robustness.
+DCM-Agent thus offers a scalable and efficient ap-
+proach to navigating the highly complex decision
+space of automated optimization problem solving.
+6 Acknowledgements
+This work was supported by Fundamental
+and Interdisciplinary Disciplines Breakthrough
+Plan of the Ministry of Education of China
+(JYB2025XDXM116), National Natural Science
+Foundation of China (No. 62137002, 62293550,
+62293553, 62293554, 62437002, 62477036,
+62477037, 62192781), the Shaanxi Provincial So-
+cial Science Foundation Project (No. 2024P041),
+the Youth Innovation Team of Shaanxi Universities
+"Multi-modal Data Mining and Fusion", and Xi’an
+Jiaotong University City College Research Project
+(No. 2024Y01).
+7 Limitation
+Despite the superior performance of the Dual-
+Cluster Memory Agent (DCM-Agent) across vari-
+ous benchmarks and model scales, we identify one
+primary limitation concerning the framework’s ini-
+tialization process. A notable bottleneck lies in
+the initialization latency during the memory con-
+struction phase. Specifically, distilling structured
+knowledge requires collecting and classifying his-
+torical trajectories into distinct categories and pro-
+gressively building the bipartite graph. This pro-
+cess incurs a one-time computational overhead that
+is non-negligible compared to zero-shot prompting.
+However, it is crucial to emphasize that this repre-
+sents a "sunk cost": once the Dual-Cluster Mem-
+ory is fully constructed and stabilized, the frame-
+work operates in a plug-and-play manner. The
+subsequent Memory-Augmented Inference phase
+is highly efficient, relying on fast embedding re-
+trieval and path planning rather than exhaustive
+re-generation. This design effectively amortizes
+the initial construction cost over long-term usage.
+In future work, we aim to explore online learning
+mechanisms that enable the memory to evolve dy-
+namically through user interactions, eliminating
+the need for full reconstruction cycles.
+8 Ethical Statement
+In developing DCM-Agent, we have rigorously
+considered the ethical implications of our research,
+particularly concerning data integrity, privacy, and
+computational sustainability. Our experiments uti-
+lize established, publicly available optimization
+benchmarks (including NL4Opt, OptiBench, and
+NLP4LP) and our own collection of 500 questions,
+which consist solely of mathematical optimization
+problems and their solutions. We have verified that
+these datasets do not contain personally identifying
+information, sensitive data, or offensive content.
+The problems are purely technical in nature, involv-
+ing mathematical formulations and programming
+tasks without any reference to individual identities
+or potentially harmful content. We strictly adhere
+to the licensing agreements of these datasets and
+the large language models employed (e.g., Qwen,
+DeepSeek, GPT). By demonstrating that smaller
+models (e.g., 8B parameters) can achieve state-
+of-the-art performance when augmented with our
+memory system—often surpassing unaugmented
+larger models—DCM-Agent offers a pathway to re-
+duce the substantial energy consumption typically
+associated with running massive foundation mod-
+els for complex reasoning tasks. This contribution
+aligns with the broader goal of developing more
+sustainable and accessible AI systems.

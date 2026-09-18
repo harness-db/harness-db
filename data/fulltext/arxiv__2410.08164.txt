@@ -1,0 +1,613 @@
+record_id: arxiv:2410.08164
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2410.08164
+fetched_title: AGENT S: A N OPEN AGENTIC FRAMEWORK THAT USES COMPUTERS LIKE A HUMAN
+fetched_at: 2026-09-18T18:59:44Z
+
+Preprint
+AGENT S: A N OPEN AGENTIC FRAMEWORK THAT
+USES COMPUTERS LIKE A HUMAN
+Saaket Agashe∗, Jiuzhou Han∗, Shuyu Gan, Jiachen Yang, Ang Li, Xin Eric Wang
+Simular Research
+Human
+Can you help me calculate the total
+sales, average monthly sales, and
+generate visualizations?
+Online Web Search
+* Select the cells containing
+all the required data …
+* Click theInsert Charticon
+on the Standard toolbar …
+Agent-Computer Interface
+agent.type(“=SUM(Sheet1.A2:A20)”)
+The total sales have been calculated …
+agent.drag_and_drop(ele_id1, ele_id2)
+The cells have been selected …
+Planning
+Subtask
+Execution
+Subtask 1:Calculate the total sales
+Subtask 2: Calculate the average sales
+Subtask 3:Create a chart to visualize
+...
+Hierarchical Planning
+Abstractive Task Experience
+Retrieval
+External Knowledge
+Subtask Experience
+Retrieval
+Narrative Memory
+I did similar tasks in doing
+calculationinLibreOfficeCalc.
+Use the formula SUM to …
+Episodic Memory
+To sum … and select the cell…,
+-agent.type()
+-agent.drag_and_drop() …
+Figure 1: Agent S uses a computer like a human to solve diverse desktop tasks on different systems.
+ABSTRACT
+We present Agent S, an open agentic framework that enables autonomous in-
+teraction with computers through a Graphical User Interface (GUI), aimed at
+transforming human-computer interaction by automating complex, multi-step
+tasks. Agent S aims to address three key challenges in automating computer
+tasks: acquiring domain-specific knowledge, planning over long task horizons,
+and handling dynamic, non-uniform interfaces. To this end, Agent S introduces
+experience-augmented hierarchical planning, which learns from external knowl-
+edge search and internal experience retrieval at multiple levels, facilitating ef-
+ficient task planning and subtask execution. In addition, it employs an Agent-
+Computer Interface (ACI) to better elicit the reasoning and control capabilities
+of GUI agents based on Multimodal Large Language Models (MLLMs). Eval-
+uation on the OSWorld benchmark shows that Agent S outperforms the base-
+line by 9.37% on success rate (an 83.6% relative improvement) and achieves a
+new state-of-the-art. Comprehensive analysis highlights the effectiveness of in-
+dividual components and provides insights for future improvements. Further-
+more, Agent S demonstrates broad generalizability to different operating sys-
+tems on a newly-released WindowsAgentArena benchmark. Code available at
+https://github.com/simular-ai/Agent-S.
+1 I NTRODUCTION
+“The digital revolution is far more significant than the invention of writing or even of printing. ”
+— Douglas Engelbart, The Inventor of Computer Mouse
+Since its invention, the mouse has been controlled by humans for interacting with computers. But
+does it really have to be? Autonomous Graphical User Interface (GUI) agents offer the promise of
+∗Equal contributions.
+1
+arXiv:2410.08164v1 [cs.AI] 10 Oct 2024
+
+Preprint
+solving very specific and highly varied user queries—such as data entry, scheduling, and document
+creation for individual users, and streamlining operations in commercial settings—in the most gen-
+eral way: through direct UI interaction using the mouse and keyboard. Moreover, by eliminating
+the need for constant manual interaction, these agents not only boost efficiency but also improve
+accessibility, empowering individuals with disabilities to interact with technology in new, trans-
+formative ways. Recent advancements in Multimodal Large Language Models (MLLMs), such as
+GPT-4o (OpenAI, 2023) and Claude (Anthropic, 2024), have laid the foundation for the develop-
+ment of GUI agents for human-centred interactive systems like desktop OS (Xie et al., 2024; Bonatti
+et al., 2024).
+However, automating computer tasks presents significant challenges. First, the vast range of
+constantly-evolving applications and websites requires the agent to possess specialized and up-to-
+date domain knowledge and the ability to learn from open-world experience. Second, complex
+desktop tasks often involve long-horizon, multi-step planning with interdependent actions that must
+be executed in a specific sequence. The agent must, therefore, create a clear plan with interme-
+diate subgoals and track task progress. Third, GUI agents must navigate dynamic, non-uniform
+interfaces, processing large volumes of visual and textual information while operating within a vast
+action space. This involves distinguishing between relevant and irrelevant elements, accurately in-
+terpreting graphical cues, and responding to visual feedback during task execution.
+In this paper, we present Agent S, a new agentic framework that tackles these challenges towards
+the goal of using computers like a human. First, to enhance the GUI agent’s capabilities in solving
+diverse, long-horizon desktop tasks with specific domain knowledge, we propose an Experience-
+Augmented Hierarchical Planning method. This approach leverages Online Web Knowledge and
+past experiences stored in Narrative Memory to decompose the complex, long-horizon task into a
+structured plan of manageable subtasks (see Figure 1). Online Web Knowledge provides up-to-date
+external knowledge about specific applications, allowing the agent to adapt to frequently chang-
+ing software and websites. Narrative Memory contains high-level, abstractive task experiences from
+past interactions, equipping the agent with contextual understanding for effective task planning. The
+agent monitors task completion progress, and during each subtask execution, it retrieves detailed,
+step-by-step subtask experience from Episodic Memory to dynamically refine its actions and contin-
+uously improve its planning ability. Successful subtasks and the full task experience are evaluated,
+summarized, and stored in episodic and narrative memory to enable continual improvement.
+41.7%
+6.2%
+12.3%
+14.3%
+7.5%
+45.8%
+13.0%
+27.1%
+36.7%
+10.5%
+0%
+10%
+20%
+30%
+40%
+50%
+Operating
+System
+Office Daily Professional Workflow
+OSWorld Agent S
+Figure 2: Agent S vs. OSWorld Agent results
+across five broad computer task categories.
+Furthermore, we introduce a specific language-
+centric Agent-Computer Interface (ACI)
+(Lieberman & Selker, 2003) as an abstraction
+layer to improve grounding, safety, and ef-
+ficiency for MLLM-based GUI agents. The
+ACI defines an interaction paradigm by (1)
+a dual-input strategy using visual input for
+understanding environmental changes together
+with an image-augmented accessibility tree for
+precise element grounding; (2) a bounded ac-
+tion space of language-based primitives (e.g.,
+click(element id)) that are conducive to
+MLLM common-sense reasoning and generate
+environment transitions at the right temporal
+resolution for the agent to observe immediate
+and task-relevant environment feedback.
+Our approach shows a remarkable improvement in the overall performance of Agent S on the
+OSWorld benchmark (OpenAI, 2023) (from 11.21% to 20.58%, with a relative improvement of
+83.6%), establishing the new state-of-the-art results. The detailed comparison is shown in Fig-
+ure 2, which demonstrates consistent improvements by Agent S across five broad computer task
+categories over the OSWorld agent. We also evaluate our Agent S on a concurrent work—
+WindowsAgentArena (Bonatti et al., 2024), where we observe a performance improvement from
+13.3% to 18.2% on an equivalent setup without any explicit adaptation. The improvement
+demonstrates the broad generalizability of Agent S to different operating systems. We detail the
+component-wise improvements introduced by the proposed strategies through ablation studies and
+2
+
+Preprint
+present a comprehensive error analysis of our Agent S framework. In summary, our contributions
+are four-fold:
+• We introduce Agent S, a new agentic framework that integrates experience-augmented hierar-
+chical planning, self-supervised continual memory update, and an Agent-Computer Interface for
+MLLM-based GUI agents to perform complex computer tasks.
+• We propose an experience-augmented hierarchical planning method that uses experience from
+external web knowledge and the agent’s internal memory to decompose complex tasks into exe-
+cutable subtasks.
+• We extend the concept of an ACI to GUI agents, allowing MLLM-based agents to operate com-
+puters more precisely using a set of high-level, predefined primitive actions.
+• We conduct extensive experiments on OSWorld to show the effectiveness of individual compo-
+nents of Agent S, establishing new state-of-the-art on automating computer tasks. Besides, we
+demonstrate its generalizability across different operating systems on WindowsAgentArena.
+2 R ELATED WORK
+MLLM Agents. The advent of Multimodal Large Language Models (MLLMs) has led to a host of
+works that utilize them as a reasoning backbone in Agentic Systems (Sumers et al., 2024). These
+Agents augment LLMs with Memory, Structured Planning (Wang et al., 2023; Shinn et al., 2023;
+Weng et al., 2023), Tool Use (Schick et al., 2023; Shen et al., 2023; Patil et al., 2023) and the ability
+to Act in external environments Park et al. (2023). These agents have shown promise in domains
+ranging from embodied simulators (Liang et al., 2023; Song et al., 2023) to video games (Wu et al.,
+2023; Wang et al., 2024) and scientific research (Bran et al., 2023). For Software Engineering (Hong
+et al., 2024; Qian et al., 2024) in particular, Yang et al. (2024) proposed an Agent-Computer Interface
+(Lieberman & Selker, 2003) for MLLM agents to understand and act more efficiently and reliably.
+Our work extends and integrates these individual modules into a new MLLM agent framework for
+computer control.
+GUI Agents. MLLM agents have been applied to execute natural language instructions in both web
+and OS environments. Early research concentrated on web navigation tasks, utilizing MLLMs to in-
+teract with web interfaces (Gur et al., 2024; He et al., 2024; Kim et al., 2023; Shaw et al., 2023; Putta
+et al., 2024). Recently, the focus has shifted to OS-level environments, leading to the development of
+benchmarks and frameworks such as OSWorld Xie et al. (2024) and WindowsAgentArena Bonatti
+et al. (2024) for desktop control, and DiGIRL (Bai et al., 2024) and AndroidWorld (Rawles et al.,
+2024) for mobile environments. These OS-level tasks offer broader control capabilities beyond
+the limitations of single-browser contexts in web navigation. Methodologically, earlier GUI agents
+employed behavioral cloning with reinforcement learning (Humphreys et al., 2022), in-context tra-
+jectory examples (Zheng et al., 2024b), state-dependent offline experience (Fu et al., 2024b), and
+reusable skill generation (Wang et al., 2024). Contemporaneous work on GUI agents for video
+games and OS (Wu et al., 2024; Song et al., 2024; Tan et al., 2024) propose varying instances
+of cognitive architectures (Sumers et al., 2024). Our work contributes unique modules such as
+experience-augmented hierarchical planning and ACI for GUI control, integrated with a novel con-
+tinual memory update framework.
+Retrieval-Augmented Generation (RAG) for AI Agents. RAG (Fan et al., 2024) improves the
+reliability of MLLM inference by augmenting the input with reliable and up-to-date external knowl-
+edge. Similarly, MLLM agents benefit from retrieving task exemplars (Kim et al., 2024), state-aware
+guidelines (Fu et al., 2024a), and past experiences (Kagaya et al., 2024). Our use of experience for
+augmentation differs in three ways: 1) our hierarchical planning leverages both full task experience
+and subtask experience; 2) the full task experience is summarized into an abstractive textual reward
+for subtask planning; 3) the subtask experience is assessed and annotated by a self-evaluator before
+being stored in memory.
+3 A GENT S
+Agent S, illustrated in Figure 3, is a novel framework that integrates three main strategies in a
+closed loop to tackle complex GUI-based operating system control tasks: experience-augmented
+3
+
+Preprint
+Manager
+Narrative
+Memory
+Experience
+Context Fusion
+Subtask Planner
+𝑆0
+𝑆𝑛
+Worker
+Trajectory
+Reflector
+Episodic
+Memory
+Action Generator
+𝑆1
+𝑤0
+𝑤1
+𝑆𝑛 𝑤𝑛
+Agent Computer
+Interface
+Bounded
+Action Space
+ID-Grounding
+OCR
+Augmentation
+𝑎𝑡
+𝑜0
+𝑜𝑡
+𝐸𝑛
+Evaluator𝐸𝑒
+Desktop
+Environment
+𝑇𝑢
+Workers 𝑤0. . 𝑤𝑛
+Subtasks 𝑆0. . 𝑆𝑛
+Observation
+Action
+User Task
+Episodic
+Experience
+Narrative
+Experience
+Web
+Knowledge
+Figure 3: Overview of the Agent S framework. Given task Tu and initial environment observation
+o0, the Manager conducts experience-augmented hierarchical planning using web knowledge and
+narrative memory to produce subtasks s0, . . . , sn. For each si, Worker wi draws from episodic
+memory to generate an actionat at time t, which is executed by the ACI to return the next immediate
+observation ot+1. A self-evaluation module closes the loop by storing the summarized subtask and
+full-task trajectories in narrative and episodic memory.
+hierarchical planning, continual update of narrative and episodic memory, and an Agent-Computer
+Interface for precise perception and action on GUIs. Experience-augmented hierarchical planning
+allows Agent S to break down complex tasks into manageable subtasks. This enables both high-level
+planning and low-level execution to draw from external web-based experience and internal task-
+specific experience. A continual process of storing and retrieving self-evaluated task experience in
+narrative and episodic memory enables Agent S to improve over time and adapt to changes in the
+open-world desktop environment. The ACI ensures grounding by providing a vision-augmented
+accessibility tree observation containing all valid GUI elements and constraining the agent’s chosen
+action to a bounded discrete space of valid actions. Below, we describe each component and its
+integration in detail.
+3.1 E XPERIENCE -AUGMENTED HIERARCHICAL PLANNING
+3.1.1 M ANAGER : F USING EXTERNAL KNOWLEDGE AND INTERNAL EXPERIENCE FOR
+PLANNING
+The Manager G is the primary plan generator module in our system. It receives a task Tu from
+the user and the initial environment observation O0 (Annotated Accessibility Tree + Screenshot)
+from the ACI as input. The manager formulates an observation-aware query Q based on the user
+instruction and its observation in a “How to do X” format. This query is used for two types of
+retrieval. First, the query is used for Online Web Search through Perplexica Search Engine 1 to
+get external knowledge. Then the same query is used to retrieve a similar task experience summary
+from the Manager’s own Narrative Memory Mn. The retrieval is based on the similarity of the
+query embedding.
+The Narrative Memory includes summaries of both successful and failed trajectories with specific
+actions removed as abstractive full task experience Enu. The success/failure is evaluated by the
+Self-Evaluator S module (described in Subsection 3.1.3) without any human feedback or ground
+truth information. This two-step retrieval provides the Manager with both the general and specific
+1https://github.com/ItzCrazyKns/Perplexica
+4
+
+Preprint
+domain knowledge required to plan for the task. The outputs of the retrieval process are fused into a
+single fused guideline using the Experience Context Fusion submodule, represented formally as:
+Q = LLM(Tu, O0)
+Kweb = Retrieve(Web, Q)
+Enu = Retrieve(Mn, Q)
+Kfused = LLM(Mn(Q), Kweb)
+The fused knowledge Kfused is then used by Subtask Planner submodule of the Manager to for-
+mulate a detailed, topologically sorted queue of subtasks ⟨s0...sn⟩ that can accomplish the user
+instruction. The manager also generates associated context Csi for each subtask si which includes
+additional information useful to accomplish the subtask.
+3.1.2 W ORKER : L EARNING FROM SUBTASK EXPERIENCE AND TRAJECTORY REFLECTION
+The subtasks⟨s0..sn⟩ generated by the Manager G are executed sequentially by Worker modules
+⟨w0..wn⟩. Each Worker can take multiple time steps within one episode to complete a subtask si.
+Firstly, the combination of the User Task Tu, the subtask si and the contextual information Csi
+are used as a query to retrieve similar subtask experience Esi from the Worker’s Episodic Mem-
+ory. The Episodic Memory is indexed by the concatenation of the task query, the subtask, and
+the contextual information⟨Q, si, Csi⟩, based on the similarity of the embedding. As opposed to
+Narrative Memory, Episodic Memory includes a complete plan with specific grounding actions and
+only summaries from the subtask trajectories designated as DONE or successful by a Worker. Ad-
+ditionally, a Trajectory Reflector submodule T Ri is associated with each worker. This submodule
+observes the entire episode as the worker is executing the subtask and provides reflective advice to
+the agent—helping it think of alternative strategies and avoid repetitive actions.
+Esi = Retrieve(Me,⟨Tu, si, Csi⟩)
+The subtask experience Esi and the reflection is used by the Action Generator submodule inside
+a Worker to generate a single structured response - consisting of a previous action status check, ob-
+servation analysis, semantic next action and grounded next action. This structured response allows
+the agent to generate a templated chain-of-thought Wei et al. (2022); Yao et al. (2023) for improved
+reasoning and results in a single grounded action aj. This action is passed to the ACI which imple-
+ments it in the Desktop Environment. Once the worker reasons that the subtask has been completed,
+it generates a special grounded action DONE which signals the successful end of the subtask. The
+worker can also optionally generate a FAIL signal, in which case the hierarchical operation is reset
+and the Manager replans a new set of subtasks based on the intermediate environment configuration.
+3.1.3 S ELF -E VALUATOR : S UMMARIZING EXPERIENCES AS TEXTUAL REWARDS
+The Self-Evaluator S is responsible for generating experience summaries as textual rewards r for
+the Manager and Worker modules. In the case of the successful end of an episode signaled by the
+Worker with a DONE signal, the evaluator observes the complete episode and generates learning
+in the form of a summarization of the strategy used by the worker to complete that subtask. This
+strategy is fed back into the Worker’s episodic memory Me. In the case of the end of the complete
+user-provided task, indicated either by the successful completion of all subtasks or by the maximum
+number of steps limit, the evaluator generates a learning signal in the form of the summary of the
+entire task completion process. This summary is fed back and saved in the narrative memory Mn
+of the Manager. This process of Observations, Hierarchical Action Generation, and Rewards in the
+form of textual summaries to update the internal memories of the Manager and Worker mirrors a
+classic Hierarchical Reinforcement Learning process - but uses Retrieval as a learning strategy.
+3.2 M EMORY CONSTRUCTION AND UPDATE
+Initial Memory Construction via Self-supervised Exploration. To bootstrap Narrative Mn and
+Episodic Memories Me, Agent S conducts self-supervised exploration on a set of synthetically gen-
+erated tasks (see Figure 4). We utilize two methods to create two types of random exploration
+tasks: environment-independent tasks and environment-aware tasks. For environment-independent
+tasks, we leverage a task generator to generate the top 50 most common tasks from the various
+5
+
+Preprint
+Narrative & Episodic
+Memory
+Desktop Environment
+Self-supervised Exploration
+Continual Memory Update
+ACI
+ACI
+Inference Task
+Exploration Tasks
+Retrieval
+Summarization
+Summarization
+Web Knowledge
+Web Knowledge
+Task
+Generator
+Figure 4: The pipeline of memory construction and update, which contains two phases: Self-
+supervised Exploration and Continual Memory Update. The initial Narrative & Episodic Memory
+is constructed through some randomly curated tasks during the exploration phase, and then it is up-
+dated based on the inference tasks continually.
+applications used in OSWorld (Xie et al., 2024) and WindowsAgentArena (Bonatti et al., 2024).
+For environment-aware tasks, we take the initial environments of the tasks in OSWorld and Win-
+dowsAgentArena and prompt a Task Generator to generate a different task based on the environ-
+ment. Both types of tasks consist of the exploration tasks. Then we run Agent S on these tasks by
+only taking web knowledge Kweb and collect the full task (Narrative Experience En) and subtask
+experiences (Episodic Experience Ee) for the narrative and episodic memories. The key stored in
+narrative memory Mn is the query Q and for episodic memory Me, the key is query Q concatenated
+with subtask information⟨Q, si, Csi⟩. Through this process, the initial memory is constructed.
+Continual Memory Update. As our Agent S interacts with new tasks, it continually updates the
+Narrative Memory Mn and Episodic Memory Me, as illustrated in Figure 4. Thus even after the
+initial exploration is completed, the agent continues to learn as it encounters and attempts newer,
+more novel tasks. This process enables our agent to learn even during inference and retrieve the
+learned knowledge to new tasks effectively.
+3.3 A GENT-C OMPUTER INTERFACE
+Current desktop environments are designed to accommodate two distinct user types: (1) human
+users, who can perceive and respond to subtle visual changes in real-time, and (2) software pro-
+grams, which execute predefined tasks through scripts and Application Programming Interfaces
+(APIs). However, these interfaces are inadequate for MLLM agents tasked with GUI control and ma-
+nipulation at the fundamental keyboard-mouse level. These agents operate on a different paradigm:
+they respond in slow, discrete time intervals, lack an internal coordinate system, and cannot effi-
+ciently process fine-grained feedback after each minor mouse movement or keyboard input. Draw-
+ing inspiration from the ACI developed for Software Engineering agents (Yang et al., 2024), we
+propose the creation of a novel ACI to bridge the gap between the unique operational constraints of
+MLLM agents and the requirements of open-ended GUI-control tasks.
+Perception and Grounding. Current MLLMs can effectively reason about certain elements and
+features in an image, but they cannot directly ground and pinpoint specific elements in images as
+they lack an internal coordinate system. In GUI manipulation, agents need to constantly interact
+with fine UI elements, and previous works have shown that grounding is a significant bottleneck in
+these agents (Xie et al., 2024; Zheng et al., 2024a). Desktop environments, however, provide an
+easily parseable Accessibility Tree with coordinate information about almost every element in the
+UI. Thus, our ACI design incorporates a dual-input strategy with different purposes for each input.
+6
+
+Preprint
+The image input is used by the agent to observe salient details about the environment—such as
+popups, button states, checking if a previous action worked, and reasoning about the next step. The
+accessibility tree input is used for reasoning about the next step and, more importantly, grounding
+specific elements in the environment. To achieve this, we tag each element in the accessibility tree
+with unique integer tags which can be used by agents when referring to these elements. Furthermore,
+while previous works seek to augment the image with information from the accessibility tree (Xie
+et al., 2024; Zheng et al., 2024a; Bonatti et al., 2024) using Set-of-Mark Prompting, we augment the
+tree with details from the image. To achieve this, we run an OCR module on the image and parse
+textual blocks from the screenshot. We then add these blocks to the accessibility tree as interactable
+UI elements if they do not already exist in the tree. To check for existing elements, we perform an
+IOU (Intersection over Union) match with all elements in the tree.
+Constrained Action Space with Concurrent Feedback. Desktop automation has traditionally
+relied on APIs and scripts, but adopting these as actions would imply an unbounded combinato-
+rial action space of arbitrary executable code. This is unsuitable for keyboard-mouse-level GUI
+automation agents because it compromises safety and precision. Code blocks can contain multiple
+sequential actions, leaving the agent with neither control over nor feedback from individual steps.
+To ensure that actions generated by agents are safely and reliably relayed to the environment and
+produce clear and timely feedback, our ACI design incorporates a bounded action space. This space
+includes primitive actions like click, type, and hotkey (detailed in Appendix A.1). Agents can refer
+to different elements by their tagged IDs, and the ACI translates the ⟨ primitive - ID⟩ information
+into executable Python code. Furthermore, the agent is allowed to perform only one discrete action
+at each time step, so it can observe immediate feedback from the environment. These actions are
+also coarse enough to account for the slow, stateless nature of MLLMs, e.g., the agent can directly
+move to and click an element instead of moving the mouse in small increments.
+4 E XPERIMENTS
+4.1 E XPERIMENTAL SETUP
+Benchmarks. We evaluate Agent S on OSWorld (Xie et al., 2024), a benchmark for testing the
+multimodal agents’ capability of executing a wide range of computer tasks in a real computer envi-
+ronment. This executable environment allows free-form keyboard and mouse control of real com-
+puter applications, including OS, Office (LibreOffice Calc, Impress, Writer), Daily (Chrome, VLC
+Player, Thunderbird), Professional (VS Code and GIMP), and Workflow (tasks involving multiple
+apps). In addition, we also evaluate the generalization of Agent S on WindowsAgentArena (Bonatti
+et al., 2024), a contemporaneous benchmark in the Windows operating system.
+Settings & Baselines. Since the OSWorld benchmark contains 369 tasks on Ubuntu, for the
+backbone model of Agent S, we leverage GPT-4o and Claude-3-Sonnet, respectively. For Win-
+dowsAgentArena, we test all 154 tasks on GPT-4o. We use the PaddleOCR2 toolkit as our OCR tool
+in augmenting accessibility trees for grounding. The embedding model for the retrieval we use is
+text-embedding-3-small. Agent S takes the accessibility tree and screenshot as inputs, so we also use
+the reported results in OSWorld (Xie et al., 2024) and WindowsAgentArena (Bonatti et al., 2024)
+with same input setting as baselines. The OSWorld baseline takes the coordinates-based accessibil-
+ity tree and screenshots as input for spatial grounding to generate the action with coordinates at each
+step. The WindowsAgentArena baseline NA VI (Bonatti et al., 2024) utilizes an accessibility tree,
+OCR, and Proprietary models to process the screenshot and create Set-of-Marks as input. Its action
+space includes a constrained set of primitives but allows multiple actions to be chained together.
+4.2 M AIN RESULTS
+OSWorld. Table 1 shows the performance comparison between Agent S and the baseline models,
+evaluated across the whole OSWorld test set. For the GPT-4o model, Agent S achieves an overall
+success rate of 20.58%, nearly doubling the performance of the best corresponding baseline (GPT-
+4o with 11.21%). Agent S consistently outperforms the baselines in the “Daily” and “Professional”
+tasks, where it reaches 27.06% and 36.73% success rates, respectively, compared to the best base-
+2https://github.com/PaddlePaddle/PaddleOCR
+7
+
+Preprint
+Table 1: Main results of Successful Rate (%) on the OSWorld full test set of all 369 test examples.
+Method OS Office Daily Profess. Workflow Overall
+Claude-3 12.50 3.57 5.27 8.16 1.00 4.41
+Gemini-Pro-1.5 12.50 3.58 7.83 8.16 1.52 5.10
+GPT-4V 16.66 6.99 24.50 18.37 4.64 12.17
+GPT-4o 41.67 6.16 12.33 14.29 7.46 11.21
+Agent S w/ Claude-3.5 41.66 13.83 30.46 32.65 9.54 20.48
+Agent S w/ GPT-4o 45.83 13.00 27.06 36.73 10.53 20.58
+(a) Open Account Settings:
+agent.click(41, 1, “left”)
+(b) Remove the Account:
+agent.click(86, 1, “left”)
+(c) Remove the Account:
+agent.click(149, 1, “left”)
+Figure 5: A successful example of the Thunderbird task: “Help me to remove the account ‘anonym-
+x2024@outlook.com’.” For space concern, (a) (b) (c) demonstrate the screenshots, current subtasks,
+and grounding actions at steps 1, 4, and 6, respectively.
+line results of 12.33% and 14.29%. These tasks are commonly used in daily life or involved with
+knowledge-intensive professional applications, which benefit more from the retrieval augmentation
+of Agent S. Both Claude-3.5-Sonnet and GPT-4o outperform the baseline versions across the ma-
+jority of tasks. Claude-3.5-Sonnet even performs better than GPT-4o in “Daily” and “Professional”
+tasks. The results demonstrate the enhanced capability of Agent S in handling diverse and complex
+tasks more effectively than the baseline approaches.
+Qualitative Examples. In Figure 5, we illustrate an example of a task from the Thunderbird app
+from OSWorld: Help me to remove the account ”anonym-x2024@outlook.com”. Agent S completes
+tasks by interacting with the desktop through a combination of actions. More qualitative examples
+are demonstrated in Appendix D.1.
+4.3 A BLATION STUDY
+To demonstrate the effectiveness of individual modules of Agent S, we stratified sampled a subset
+of 65 instances, testsub3 from the full test set for the ablation study. Considering the inference cost,
+we utilized GPT-4o as the LLM backbone for all ablation studies for both the baseline and Agent S.
+Learning from experience enhances the domain knowledge of GUI agents. The Experiential
+learning process of Agent S involves searching web knowledge, retrieving full task experience from
+narrative memory and retrieving subtask experience from episodic memory. To assess the impact of
+different components, we systematically remove each component and observe performance changes
+across different task categories. The results are shown in Table 2. Learning from universal experi-
+ence available as web knowledge allows Agent S to make informed plans across a wide range of tasks
+and has the most significant impact. The learning from Narrative and Episodic memories synergies
+effectively with web retrieval, and the results detail how their ablation affects the agent’s ability to
+handle complex tasks, underscoring the value of experiential learning. These results demonstrate
+that each component plays a critical role in enhancing the agent’s domain knowledge. Removing
+all three components (w/o All) degrades the performance significantly, revealing the importance of
+learning from experience in the design.
+ACI elicits better reasoning abilities of LLMs and supports better agentic learning. Figure 6
+presents the results of the ablation study on the ACI module. Comparing the baseline with Agent
+3The test small set provided by the OSWorld codebase is too small and imbalanced (only 39 examples in
+total and 2 in the OS category) for practical evaluations. Thus, we sample a larger and more balanced subset.
+8
+
+Preprint
+Table 2: The ablation study of experience-augmented hierarchical planning in OSWorld testsub.
+The metric is Successful Rate (%).
+Method OS (6) Office (17) Daily (16) Profess. (10) Workflow (16) Overall (65)
+baseline (OSWorld Agent) 33.33 5.88 12.50 10.00 6.25 10.77
+Agent S 50.00 11.76 37.50 40.00 12.50 26.15
+- w/o Web Knowledge 16.60 11.76 24.49 30.00 6.25 16.80
+- w/o Narrative Memory 33.33 11.76 36.99 20.00 12.50 21.41
+- w/o Episodic Memory 33.33 5.88 25.00 30.00 12.50 18.46
+- w/o All 33.33 5.88 18.75 20.00 6.25 13.85
+0 5 10 15 20 25 30
+Success Rate (%)
+Agent S 26.15%
+Agent S (ACI + Retrieval) 20.00%
+Agent S (ACI-only) 12.31%
+Baseline + Retrieval 12.31%
+Baseline 10.77%
+Figure 6: Ablation of ACI in OSWorld testsub.
+0 5 10 15 20 25 30
+Success Rate (%)
+Agent S - w/o Exploration 15.38%
+Agent S - w/o Self-Evaluator 18.46%
+Agent S - w/o Continual Memory Update 23.18%
+Agent S 26.15% Figure 7: Ablation of the memory update mech-
+anism in OSWorld testsub.
+S (ACI-only)4 highlights the enhanced reasoning abilities achieved by incorporating ACI. Addi-
+tionally, we examined the impact of ACI on agentic learning by integrating the Experiential learning
+process. For the baseline, adding Experiential learning slightly improved overall performance. How-
+ever, when added to Agent S (ACI-only), the performance improved significantly, demonstrating
+ACI’s effectiveness in enhancing agentic learning.
+Hierarchical Planning supports long-horizon workflows. The (ACI-only + Experiential Learn-
+ing) setup in Figure 6 shows Agent S performance without Hierarchical Planning, and the observed
+performance drop (26.15% to 20.00%) compared to the full Agent S underscores the importance of
+Hierarchical Planning in modeling long-horizon workflows. The effect of hierarchical formulation
+becomes pronounced in the presence of Experiential learning as the Manager can generate more
+detailed and accurate plans in the subtask planning stage.
+Exploration, Continual Memory Update and Self-Evaluator are indispensable for memory
+construction. Our agent collects experience in two phases - initially during the self-supervised ex-
+ploration phase and then continually as it interacts with new examples (See Figure 4). To assess
+the effectiveness of these two learning stages and further examine our Self-evaluator which stores
+experience as summaries instead of unfiltered trajectories we run the ablation shown in Figure 7.
+Removing exploration limits memory updates to the inference phase only. Removing the contin-
+ual memory update means we only use the memory obtained from the exploration phase without
+subsequent updates. Removing the self-evaluator involves replacing summarized experiences with
+the original full trajectories. The results shown in Figure 7 reveal that ablating both the continual
+memory update and self-supervised exploration phases results in a performance drop, with the self-
+supervised exploration being much more impactful. The ablation of the Self-Evaluator further shows
+the benefits of using summarized trajectories instead of full trajectory exemplars for planning.
+4.4 E RROR ANALYSIS
+We performed a thorough error analysis on the tasks that Agent S failed within testsub of the OS-
+World. There are three types of errors that we observed: (1)Planning Error: A planning error occurs
+when the agent generates unsuitable plans for a task, including inaccuracies in the plan, misleading
+subtask information, or misalignment of subtask sequence with task requirements. (2) Grounding
+Error: A grounding error arises when the agent fails to accurately interact with target elements
+despite their visibility and the application of correct reasoning. This includes incorrect element se-
+lection or inaccurate coordinate selection due to the inherent limitations of our action space (e.g.,
+selecting the center instead of a more precise part of the element). (3) Execution Error: An execu-
+tion error emerges when the agent makes incorrect decisions or fails to adjust its behavior during
+4This version of Agent S excludes Hierarchical Planning to better study the effects of ACI in isolation.
+9
+
+Preprint
+Table 3: The statistic of Error Rate (%) on testsub of OSWorld that Agent S failed to complete.
+Error Metric OS Office Daily Profess. Workflow Overall
+Planning Error 66.67 25.00 30.00 66.67 28.57 34.69
+Grounding Error 0.00 75.00 50.00 66.67 35.71 53.06
+Execution Error 33.33 87.50 100.00 66.67 71.43 79.59
+Subtask Failure 16.67 58.47 62.82 33.61 70.43 57.17
+task execution. This includes repetitive actions, diverging from subtask goals, delays in transitioning
+between subtasks or violating established protocols by combining multiple actions into one.
+Statistic Results of the Errors. We analyzed Agent S’s trajectory for each failed task, identifying
+error types based on the definitions provided. A single task may contain multiple errors. We also cal-
+culated the Subtask Failure Rate, which measures the average percentage of failed subtasks relative
+to total attempts, and the Error Rate, which reflects the proportion of tasks exhibiting a specific error
+type. As shown in Table 3, execution and grounding errors are the most common across various task
+categories. A case study of error occurrence can be found in Appendix D.2.
+4.5 G ENERALIZATION TO DIFFERENT OPERATING SYSTEMS
+We test the Agent S framework with no modification on WindowsAgentArena (Bonatti et al., 2024),
+a Windows OS benchmark released contemporaneously with our work. We compare Agent S with
+the similar configuration5 with GPT-4o as the MLLM backbone, Accessibility Tree + Image as the
+input, and parsing with OCR. As shown in Table 4, Agent S outperforms the Navi agent without any
+adaptation to the new Windows environment.
+Table 4: Results of Successful Rate (%) on WindowsAgentArena using GPT-4o and Image + Ac-
+cessibility Tree input on the full test set of all 154 test examples.
+Method Office Web Browser Windows System Coding Media & Video Windows Utils Overall
+NA VI(Bonatti et al., 2024) 0.0 20.0 29.2 9.1 25.3 0.0 13.3
+Agent S 0.0 13.3 45.8 29.2 19.1 22.2 18.2
+5 C ONCLUSION
+In this work, we present Agent S—A novel framework for developing fully Autonomous Graphical
+User Interface (GUI) agents that can perform a wide range of user queries by directly controlling the
+keyboard and mouse. Through the Agent S framework, we show the benefits of Learning from Expe-
+rience for Task-oriented GUI agents. We also discuss the concept of an Agent Computer Interface for
+the GUI domain, arguing in favour of an abstraction layer that allows MLLM agents to perceive and
+reason at a language level with rich and continuous feedback. By leveraging Experience-Augmented
+Hierarchical Planning, Online Web Knowledge, and an Agent-Computer Interface (ACI), Agent S
+demonstrates SOTA performance on the OSWorld benchmark and generalizability across different
+operating systems. We demonstrate the potential of MLLM agents to learn from external sources
+and through direct interaction with the environment, without any human or environmental feedback
+in the GUI agents domain, thus opening a discourse on zero-shot, agentic methods for GUI agents.
+Future Work. A key metric that has been unaddressed in existing work on MLLM agents for
+computer control, including ours, is the number of agent steps and wall clock time required for task
+completion. While our work focuses on achieving significant improvement in task performance,
+future work can consider a shortest-path navigation formulation of GUI control and evaluate the
+Pareto-optimality of various agents on the dimensions of time and accuracy. In our work, we use
+the state-of-the-art GPT-4o and Claude-3.5-sonnet models. However, future work can extend the
+ideas of experiential learning and Agent Computer Interface for smaller, open-source MLLMs which
+could be fine-tuned to bridge the gap.
+5The best-performing agent in WindowsAgentArena is based on an internal closed-sourced model that was
+trained for GUI grounding and is not accessible outside of Microsoft now, so we choose a similar configuration
+with ours for fair comparison.
+10
+
+Preprint

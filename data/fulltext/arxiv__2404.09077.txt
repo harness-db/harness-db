@@ -1,0 +1,514 @@
+record_id: arxiv:2404.09077
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2404.09077
+fetched_title: CuriousLLM: Elevating Multi-Document Question Answering with LLM-Enhanced Knowledge Graph Reasoning
+fetched_at: 2026-09-18T19:01:05Z
+
+CuriousLLM: Elevating Multi-Document Question Answering with
+LLM-Enhanced Knowledge Graph Reasoning
+Zukang Yang1, Zixuan Zhu 1, Xuan Zhu 1,
+1School of Information, University of California, Berkeley
+Correspondence: zukangy, zzhu248, zhuxuan@berkeley.edu
+Abstract
+Large Language Models (LLMs) have achieved
+significant success in open-domain question an-
+swering. However, they continue to face chal-
+lenges such as hallucinations and knowledge
+cutoffs. These issues can be mitigated through
+in-context learning by providing LLMs with
+relevant context before generating answers.
+Recent literature proposes Knowledge Graph
+Prompting (KGP) which integrates knowledge
+graphs with an LLM-based traversal agent
+to substantially enhance document retrieval
+quality. However, KGP requires costly fine-
+tuning with large datasets and remains prone
+to hallucination. In this paper, we propose
+CuriousLLM, an enhancement that integrates
+a curiosity-driven reasoning mechanism into
+an LLM agent. This mechanism enables the
+agent to generate relevant follow-up questions,
+thereby guiding the information retrieval pro-
+cess more efficiently. Central to our approach
+is the development of the new Follow-upQA
+dataset, which includes questions and support-
+ing evidence as input, with follow-up ques-
+tions serving as ground truths. These follow-
+up questions either inquire about what is still
+missing to fully answer the user’s query or
+use special tokens to signify that the retrieved
+evidence is sufficient. Our experiments show
+that CuriousLLM significantly boosts LLM per-
+formance in multi-document question answer-
+ing (MD-QA), circumventing the substantial
+computational costs and latency from the orig-
+inal KGP framework. Source code: https:
+//github.com/zukangy/KGP-CuriousLLM.
+1 Introduction
+Large Language Models (LLMs) have demon-
+strated remarkable success in open-domain ques-
+tion answering. However, they continue to face
+challenges such as hallucinations and knowledge
+cutoffs (Ji et al., 2023a,b; Yao et al., 2023; Xu et al.,
+2024; Wei et al., 2024). To address these issues,
+recent research has explored in-context learning
+with LLM, using external knowledge sources such
+as retrieved documents or knowledge graphs (KG)
+to improve their accuracy and reasoning ability
+(Hogan et al., 2021; Pan et al., 2024; Agrawal et al.,
+2024; Shen et al., 2020; Zhang et al., 2019; Rosset
+et al., 2021; Zhang et al., 2020; Kumar et al., 2020a;
+Zhu et al., 2023a). Among the popular approaches
+are RAG (Lewis et al., 2020) and KAPING (Baek
+et al., 2023), which provide context by retrieving
+relevant documents or KG triplets to support the
+LLM reasoning process. Although these methods
+have proven effective, few approaches have fully
+integrated LLMs into the retrieval process, leav-
+ing a gap in the ability to efficiently navigate and
+extract relevant information from vast knowledge
+sources.
+Recently, Wang et al. (2023) propose Knowl-
+edge Graph Prompting (KGP), which incorporates
+a fine-tuned LLM agent into the KG traversal pro-
+cess. This agent predicts missing evidence based on
+the initial query and the retrieved documents. The
+predictions are then used to identify relevant pas-
+sages from neighboring nodes in the KG through
+similarity ranking. With this prompt reformulation
+approach, KGP achieves state-of-the-art results in
+several benchmarks for factual consistency.
+However, during our experiments, we notice that
+the original KGP technique involves fine-tuning a
+T5 (Raffel et al., 2020) agent with a large corpus.
+Despite this, the agent’s performance remains lim-
+ited due to hallucination: While correctly predicts
+missing evidence, it often uses irrelevant or erro-
+neous keywords, which obscure the search for the
+actual piece of missing evidence, as shown in Table
+1. Additionally, this technique tends to exhaust its
+preset search budget because it lacks a mechanism
+to determine when to stop the search, even when
+the retrieved documents are sufficient to answer the
+question. The more passages supplied to the LLM
+for response generation, the higher the latency of
+the QA system, since the LLM must reason through
+1
+arXiv:2404.09077v3 [cs.CL] 18 Feb 2025
+
+Figure 1: Two common types of questions in HotpotQA (Yang et al., 2018): (1) Comparison questions require
+parallel reasoning over different documents. (2) Bridging questions require sequential reasoning.
+all passages to arrive at an answer.
+To address these challenges, we propose a novel
+framework by fine-tuning an LLM agent to emulate
+the curious nature of a human researcher. Instead of
+predicting missing evidence, our agent asks follow-
+up questions to more efficiently guide the search
+toward missing evidence. Compared to the orig-
+inal approach, our CuriousLLM: 1) requires sig-
+nificantly fewer training samples for fine-tuning,
+2) markedly improves MD-QA performance, and
+3) can terminate the search before exhausting the
+preset search budget, thereby reducing latency. Our
+contributions are as follows.
+• Follow-upQA Dataset: We introduce a new
+dataset specifically designed to train LLMs
+to generate pertinent follow-up questions that
+enhance the retrieval process within the KGP
+framework for MD-QA tasks. In addition, we
+offer this dataset as a benchmark to inspire
+further research.
+• CuriousLLM Agent: We design an LLM
+agent to ask follow-up questions, thus improv-
+ing the efficiency and precision of the KGP
+framework without requiring extensive fine-
+tuning.
+• Experimental Validation: We present com-
+prehensive experimental results that demon-
+strate significant improvements in both the
+performance and efficiency of the KGP frame-
+work using our approach. Furthermore, an
+ablation study highlights the enhanced reason-
+ing capabilities of our LLM agent, particularly
+after fine-tuning on the Follow-upQA dataset.
+2 Methodology
+2.1 Follow-upQA Dataset
+We derive the new Follow-upQA dataset from the
+HotpotQA dataset (Yang et al., 2018). HotpotQA
+is a multi-hop QA dataset containing questions and
+supporting passage pairs collected from Wikipedia.
+The questions in the dataset have three key fea-
+tures: 1) they cover a wide variety of topics; 2)
+they primarily consist of comparison and bridging
+questions (Figure 1), both of which are common
+in MD-QA tasks; and 3) they can be answered
+with at most two supporting passages (Xiong et al.,
+2021). The first two features allow our LLM agent
+to learn from a diverse range of topics across both
+types of questions, while the third feature simpli-
+fies implementation and facilitates demonstration
+of Follow-upQA.
+We create Follow-upQA through the following
+steps: First, we randomly sample questions from
+HotpotQA without replacement. Second, for the
+comparison questions, we randomly remove one of
+the two supporting passages. For the bridging ques-
+tions, which require sequential reasoning, we retain
+only the first passage in the reasoning sequence.
+Next, we ask GPT-3.5 to generate a follow-up ques-
+tion based on the initial question and the supporting
+passage provided. Finally, if the selected question
+is a single-hop question, we prompt GPT-3.5-turbo
+1 to respond with "NA" to indicate that no further
+information is needed. In these steps, the follow-up
+question or the "NA" response serves as the ground
+truth for the question. We repeat this process until
+1https://platform.openai.com/docs/models/
+gpt-3-5
+2
+
+Question: Which magazine was started first: Arthur’s Magazine or First for Women?
+Retrived Evidence: Arthur’s Magazine (1844 - 1846) was an American literary periodical published
+in Philadelphia in the 19th century.
+Missing Evidence: First for Women is a woman’s magazine published by Bauer Media Group in
+the USA. The magazine was started in 1989.
+T5 Prediction: The publication of a woman’s magazine is in London from 1921 to 1927.
+CuriousLLM Prediction: When was First for Women Magazine first started?
+Table 1: Instance of T5 hallucination during graph traversal. Due to the erroneous keywords, T5 fails to identify the
+missing evidence. However, CuriousLLM succeeds in finding the missing evidence.
+Figure 2: Overview of the CuriousLLM workflow and an Follow-upQA example. Given a query, the system obtains
+seeding passages, and then starts searching for relevant documents; with follow-up question Q1 generated by the
+LLM agent, the unrelated passages S1 and S2 form a search path leading to the final answer.
+the budget is reached.
+This process yields Follow-upQA, a dataset of
+∼ 50K samples, with 59.5% bridging questions,
+26% comparison questions, and 14.5% "NA" or
+single-hop questions.
+In Table 2, we present examples of MD-QA
+tasks, illustrating the types of input questions and
+the corresponding given information, as well as
+the generated follow-up questions. These exam-
+ples highlight how MD-QA systems, including our
+proposed model, are designed to handle complex
+questions that require reasoning across multiple
+pieces of evidence. For example 1, the follow-up
+question guides the graph traversal to look for in-
+formation about University of Missouri’s location.
+On the other hand, example 2 shows that the output
+is a special token "NA", signaling that sufficient
+information has been collected.
+2.2 Knowledge Graph Construction
+Formally, we define a KG as G = ( V,E,X ),
+whereV ={vi}n
+i=1 denotes the set of nodes and
+E⊂V×V represents the relations between pairs
+of nodes. In our experimentation, each vi repre-
+sents a passage andX ={xi}n
+i=1 denotes a collec-
+tion of dense representations withxi representing
+the passage embedding forvi.
+In the original KGP experiments, construct-
+ing KG by multi-hop dense retriever (MDR-KG)
+(Wang et al., 2023) outperforms other KG con-
+struction approaches, such as k-nearest neigh-
+bors (KNN) (Cunningham and Delany, 2021) and
+TF-IDF. Following the methodology for building
+MDR-KG , we employ the MDR training technique
+(Xiong et al., 2021) to develop a BERT-based pas-
+sage encoder using the HotpotQA dataset. This
+encoder is trained to predict subsequent supporting
+passages given an initial retrieved passage. The
+goal is to minimize the distances between passage
+pairs that are used together to answer questions
+in HotpotQA while simultaneously increasing the
+distances between unrelated passages through neg-
+ative sampling. This training technique equips the
+encoder with reasoning capabilities, enabling it to
+understand the logical associations between differ-
+ent passages. Finally, we construct our KGs by
+3
+
+Example 1 Example 2
+(Input) Question: (Input) Question:
+In what city is the university, for which Kim En-
+glish played college basketball, located?
+Tina Charles and Maya Moore were teammates on
+the UConn women’s team that won championships
+in what years?
+(Input) Given: (Input) Given:
+Kim English played college basketball for the Uni-
+versity of Missouri before being selected by the
+Detroit Pistons with the 44th overall pick in the
+2012 NBA draft.
+In 2009 and 2010, Tina Charles and her teammate
+Maya Moore led the Connecticut Huskies to two
+undefeated national championships.
+(Ground Truth) Follow-up Question: (Ground Truth) Follow-up Question:
+In which city is the University of Missouri located? NA
+Table 2: Follow-upQA examples of input questions, given information, and the corresponding follow-up questions
+generated.
+encoding passages and connecting them based on
+cosine similarity.
+2.3 Curious LLM Traversal Agent
+We introduce CuriousLLM as our graph traversal
+agent to enhance the KGP framework. This ap-
+proach is rooted in intuitive reasoning. For ex-
+ample, when asked to determine who is older, Bob
+Bryan or Mariaan de Swardt, and given information
+about Bob’s age, one would intuitively ask a follow-
+up question about Mariaan’s age. This follow-up
+question guides the search for relevant informa-
+tion. This intuition forms the basis of Follow-upQA
+and our model’s training objective. The advan-
+tage of this approach is that, although the passages
+about Bob’s and Mariaan’s ages are unrelated, or,
+in other words, not semantically similar, the follow-
+up question about Mariaan’s age creates a logical
+link between them. As a result, instead of matching
+two unrelated passages, once we find one passage,
+we can identify the other through follow-up ques-
+tions. Furthermore, we train the LLM agent to
+know when to end the search, and this early termi-
+nation mechanism significantly reduces the latency
+associated with the original T5 agent.
+We use the Mistral-7B model (Jiang et al., 2023)
+2 as the backbone and fine-tune it on the Follow-
+upQA dataset with the objective of next-token pre-
+diction. Specifically, for each sample in the dataset,
+as shown in Table 2, we concatenate the question,
+the given passage, and the follow-up question. We
+employ QLoRA (Dettmers et al., 2023) to train the
+model: we load the model at 8 bit precision and
+then train a LoRA adapter using a LoRA rank of
+32, a learning rate of 10−5, and a batch size of 12.
+2https://huggingface.co/mistralai/
+Mistral-7B-Instruct-v0.2
+The training is implemented with a split between
+the training validation test of90% - 5% - 5%. Com-
+pared to the time required to train an identical T5
+model in the original KGP framework, we reduce
+the training time of our model by 85% using the
+same computing resources.
+After generating a follow-up question at the cur-
+rent node in the KG, the question is compared
+against the neighboring passages of the node. We
+also employ a pre-trained Multi-QA sentence trans-
+former 3, which produces dense representations to
+minimize the semantic distance between the follow-
+up question and relevant passages. The search
+through KG is carried out using a breadth-first
+search strategy (BFS), as shown in Algorithm 1.
+This iterative process continues until reaching a
+predefined budget or the model deems it has suffi-
+cient information to answer the query.
+Mathematically, given a user query q0, we ob-
+tain a set of seeding passagesvj⊂V s with TF-IDF.
+The agent acceptsq0 and thej-th seeding passage,
+and then generates a follow-up question qj
+1. For-
+mally,
+qj
+h = arg max
+v∈Nj
+H(q0,∥j
+k=0Xk) (1)
+where∥j
+k=0Xk concatenates the retrieved passages
+from the visited nodes on the same search path till
+the current nodevj. The choice of H is a language
+model for next-token prediction. Moreover, the
+next passagesj+1 is obtained as follows:
+sj+1 = arg max
+v∈Nj
+ϕ(g(qj
+h),g (Xn))) (2)
+whereg is a sentence transformer,Xn is passages
+3https://huggingface.co/sentence-transformers/
+multi-qa-MiniLM-L6-cos-v1
+4
+
+from all neighboring nodes of nodevj andϕ is any
+similarity functions. See Algorithm 2.
+2.4 LLM Response Generation
+After gathering sufficient evidence, we leverage
+LLMs’ capabilities to provide a human-readable
+response to the user’s query. We applied prompt
+engineering to guide the GPT4o-mini 4, using the
+accumulated facts to generate an informed and co-
+herent answer.
+3 Experiments
+To evaluate the multi-document question answer-
+ing (MD-QA) capabilities of our CuriousLLM
+agent, KGP-Mistral, we adopt the experimental
+setup used by KGP-T5 (Wang et al., 2023). In the
+original KGP-T5 evaluation, four MD-QA valida-
+tion sets are used, each comprising 500 questions
+sampled from the following datasets: HotpotQA,
+2WikiMQA (Ho et al., 2020), IIRC (Ferguson et al.,
+2020), and MuSiQue (Trivedi et al., 2022). These
+datasets include 270K, 120K, 470K, and 173K
+unique passages, respectively, which serve as sup-
+porting evidence or distracting passages.
+Following our approach to KG construction, we
+treat each of these passages as a distinct node
+within the KG. For this evaluation, we limit the
+search scope to a 2-hop traversal, meaning that the
+system can retrieve and consider information from
+up to two edges away from the starting node in the
+graph. To ensure a fair comparison with KGP-T5,
+we standardize the retrieval parameters by selecting
+the top 30 passages based on a similarity search to
+generate the answers.
+3.1 Evaluation Metrics
+We employ two evaluation metrics to assess the
+performance of our MD-QA system. First, we
+use accuracy (Acc) to measure the proportion of
+correctly answered questions. To evaluate accu-
+racy, we prompt GPT-4o mini to compare each
+predicted answer with its corresponding ground
+truth. Second, we use exact match (EM) to assess
+the accuracy of information retrieval by calculat-
+ing the proportion of facts correctly identified by
+the retriever compared to a set of golden facts. In
+particular, the EM implementation 5 introduced by
+Xiong et al. (2021) compares retrieved passages to
+4https://openai.com/index/
+gpt-4o-mini-advancing-cost-efficient-intelligence/
+5https://github.com/facebookresearch/multihop_
+dense_retrieval
+their golden references token by token. However,
+in our experiments, we observe that passages from
+the validation sets do not always perfectly align
+with their golden counterparts due to the chunking
+strategy with overlaps used in the KGP-T5 exper-
+iments. This misalignment could potentially lead
+to an underestimation of the true EM scores. To
+address this issue, we opt to match passages based
+on cosine similarity instead. Our analyses indicate
+that while most exact matches exhibit similarity
+scores around 0.99, some pairs with scores as low
+as 0.9 are also considered equivalent.
+3.2 Performance and Analysis
+We study the MD-QA capability of our Curious-
+LLM agent (KGP-Mistral) employing several re-
+trieval techniques as traversal agents for compari-
+son, including the classic keyword-based methods
+TF-IDF and BM25, the encoder-based MDR, and
+a strong baseline, KGP-T5. Additionally, we in-
+clude the "Golden" method, where the response
+generation LLM is provided with golden support-
+ing passages, and the "None" method, where only
+the questions are given. As shown in Table 3, KGP-
+Mistral consistently achieves the highest perfor-
+mance across all benchmark datasets, with accu-
+racy improvements of up to 9% compared to BM25
+on HotpotQA. Furthermore, compared to the origi-
+nal KGP framework (KGP-T5), KGP-Mistral de-
+livers consistent accuracy gains across all datasets,
+averaging a 3% improvement overall.
+Keyword-based approaches such as TF-IDF and
+BM25 lack the reasoning capabilities necessary for
+complex MD-QA tasks. These methods primarily
+focus on retrieving passages that share keywords
+with the query or retrieved documents, without the
+ability to establish logical connections between
+different pieces of information. This limitation re-
+duces their effectiveness in answering questions
+that require synthesizing information from multi-
+ple sources, as reflected in their lower accuracy
+scores compared to the LLM-based methods. The
+MDR method offers a more sophisticated approach
+by training a sentence encoder to bring passages
+used to answer questions closer in semantic space.
+This technique enhances the retrieval of related
+passages that are likely part of the evidence pair
+needed to answer the question. However, the LLM-
+based method, which builds on the MDR approach
+by incorporating a reasoning-driven LLM agent,
+shows better performance across all datasets. Fur-
+thermore, we show the impact of early traversal
+5
+
+Method HotpotQA 2WikiMQA IIRC MuSiQue
+Acc EM Acc EM Acc EM Acc EM
+None 38.20 - 30.20 - 21.94 - 22.80 -
+TF-IDF 67.40 45.60 42.80 47.66 28.09 28.27 28.60 46.77
+BM25 64.80 42.60 42.20 46.84 28.72 28.27 28.60 44.51
+MDR 70.60 50.12 44.20 45.38 31.45 30.96 32.80 47.59
+KGP_T5 71.60 51.77 46.80 49.55 33.30 31.57 34.00 45.85
+KGP_Mistral_ET (Ours) 72.20 51.27 46.00 48.25 34.80 31.67 34.80 45.85
+KGP_Mistral (Ours) 73.80 52.42 49.40 50.29 36.69 32.07 36.50 45.95
+Golden 81.40 100.00 69.80 100.00 64.57 100.00 53.80 100.00
+Table 3: Performance (%) on 4 multi-document question answering (MD-QA) benchmark datasets. KGP_Mistral is
+our method. KGP_Mistral_ET is the version of our method with early termination. KGP_T5 is a strong baseline.
+None: no passages but only the question is provided. Golden: supporting facts are provided along with the question.
+The best and run-up scores are in bold and underlined.
+termination in Section C.
+In summary, our KGP-Mistral outperforms all
+other methods in accuracy and efficiency, establish-
+ing itself as a robust solution for multi-document
+question answering.
+4 Follow-upQA Benchmark
+4.1 Evaluation on Follow-upQA
+We evaluate the fine-tuned Mistral-7B model on the
+Follow-upQA test set. We apply a train-validation-
+test split of 90%-5%-5%, resulting in 2.5K sam-
+ples in the test set. The model is trained for 1, 500
+steps, with a checkpoint saved every 300 steps. In
+addition, we conduct a grid search for various de-
+coding parameters, including temperature, top p,
+and maximum token length.
+Figure 3 presents histograms and line plots
+for ROUGE-1, ROUGE-L, and cosine similar-
+ity scores evaluating Mistral-7B on Follow-upQA.
+Most ROUGE scores concentrate around 0.4, with
+a range of approximately 0.3 to 0.5. The cosine
+similarity scores range primarily from 0.475 to
+0.65, indicating varying degrees of semantic align-
+ment. The line plots reveal the performance of
+Mistral-7B at different checkpoints and highlight
+the impact of decoding parameters on the model’s
+performance. The models achieve optimal per-
+formance at the 600-step mark, with peak per-
+formance at step 1, 200. Specifically, the highest
+ROUGE-1 score is 0.494 (top_p=0.85). The best
+ROUGE-L score is 0.477, achieved under the same
+conditions. For cosine similarity, the highest score
+is 0.654, indicating close semantic alignment be-
+tween the generated and golden questions.
+Furthermore, the line graphs in Figure 3 reveal
+that the initial performance of the raw Mistral-7B
+model is the lowest across all metrics, indicating
+a significant improvement through training. The
+gradual increase in scores demonstrates the model’s
+enhanced ability to generate more accurate follow-
+up questions as training progresses. The peak per-
+formances annotated in the plots are achieved using
+the same model configuration: Mistral-7B at step
+1, 200, with a temperature of 0.6, top-p of 0.85,
+and a maximum token length of 50. Consequently,
+this model is selected for the MD-QA experiments.
+For a detailed analysis of Mistral-7B’s performance
+across different training checkpoints, refer to the
+ablation study in Section D.
+5 Conclusion
+Our new CuriousLLM-enhanced KGP framework
+represents a significant advance in the field of MD-
+QA by integrating an LLM-guided prompt refor-
+mulation mechanism into the KG traversal process.
+By introducing the Follow-upQA dataset and a
+curiosity-driven LLM traversal agent, the system
+effectively addresses challenges like hallucination,
+inefficient retrieval, and the limitations of the origi-
+nal KGP framework. Extensive experiments show
+that this approach enhances MD-QA accuracy and
+efficiency while reducing computational overhead,
+making it a practical solution for real-world applica-
+tions. This work paves the way for future research
+into optimizing LLM-guided retrieval processes by
+offering a scalable, robust framework balancing
+performance and resource efficiency.
+6
+
+Figure 3: Benchmark Mistral-7B for Follow-upQA. First row: distribution plots for ROUGE-1, ROUGE-L, and
+cosine similarity across hyper-parameters. Second row: Mistral-7B performance at different training checkpoints.

@@ -1,0 +1,1103 @@
+record_id: arxiv:2603.17694
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2603.17694
+fetched_title: MALLES: A Multi-agent LLMs-based Economic Sandbox with Consumer Preference Alignment
+fetched_at: 2026-09-18T18:59:55Z
+
+MALLES: A Multi-agent LLMs-based Economic Sandbox with Consumer
+Preference Alignment
+Yusen Wu, Yiran Liu, Xiaotie Deng
+Abstract
+In the real economy, modern decision-making is fundamen-
+tally challenged by high-dimensional, multimodal environ-
+ments, which are further complicated by agent heterogene-
+ity and combinatorial data sparsity. This paper introduces a
+Multi-Agent Large Language Model-based Economic Sand-
+box (MALLES), leveraging the inherent generalization capa-
+bilities of large-sacle models to establish a unified simulation
+framework applicable to cross-domain and cross-category
+scenarios. Central to our approach is a preference learn-
+ing paradigm in which LLMs are economically aligned via
+post-training on extensive, heterogeneous transaction records
+across diverse product categories. This methodology enables
+the models to internalize and transfer latent consumer pref-
+erence patterns, thereby mitigating the data sparsity issues
+prevalent in individual categories. To enhance simulation
+stability, we implement a mean-field mechanism designed
+to model the dynamic interactions between the product en-
+vironment and customer populations, effectively stabilizing
+sampling processes within high-dimensional decision spaces.
+Furthermore, we propose a multi-agent discussion framework
+wherein specialized agents collaboratively process extensive
+product information. This architecture distributes cognitive
+load to alleviate single-agent attention bottlenecks and cap-
+tures critical decision factors through structured dialogue. Ex-
+periments demonstrate that our framework achieves signif-
+icant improvements in product selection accuracy, purchase
+quantity prediction, and simulation stability compared to ex-
+isting economic and financial LLM simulation baselines. Our
+results substantiate the potential of large language models as
+a foundational pillar for high-fidelity, scalable decision simu-
+lation and latter analysis in the real economy based on foun-
+dational database.
+Introduction
+The real-economy sectors and retail industries have un-
+dergone rapid digitization, catalyzing a paradigm shift to-
+ward intelligent enterprise operations. This transforma-
+tion has necessitated the adoption of dynamic algorithms
+and rule-based systems to optimize decision-making pro-
+cesses. Prominent methodologies include deep reinforce-
+ment learning (Garrido-Merch ´an et al. 2024), Growth Ac-
+counting frameworks (Zeytoon-Nejad 2025), generative
+supply chains (Dhar 2025), symbolic regression (Wu and
+Deng 2025), and agentic AI for Autonomous Business Mod-
+els (Tian et al. 2024). These approaches are predicated on
+data-driven expansion and the precise prediction of market
+behaviors, with a specific emphasis on consumer preference
+modeling.
+Historically economic simulation systems have modeled
+these behaviors through techniques such as rule summa-
+rization (Kooti et al. 2015), hybrid choice models (Dubey
+et al. 2021), and macro-level forecasting integrated with
+global events (Kalifa et al. 2022). Other established meth-
+ods encompass deep learning-based demand analysis (Bach
+et al. 2024), Neuro-Fuzzy Modelling (Ambukege, Justo, and
+Mushi 2017), linear demand implementations (Rodrigues
+2025), survey-based forecasting(Huber, Onorante, and Pfar-
+rhofer 2022), and time series analysis (Haque, Amin, and
+Miah 2023). While foundational, these approaches are fre-
+quently constrained by task-specificity and the necessity
+for manual feature engineering. Recently, Generative Large
+Language Models (LLMs) have been deployed to simulate
+market rules and consumer behaviors by leveraging textual
+data (Fan et al. 2025; Shapira et al. 2025a; Foster and Ode-
+gaard 2025). Nevertheless, existing simulation architectures
+encounter critical bottlenecks in preference prediction: (1)
+Data sparsity at the category level, where sparse transaction
+records fail to span the combinatorial feature space; (2) Poor
+Out-Of-Distribution (OOD) generalization, limiting applica-
+bility to novel or long-tail categories; and (3) High dimen-
+sionality of product characteristics, where unstructured tex-
+tual and multimodal attributes challenge traditional model-
+ing efficacy(Dwarakanath, Balch, and Vyetrenko 2025; Li
+et al. 2024b).
+To address these systemic impediments, we introduce
+MALLES, a framework that harnesses the generaliza-
+tion and alignment capabilities of LLMs to simulate con-
+sumer preferences derived from historical transaction data.
+MALLES utilizes cross-category transaction records via
+post-training, enabling the system to abstract and trans-
+fer underlying preference patterns, thereby ameliorating
+data sparsity and enhancing OOD performance(Horton
+2023). Unlike conventional deep learning paradigms that ne-
+cessitate fixed-length inputs and manual normalization(Li
+et al. 2024b; Dwarakanath, Balch, and Vyetrenko 2025),
+MALLES leverages the flexible input context and inherent
+textual generalization of LLMs, facilitating the efficient pro-
+cessing of heterogeneous product information(Horton 2023;
+Hao and Xie 2025).
+arXiv:2603.17694v1 [cs.AI] 18 Mar 2026
+
+The core technical architecture of MALLES incorporates
+three strategic mechanisms. First, it employs a multi-agent
+discussion mechanism to distribute cognitive load when pro-
+cessing long-context product information; this compresses
+high-dimensional data into salient decision factors through
+structured dialogue, alleviating attention bottlenecks and
+augmenting interpretability (Fu et al. 2023; Yang et al.
+2025). Second, MALLES integrates mean-field stabiliza-
+tion to model the dynamic interplay between product envi-
+ronments and customer populations, ensuring robust sam-
+pling within high-dimensional decision spaces (Hao and
+Xie 2025). Third, the framework utilizes input augmen-
+tation with attention control to reconstruct partial obser-
+vations, thereby reducing biases arising from hidden vari-
+ables. Extensive experiments demonstrate that MALLES
+achieves statistically significant improvements in product
+selection accuracy, purchase quantity prediction, and simu-
+lation stability compared to existing economic and financial
+LLM baselines (Li et al. 2024b; Dwarakanath, Balch, and
+Vyetrenko 2025; Yu et al. 2024). These results underscore
+the potential of MALLES as a foundation for high-fidelity,
+scalable decision simulation in real-economy scenarios.
+The primary contributions of this work are summarized
+as follows: (1) The development of MALLES, a unified
+LLM-based economic sandbox that leverages heteroge-
+neous data to generalize consumer preferences across cat-
+egories, effectively overcoming data sparsity and OOD gen-
+eralization challenges; (2) A proprietary multi-agent dis-
+cussion framework designed to process high-dimensional
+product contexts, which enhances simulation stability and
+interpretability through collaborative reasoning; and (3)
+The implementation of comprehensive stabilization mech-
+anisms—specifically mean-field modeling and attention
+control—to ensure robust performance in complex, high-
+dimensional decision environments.
+Related Work
+LLM-Driven Economic Agent Simulation.Accurate con-
+sumer preference prediction is crucial for optimizing prod-
+uct selection, inventory management, and marketing strate-
+gies in digitally transformed real economy. Traditional sim-
+ulation systems, however, face challenges such as category-
+level data sparsity, poor out-of-distribution (OOD) gener-
+alization, and inefficiencies in handling high-dimensional
+product features. As product representations evolve from
+categorical to multimodal and textual descriptors, conven-
+tional methods relying on manual feature engineering and
+deep learning suffer from information loss and computa-
+tional inefficiency.
+Recent research has explored LLMs as economic agents
+for simulating market behavior. Integrating agent-based
+modeling (ABM) with LLMs has emerged as a promising
+direction. Frameworks likeEconAgent,LLM Economist, and
+ABIDES-Economistconstruct heterogeneous agents through
+persona-conditioned prompts and memory modules to sim-
+ulate micro- and macro-level market phenomena (Li et al.
+2024b; Horton 2023; Dwarakanath, Balch, and Vyetrenko
+2025). These works show LLMs’ ability for rich seman-
+tic interactions in policy evaluation and market design (Yu
+et al. 2023). However, they primarily focus on macro-level
+reasoning and semantic interactions, neglectingnumerical
+sensitivity(e.g., price elasticity) and effective multimodal
+alignment (Xu et al. 2025). Moreover, these approaches typi-
+cally rely on pretrained models without optimization for real
+transaction data, limiting generalization in data-sparse sce-
+narios.
+Financial and Trading LLM Architectures.In fi-
+nance, works likeFinMem,FinCon, andInvestorBenchap-
+ply LLMs to trading and risk management, introducing hi-
+erarchical memory structures, workflow management, and
+backtesting mechanisms (Yu et al. 2023, 2024; Li et al.
+2024a). These frameworks provide engineering insights for
+risk control and profit evaluation, relevant to wholesale deci-
+sions involving profit maximization and inventory turnover
+(Yu, Huber, and Tang 2024). While laying foundations for
+automated procurement prediction, these methods target at
+financial market tasks and lack integration with natural lan-
+guage dialogue and negotiation in retail/wholesale contexts.
+Consequently, they struggle to support interpretable decision
+formula discovery and exhibit limited capability in handling
+multimodal inputs and cross-category generalization, hin-
+dering applicability in real economy scenarios.
+Economic Simulation Benchmarks.To assess economic
+rationality, benchmarks likeGLEE,EconArena, andSTEER
+propose language-based economic games and rationality
+metrics including consistency, sensitivity, and efficiency
+(Shapira et al. 2025b; Raman et al. 2024; Chen et al. 2025).
+Complementary research enhances negotiation quality via
+self-play and AI feedback (Fu et al. 2023). These studies lay
+groundwork for dialogue-driven marketing and agent evalu-
+ation. However, existing benchmarks emphasize semantic-
+level rationality while inadequately addressing numerical
+sensitivity and multimodal alignment evaluation. They also
+lack comprehensive testing of OOD generalization in data-
+sparse environments.
+Research Gaps and Our Contributions.In sum-
+mary, existing high-fidelity economic simulation research
+faces significant limitations: (1) most LLM-agent frame-
+works inadequately address numerical sensitivity and multi-
+dimensional alignment, hindering accurate simulation of be-
+haviors like price responsiveness; (2) current approaches
+struggle to handle data sparsity and generalize to new or
+OOD categories. To address these issues, we propose a
+unified LLM-based economic sandbox, featuring two key
+innovations: cross-category data post-training for numeri-
+cal alignment, and multi-agent discussion and mean-field
+mechanisms. These innovations enable significant improve-
+ments in prediction accuracy and simulation stability in
+data-constrained real economy scenarios.
+Preliminaries: LLM-Empowered Economic
+Agent Simulation
+EconAgent(Li et al. 2024b) introduces a macroeconomic
+simulation framework that leverages LLMs to generate
+agents with dynamic decision-making. It constructs het-
+erogeneous agents through perception (realistic profiles),
+memory (multi-period experiences), and action (LLM-
+
+generated work/consumption propensities based on eco-
+nomic prompts) modules. While successfully replicating
+macroeconomic phenomena, it focuses on high-level house-
+hold decisions with relatively simple prompting. Our work
+extends this paradigm tomicroeconomicretail/wholesale
+scenarios incorporating alignment techniques via transac-
+tion data post-training and multi-agent dialogue frame-
+works.
+TheABIDES-Economistsimulator (Dwarakanath,
+Balch, and Vyetrenko 2025) models heterogeneous agents
+using multi-agent reinforcement learning (MARL) within a
+Partially Observable Markov Game. Household agents op-
+timize consumption and labor decisions, while firm agents
+learn price and wage policies. For tractability, it employs
+shared policy networks per agent type and tiered learning
+rates. This approach generates emergent behaviors validated
+against macroeconomic stylized facts, providing a robust
+but computationally intensive foundation for agent-based
+economic simulation.
+TheFinConframework (Yu et al. 2024) simulates eco-
+nomic agent behavior in financial institutions through a
+multi-agent LLM architecture. It deploys specialized analyst
+agents for various data modalities (text, audio, quantitative
+data) and a manager agent that synthesizes insights and up-
+dates investment beliefs. Economic behavior is refined via
+within-episode risk control and a conceptual verbal rein-
+forcement mechanism for cross-episode learning. While this
+setup mimics organizational learning in investment firms, it
+is primarily designed for financial market tasks and lacks di-
+rect integration with retail/wholesale negotiation processes.
+TheLLM Economistframework (Horton 2023) sim-
+ulates economic agents within a hierarchical Stackelberg
+game. Worker agents, conditioned with persona-specific
+prompts, optimize labor supply through in-context natural
+language reasoning. A planner agent uses in-context rein-
+forcement learning to propose tax schedules aimed at max-
+imizing social welfare. The framework incorporates demo-
+cratic voting to influence policy evolution, modeling institu-
+tional dynamics through language-driven interactions.
+Methodology
+Framework Overview
+Modern enterprise decision-making in real economy is heav-
+ily reliant on accurate assessing consumer responses to pric-
+ing, promotion, and product strategies. Traditional simula-
+tion systems struggle with consumer preference modeling
+due to data sparsity at the category-level data sparsity, poor
+out-of-distribution generalization, and inefficient handling
+of high-dimensional multimodal product features. To ad-
+dress these limitations, we introduce a Multi-Agent Large
+Language Model-based Economic Sandbox (MALLES). It
+utilizes cross-category transaction data and collaborative
+multi-agent reasoning to simulate heterogeneous consumer
+behaviors with high fidelity.
+The framework adopts a hierarchical decision-making
+paradigm, where strategic objectives and constraints prop-
+agate top-down through organizational layers. Upper man-
+agement sets broad targets, which are decomposed into fea-
+sible sub-targets for lower-level optimization. These tar-
+gets are validated within the economic sandbox, and suc-
+cessful implementations are adopted, while identified bot-
+tlenecks trigger recursive feedback for adjustment. This
+closed-loop process iteratively refines both strategic objec-
+tives and underlying decision parameters, with LLMs dy-
+namically updating parameters based on experimental feed-
+back and emerging patterns.
+A key innovation is the use of large, heterogeneous trans-
+action records to economically align LLMs via special-
+ized post-training. This enables effective knowledge trans-
+fer across categories and mitigates the issue of per-category
+data sparsity. We distinguish between retail and whole-
+sale simulations: retail customers focus on need satisfaction
+and price comparisons aligned with consumption values,
+whereas wholesale customers engage in profit-driven de-
+cisions that consider market dynamics, inventory turnover,
+and clearance mechanisms. By unifying both paradigms,
+MALLES provides a testing environment for real-world de-
+cision optimization, bridging the gap between theoretical
+models and practical business applications.
+Problem Formulation and Notation
+Consider a simulation environment where real decision
+makers (retail customers, wholesalers, manufacturers, etc.)
+are indexed byi. Simulated decisions from agent models
+are denotedˆai, and actual observed behaviors area i. Ob-
+servable input information isX obs
+i , while hidden factors are
+Xhid
+i . Personality, preference, and behavioral style parame-
+ters areρ i. We assume a true decision function governs real
+behavior:ai =D(X obs
+i ,Xhid
+i ,ρi)
+The simulation agent decides viaˆai = ˆD(Xobs
+i ,Zi,ˆρi;θ)
+whereZ i is a constructed profile summary approximating
+Xhid
+i ,ˆρi are agent personality/preference parameters for
+style calibration, andθencompasses all trainable parame-
+ters, including LLM components and specialized adaptive
+modules. The overall error objective is the expected loss
+between simulated and actual decisionsE=E i[ℓ(ai,ˆai)],
+whereℓis a suitable loss function (e.g., squared error
+for continuous decisions, classification error for discrete
+choices, or profit differential for business outcomes). Our
+modular design ensuresEdecreases progressively through
+training and simulation while maintaining interpretable de-
+cision structures and strong generalization across diverse
+economic scenarios.
+Retail and Wholesale Customer Simulation with
+Economic Alignment and Multi-Agent Discussion
+Retail customer simulation centers on training LLMs to be
+economically aware via post-training on extensive product-
+purchase records, cultivating a monetary consciousness
+aligned with real consumer behavior. Unlike traditional
+methods constrained by domain-specific data scarcity, our
+approach leverages cross-category transaction data to miti-
+gate per-category sparsity. Given customer demandd, can-
+didate product informationpwith multimodal features, and
+discount incentivesc, the LLM iteratively generates deci-
+sion functions to yield purchase intent and quantity. Special-
+
+ized attention mechanisms in the prompt architecture ensure
+appropriate sensitivity to numerical economic factors, so
+prices, discounts, and other quantitative elements are prop-
+erly weighed.
+To handle partial observability where hidden variables af-
+fect outcomes, we employ input augmentation. A profile
+summarization module constructs long-term customer pro-
+filesZi capturing historical purchase patterns, category pref-
+erences, promotion sensitivity, brand affinities, and commu-
+nication styles. These summaries allow the simulation in-
+put(X obs
+i ,Zi)to approximate the full decision context. Ad-
+ditionally, attention priors and weighting controls prioritize
+price and promotion features within multimodal inputs, en-
+forced via regularization and an attention matching loss:
+Lattn =E i[KL(Ai∥A∗
+i )]whereA i is the actual attention
+distribution andA ∗
+i the prior emphasizing economic fea-
+tures, ensuring stable and rational attention during simula-
+tion. The retail modelπ retail processes inputx retail through it-
+erative reasoning. Its raw output is parsed byϕretail to extract
+structured decisionsa retail = (br,qr) =ϕ retail(πretail(xretail))
+withb r∈{0,1}for purchase decision andq r for quantity.
+When customer data is limited, historical purchase records
+serve as baselines, shifting the training objective toward pre-
+dicting individual styles from context rather than averaging
+population behavior.
+Correspondingly wholesale decisions involve substantial
+financial commitments and depend on profitable inventory
+turnover, requiring analysis of market dynamics, price evo-
+lution, and clearance mechanisms. We thus employ a multi-
+agent framework to derive profit-oriented purchasing for-
+mulas through LLM adjustment combined with numerical
+optimization. The architecture includes three roles: whole-
+salers, marketing personnel (customer service), and manu-
+facturers. Using conversation logs, we do agent character-
+izations with collective query formulation and dialogue la-
+beling. The framework enables multi-round dialogue games
+to refine purchasing formulas obtained via symbolic regres-
+sion.
+Simulation proceeds through structured multi-round di-
+alogue. Starting with backgroundb=x wholesale and his-
+toryh 0 ={b}, in round 1 the dealer agentπ dealer produces
+analysisa 1 fromh 0 (competitive context, historical perfor-
+mance, objectives), updating toh 1 =h 0∪{(dealer,a 1)}.
+In round 2, the service agentπ service responds with analy-
+sisa 2 addressing dealer points and providing promotions,
+yieldingh 2 =h 1∪{(service,a 2)}. Round 3 has the manu-
+facturer agentπ manufacturer contribute analysisa 3 on produc-
+tion constraints, supply, and partnerships, producingh 3 =
+h2∪{(manufacturer,a 3)}. Rounds4ton−1involve it-
+erative discussion, building on prior analyses and updating
+the history. In the final roundn, the dealer agent synthe-
+sizes the discussion into analysisa n, updating toh n =
+hn−1∪{(dealer,a n)}. Finally the parsing functionϕ wholesale
+extracts the purchasing decision(s w,qw) =ϕ wholesale(hn)
+wheres w denotes product selection andq w for purchase
+quantity. To enhance interpretability and economic ratio-
+nality symbolic regression is integrated within the multi-
+agent framework to discover compact mathematical expres-
+sions of decision patterns. Agents collectively reason about
+economic factors and their relationships, generating human-
+understandable rules that align with theory while fitting ob-
+served transaction data.
+Stabilization and Calibration Mechanisms
+Despite input augmentation, differences in thinking styles
+between artificial agents and humans may persist. We ad-
+dress this by introducing style parametersρ i and special-
+ized submodules that integrate them into cognitive archi-
+tectures. A behavioral economics component injects com-
+mercial insights (e.g., discount sensitivity, loss aversion) as
+elements ofρ i into prompts or adapters to align decisions
+with human preference patterns. A hybrid cognitive archi-
+tecture fuses cognitive systems (e.g., ACT-R) with LLMs. A
+cognitive core moduleCgenerates candidate strategy sets
+fromZ i and historical decisions while the LLM semanti-
+cally understands and scores these, producingˆai. This sta-
+bilizes rule-based or heuristic decision structures, withρ i
+weighting candidate generation versus scoring.
+Consistency regularization and multi-sampling further
+stabilize decisions. Multiple responsesˆai,1,ˆai,2,...are gen-
+erated for the same(X obs
+i ,Zi,ρi)under minor perturba-
+tions (e.g., small price changes). A consistency loss re-
+duces output randomnessLcons =E iEϵ∼N(0,σ) [|ˆai(Xobs
+i +
+ϵ,Zi,ρi)−ˆai(Xobs
+i ,Zi,ρi)|2]. Since individual errors may
+accumulate into population-level deviations, we implement
+statistical population-level correction to reduce overall er-
+rorEand enhance generalization. A mean-field alternat-
+ing update mechanism creates interactions between micro-
+level strategy generation and macro-level population distri-
+butions. Iteratively, the model’s output distribution of cus-
+tomer responses approximates the real distribution. Each it-
+erationtmaintains a macro-response variableµ t that influ-
+ences agent inputs (e.g., market context), and agent outputs
+combine to formµt+1.
+Given real datasets{a i}i∈Ireal with inputs{X obs
+i ,Zi},
+we estimate conditional distributionP real(a|X,Z)and sim-
+ulation distributionP sim(a|X,Z). Calibration uses map-
+ping functionsfand reweighting factorsw(X,Z)via
+minfDKL(Preal(a|X,Z)∥f(P sim(a|X,Z))). Alternatively,
+Wasserstein distance may be used. The calibration func-
+tionfcan post-process outputs or adjust prompts/prefer-
+ence parameters. Conflict feedback and bottleneck detec-
+tion enhance robustness. If key indicators (margins, inven-
+tory costs, sales distributions) deviate beyond thresholdδ
+from historical patterns or macro targets, feedback signals
+Btrigger re-adjustment of higher-level targets, style param-
+eters, or price constraints. This process incorporates redun-
+dancy: initial target flexibility allows bottleneck identifica-
+tion at lower levels, with targets tightening over iterations to
+achieve convergence.
+Framework Implementation
+MALLES integrates multimodal, multi-source data via stan-
+dardized schemas. In pratice, product information includes
+IDs, categories, base prices, image embeddings/files, at-
+tributes, and historical sales series. Transaction records form
+the core dataset, with rows for individual orders contain-
+
+ing timestamps, customer IDs and types, product IDs, quan-
+tities, unit prices, discounts, channels, and review scores.
+When available, dialogue logs capture interactions via di-
+alogue IDs, participant roles, timestamped turns, and nego-
+tiated outcomes. Customer profiles include income brack-
+ets, buyer types, and historical purchase profiles. Statistical
+inventory turnover and decision inertia enhance realism by
+computing stable inventory baselines from regularity pat-
+terns in retail/wholesale contexts. Price distributions affect
+final category decisions with measurable inertia, captured
+via weighting schemes—manifesting as brand switching in
+retail and proportional brand allocation in wholesale.
+The framework combines economic multi-agent role-
+playing with numerical alignment in data-rich but sample-
+sparse settings, serving both decision analysis and in-
+telligent marketing training. Multi-agent approaches im-
+prove alignment through greater reasoning stochasticity ver-
+sus single-agent thinking, while multi-agent reinforcement
+learning increases data efficiency via reward shaping. Prop-
+erly aligned multi-agent systems better approximate real de-
+cision contexts, offering advantages over costly traditional
+evaluations, error-prone deep-learning sandboxes with lim-
+ited data, and existing LLM-agent simulations with poor
+data sensitivity and distribution misalignment. Unlike tradi-
+tional role-playing which relies on extensive fine-tuning and
+manual prompt design for tonal styles, our decision-oriented
+methodology characterizes concrete behaviors, leveraging
+the logical reasoning of multi-agent LLMs. Integrating
+role-playing with symbolic regression harnesses semantic
+understanding to mitigate product data sparsity while in-
+corporating numerical sensitivity, establishing a robust ba-
+sis for high-fidelity simulation in high-dimensional, multi-
+modal, heterogeneous real-economy environments.
+Theoretical Guarantees
+We present the main theorem that quantifies the advantage of
+our cross-category training paradigm. For a target category
+ct with limited data, the generalization improvement from
+training on the full category setCversus only onc t satisfies
+∆Gen≥
+q
+dmodel
+|Dct|−
+q
+dmodel
+|Dfull| +λ·Rtransfer wherec t denotes
+the target category,Cis the complete set of product cate-
+gories,|Dc t|is the data size ofc t,|Dfull|= P
+c∈C|Dc|≫
+|Dct|is the total cross-category data size,d model is the model
+complexity,λis a coefficient, andR transfer represents the reg-
+ularization effect from cross-category knowledge transfer.
+Proof Sketch.The bound follows from comparing the
+standard generalization bounds for single-category train-
+ing (which suffers from data scarcity) and cross-category
+training (which benefits from aggregated data). The addi-
+tionalR transfer term captures how semantically similar cate-
+gories provide complementary information that regularizes
+the model. The full proof uses information-theoretic argu-
+ments to formalize this intuition.
+Experiments
+Dataset Construction
+Dataset BuildOriginal data processing
+Original
+shipment
+data
+Customer
+Persona DB:
+Needs /
+Price Sensitivity /
+Brand Loyalty /
+Purchase History
+& Frequency
+Product
+Info DB:
+Category/P
+rice/Stock Product
+candidates
+Historical
+chosen
+product
+Build
+prompt
+template
+（input）
+Build
+golden
+response
+（output）
+Real-
+economy
+consumer
+preference
+feedback
+dataset
+Download SKU
+data & images to
+extract
+multimodal info
+feature engineering
+& persona building
+Products in same
+time window
+Figure 1: Dataset building pipeline from real trade data.
+Dataset ConstructionAs shown in 1 MALLES economic
+sandbox dataset embeds real-world sales data, including
+product choices and procurement quantities, into structured
+prompts. Each prompt integrates customer demand, candi-
+date product details (multimodal, including pricing), and
+historical purchasing behavior to capture individual decision
+tendencies. Although data for individual customers or spe-
+cific categories can be sparse, aggregation over119252cus-
+tomers and3361distinct categories yields a comprehensive
+representation of real-market decision patterns.
+Historical sales records are organized into procure-
+ment selection prompts for single-agent LLMs. Each
+prompt contains[competitive product information and
+pricing, historical purchase records and prices, mar-
+ket purchasing trends, review ratings, promotional of-
+fers], guiding the model to generate[purchase selec-
+tion, purchase quantity]. Model interaction is implemented
+viallm chat(prompt). We construct the single-agent
+alignment dataset, whereinputandoutputfields corre-
+spond to prompts and historical purchase decisions, serving
+as alignment data for the commercial simulation model.
+Experimental Motivation and DesignRetail and whole-
+sale decision-making is inherently high-dimensional, mul-
+timodal, and data-sparse. Traditional rule-based or shal-
+low learning approaches often exhibit unstable predictions
+and poor interpretability when facing combinatorial action
+spaces and cross-category transitions. Our framework ad-
+dresses these by post-training on large-scale transaction
+data with injected numerical sensitivity mechanisms, en-
+abling LLMs to develop monetary awareness and numer-
+ical reasoning for accurate simulation. In parallel, multi-
+agent gaming and symbolic regression loops in wholesale
+scenarios allow the model to discover actionable procure-
+ment rules through linguistic interaction, balancing strategy
+quality with interpretability.
+We validate MALLES in retail scenarios under multi-
+ple configurations including model choice (base vs. post-
+trained), decision framework (multi-agent multi-round dis-
+cussion vs. single-agent default), and input sampling (mean-
+field vs. standard). Mean-field sampling is not applied in
+multi-agent discussions. We sample the bottom 50% of cus-
+tomers by historical purchase volume to represent ordinary
+consumers. In multi-agent settings, several agents take turns
+
+Multi-model discussion
+Real-
+economy
+consumer
+preference
+feedback
+dataset
+Base
+model
+Training
+Set
+Test Set
+Finetuned
+model
+Finetuned
+model
+Mean
+field
+finetune evaluate evaluate evaluate
+Finetuned
+modelFinetuned
+model
+evaluate
+Finetuned
+model
+Finetuned
+model
+Figure 2: Major simulation pipeline of introduced sandbox.
+over multiple rounds before producing a summarized deci-
+sion, whereas single agents generate outputs directly. Post-
+trained and base models differ only in the model checkpoint,
+and mean-field sampling replaces scattered samples with av-
+eraged field observations in single-agent scenarios.
+For all LLMs inferences in this section, including data
+construction, sandbox simulation and evaluation, we employ
+four representative models: GPT5.2(OpenAI 2025), Gem-
+ini3(Team 2025), DeepSeek-V2(DeepSeek-AI 2024) and
+Llama-4(70B)(Touvron et al. 2023). For each inference one
+model is randomly selected to generate result the response.
+For evaluation task with scalar outputs we use the average
+of parsed scores as the final metric.
+Simulation and Evaluation
+Setup.As 2 display the retail experiment evaluates whether
+post-trained LLMs can learn stable price preferences and
+purchase patterns from real transaction data while retain-
+ing reasonable out-of-distribution generalization. Following
+consumer decision theory, model inputs include customer
+profiles, candidate product features (text and image embed-
+dings), and discount information. The model reasons over
+these inputs to produce purchase intent and quantity predic-
+tions. We compare against four baseline LLM-based eco-
+nomic simulators to assess whether LLMs can achieve in-
+trinsic numerical alignment in economic behavior.
+We evaluate three dimensions: (1) responsiveness to price
+and discount changes, measured by SKU selection accuracy
+and purchase quantity consistency against historical records;
+(2) prediction quality on out-of-distribution categories, in-
+cluding unseen brands or products; and (3) stability, quanti-
+fied by the variance of predicted purchase quantities across
+multiple samples (lower variance indicates higher stability).
+The experiment uses real industrial sales data, sampling
+1,000 customer-product-quantity instances. Given the con-
+text, agents act as consumers to select preferred products and
+predict order quantities. Predictions are compared with his-
+torical outcomes, and candidate orders are randomly shuf-
+fled to mitigate positional bias, particularly for items appear-
+ing first in the list.
+Results Analysis.Results 3 demonstrate that LLM-based
+economic sandbox MALLES achieves consistent advan-
+tages in consumer behavior simulation. In purchase decision
+hit rate, both configurations outperform existing baselines,
+with the basic version reaching 0.700 and the enhanced ver-
+sion 0.775. This indicates that LLMs effectively learn con-
+sumer preferences via cross-category training, overcoming
+the limitations of traditional methods in high-dimensional
+settings. While fin-con attains a slightly higher hit rate
+(0.800), its substantially large quantity error (1.325) and
+lower stability reveal systematic biases in quantitative pre-
+diction. Other baselines (e.g., abides-economy) maintain
+controlled errors but exhibit limited hit rates, highlight-
+ing the constraints of rule-based or shallow-learning ap-
+proaches.
+MALLES maintains moderate quantity prediction errors
+while achieving high hit rates, reflecting the benefits of im-
+proved numerical sensitivity induced by monetary aware-
+ness instilled during post-training. Overall, the system pro-
+vides the best balance between decision accuracy and quan-
+tity error, with stability metrics surpassing most baselines.
+This verifies that injecting numerical sensitivity through
+post-training enables LLMs to learn price elasticity and pref-
+erence transition patterns more effectively.
+Compared to baselines, MALLES excels in superior sta-
+bility benefiting from attention weight control and con-
+sistency regularization that reduce output variance in
+high-dimensional decision spaces. From a computational
+perspective, the base version incurs costs comparable to
+most baselines, while the enhanced version trades increased
+overhead for substantial performance gains. These results
+demonstrate that combining LLMs’ semantic reasoning
+with economic structure enables high-fidelity simulations
+that preserve individual heterogeneity while aligning with
+macro-market patterns, offering a reliable foundation for
+real-economy decision-making.
+Ablation Studies
+We conduct systematic ablations on three key mechanisms:
+(1) post-training alignment, (2) multi-agent discussion, and
+(3) mean-field observation. Each experiment modifies only
+the target module while keeping other configurations consis-
+tent to isolate its contribution. Results are shown in 4.
+Post-training vs. No Post-training.Training explic-
+itly teaches price elasticity, discount sensitivity, and
+cross-category preference transitions, aligning both prod-
+uct selection and quantity estimation with observed con-
+sumer behavior. Removing this stage leaves the model to
+rely solely on pre-trained linguistic priors, increasing the
+risk of discontinuous price responses and distorted numer-
+ical judgment.
+We construct four control groups based on training sta-
+tus and training epochs. Metrics include selection hit ac-
+curacy, purchase quantity error(as defined in the main ex-
+periment), and hit rate on OOD categories unseen during
+training. All experiments are conducted under default con-
+ditions without mean-field or multi-agent enhancements, us-
+ing two test sets: held-out real industry transaction data and a
+mock dataset abstracted from historical interactions via step-
+wise style summarization. We sample 1,000 test instances
+per group. With SFT (1,024 samples per epoch), models are
+trained for 10, 20, and 50 epochs, repeating N=10 times
+
+Purchase Decision
+Hit Rate
+Purchase Quantity
+Relative Error
+Stability Time Cost (scaled)
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2Score (Normalized for Time Cost)
+0.38
+0.954
+0.42
+28.94
+0.57
+0.971
+0.33
+27.56
+0.70
+0.936
+0.38
+27.17
+0.77
+1.125
+0.51
+157.2
+0.72 0.726
+0.41
+27.15
+0.81
+0.648
+0.35
+126.5
+Performance Comparison of Different Simulation Algorithms
+Algorithms
+LLM_Economist
+EconAgent
+abides-economy
+fin-con
+base_sandbox
+meanfield_sandbox
+Figure 3: Performance comparison of different simulation algorithms. The best one in each metric isbolded. Time Cost values
+are normalized to the [0,1] range with original values on the bars. The base sandbox and meanfield sandbox collectively corre-
+spond to the MALLES approach with and without mean-field enhancement, respectively.
+and final metrics are averaged. For OOD evaluation, mod-
+els trained on ‘Home Cleaning’, ‘Paper Products & Wipes’,
+and ‘Laundry Detergent & Care’ are tested on ‘Daily Neces-
+sities’, ‘Laundry Cleaning’, and ‘Cleaning Paper Products’.
+The ablation results confirm the critical role of post-
+training alignment. The base LLM shows limited selection
+commonsense ( 0.2 hit rate on industry data). As training
+epochs increase, hit rates improve and quantity errors de-
+crease, indicating the LLM learns progressively learns eco-
+nomic regularities like price elasticity and discount sensitiv-
+ity. In OOD testing, post-trained models show strong gen-
+eralization with gains in quantity prediction accuracy, veri-
+fying that cross-category training yeilds transferable prefer-
+ence representations that mitigate data sparsity.
+Notably even with limited epochs, models achieve sub-
+stantial gains, indicating high data efficiency. Although
+performance on mock data exceeds that on real in-
+dustry data—reflecting additional noise and latent vari-
+ables—aligned models consistently outperform random
+baselines and provide valuable decision guidance. Post-
+training alignment converts LLMs’ semantic understanding
+into robust economic numerical economic rasoning, forming
+a reliable bais for digital economic sandboxes.
+Single-Agent vs. Multi-Agent.In real-world strategy op-
+timization, decisions often emerge from interactions among
+multiple roles (e.g., manufacturers, distributors and cus-
+tomer service). Our multi-agent design aims to expand strat-
+egy exploration through role specialization and stochastic
+interaction, reducing risk of single-agent local optima. We
+investigate whether single-agent systems can achieve com-
+parable benefits under matched computational budgets.
+We compare two systems: (a) a multi-agent framework
+with 3–4 collaborative roles exchanging observations and
+objectives via linguistic interaction; and (b) a single-agent
+framework where all decision logic is handled by a sin-
+gle model instance with equivalent compute computational
+resources and environment, but without role interactions.
+Both operate in wholesale simulation until strategy conver-
+gence, using identical profit, inventory turnover, and evalu-
+ation metrics. This ablation isolates the effect of role inter-
+action on strategy diversity, convergence behavior, and “di-
+vision of labor and gaming” in avoiding local optima and
+promoting rule discovery.
+Results show role specialization and interaction improve
+decision quality, though marginal gains diminish as the num-
+ber of discussion rounds increasese, while computational
+cost grows linearly. With few discussion rounds, multi-agent
+systems offer limited advantage over single-agent one, un-
+derscoring value of multi-perspective discussion primarily
+in avoiding local optima. With more rounds, the system bet-
+ter integrates domain-specific insights for more comprehen-
+sive strategies.
+The multi-agent framework compresses context via differ-
+entiated input partitioning, distributing cognitive load across
+agents. However, improvements in purchase quantity predic-
+tion are smaller, suggesting that numerical precision may
+require additional targeted training, potentially due to lim-
+ited quantity-specific background knowledge. Compared to
+single-agent systems, multi-agent ones better capture critical
+decision factors through structured dialogue at reasonable
+cost, making them particularly suitable for complex whole-
+sale scenarios, while single-agent systems remain preferable
+for efficiency-sensitive retail applications.
+Effect of Mean-Field on Decision Simulation Sta-
+bility and Market Response Distribution Error.For
+single-agent procurement simulation, we examine the effect
+of mean-field processing by incorporating moving-window
+averages of historical market responses as environmental
+context within prompts built referred in methodology sec-
+tion, while keeping other configurations unchanged. The
+
+None Epoch=10 Epoch=20 Epoch=50
+Alignment Training
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2Metric Values
+0.715
+0.875
+0.905 0.910
+0.648
+0.442
+0.380
+0.364
+0.199
+0.453
+0.520 0.547
+0.982
+0.751
+0.542
+0.488
+0.199
+0.325
+0.469
+0.506
+0.983
+0.778
+0.610
+0.525
+Ablation Study on Post-Training Alignment
+Metrics
+Mock Data Hit Rate
+Mock Data Quantity Error
+Industry Data Hit Rate
+Industry Data Quantity Error
+OOD Category Hit Rate
+OOD Category Quantity Error
+None 5 10 20
+Discussion Rounds
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Hit Rate / Quantity Error
+0.715
+0.740
+0.780
+0.800
+0.648
+0.522
+0.496 0.484
+0.199
+0.281
+0.379
+0.410
+0.982
+0.872
+0.729
+0.684
+Ablation Study on Multi-Agent Discussion
+Metrics
+Mock Data Hit Rate
+Mock Data Quantity Error
+Industry Data Hit Rate
+Industry Data Quantity Error
+Time Cost (s)
+0
+100
+200
+300
+400
+500
+600
+700
+800
+Time Cost (s)
+26.52
+136.50
+300.46
+672.44
+None Window=5 Window=10 Window=20
+Mean-Field Configuration
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Hit Rate / Quantity Error
+0.715 0.730 0.735
+0.755
+0.648
+0.553
+0.491 0.483
+0.199
+0.249
+0.311
+0.335
+0.982
+0.825
+0.696
+0.644
+Ablation Study on Mean-Field Mechanism
+Metrics
+Mock Data Hit Rate
+Mock Data Quantity Error
+Industry Data Hit Rate
+Industry Data Quantity Error
+Time Cost (s)
+0
+100
+200
+300
+400
+500
+600
+Time Cost (s)
+26.52
+130.83
+255.50
+505.67
+(a) Ablation on post-training alignment. (b) Ablation on multi-agent discussion (c) Ablation on mean-field mechanism
+Figure 4: Ablation study on multiple objectives
+window unit is statistical months.
+Incorporating historical response statistics improves de-
+cision accuracy and stability for single-agent models. As
+observation window length increases, both purchase deci-
+sion hit rate and quantity prediction accuracy improve while
+output variance controlled. This indicates that combining
+micro-level individual decision cues with macro-level pop-
+ulation statistics mitigates biases from incomplete informa-
+tion. Medium-length windows capture most improvements,
+with longer windows yielding diminishing returns.
+Compared with using scattered historical samples di-
+rectly, mean-field processing provides more representative
+market background, which is particularly beneficial for
+price-sensitive decisions. By introducing population-level
+statistical corrections, this mechanism compensates for in-
+formation gaps in individual decisions, aligning with the in-
+put enhancement principles described in methodology. In
+practice, properly configured mean-field mechanisms signif-
+icantly improve simulation robustness and reliability with-
+out excessive computational overhead, making them well
+suited for real-world scenarios requiring rapid market re-
+sponse.
+Cross-Validation of Full-Category Data for Enhancing
+LLM Prediction Accuracy.Training with full-category
+sales data further leverages LLMs’ semantic generalization
+abilities—such as capturing consumer preference patterns
+and naming conventions—to enhance alignment. This ap-
+proach is more scalable than traditional methods, which re-
+quire manually designed cross-domain mappings under ho-
+mogeneous distribution assumptions. Crucially it enables ef-
+fective utilization of large-scale cross-category and cross-
+domain data to improve preference alignment, particularly
+for data-scarce categories or entirely new products, thereby
+alleviating out-of-distribution challenges common in con-
+ventional prediction systems.
+We validate across multiple product categories, train-
+ing models for 10 epochs under different data composi-
+tions: alpaca data (background), category-specific historical
+data, mixed historical and alpaca data, similar-category data
+(same first-level category), and full-category data. Evalua-
+tion metrics remain SKU hit rate, purchase quantity relative
+error, decision stability, and time cost.
+The cross-category training results 1 highlight the unique
+value of full-category data for consumer preference learning.
+Across test categories, models trained on full-category or
+similar-category data significantly outperform those trained
+only on background or mixed background–category data
+which reflects scenarios with limited labeled data. Although
+these models slightly underperform specialized single-
+category training due to reduced same-category data propor-
+tion, they provide a strong and practical alternative in data-
+sparse settings, such as new product launches, where full-
+category or near-category generalized models can provide
+reliable decision references.
+Full-category aligned models maintain consistency across
+categories with balanced stability metrics, indicating con-
+sumer preference representations learned from heteroge-
+neous data generalize effectively. Compared with traditional
+methods requiring complex feature engineering, LLMs nat-
+urally extract transferable consumption patterns from di-
+verse data sources. Gains in selection hit rate are more pro-
+nounced than reductions in quantity error, reflecting LLMs’
+higher sensitivity to textual information than numerical sig-
+nals. Results support hierarchical data strategies: leveraging
+category-specific fine-tuning in data-rich categories and re-
+lying on full-category training in data-limited scenarios.
+Conclusion
+This research introduces a novel economic simulation
+paradigm by integrating multimodal understanding of
+LLMs, multi-agent collaborative decision-making, and prin-
+ciples of economic systems. To address the core challenges
+of category-level data sparsity, poor out-of-distribution
+(OOD) generalization, and high-dimensional product fea-
+ture complexity outlined in the introduction, we propose the
+Multi-Agent Large Language Model-based Economic Sand-
+box (MALLES). It leverages cross-category transaction data
+for economic alignment via post-training, enabling LLMs to
+learn and transfer underlying consumer preference patterns,
+thereby mitigating data scarcity.
+
+Table 1: Ablation study on cross-category training
+Training Data Background Single-Category Mixed Similar-Category Full-Category
+Paper Wipes
+Hit Rate 0.25 0.56 0.32 0.50 0.48
+Quantity Error 0.962 0.240 0.473 0.399 0.425
+Stability 0.70 0.45 0.65 0.62 0.62
+Home Cleaning
+Hit Rate 0.24 0.60 0.49 0.57 0.55
+Quantity Error 0.988 0.482 0.581 0.527 0.539
+Stability 0.66 0.61 0.62 0.65 0.69
+Laundry Detergent
+Hit Rate 0.15 0.61 0.42 0.55 0.53
+Quantity Error 0.993 0.492 0.467 0.597 0.561
+Stability 0.69 0.66 0.61 0.59 0.62
+Key methodological contributions include a multi-agent
+discussion mechanism for distributing cognitive load over
+long contexts, mean-field stabilization for modeling dy-
+namic market interactions, and input augmentation with at-
+tention control for completing partial observations. They
+collectively enhance simulation fidelity, stability, and inter-
+pretability. Extensive experiments demonstrate that our ap-
+proach significantly improves product selection accuracy,
+purchase quantity prediction, and simulation stability over
+existing economic LLM simulation baselines. Ablation stud-
+ies further validate necessity of post-training alignment,
+multi-agent discussion, and mean-field mechanisms within
+our proposed framework.
+Limitations and Ethical Considerations
+Several promising directions remain. Deeper investigation
+into cross-modal alignment is warranted, particularly for
+more effectively fusing visual, textual, and numerical prod-
+uct information into unified economic decision representa-
+tions, thus addressing current limitations in modal integra-
+tion. Achieving a tighter coupling between micro-level agent
+decisions and emergent macro-level market dynamics re-
+mains an open challenge. While our mean-field method pro-
+vides a connection, more sophisticated multi-scale model-
+ing is needed to capture complex network effects and supply
+chain interdependencies in hierarchical economic systems.
+For ethical concern, all personal information in training data
+should be rigorously anonymized and aggregated to prevent
+re-identification, and capacity for accurate behavioral pre-
+diction raises risks over the potential design of manipula-
+tive patterns. Ethical guidelines must be enforced to prevent
+overly personalized tactics that could undermine consumer
+autonomy.

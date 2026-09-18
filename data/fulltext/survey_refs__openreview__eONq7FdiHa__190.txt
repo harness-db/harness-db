@@ -1,0 +1,425 @@
+record_id: survey_refs:openreview:eONq7FdiHa:190
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2504.03767
+fetched_title: MCP Safety Audit: LLMs with the Model Context Protocol Allow Major Security Exploits
+fetched_at: 2026-09-18T19:00:31Z
+
+Preprint. Under review.
+MCP Safety Audit: LLMs with the Model Context Protocol
+Allow Major Security Exploits
+Brandon Radosevich∗
+John T. Halloran∗
+Leidos
+halloranjt@leidos.com
+Abstract
+To reduce development overhead and enable seamless integration between
+potential components comprising any given generative AI application,
+the Model Context Protocol (MCP) (Anthropic, 2025d) has recently been
+released and, subsequently, widely adapted. The MCP is an open proto-
+col which standardizes API calls to large language models (LLMs), data
+sources, and agentic tools. Thus, by connecting multiple MCP servers–each
+defined with a set of tools, resources, and prompts–users are able to define
+automated workflows fully driven by LLMs. However, we show that the
+current MCP design carries a wide range of security risks for end-users.
+In particular, we show that industry-leading LLMs may be coerced to use
+MCP tools and compromise an AI developer’s system through a wide
+range of attacks, e.g., malicious code execution, remote access control, and
+credential theft. In order to proactively mitigate the demonstrated (and
+related) attacks, we introduce a safety auditing tool, McpSafetyScanner, the
+first such agentic tool to assess the security of an arbitrary MCP server.
+McpSafetyScanner uses several agents to: a) automatically determine ad-
+versarial samples given an MCP server’s tools and resources, (b) search
+for related vulnerabilities and remediations given such samples, and (c)
+generate a security report detailing all findings. Our work thus sheds light
+on serious security issues with general purpose agentic workflows, while
+also providing a proactive tool to audit the safety of MCP servers and
+address detected vulnerabilities prior to deployment.
+The described MCP server auditing tool, MCPSafetyScanner, is freely avail-
+able at: https://github.com/johnhalloran321/mcpSafetyScanner.
+1 Introduction
+With the rise of large language models (LLMs) and agentic workflows, AI is being developed
+and adapted at unprecedented rates. Anticipating such growth, as well as the ensuing
+complexity resulting from AI-powered assistants and services communicating with one
+another, Anthropic has recently introduced the Model Context Protocol (MCP) (Anthropic,
+2025d). This protocol seeks to integrate LLMs and agents with various external systems and
+services in an easily adaptable framework.
+Since it’s debut, the MCP has been widely adapted across a large number of commonly
+used open-source libraries, e.g., default MCP servers are natively packaged with Claude
+Desktop Anthropic (2025a), and official integrations include OpenAI’s Agents (OpenAI,
+2025), Copilot (Microsoft, 2025), Stripe (Stripe, 2025), Slack (Anthropic, 2025g), and IBM’s
+Watson (IBM, 2025), to name a few. Furthermore, the MCP has garnered significant commu-
+nity interest and support; in just four months (at the time of this writing), the official MCP
+github repository has accrued over 27k stars (Anthropic, 2025e) and has been forked over
+2.8k times. Indeed, as the use of AI agents and AI-powered applications continues to grow,
+it is expected that the MCP will similarly continue to grow as a unifying framework for the
+∗Equal Contribution
+1
+arXiv:2504.03767v2 [cs.CR] 11 Apr 2025
+
+Preprint. Under review.
+growing AI-based ecoysytem (Forbes, 2025). However, we show that the current design of
+the MCP poses significant security risks for users developing generative AI solutions.
+Herein, we demonstrate that industry-leading LLMs may be coerced to use tools from
+standard MCP servers and directly compromise user systems. In particular, we show that
+Claude 3.7 and Llama-3.3-70B may be prompted to use tools from default MCP servers
+which allow three different types of attacks: 1) malicious code execution , (2) remote access
+control, and (3) credential theft. Furthermore, we introduce a new multi-MCP server attack
+which enables both remote access control and credential theft. Through these attacks, bad
+actors are able to gain access to an AI developer’s system and/or procure sensitive user
+data (e.g., API keys).
+With the successful demonstration of all three attacks, we then show that Claude is aware of
+the underlying security issues concerning prompts which enable these attacks and refuses
+such requests some of the time, but may be coerced to successfully carry out requests
+by simple prompt changes. Directly testing the ability of an LLM’s guardrails to prevent
+these attacks can thus produce false positives which, in turn, may provide a false sense of
+security against such attacks. Thus, we advocate that an LLM’s guardrails1 should not be
+solely relied upon for remediation. Rather, remediation should occur through the LLM (via
+its guardrails) as well as proactively through the design of the MCP server (via knowledge
+of the exploits made possible when an LLM is enabled with an MCP server’s tools and
+resources).
+To proactively identify exploits for agentic MCP workflows, we introduceMcpSafetyScanner,
+the first tool to assess the security of an arbitrary MCP server. Given a particular MCP
+server, McpSafetyScanner uses agents to automatically detect system vulnerabilities using
+the server’s features (i.e., tools, prompts, and resources), automatically searches knowledge
+bases for related vulnerabilities, determines remediations for all vulnerabilities, and pro-
+duces a detailed security report for MCP developers. McpSafetyScanner thus allows MCP
+developers the ability to easily scan their MCP servers for vulnerabilities and release
+patches for exploits using returned remediations.
+We show that, for the standard MCP servers which enable our demonstrated attacks,
+McpSafetyScanner is able to correctly identify these vulnerabilities, provide standard exam-
+ples of these attacks, and remediations (as well as guardrail best-practices).
+2 Background
+2.1 Need for Standardized Generative AI APIs
+Currently, the generative AI landscape consists of a wide range of custom APIs tailored
+towards specific goals and targeted solutions. E.g., for retrieval augmented generation
+(RAG) alone, widely used solutions include Chroma, LangChain, Haystack, LlamaIndex,
+ChatGPT’s retrieval plugin, Huggingface’s retrieval plugin, and Azure’s Machine Learning
+pipeline, to name name a few. Furthermore, the aforementioned RAG solutions may
+internally call several other generative AI APIs, differing based on the inference/LLMOps
+provider (e.g., OpenAI, Azure OpenAI, Together AI, and DataBricks for API endpoints
+or local models through Huggingface, Ollama, vLLM, etc.). Such recursive API calls are
+inherited by practitioners when developing their own specific applications, who in turn
+build their own custom APIs. Thus, while a large number of generative AI solutions exist,
+adapting such solutions for a particular use case requires significant developer time and
+effort due to the current ad-hoc state of generative AI APIs.
+1In this context, we are not only referring to the guardrails enabled through safety fine-tuning
+the LLM, i.e., alignment (Grattafiori et al., 2024). Rather, when discussing a closed-source LLM
+accessed via a server endpoint (e.g., Claude and GPT-4o), we use the term guardrails to encompass
+all facets of the LLM-inference-endpoint’s refusal system, which may include malicious prompt
+detectors (Inan et al., 2023) for either the input query or the LLM’s response.
+2
+
+Preprint. Under review.
+2.2 The Model Context Protocol
+The MCP is a streamlined solution to the current unstructured design of generative AI
+APIs. At its core, the MCP defines a schema with which client- and server-side services
+must structure their requests. Additionally, the MCP consists of an open-source SDK to
+enable quick adaptation across popular web-development languages (i.e., Python, Java,
+Typescript, and Kotlin). Within the MCP client-serve message schema, requested services
+are described as features. Server-to-client (STC) features include resources (i.e., context and
+data for the AI model to use), prompts (i.e., templated messages and workflows for users),
+and tools (i.e., functions for the AI model to execute). The client-to-service (CTS) may offer
+the sampling feature, i.e., server-initiated agentic behaviors and recursive LLM interactions.
+By standardizing messages, categorizing STC/CTS requests, and providing a centralized
+codebase, developers may quickly integrate open source tooling and projects into their own
+Generative AI solutions.
+3 The MCP Allows LLMs to Compromise User Systems
+As previously noted, we consider the following three types of attacks
+1. Malicious code execution (MCE) - an attacker inserts malicious code into a user’s
+system files.
+2. Remote access control (RAC) - an attacker is immediately granted remote access to
+the victim’s system.
+3. Credential Theft (CT) - an attacker exploits access to system files or environment
+variables, covertly extracting sensitive information from the victim’s system.
+Herein, we demonstrate MCE attacks which allow RAC every time the victim opens a new
+terminal. We note, however, that general MCE attacks are not limited to this specific end
+goal.
+Claude. Figure 1 shows successful and unsuccessful MCE attempts by directly prompting
+Claude enabled with the MCP filesystem server (described in Table 1). Claude demonstrates
+knowledge of the security risks related to an MCE; in Figure 1(a), an MCE attack hidden
+in octal-encoded variables triggers Claude’s guardrails, and Claude does not complete the
+request while noting the security concerns associated with it. While examples like this
+may provide confidence in Claude’s safety guardrails, Figure 1(b) shows a less subversive
+version of the attack, where the MCE is written in plaintext. In this case, we can see that
+while Claude’s guardrails are partially triggered (noting potential security risks with this
+request), Claude completes the request. The backdoor is triggered the next time the MCP
+user opens a new terminal (Figure 6 demonstrates the attack in full).
+While this specific demonstration has a low threat level in a general setting–as the attacker
+requires direct access to the MCP user’s system to directly promptClaude Desktop –the threat
+level increases drastically when considering shared-office or communal settings (Willison
+& Warkentin, 2013). Furthermore, similar results may be found when directly prompting
+for an RAC attack; Figure 8 displays both refused and successful RAC attacks. While the
+former (in Figure 8(a) triggers Claude’s guardrails, the latter (in Figure 8(b)) is completed
+without any mention of security. Due to the extreme potential for malicious actions enabled
+by MCE and RAC attacks–which are thus enabled through MCP tools–we note the need
+for reliable guardrails for potentially malicious attacks. However, Figure 7 shows another
+example where Claude refuses an MCE attack after its guardrails are triggered (and despite
+the user escalating the severity of the request), whereas Figure 9 shows an intimidating
+RAC attack request which partially triggers Claude’s guardrails but is completed.
+Llama-3.3-70B-Instruct. Figure 2 shows an MCE attack attempt successfully carried out
+by Llama-3.3-70B-Instruct. While Llama-3.3-70B-Instruct displays knowledge of po-
+tential malicious use cases related to the request–suggesting guardrails were partially
+triggered–the request is nonetheless completed. This is also true for alternative MCE at-
+tempts (Figure 16(b)). However, both RAC (Figure 15) and multiple CT (Figure 17) requests
+3
+
+Preprint. Under review.
+(a) Claude refuses an MCE attack hidden as octal.
+(b) Claude executes a very direct MCE attack.
+Figure 1: Claude refusing and executing commands which enable a remote execution
+attack. In Figure 1(a), Claude proceeds with caution by first decoding the octal values,
+notes the security risks inherent in the request’s decoded command, and correctly refuses.
+However, Claude executes the less deceptive request, where the command to establish a
+remote execution attack is passed in plaintext and added to the user’s run configuration
+file.
+4
+
+Preprint. Under review.
+are completed without any returned security concerns, suggesting these requests did not
+partially trigger Llama-3.3-70B-Instruct’s guardrails (unlike Claude).
+Figure 2: Llama-3.3-70B-Instruct completes an MCE attack request.
+Llama-3.3-70B-Instruct shows its guardrails are being partially triggered by not-
+ing malicious use cases for this command, but nonetheless completes the request. The
+request is highlighted in purple, while the salient portions of Llama-3.3-70B-Instruct’s
+response are highlighted in orange. The original unhighlighted image, as well as another
+completed MCE attack request, may be found in Figure 16.
+Unlike Claude, Llama-3.3-70B-Instruct refusals for MCE, RAC, and CT attack-requests
+required explicit harmful/unsafe language, as displayed in Figure 19 (for RAC attacks) and
+Figure 18 (for MCE and CT attacks). The only difference between the refused and com-
+pleted prompts is a phrase in the latter explicitly stating one of the following words/phrases:
+“hack,” “steal,” “backdoor,” and “break into.” We note that, in practice, attackers are unlikely
+to overtly state their intentions, but rather much more likely to manipulate their targets with
+whatever language is required to achieve their goal (Valeriano et al., 2018; Workman, 2008).
+Furthermore, we note that Llama-3.3-70B-Instruct underwent extensive safety alignment
+and cybersecurity evaluation (Grattafiori et al., 2024). Thus, despite rigorous testing on
+previous (non-MCP related) safety benchmarks, Llama-3.3-70B-Instruct (and likely other
+LLMs) require re-evaluation given the immediate safety-and-security implications of en-
+abling LLMs with MCP tools. In particular, if an MCP-enabled application was solely using
+Llama-3.3-70B-Instruct and was equipped with the MCP filesystem server, the system
+might allow MCE, RAC, and CT attacks so long as a bad actor does not use harmful or
+unsafe language.
+4 Retrieval-Agent Deception Attacks
+We have shown that both Claude and Llama-3.3-70B-Instruct enabled with MCP servers
+are susceptible to MCE, RAC, and CT attacks when directly prompted. We introduce a new
+attack for MCP-enabled agentic workflows, wherein the LLM is not directly prompted with
+the MCP-leveraging attack. Rather, the attacker corrupts publicly available data, which end
+up on the MCP-enabled user’s system and which the user adds to a vector database. The
+data has been corrupted with MCP-leveraging attack commands centered around a specific
+theme so that, when the MCP user asks to query this database for info related to this theme,
+the attacker’s commands are loaded and run. We thus call this a Retrieval-Agent DEception
+(RADE) attack, which is illustrated in Figure 3. As the attacker no longer needs direct access
+to the victim’s system, RADE has a significantly higher threat level than the direct prompt
+attacks (DPA) demonstrated in Section 3.
+Given a system enabled with the MCP servers listed in Table 2, we demonstrate an end-
+to-end RADE attack for CT using Claude Desktop . In it, an attacker has corrupted a
+file–centered around the theme “MCP” with commands to search for any environment
+5
+
+Preprint. Under review.
+Attacker
+Public files
+MCP user
+Search my files for X,
+use MCP servers for
+search results
+X Y Z
+Figure 3: Threat model for a RADE attack. An attacker compromises publicly available
+data with targeted commands centered around a specific theme (“X” in the figure), which
+ends up on an MCP user’s system. Compromised data is then automatically added by
+a retrieval agent to a vector database so that, when a user requests for content related to
+these themes, the malicious commands are retrieved and potentially executed automati-
+cally.
+variables containing “OpenAI” or “HuggingFace” and export these over Slack–which ends
+up on the MCP-user’s system. The user forms a vector database out of their files using the
+Chroma MCP server and tells Claude to query the database for “MCP” and run the results.
+Claude subsequently uses the Chroma MCP server to run the query, then the everything
+MCP server to search for “OpenAI” and “HuggingFace” environment variables, finds API
+keys for both, and finally posts a company-wide Slack notification exposing both the victim’s
+OpenAI and HuggingFace API keys. The successful attack is displayed in Figure 4.
+A second successful RADE attack–for RAC using Claude Desktop –is displayed in Figure 10
+and 11. Similar to the previous RADE attack, an attacker has compromised a file centered
+around the theme “MCP ,” but this time stating commands to add anssh key to the victim’s
+local authorized keys file. The attack proceeds as before, where after the user tells Claude
+to query the database for “MCP” and run the results, Claude uses the Chroma MCP server
+to run the query and the filesystem MCP server to create the authorized keys file with the
+attacker’s ssh keys, thus granting immediate access to the victim’s system.
+5 McpSafetyScanner - Multi-Agentic Framework for Proactive MCP
+Vulnerability Detection and Remediation
+We have thus seen several malicious system attacks made possible by querying Claude or
+Llama-3.3-70B-Instruct connected to MCP servers. Furthermore, we have seen that, while
+the LLM’s guardrails may be triggered by MCE, RAC, or CT attacks, refusal of the related
+requests are not guaranteed (especially for Llama-3.3-70B-Instruct). Thus, to add security
+beyond just an LLM’s guardrails to MCP-enabled systems, we introduce McpSafetyScanner.
+Given an arbitrary MCP server, McpSafetyScanner uses agents to automatically probe the
+system environment and actions enabled by the server for vulnerabilities and subsequent
+remediations. Depicted in Figure 5, this entire process is carried out in three key stages.
+The first stage consists of automated vulnerability detection, wherein a hacker agent auto-
+matically pulls down an MCP server’s features (i.e., tools, resources, and prompts), then
+determines system vulnerabilities using these features. The second stage consists of an
+expanded vulnerability search and remediation, wherein, for each (tool, resource, prompt,
+vulnerability) tuple, a security auditor agent searches several knowledge bases (i.e., the
+World Wide Web, arXiv, and Hacker News) for similar vulnerabilities. For each determined
+vulnerability, the auditor thus determines remediation steps and best practices for an MCP
+developer to mitigate these exploits. The final stage consists of the security report genera-
+tion, wherein a supervisor agent consolidates all vulnerabilities and remediations to produce
+a detailed report.
+6
+
+Preprint. Under review.
+(a) RADE attack file for CT centered around the theme “MCP .”
+(b) Claude is successfully coerced to perform a RADE attack using available MCP servers, exporting
+the user’s OpenAI and Huggingface to a Slack channel. RadBlog is a Slack app which notifies all
+Slack users in the organization after posting.
+Figure 4: Successful RADE attack for CT: From a vector database including CT direc-
+tions themed around “MCP ,”Claude is instructed to search for entries about the MCP and
+perform related actions. Claude complies, completing a RAC attack and providing attack-
+ers access to the victim’s system. Conversation is condensed for brevity, full conversation
+is displayed in Figure 10 and 11.
+Tools = { MCP Server tools }
+Role = “Hacker”
+Goals = {“Probe system using
+tools and server
+resources” ,
+“Return discovered
+vulnerabilities” ,
+}
+
+Tools = { Web, ArXiv, }
+Role = “Auditor”
+Goals = {“for each (tool, prompt,
+resource, vulnerability):
+-Find related vulnerabilities”,
+“Find/determine
+remediations for all
+learned vulnerabilities”,
+}
+
+Hacker
+News Tools = { Hacker, Auditor}
+Role = “Supervisor”
+Goals = {“Monitor other agents,
+keep them on task” ,
+“Produce a detailed
+security report” ,
+}
+
+Stage 1 – MCP server vulnerability
+detection
+Stage 2 – Detect related vulnerabilities,
+determine remediations
+Stage 3 – Generate a detailed security
+report of vulnerabilities and remediations
+Figure 5: Steps and agents used by the McpSafetyScanner to detect MCP server vulnera-
+bilities and determine remediations.
+7
+
+Preprint. Under review.
+Thus, an MCP developer or user inputs the configuration file defining their MCP
+servers and args in json format (e.g., claude desktop config.json for Claude Desktop ),
+and McpSafetyScanner returns a report of its security findings. We present two
+McpSafetyScanner reports produced by scanning the configuration of MCP servers con-
+sidered herein (Table 2). McpSafetyScanner is fast (runtime of less than one minute to scan
+and generate each report on an M2 Max MacBook Pro) and, most importantly, accurate; the
+first report (displayed in Figure 20) catches exploits used in the demonstrated MCE, RAC,
+and CT attacks. Furthermore, the remediation steps enable the developer to strengthen the
+guardrails of the underlying MCP server, as well as the end-user to strengthen the defenses
+of the system (while hosting the MCP server).
+For example, for RAC, McpSafetyScanner correctly notes the abuse possibility of ssh keys
+being added to a user’s authorized keys file (while also noting other possible system paths
+for this attack). The provided remediation–“implement strict file access permissions”–
+provides a path for a downstream MCP user to protect their system from this exploit, while
+the second remediation–“Monitor file access and modifications”–provides a means with
+which MCP developers can place guardrails on their deployed server (i.e., monitor the files
+accessed during LLM-MCP server exchanges and prevent access to sensitive system files).
+Furthermore, the report includes commandline examples of each attack. A summary of the
+report is available in Table 1, where the exploits used to achieve the attacks demonstrated
+herein are described and accompanied by remediations.
+Table 1: Summary of McpSafetyScanner findings from jointly scanning the MCP servers in
+Table 2
+Attack Description Remediation
+MCE An attacker could use the
+edit file and write file func-
+tions to inject malicious code
+or backdoors into critical files,
+leading to unauthorized access
+or privilege escalation.
+Implement strict access controls
+and monitoring for file modifica-
+tions. Restrict directories where
+these functions can operate. Moni-
+tor changes to critical files using file
+integrity tools (Linux Tripwire)
+RAC Attackers can add their
+own public SSH keys to
+∼/.ssh/authorized keys, gain-
+ing unauthorized access.
+Use strict permissions on
+authorized keys
+CT Attackers can print and cap-
+ture environment variables to
+access sensitive data, such as
+API keys, internal URLs, and
+credentials.
+Avoid storing sensitive information
+in environment variables. Enforce
+least privilege principles.
+CT Exploit the Slack API to exfil-
+trate data or cause unautho-
+rized posts.
+Audit and restrict API access, and
+regularly review channel permis-
+sions. Use Slack’s advanced secu-
+rity features (Slack Security Best
+Practices).
+6 Discussion, Conclusions, and Future Work
+Although only a handful of months old, the MCP shows significant promise in lowering the
+connectivity barriers between agentic components. Furthermore, the rapid adaptation over a
+short period of time point to the protocol’s potential to truly become the “USB-C port for AI
+applications” (Anthropic, 2025f). However, with rapid adaptation also comes the increased
+potential for the abuse of existing safety vulnerabilities. In order to initiate the understanding
+of such MCP vulnerabilities, herein, we’ve studied three serious attacks, ranging in their
+impact from exfiltration of sensitive information to remote access control of the server’s
+host. We’ve shown that both Claude and Llama-3.3-70B-Instruct are susceptible to all
+three attacks. We’ve also introduced a new multi-MCP server attack with a high threat
+8
+
+Preprint. Under review.
+level, RADE, and shown that Claude may enable CT or RAC under this attack. Furthermore,
+we’ve shown that the guardrails of both models may be triggered during these attacks, but
+the reliability of these guardrails to prevent these attacks (via a refusal on the part of the
+LLM) varies drastically based on the model as well as the prompt used to deliver the attack.
+To aid in strengthening the guardrails of the MCP server and the hosting system (thus
+relieving the LLM of the sole burden of refusal), we’ve introduced an agentic tool,
+McpSafetyScanner, to automatically scan MCP servers for vulnerabilities and provide re-
+mediations. We’ve shown that McpSafetyScanner is capable of catching the exploits which
+have enabled the attacks considered herein, and provides quick actionable remediations to
+close MCP-enabled exploits on either the developer’s or MCP-user’s side. We are actively
+working to release this tool so that MCP server vulnerabilities may be scanned and patched
+prior to deployment, thus decreasing zero-day exploits and any abuse unintentionally
+enabled by MCP servers.
+There is significant room for future work. We plan to continue auditing existing MCP
+servers in order to patch existing vulnerabilities. Furthermore, we plan to work towards
+partnering closely with the active MCP community, in order to automate safety scanning
+prior to deployment using McpSafetyScanner.
+7 Experimental Setup
+Claude Desktop was run using Claude for Mac v0.8.1 on macOS Sequoia v15.3.2 .
+McpSafetyScanner was written in Agno (v1.2.6), with each agent powered by
+gpt-4o-2024-08-0 for all results presented. All Llama-3.3-70B-Instruct results were run
+using mcp v1.1.2 , huggingface-hub v0.29.3 , and 1.68.2, where inference calls were made
+using HuggingFace’s inference API. GNU netcat v0.7.1 was used for all related results. All
+considered MCP servers are listed in Table 2 with their associated tools listed in Table 3. The
+Claude Desktop config file of all MCP servers used for all attacks is available in Section A.
+Table 2: MCP servers considered herein. Filesystem, Slack, and everything servers are
+natively packged with current versions of Claude Desktop . All considered servers are
+hosted in the official MCP github repository (Anthropic, 2025e).
+MCP Server Description
+Filesystem (Anthropic, 2025c) MCP for filesystem operations (.e.g,
+read, write, make directory, etc.)
+Slack (Anthropic, 2025g) MCP for the Slack API, enabling Claude
+to interact with Slack workspaces
+Everything (Anthropic, 2025b) Test server for builders of Client servers
+Chroma (Chroma, 2025) Server enabling data retrieval ca-
+pabilities powered by Chroma
+8 Acknowledgements
+We thank Leidos for funding this research through the Office of Technology. Approved for
+public release 25-LEIDOS-0318-29149.

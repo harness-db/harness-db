@@ -1,0 +1,592 @@
+record_id: arxiv:2506.05010
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2506.05010
+fetched_title: ComfyUI-Copilot: An Intelligent Assistant for Automated Workflow Development
+fetched_at: 2026-09-18T19:01:12Z
+
+arXiv:2506.05010v1 [cs.CL] 5 Jun 2025
+ComfyUI-Copilot: An Intelligent Assistant for Automated Workflow
+Development
+Zhenran Xu1,2*, Xue Yang1†, Yiyu Wang1, Qingli Hu1, Zijiao Wu1,
+Longyue Wang1, Weihua Luo1, Kaifu Zhang1, Baotian Hu2†, Min Zhang2
+1Alibaba International Digital Commerce 2Harbin Institute of Technology (Shenzhen)
+{xuzhenran.xzr,shali.yx,menshuan.wyy,qingli.hql,zijiao.wzj}@alibaba-inc.com
+{wanglongyue.wly,weihua.luowh,kaifu.zkf}@alibaba-inc.com
+{hubaotian,zhangmin2021}@hit.edu.cn
+/gtbhttps://github.com/AIDC-AI/ComfyUI-Copilot
+Abstract
+We introduce ComfyUI-Copilot, a large lan-
+guage model-powered plugin designed to en-
+hance the usability and efficiency of Com-
+fyUI, an open-source platform for AI-driven
+art creation. Despite its flexibility and user-
+friendly interface, ComfyUI can present chal-
+lenges to newcomers, including limited docu-
+mentation, model misconfigurations, and the
+complexity of workflow design. ComfyUI-
+Copilot addresses these challenges by offering
+intelligent node and model recommendations,
+along with automated one-click workflow con-
+struction. At its core, the system employs a
+hierarchical multi-agent framework compris-
+ing a central assistant agent for task delega-
+tion and specialized worker agents for differ-
+ent usages, supported by our curated ComfyUI
+knowledge bases to streamline debugging and
+deployment. We validate the effectiveness of
+ComfyUI-Copilot through both offline quan-
+titative evaluations and online user feedback,
+showing that it accurately recommends nodes
+and accelerates workflow development. Ad-
+ditionally, use cases illustrate that ComfyUI-
+Copilot lowers entry barriers for beginners and
+enhances workflow efficiency for experienced
+users. The ComfyUI-Copilot installation pack-
+age and a demo video are available at https:
+//github.com/AIDC-AI/ComfyUI-Copilot.
+1 Introduction
+Recent advancements in large language models
+(LLMs) and image generation methods have de-
+mocratized AI-generated content (AIGC) produc-
+tion, with open-source frameworks like Com-
+fyUI (comfyanonymous, 2023) emerging as piv-
+otal tools for low-code AI workflow development.
+Serving over 4 million active users and backed by
+a vibrant community contributing 12K+ compo-
+*Work done during internship at Alibaba International
+Digital Commerce.
+†Corresponding authors.
+nents (e.g., SDXL (Podell et al., 2023), Control-
+Net (Zhang et al., 2023)), ComfyUI enables flexible
+workflow orchestration via drag-and-drop compo-
+nents for multimodal tasks such as text-to-image
+generation, face swapping, and video editing.
+Despite its convenience, newcomers may face
+several potential barriers when starting with Com-
+fyUI. These challenges include the installation of
+dependent nodes and models, scattered documen-
+tation across forums and GitHub issues. Even ex-
+perienced users require substantial expertise to de-
+bug and construct a well-designed workflow (Gal
+et al., 2024). Recent research on automatic work-
+flow construction has limitations, such as instability
+(i.e., generating unprocessable workflows) and a
+narrow focus primarily on text-to-image genera-
+tion tasks (Xue et al., 2024; Sobania et al., 2024).
+Addressing these challenges and facilitating the on-
+boarding process for ComfyUI is therefore crucial.
+To this end, we introduce ComfyUI-Copilot,
+an LLM-empowered multi-agent framework de-
+signed to assist users in navigating ComfyUI. It
+provides the following key features: (1) Automatic
+workflow generation: Our copilot can identify
+user intent, retrieve or synthesize an appropriate
+workflow, and then integrate it into the ComfyUI
+canvas. An example of its functionality is shown in
+Figure 1. (2) Node and model recommendation:
+Our copilot can suggest suitable nodes based on
+user instructions, recommend relevant checkpoints
+and LoRA models. (3) ComfyUI-related question
+answering: Our copilot provides detailed tutori-
+als on selected nodes and models, including usage
+guidelines, installation steps, and parameter expla-
+nations. It can also offer multiple feasible down-
+stream subgraphs for selected nodes. Addition-
+ally, we introduce new features aimed at enhancing
+workflow debugging and optimization, including
+prompt writing and parameter search.
+The framework of ComfyUI-Copilot is centered
+around an LLM-based assistant agent, which co-
+1
+
+(a) ComfyUI Workflow Generation (b) One-click Deployment
+Figure 1: An example of automated workflow generation in ComfyUI-Copilot: the copilot suggests multiple
+workflows based on the user instruction and loads the selected one into the canvas with a single click.
+ordinates with various specialized worker agents
+and knowledge bases (KBs). Depending on the
+query, the assistant agent may address user queries
+directly or delegate tasks to appropriate worker
+agents. We have developed three primary worker
+agents focused on workflow generation, node and
+model recommendation. To support these agents,
+we have constructed extensive KBs covering 7K
+nodes, 62K models, and 9K workflows. These KBs
+are enhanced through automated documentation
+generation by leveraging LLM’s code comprehen-
+sion capabilities, and are continuously expanded
+and updated daily. Unlike prior work (Gal et al.,
+2024; Sobania et al., 2024) which only targets text-
+to-image generation, the resources in our KBs ex-
+tend to conditional multimodal generation tasks, en-
+suring that our system accommodates both diverse
+tasks and cutting-edge modules with accuracy.
+Experiments show that ComfyUI-Copilot pro-
+vides accurate assistance in node recommendation
+and workflow construction based on user instruc-
+tions. The high recall rates for workflows and
+nodes (both exceeding 88.5%) validate the prac-
+tical efficacy in automated workflow development
+and accurate node recommendation. Since its re-
+lease on GitHub, online user feedback reflects a
+moderately high acceptance rate of 65.4% for rec-
+ommended nodes and a notably high acceptance
+rate of 85.9% for proposed workflows. Use cases
+further highlight the system’s capability to reduce
+entry barriers for beginners and enhance workflow
+efficiency for experienced ComfyUI users with
+multilingual support.
+To the best of our knowledge, ComfyUI-Copilot
+is the first open-source project to develop a Com-
+fyUI plugin for automating workflow creation and
+providing instant suggestions. As of the camera-
+ready date (May 29, 2025), it has already attracted a
+rapidly growing user base, accumulating over 1.6K
+GitHub stars and processing more than 85K queries
+from 19K users across 22 countries. In future work,
+we plan to incorporate feedback from the active
+open-source community and continuously update
+features to better address user needs.
+2 Related Work
+AI-generated content (AIGC) based on Com-
+fyUI. Diffusion models have gained wide atten-
+tion in AI research for image synthesis (Ho et al.,
+2020; Dhariwal and Nichol, 2021). As the field
+of text-to-image generation progresses, new tasks
+and models (Kumari et al., 2023; Ruiz et al., 2023;
+Li et al., 2023; Zhang et al., 2023) have been pro-
+posed to introduce controllable conditions in im-
+age generation. Therefore, researchers and practi-
+tioners are transitioning from simple text-to-image
+workflows to more sophisticated ones, where the
+open-source ComfyUI (comfyanonymous, 2023)
+offers great convenience. In ComfyUI, users can
+easily construct workflows by connecting a series
+of blocks, each representing specific models or pa-
+rameter choices. Each ComfyUI workflow can be
+exported to a JSON file which outlines both the
+graph nodes and their connectivity.
+Instead of relying on an end-to-end diffusion
+model for image generation, advanced workflows
+combine a variety of components to enhance image
+quality (Guo et al., 2024; Ye et al., 2023). These
+2
+
+Type your message …
+ComfyUI Interface
+Canvas Copilot Plugin
+ComfyUI-Copilot Server
+System Prompt
+User
+Instruction
+Short-
+Term
+Memory
+Collaboration
+N Y
+Worker Agents
+Driven by DeepSeek-V3 GPT-4o
+User
+Workflows
+Models
+Nodes
+Knowledge
+Base
+ComfyUI-Copilot Knowledge Base
+Assistant
+Agent
+Workflow
+Generation
+Node
+Recommendation
+Model
+Recommendation
+Prompt Writing
+Parameter Search
+Parameters
+Figure 2: Overview of the ComfyUI-Copilot framework : The central LLM-based assistant agent can either
+respond directly to user instructions based on the conversation history (i.e., short-term memory), or collaborate with
+specialized worker agents. These agents are supported by our curated ComfyUI knowledge bases.
+components may include fine-tuned versions of
+generative models, large language models (LLMs)
+for refining input prompts, LoRAs trained to in-
+troduce specific artistic styles, improved latent de-
+coders for finer details, super-resolution blocks,
+and more (Hu et al., 2021; Mañas et al., 2024;
+Berrada et al., 2025; Ning et al., 2021). Importantly,
+effective workflows are prompt-dependent, with the
+selection of models and nodes often based on the
+user intent and the desired image content (Gal et al.,
+2024). Therefore, creating a well-designed work-
+flow and selecting appropriate nodes and models
+require significant expertise, where our ComfyUI-
+Copilot comes into help.
+LLM-based agents. Recent advancements in
+LLMs have demonstrated great improvements in
+reasoning abilities and adaptability to new content
+and tasks (Chen et al., 2024b; Zeng et al., 2024;
+Wang et al., 2025). Based on these emergent capa-
+bilities (Wei et al., 2022), various studies have uti-
+lized LLMs for agentic task completion using exter-
+nal tools, including hallucination detection (Cheng
+et al., 2024b), visual question answering (Cheng
+et al., 2024a; Yin et al., 2024), and web naviga-
+tion (Agashe et al., 2025; Yang et al., 2025; Li et al.,
+2025). In addition to tools, LLM-based agents are
+often equipped with components such as memory
+mechanisms (Wang et al., 2024; Xu et al., 2025), re-
+trieval modules (Asai et al., 2024; Kim et al., 2024)
+and reasoning strategies like self-reflection (Shinn
+et al., 2023; Xu et al., 2023), aimed at enhancing
+their overall performance.
+Our work proposes a multi-agent framework
+for the automated development and deployment of
+ComfyUI workflows. In this framework, the LLM
+acts as the central planner, autonomously select-
+ing suitable worker agents to address diverse user
+queries. Although recent research has shown in-
+creasing interest in workflow generation (Gal et al.,
+2024; Xue et al., 2024; Sobania et al., 2024), ex-
+isting methods often face challenges such as in-
+stability, leading to unparseable output workflows,
+or are limited to text-to-image tasks. We broaden
+the scope to include various conditional image and
+video generation tasks, and address user queries
+with a high acceptance rate.
+3 ComfyUI-Copilot
+In this section, we provide a detailed description of
+ComfyUI-Copilot. As illustrated in Figure 2, the
+system utilizes a hierarchical multi-agent frame-
+work that includes a central assistant agent for task
+delegation and specialized worker agents for differ-
+ent usages. We first introduce our curated ComfyUI
+knowledge bases (Sec. 3.1), and the details of the
+multi-agent framework (Sec. 3.2). Following this,
+we present the interactive chat interface and pro-
+vide usage examples in Section 3.3.
+3.1 Knowledge Bases
+We have constructed three KBs about nodes, mod-
+els and workflows. The data is sourced from pop-
+ular platforms for sharing generative resources,
+ComfyUI-related GitHub repositories, and the
+ComfyUI website, with NSFW content filtered out.
+For nodes lacking structured documentation, we
+automatically generate detailed documentation by
+analyzing their GitHub repositories. As shown in
+Figure 3, the process begins by setting up a sandbox
+environment to run ComfyUI, cloning the GitHub
+repositories, and installing the necessary depen-
+dencies. After successfully importing the nodes
+3
+
+Generation
+GitHub
+Repository
+LLM
+Release SandBox
+Evaluation
+Reject
+Final DocCodes
+ComfyUI
+Environment
+Download
+Download
+Dependent
+Packages
+Node Meta
+Information
+Environment Construction
+Code
+Embedding
+Initialize
+Node-related
+Codes
+Prompt
+Retrieval
+Figure 3: The process of automatic node documentation generation. Starting from GitHub repositories, the
+process involves constructing an executable ComfyUI environment, followed by code chunking and retrieval, and
+concludes with generating the final documentation.
+within ComfyUI, we extract metadata, including
+the node class type, input and output parameters.
+The GitHub code is then segmented into chunks,
+which are embedded using the BGE-M3 embed-
+ding (Chen et al., 2024a), followed by retrieval to
+locate relevant code for each node. By combin-
+ing the metadata with the code, we use an LLM
+to generate documentation on node usage and pa-
+rameter meanings. The generated documentation
+undergoes quality reviews before finalization, with
+an example provided in Appendix A.
+In addition, since community-sourced content
+tends to focus more on installation instructions,
+there is often a lack of detailed explanations
+of workflow and model functionalities. To ad-
+dress this, we leverage the multimodal understand-
+ing capabilities of GPT-4o, by prompting it with
+community-sourced texts, accompanying images
+that typically demonstrate the effects of the work-
+flows or models, and any available workflow JSON
+files. This approach helps fill in the gaps in usage
+descriptions, which is essential for further develop-
+ing effective recommendation worker agents.
+In total, we have constructed extensive KBs cov-
+ering 7K nodes, 62K models, and 9K workflows.
+These KBs are continuously expanded weekly,
+covering a wide range of conditional image and
+video generation tasks. This ensures that ComfyUI-
+Copilot remains adaptable to both widely used and
+cutting-edge modules.
+3.2 Agents
+The core of ComfyUI-Copilot is a well-instructed
+LLM-based assistant agent, serving as a planner.
+Depending on the user instruction, the assistant ei-
+ther responds to queries using the constructed KBs
+or delegates tasks to appropriate worker agents.
+We have created three worker agents for workflow,
+nodes and models, which we collectively refer to as
+“modules” in this section. The recommendation pro-
+cess for each module follows a three-stage pipeline,
+progressing from coarse to fine granularity.
+In the first stage, we employ an LLM or a large
+multimodal model (LMM), such as DeepSeek-V3
+or GPT-4o, to expand vague user instructions into
+detailed task descriptions and noteworthy consid-
+erations. For example, when performing style
+transfer, if the LMM identifies the original im-
+age as a human portrait, the expanded user intent
+will highlight the importance of maintaining sub-
+ject consistency. In the second stage, we repre-
+sent the user intent as an embedding and calcu-
+late its cosine distance with modules in the KB,
+obtaining a semantic score simS based on Ope-
+nAI’s text-embedding-3-small. Additionally,
+we compute a lexical similarity score simL based
+on the proportion of overlapping words. The over-
+all retrieval score simO is calculated as:
+simO = 0.7 × simS + 0.3 × simL (1)
+The top 30 modules with the highest simO scores
+are then selected for further re-ranking. In the third
+stage, we use the GTE-Rerank model1 to determine
+the top 3 modules from the above candidates. The
+re-ranking score is obtained by providing the re-
+ranker with the user intent and the description of
+each candidate module. These top 3 modules are
+further ranked by considering popularity factors
+such as upvotes, downloads, and star statistics.
+For the workflow generation agent, in addition
+to the module recalling pipeline, we explore the
+possibility of generating workflows from scratch
+based on code LLMs. As illustrated in Figure 4,
+1https://huggingface.co/Alibaba-NLP/
+gte-multilingual-reranker-base
+4
+
+ComfyUI Workflow
+Json File Code
+{"3":{"inputs":{"s
+teps":20,"sampler_
+name":"euler","sch
+eduler":"normal","
+model":["4",0],"po
+sitive":["6",0],"n
+egative":["7",
+0],...},"class_typ
+e":"KSampler","_me
+ta":{"title":"KSam
+pler"}}}
+latent_3 =
+KSampler(steps=20,
+cfg=8,
+sampler_name="euler",
+scheduler="normal",
+denoise=1,
+model=model_4,
+positive=conditioning_6,
+negative=conditioning_7,
+latent_image=latent_5)
+Export
+Load to Canvas
+Convert to Code
+Convert back to Json
+Figure 4: Different representations of ComfyUI work-
+flows and their flexible conversions.
+workflows can be represented in three common
+formats: ComfyUI flow graphs, JSON, and code.
+Following Xue et al. (2024), we enable mutual con-
+version between the JSON and code formats based
+on graph topology using Python-like syntax. We
+adopt code as the primary workflow representation
+due to its rich logical and semantic information,
+as well as its natural compatibility with LLMs’
+code generation capabilities. Given a user instruc-
+tion, we prompt top-tier closed-source LLMs with
+retrieved nodes and code exemplars to generate
+workflows from scratch. Additionally, to investi-
+gate whether task-specific open-source models can
+replace closed-source LLMs, we fine-tune open-
+sourced Qwen2.5-Coder-7B (Hui et al., 2024) on
+workflows collected in our KB. Experimental re-
+sults in Table 2 show that the fine-tuned model
+achieves performance comparable to Claude-3.7-
+Sonnet in terms of pass rate and node selection in
+generated workflows. More evaluation details are
+in Appendix B. However, due to the inherent com-
+plexity of workflow generation (Gal et al., 2024),
+there remains significant room for improvement in
+pass rates.
+Implemented with LangChain 2, our frame-
+work (Figure 2) equips the assistant agent to au-
+tonomously select appropriate worker agents based
+on user instructions and short-term memory (i.e.,
+message history). The assistant then synthesizes
+responses by integrating outputs from these worker
+agents, enabling automated ComfyUI-related ques-
+tion answering, workflow generation, and module
+recommendation. For prompt writing and param-
+eter search functionality, we provide illustrative
+examples in Section 3.3.
+2https://www.langchain.com/
+3.3 Interface
+As shown in Figure 1, ComfyUI-Copilot is seam-
+lessly integrated into the ComfyUI interface. Users
+can launch our service with a single click on the
+ComfyUI-Copilot icon in the left sidebar. Once
+activated, the chat box displays user inputs and our
+copilot’s responses. Users can engage in multiple
+rounds of conversation and switch between under-
+lying LLMs such as DeepSeek-V3 and GPT-4o.
+Automatic Workflow Generation. As illus-
+trated in Figure 1, ComfyUI-Copilot responds to
+user instructions by presenting the top three re-
+called workflows. By clicking “Accept”, the se-
+lected workflow can be loaded onto the canvas. If
+ComfyUI-Copilot detects that any required nodes
+are missing, it provides an installation guide and
+directs the user to the official GitHub repositories
+for easy setup (See Figure 5 (d)).
+ComfyUI-related Question Answering. Users
+can click on any node to ask shortcut questions
+about its usage, parameters, and recommended
+downstream nodes. Figure 5 (a) and (c) illustrate
+this feature: a user inquires about the input and
+output parameters of the “KSampler” node, and
+ComfyUI-Copilot not only explains them but also
+suggests relevant downstream nodes, such as sub-
+graphs for face swapping and image upscaling, to
+streamline workflow construction. Additionally, as
+shown in Figure 5 (b), ComfyUI-Copilot supports
+multilingual queries and responses (e.g., Polish
+in the example), enhancing accessibility for users
+worldwide.
+Node and Model Recommendation. Module
+recommendations in ComfyUI-Copilot are context-
+aware, taking into account dependencies between
+components in the workflow. For instance, certain
+LoRA models perform optimally with specific dif-
+fusion models. As shown in Figure 6 (a), when
+a user requests a LoRA model for text-to-image
+generation, ComfyUI-Copilot prompts the user to
+specify the diffusion model being used before sug-
+gesting compatible LoRA models. Figure 6 (b)
+demonstrates an example of node recommendation.
+The interface displays detailed descriptions and
+GitHub star counts for each recommended node,
+allowing users to add their preferred choice to the
+canvas with a single click.
+In addition to the core features that lower entry
+barrier for beginners, we also provide new features
+to enhance productivity for experienced ComfyUI
+users. The prompt-writing functionality in Fig-
+5
+
+(a) ComfyUI-related Question Answering
+(c) Downstream Node Completion
+(d) Missing Node Installation
+(b) Multilingual Support
+Figure 5: Examples of ComfyUI-Copilot’s different usages.
+DeepSeek-V3 GPT-4o
+Node 0.885 0.894
+Workflow 0.900 0.892
+Table 1: Recall rates of nodes and workflows in
+ComfyUI-Copilot based on our constructed test set.
+ure 7 helps users refine prompts for text-to-image
+generation, resulting in more vivid images. For
+example, given a simple instruction like “a cat”,
+several detailed prompts are proposed, each lead-
+ing to high-quality outputs. Figure 8 illustrates
+the parameter search functionality, which enables
+users to run parallel experiments by varying key
+parameters and batch-processing images for effi-
+cient comparison. In the given example, the image
+generated using the original workflow does not re-
+semble the source sofa image. By experimenting
+with different combinations of parameters (specifi-
+cally “cfg” and “denoise” in the KSampler node),
+the resulting images can be compared side by side,
+allowing users to easily identify the optimal param-
+eters that best preserve the desired attributes.
+4 Usage and Evaluation
+To evaluate the performance of ComfyUI-Copilot,
+we designed 130 user instructions for workflow re-
+call based on our workflow KB. These instructions
+are created by rewriting the usage descriptions of
+specific workflows, using the target workflow as the
+correct answer, Examples include “I need a work-
+flow that is suitable for fast upscaling and image
+quality restoration”. Similarly, We create 104 node
+recommendation instructions based on our node
+KB, such as “I want to enhance image aesthetics
+and resolution in AI art applications, recommend a
+suitable node”.
+As shown in Table 1, when recalling the top three
+6
+
+workflows and nodes, our framework achieves high
+recall rates (over 88.5%) with both GPT-4o and
+DeepSeek-V3. This demonstrates the robustness
+and effectiveness of our multi-agent framework.
+Error analysis on the unsuccessful workflow cases
+indicates that, even when the exact target workflow
+is not recalled, the suggested workflows often still
+fulfill the user’s intended functions.
+Since releasing ComfyUI-Copilot on GitHub
+on February 23, 2025, online user feedback has
+shown a moderately high acceptance rate of 65.4%
+for recommended nodes and a notably high accep-
+tance rate of 85.9% for proposed workflows. As
+the first open-source project for a ComfyUI assis-
+tant plugin, ComfyUI-Copilot has quickly attracted
+a growing user base with active engagement, re-
+ceived over 1.6K Github stars, with 85K queries
+from 19K users across 22 countries. Thanks to the
+open-source community, we have gathered valu-
+able feedback from GitHub issues and are actively
+updating features to better address user needs.
+5 Conclusion
+In this paper, we present ComfyUI-Copilot, an
+LLM-powered multi-agent framework designed to
+address ComfyUI-related queries and enable one-
+click workflow creation, thereby lowering the bar-
+riers of ComfyUI development. By leveraging an
+LLM as a core assistant agent and integrating spe-
+cialized worker agents and extensive knowledge
+bases, ComfyUI-Copilot not only enhances the
+workflow generation process with a high recall rate,
+but also ensures that it stays current with the lat-
+est modules in multimodal generation. As the first
+project to explore a ComfyUI assistant plugin for
+providing instant suggestions, ComfyUI-Copilot
+has rapidly gathered over 1.6K stars, attracted 19K
+users across 22 countries and processed more than
+85K queries. In future work, we plan to incorporate
+feedback from GitHub issues and actively update
+features to address user pain points, such as auto-
+matic workflow and parameter optimization.
+Acknowledgments
+We want to thank anonymous reviewers for
+their helpful comments. This work is jointly
+supported by grants: Natural Science Foun-
+dation of China (No. 62422603), Guang-
+dong Basic and Applied Basic Research Foun-
+dation (No. 2023A1515110078), and Shen-
+zhen Science and Technology Program (No.
+ZDSYS20230626091203008).

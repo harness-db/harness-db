@@ -1,0 +1,558 @@
+record_id: openreview:i43XCU54Br
+source_used: openreview_pdf
+fetched_url: https://openreview.net/pdf?id=i43XCU54Br
+fetched_title: DYNAMIC LLM-A GENT NETWORK : AN LLM- AGENT COLLABORATION FRAMEWORK WITH AGENT TEAM OPTIMIZATION
+fetched_at: 2026-09-18T19:08:37Z
+
+Under review as a conference paper at ICLR 2024
+DYNAMIC LLM-A GENT NETWORK :
+AN LLM- AGENT COLLABORATION FRAMEWORK
+WITH AGENT TEAM OPTIMIZATION
+Anonymous authors
+Paper under double-blind review
+ABSTRACT
+Large language model (LLM) agents have been shown effective on a wide range
+of tasks, and by ensembling multiple LLM agents, their performances could be
+further improved. Existing approaches employ a fixed set of agents to interact
+with each other in a static architecture, which limits their generalizability to vari-
+ous tasks and requires strong human prior in designing these agents. In this work,
+we propose to construct a strategic team of agents communicating in a dynamic
+interaction architecture based on the task query. Specifically, we build a frame-
+work named Dynamic LLM-Agent Network (DyLAN) for LLM-agent collabora-
+tion on complicated tasks like reasoning and code generation. DyLAN enables
+agents to interact for multiple rounds in a dynamic architecture with inference-
+time agent selection and an early-stopping mechanism to improve performance
+and efficiency. We further design an automatic agent team optimization algorithm
+based on an unsupervised metric termed Agent Importance Score , enabling the
+selection of best agents based on the contribution each agent makes. Empirically,
+we demonstrate that DyLAN performs well in both reasoning and code generation
+tasks with reasonable computational cost. DyLAN achieves 13.0% and 13.3% im-
+provement on MATH and HumanEval, respectively, compared to a single execu-
+tion on GPT-35-turbo. On specific subjects of MMLU, agent team optimization
+in DyLAN increases accuracy by up to 25.0%. 1
+1 I NTRODUCTION
+Large language model (LLM) agents (Richards & et al., 2023; Nakajima, 2023; Reworkd, 2023)
+have achieved promising performance on a wide range of tasks, ranging from reasoning (Yao et al.,
+2023) to code generation (Shinn et al., 2023), and even to embodied tasks such as video gaming
+(Wang et al., 2023) and autopilot (Jin et al., 2023). Recent works tackle complicated tasks by
+combining different LLM agents in a team to collaborate on the same query (Li et al., 2023; Du
+et al., 2023; Wang et al., 2023b; Jiang et al., 2023; Shinn et al., 2023; Zheng et al., 2023; Wu et al.,
+2023). In these works, such LLM-agent team is often set up statically with predefined roles for each
+agent, such as introducing programmer and tester to communicate sequentially in a fixed order to
+improve code generation (Dong et al., 2023).
+In the case of collaborative work between different LLM agents on a specific task, a static setup
+with predefined roles can, however, have several problems: (1) Manual setups require us to design
+task-specific roles for LLM agents in each specific domain (Dong et al., 2023), making it difficult
+to generalize to other domains or distinct tasks. (2) Additionally, under a static setup, LLM agents
+interact to produce answers in a fixed order (Shinn et al., 2023) or in one single round (Jiang et al.,
+2023), which might result in sensitivity to the domain and complexity of tasks. (3) Predefined roles
+require strong human priors to design, and may not well align with the actual situations. In addition,
+there is no systematic way to ensure that the LLM-agent collaboration systems have a sufficient
+number of LLM agents and, most importantly, an optimized team of agents.
+1We will release the code once the paper is accepted.
+1
+
+Under review as a conference paper at ICLR 2024
+Figure 1: Overview of DyLAN. The top part shows how DyLAN outputs the answer in a
+feed-forward manner (Section 3). Inference-time agent selection is implemented with an LLM-
+empowered ranker (bottom-left), during which the low-performing agent is deactivated in subse-
+quent time steps. In agent team optimization (Section 3.3), first the contribution of each agent is
+automatically evaluated using Agent Importance Score, denoted as I. Then the top-ranked agents
+based on I will be selected as the optimized team of agents (bottom-right).
+The landscape of LLM-agent collaborations requires a systematic framework in order to improve
+generalizability, efficiency, and performance. Therefore, several properties should be exhibited: (1)
+Task Agnostic: Prior works have suffered from the difficulty of generalizing across various domains
+due to the dependence on task-specific tools. A task-agnostic system can facilitate the fast adapta-
+tion of existing approaches to new situations. (2) Efficient: Instead of assigning agents in a static
+pattern, dynamically removing agents with uninformative responses can prevent the creation of use-
+less information as well as ensure accuracy in the process of reaching consensus. (3) Agent Team
+Optimization: With thousands of open-source and unlimited LLM-generated prompts that serve a
+variety of roles, it is difficult to identify what the optimal team of agents might be. Ideally, multi-
+agent systems should be able to adapt their composition in response to the particular domain of a
+query with minimal supervision. While a few efforts have been made (Chen et al., 2023b; Ruan
+et al., 2023; Zhang et al., 2023; Wang et al., 2023b; Lu et al., 2023; Aggarwal et al., 2023; Liu et al.,
+2023b; Besta et al., 2023), a framework that integrates all of these aspects is still lacking.
+To fill these gaps, in this work, we introduce a framework named Dynamic LLM-Agent Network
+(DyLAN) in Section 3. Concretely, we employ a feed-forward network to formulate the process of
+LLM-agent collaboration for arbitrary tasks. As a result, we view LLM agents at specific time steps
+as nodes in a network and the messages they exchange at different time steps as edges. In this way,
+we can organize multi-round LLM-agent collaboration into a multilayered network. To enhance
+the efficiency and the performance of LLM-agent collaboration on various tasks, we use an LLM-
+empowered ranker (Qin et al., 2023) to rank different LLM agents and deactivate low-performing
+agents in the subsequent interaction (i.e., inference-time agent selection), thereby creating a dy-
+namic architecture of interactions. Additionally, we introduce an early-stopping mechanism via a
+Byzantine Consensus to ensure efficiency, by terminating the inference process when agents within
+the same layer reach consensus. Moreover, we propose automatic agent team optimization with-
+out strong human priors to increase the efficiency and effectiveness of agent team initialization.
+Specifically, to select the top-k agents, we introduce a three-step procedure where we first ask each
+agent to rate its predecessors on their solutions ( propagation), and then for each agent, aggregate
+2
+
+Under review as a conference paper at ICLR 2024
+the ratings from their successors to quantify its contribution ( aggregation). Finally, after summing
+up the ratings across all time steps, we derive an Agent Importance Score for each agent. Then,
+we can select the top-performing agents based on their importance scores to obtain the optimized
+team of agents (selection). In this way, DyLAN achieves the task-agnostic property by formulating
+LLM-agent collaboration into a feed-forward network to decouple the interaction architecture and
+task-specific design, exhibits efficiency through inference-time agent selection and early-stopping
+mechanism, and enables agent team optimization through a selection algorithm based on agent im-
+portance scores. We evaluate DyLAN on multiple representative tasks such as general reasoning,
+arithmetic reasoning, and code generation, and find that DyLAN demonstrates higher accuracy and
+efficiency over baselines. We also show that Agent Importance Score can be used as a solid un-
+supervised indicator for optimizing the composition of agents for DyLAN. On specific subjects of
+MMLU, agent team optimization in DyLAN increases accuracy by up to 25.0%.
+To sum up, our contributions are as follows:
+• We propose a generic LLM-agent collaboration framework DyLAN that organizes agents
+into a multi-layered feed-forward network with dynamic architecture by introducing
+inference-time agent selection and early-stopping mechanism.
+• We develop an automatic agent team optimization algorithm for DyLAN based on an un-
+supervised Agent Importance Score, in order to achieve both efficiency and effectiveness.
+• Empirically, DyLAN demonstrates high accuracy, efficiency, and stability in general rea-
+soning, arithmetic reasoning, and code generation tasks.
+2 R ELATED WORK
+Interaction Architecture in LLM-agent Collaboration Collaboration between multiple LLM
+agents has demonstrated strong performance on a variety of tasks in recent years and has emerged
+as a promising approach to enhance the capabilities of individual LLMs. To enable collaborations
+between multiple agents, recent studies have developed different interaction architectures and as-
+signed agents in static patterns. For instance, Du et al. (2023); Liang et al. (2023); Xiong et al.
+(2023) take multiple LLM instances into a debate for a fixed number of rounds, thus boosting their
+factuality and reasoning capacities. Instead of calling LLMs iteratively, Ning et al. (2023) distribute
+LLMs in parallel and concatenates their answers to produce better results. To aggregate multiple
+LLM responses, Jiang et al. (2023) generate candidates by different LLMs in one round and uses
+pairwise ranking to combine the top responses into one final response. It is worth noting that Hao
+et al. (2023) organizes LLM instances into linear layers and adopts supervised learning in context
+space, not the scenario in which we are interested. However, running LLMs in a static architecture
+may limit their performance and generalization. Although Zhang et al. (2023) adopt a dynamic di-
+rected acyclic graph structure during inference, they merely focus on reasoning and are incompatible
+with external tools and diverse agents with different roles. In this work, we propose an interaction
+architecture that can be adjusted dynamically based on the query and be compatible with feedback
+and tool augmentation.
+Evaluation of the Contribution of LLM Agents It is non-trivial to evaluate the contribution of
+each LLM agent in a multi-agent system, especially when they communicate over multiple rounds.
+In the single-round setting, given multiple candidates to select the best one, existing methods use
+LLMs heavily for evaluation. However, Xiong et al. (2023) show that LLMs tend to be overconfi-
+dent. For more reliable results, pairwise ranking based on an additional LLM-powered ranker has
+been introduced in Jiang et al. (2023) for greater accuracy. To rankn responses with an independent
+LLM in a single round, they compare all O(n2) pairs. For better efficiency, Qin et al. (2023) use a
+k-length sliding window to choose top k responses within O(nk) pairwise comparisons. However,
+these methods have not been extended to multi-round settings. Inspired by the neuron importance
+score (Yu et al., 2018), we evaluate agents by propagating and aggregating single-round peer ratings.
+In this way, we then introduce an unsupervised metric called Agent Importance Score to quantify
+the contribution of each agent in multi-round collaborations (Section 3.3).
+Team Optimization for LLM Agents In terms of designing and selecting agents, Ruan et al.
+(2023) decompose tasks to choose or create tools accordingly. Using LLM as a planner, Lu et al.
+3
+
+Under review as a conference paper at ICLR 2024
+Table 1: Comparison between DyLAN and representative previous works. In the second row, nodes
+denote agents at different time steps (A), arrows represent edges (E), and color indicates the role of
+an agent. Among these works, DyLAN is the only one which demonstrates all four key dimensions
+of LLM-agent collaboration, i.e., compatible with multiple roles, having an early-stopping mecha-
+nism, supporting dynamic interactions, and performing agent team optimization.
+Method Single LLM-Blender PHP Reflexion LLM Debate DyLAN
+Interaction Architecture
+(A, E)
+Multiple Roles × × × ! × !
+Early Stopping × × × ! × !
+Dynamic Interactions × ! × × × !
+Agent Team Optimization × × × × × !
+(2023) sequentially select agents and tools according to their descriptions. Wang et al. (2023b) use
+LLMs to generate prompts for agents in response to a task query. During inference, Chen et al.
+(2023b) select a fixed number of agents from a set of manual prompt candidates via an additional
+LLM during each round of discussion. However, manual prompts require careful design, and prede-
+fined or generated descriptions may not result in the desired abilities of the agents during inference.
+Therefore, selecting an appropriate team of agents based on their response to a query is necessary
+and more appropriate. While team optimization for LLM agents is a relatively new area, human-
+team optimization has been studied for a long time. For instance, Liu et al. (2015) show that skill
+contribution is essential for selecting crowd workers to solve outsourced tasks efficiently. Based
+on peer rating, Lykourentzou et al. (2022) develop an algorithm for managing online workers in
+an optimal organization. Building upon these prior works, we introduce an automatic algorithm to
+optimize the team of agents by quantifying agents’ contributions based on their peer ratings.
+3 D YNAMIC LLM-A GENT NETWORK (DYLAN)
+We introduce an LLM-agent collaboration framework named Dynamic LLM-Agent Network
+(DyLAN) to allow dynamic interaction between agents in LLM-agent collaborations, as illustrated
+in Figure 1. We formulate the systems in feed-forward networks to represent interaction architecture
+(Section 3.1). Under the formulation, we elaborate DyLAN’s dynamic architecture designs in Sec-
+tion 3.2. Finally, we introduce agent team optimization, based on our unsupervised metric Agent
+Importance Score on top of DyLAN (Section 3.3).
+3.1 F ORMULATION
+In LLM-agent collaborations, agents exchange textual messages in multi-round interactions. By
+viewing LLM agents at different time steps as nodes, we can treat the message exchange between
+multiple nodes as edges in a feed-forward network. Agents may send their reasoning steps to each
+other for reasoning, or send code completions for code generation, as illustrated in Appendix D.6.
+We then demonstrate how both the inference process and agent team optimization can be viewed
+as message passing algorithms over this abstract network, as an essential task-agnostic basis for
+DyLAN. The collaboration problem is defined to solve query q by output o from a given system S.
+According to the formulation, an LLM-agent collaboration comprises three components:
+Node The node denotes an agent at a specific time step. The agent takes the contexts from other
+agents at the previous time step as input and generates responses based on the input query. An agent
+can be (I) an LLM agent that could be augmented with tools, (II) an independent tool like a script or a
+dedicated model, or (III) a cluster of tools. Based on the definition, we focus on textual information
+exchange between agents. Formally, the i-th agent at the t-th time step can be represented as a
+function at,i mapping the agent’s prompt pi (empty for (II) and (III) agents), the input query q, and
+responses from predecessor agents Rt−1 to the response of itself: rt,i = at,i(pi, q, Rt−1), where
+4
+
+Under review as a conference paper at ICLR 2024
+Rt−1 ={rt−1,j|j = 1 , 2, ...}. Let A be the set of all nodes, n be the total amount of agents, and T
+be the maximum time step.
+Edge Edges refer to the communication channels between nodes in A during the multi-agent col-
+laboration. Let E represents the set of all edges in the system. The edge is directional and could
+be formally represented as e = (at−1,i, at,j)∈ E, where at−1,i, at,j represents adjacent agents that
+could pass textual information: at,j could perceive at−1,i’s output as its context. Thus, nodes are
+linked by edges to form the interaction architecture of agent collaboration systems, in shape of a
+feed-forward network S = (A, E).
+Message Passing Message passing algorithms can guide information flow through the nodes and
+edges in the feed-forward network. In our LLM-agent based feed-forward network formulation,
+we envision two types of message passing. In a forward passing fashion, by passing messages
+to specific agents across different time steps, LLM-agent collaboration systems generate the final
+answer in response to the task query. Formally, we denote the output as o, which is the result of
+the query q processed by system S and an algorithm fInfer denoting the inference process explicitly
+(Algorithm 1 for DyLAN): o = fInfer(S, q). In a backward passing manner, The calculation process
+of Agent Importance ScoreI is calculated by an algorithmfImp to pass scores backward along edges
+(Algorithm 2 for DyLAN): I = fImp(S, q).
+The formulation decouples the interaction architecture and the algorithm of inference process. Using
+this formulation, we can categorize prior works based on their interaction architectures in Table 1.
+3.2 C ONSTRUCTION OF DYLAN
+With the aforementioned formulation, we step further to stack multiple layers along the temporal
+axis (e.g., different rounds of interaction) to build Dynamic LLM-Agent Network (DyLAN). To im-
+prove the efficiency and the performance of LLM-agent collaboration on various tasks, we propose
+to (1) add inference-time agent selection at a middle time step and (2) use Byzantine Consensus to
+terminate inference at a proper layer.
+We define a layer as a set of agents functioning at the same time step along the temporal axis.
+In each layer, each node receives responses from all other nodes in the previous layer, i.e., the
+previous time step. Such communications form edges between layers, as shown in Figure 1. The
+query is fed into nodes in the first layer. Therefore, when LLM agents diverge on a query, they
+receive others’ responses and have a debate by commenting on each other’s solutions, thus deepening
+the reasoning procedure and reaching better consistency at a certain time step with the vantage of
+multiple expertise. Agents assigned diverse roles might respond from their specific perspectives.
+To focus on the best solutions and reduce the computational cost, we set up theinference-time agent
+selection at L-th layer by selecting the top-m responses to feed forward. We use an additional LLM
+agent, as the “LLM Ranker” in Figure 1, to analyze responses from the former layer and identify
+the best ones, following Jiang et al. (2023). Agents identified as not being useful are deactivated in
+subsequent layers, so as are the edges connecting them.
+To further enhance efficiency, we introduce anearly-stopping mechanism. Inspired by the Byzan-
+tine Consensus theory (Castro & Liskov, 1999), at least 3p + 1 agents are needed to tolerate p
+faulty agents in a single round of communication. Following the theory, the inference process will
+be terminated when over 2/3 of agents in a single layer have a consistent answer. In practice, the
+inference process will also be terminated when the maximum time step is reached. Note that none
+of the consistency measures used in prior work (Wang et al., 2023a; Aggarwal et al., 2023) applies
+to multi-round multi-agent interaction since their theories are assumed to execute a single LLM in-
+stance multiple times. In our case, we apply the early-stopping mechanism to each layer of DyLAN.
+In short, DyLAN gives the answer in a forward passing manner with an efficient dynamic architec-
+ture for agent collaborations (Algorithm 1). Other implementation details are in Appendix C.1.
+3.3 A GENT TEAM OPTIMIZATION
+To automatically find the optimal team of agents among candidates for specific domains and based
+on their actual responses, we set up an algorithm in which the agent team optimization process
+could be formulated as a function fOptim : S→ S′, where S′ = ( A′, E′) and A′ denotes a smaller
+5
+
+Under review as a conference paper at ICLR 2024
+Table 2: Accuracy (%) on MATH dataset. CoT refers to Chain-of-Thought prompting (Wei et al.,
+2022) and examples are from original dataset. The number in parentheses indicates the perfor-
+mance difference relative to a single execution. The median of three trials is reported when non-zero
+temperature is used.
+Method Prompting Algebra Counting and Geometry Intermediate Number Pre- Pre- Overall #API
+Probability Algebra Theory Algebra Calculus Calls
+Single Execution
+CoT
+43.6 29.3 21.5 15.8 30.0 48.9 16.5 31.6 (+0.0) 1.00
+LLM-Blender 47.5 25.5 23.8 13.8 39.7 46.7 15.8 31.7 (+0.1) 6.00
+LLM Debate 50.2 25.3 22.3 13.1 28.9 48.0 19.0 32.4 (+0.8) 8.00
+DyLAN (Ours) 52.9 27.2 25.3 15.5 33.5 55.2 19.0 35.7 (+4.1) 7.15
+Single Execution Complex
+CoT
+49.1 29.7 22.3 14.6 33.4 53.8 16.8 34.1 (+0.0) 1.00
+PHP 51.1 33.7 25.4 17.1 35.1 57.7 16.1 36.5 (+2.4) 3.67
+DyLAN (Ours) 53.7 33.3 26.1 18.1 33.5 58.7 18.9 37.6 (+3.5) 6.21
+Table 3: Accuracy (%) on MMLU dataset. “Other” stands for subjects like business, health, and
+misc in MMLU. The median of three trials is reported when non-zero temperature is used.
+Method Humanities Social STEM Other Overall #API
+Science Calls
+Random 25.0 25.0 25.0 25.0 25.0 -
+Single Execution 59.8 74.0 62.9 71.8 66.4 (+0.0) 1.00
+LLM-Blender 60.4 75.2 66.3 70.7 67.3 (+0.9) 6.00
+LLM Debate 59.8 77.4 69.0 75.5 69.3 (+2.9) 12.00
+DyLAN (Ours) 62.1 79.1 69.7 75.5 70.5 (+4.1) 4.39
+but optimized composition of agents with better performance. With a pool of agent candidates, we
+implement fOptim in a three-step procedure, as shown in Figure 1: (1) Propagation: Take all candi-
+dates into a collaboration, ask each node to rate the solutions to the task query from its predecessors
+(in the forward pass); (2)Aggregation: Each node aggregates the ratings it has received from its suc-
+cessors towards itself (via another backward pass) to quantify its own contribution independently at
+different time steps. (3) Selection: During the last step, we sum up the scores for the same agent
+over all time steps to derive an importance score for each agent, and extract the top-k agents that are
+most contributory according to these scores as the optimized composition.
+Specifically, at the step of Propagation, for each agent, we ask it to rate the responses from all
+its predecessors. Formally, the i-th agent at the t-th time step takes its prompt pi, the input query
+q, and all previous responses Rt−1 from their predecessors, and further map them via a scoring
+function f (s)
+t,i (·,·,·) to produce the rating scores. Here, we use wt−1,j,i to refer to the rating score
+on at−1,j from at,i, and [wt−1,1,i, wt−1,2,i, ..., wt−1,n,i] = f (s)
+t,i (pi, q, Rt−1). After propagation, the
+contribution of node at,i is the sum of its successors’ contribution multiplied by their peers’ ratings
+on the agent’s response. Formally, the aggregation process is described as:
+It−1,j =
+X
+(at−1,j ,at,i)∈E
+It,i· wt−1,j,i, (1)
+where It,i denotes the contribution of at,i. In the final Selection step, Agent Importance Score Ii for
+the i-th agent is defined as Ii = PT
+t=1 It,i. In practice, we initialize the contributions in the final
+layer first, and step backward to perform Aggregation layer by layer (Algorithm 2). The definition
+guarantees that the agent importance scores add up to 1 in each layer, which benefits fair comparison.
+Other details, such as initializing contributions in the final layer, are presented in Appendix C.2.
+4 E XPERIMENTS
+4.1 S ETUP
+To verify the effectiveness and efficiency of DyLAN, we conduct extensive experiments on three
+representative tasks including arithmetic reasoning, general reasoning, and code generation.
+6
+
+Under review as a conference paper at ICLR 2024
+Arithmetic Reasoning (AR) We leverage MATH (Hendrycks et al., 2021b) as the evaluation
+dataset, which consists of 7 subareas and contains 5,000 questions in the test set. We choose LLM
+Debate (Du et al., 2023), LLM-Blender (Jiang et al., 2023), and the single execution on LLM as
+baselines. We also compared DyLAN to the previous state-of-the-art method PHP (Zheng et al.,
+2023). To draw a fair comparison, we categorize systems by prompting strategies, including nor-
+mal CoT prompts (Wei et al., 2022) provided in the original dataset and Complex CoT provided
+by PHP. Since the task is sensitive to hyper-parameters, we have tuned and used each system’s best
+temperature. Preliminary experiments show that collaborating agents of different roles did not
+introduce significant improvement, therefore we adopt agents of the same role for all systems.
+Table 4: Demonstration of
+experiment settings. We
+elaborate on the number of
+agents before and after op-
+timization and tool usage in
+DyLAN of each task.
+Task Agent Tool
+Team Size Usage
+AR 4 ×
+GR 7→ 4 ×
+CG 12→ 8 !
+General Reasoning (GR) For the general reasoning task, we use the
+MMLU dataset (Hendrycks et al., 2021a), which contains four as-
+pects of a vast amount of problems in 57 subjects. We down-sample
+1/5 of the problems in the test set because of its huge quantity. We use
+the same baselines as arithmetic reasoning. To align with previous
+works and prevent degeneration of LLM Debate, we set the hyper-
+parameter temperature to 1 for all systems. The team of agents
+is optimized for each subject based onAgent Importance Score when
+evaluating DyLAN, as demonstrated in Table 4. The roles of can-
+didates match the categories of MMLU, including “Mathematician”
+and “Programmer” for STEM, “Lawyer” and “Historian” for Human-
+ities, “Economist” and “Psychologist” in Social Science, and “Doc-
+tor” for clinical questions in the “Other” category.
+Code Generation (CG) We use the HumanEval benchmark in the code generation task, with 164
+human-labeled function-level completion codes and unit tests (Chen et al., 2021). We found that
+LLM Debate and LLM-Blender could not feasibly adapt to this task in their implementation, thus
+they are excluded them from the baselines. As a result, we leverage two strong methods CodeT
+(Chen et al., 2023a) and Reflexion (Shinn et al., 2023) along with the single execution as the base-
+lines. The team of agents is optimized in DyLAN according to Table 4. Additionally, we require 4
+of the 8 agents should be the role of code writer and the other 4 are judges providing code reviews in
+different time steps. And two of the judges are individually augmented with a code interpreter and a
+syntax checker. Please refer to Appendix C.1 for more details.
+4.2 M AIN RESULTS
+Table 5: Experimental results on HumanEval
+dataset. We indicate the foundation model of
+methods except for GPT-35-turbo. The me-
+dian of three trials is reported when non-zero
+temperature is used.
+Method Pass@1 #API
+Calls
+Single Execution 73.2 (+0.0) 1.00
+CodeT 65.8 (-7.4) 20.00
+CodeT (Codex) 74.8 (+1.6) 20.00
+Reflexion 68.3 (-4.9) 4.05
+DyLAN (Ours) 82.9 (+9.7) 16.85
+Single Execution (GPT-4) 88.4 (+15.2) 1.00
+Reflexion (GPT-4) 91.4 (+18.2) 7.32
+DyLAN (Ours, GPT-4) 92.1 (+18.9) 15.94
+In Table 2, Table 3, and Table 5, we report the
+classification accuracy on MATH and MMLU, and
+Pass@1 on HumanEval, respectively. Addition-
+ally, we recorded the average times of calling
+LLMs of each method on each query as #API calls.
+This metric serves as a proxy for the computational
+cost and the efficiency of architectures for LLM-
+agent collaborations, which cannot be determined
+from the number of tokens since the number varies
+greatly depending on the query.
+DyLAN improves overall performance in differ-
+ent tasks. Table 2 shows that DyLAN has signifi-
+cantly higher performance than baselines on arith-
+metic reasoning, demonstrating the advantage of
+the dynamic architecture. Relative to a single ex-
+ecution, it gains a +4.1 improvement with CoT
+prompts and +3.5 with Complex CoT prompts,
+demonstrating robustness against different prompt-
+ing strategies. In Table 3 and Table 5, DyLAN also significantly improves the performance by +4.1
+and +9.7 on general reasoning and code generation tasks, respectively, relative to the single execu-
+tion. We argue part of the improvement can be attributed to the dynamic multi-path architecture,
+which allows different opinions to be delivered simultaneously. In contrast, for methods in sequen-
+tial architecture like PHP (Zheng et al., 2023), incorrect intermediate answers might easily influence
+7
+
+Under review as a conference paper at ICLR 2024
+the final output due to only one reasoning path. It is the same for Reflexion (Shinn et al., 2023) in
+code generation, in which false tests may mislead the self-debugging process from our observations.
+In our case, any feedback from predecessors could be rated by the nodes at any time step, making it
+easier to identify false intermediate feedback explicitly.
+DyLAN has a reasonable computational cost. From Table 2, we find DyLAN realizes an 10.2%
+improvement to LLM Debate in terms of accuracy, with 10.6% lower #API calls (L3 vs. L4), sug-
+gesting it is a better trade-off between efficiency and effectiveness. Similar trends can be observed
+in Table 3. DyLAN has a better overall accuracy with only 36.6% API calls of LLM Debate (4.39
+vs. 12.00). Moreover, we see that DyLAN dynamically adjusts the cost based on the difficulty of a
+query. Given that questions in MMLU are less challenging than in MATH, DyLAN has 2.76 fewer
+#API calls on the query from MMLU compared to one from MATH. This makes sense as generally,
+the more complex the task, the harder it will be to come to a consensus.
+Table 6: The optimized composition of roles and per-
+formance improvement in different subjects of MMLU
+dataset when optimizing DyLAN of 7 agents to 4 agents.
+Subject Optimized Composition Performance Improvement
+college Economist, Lawyer, 25.0 : 40.0→ 65.0mathematics Programmer, Mathematician
+management Lawyer, Psychologist, 14.3 : 76.2→ 90.5Economist, Programmer
+high school Historian, Programmer, 9.3 : 65.1→ 74.4statistics Psychologist, Mathematician
+clinical Doctor, Mathematician, 5.7 : 69.8→ 75.5knowledge Programmer, Psychologist
+public Historian, Psychologist, 4.5 : 54.5→ 59.1relations Lawyer, Mathematician
+DyLAN benefits from agent team op-
+timization. Additionally, we found that
+an optimized team of agents could en-
+hance DyLAN. For different subjects
+in MMLU, agent compositions are ad-
+justed correspondingly to improve up
+to 25.0% in accuracy, as shown in Ta-
+ble 6. After agent team optimization, we
+find a smaller set of agents are selected
+from the given large pool of candidates
+for specific subjects, resulting in signifi-
+cant performance improvement, such as
+“Mathematician”, “Programmer”, and
+“Economist” for college mathematics,
+and “Doctor” and “Psychologist” for
+clinical knowledge. Moreover, before
+performing agent team optimization, i.e., all the 12 agents are used, the performance of DyLAN
+on HumanEval is 76.2, which means agent team optimization introduces an improvement of +6.7
+points (76.2→ 82.9), suggesting that Agent Importance Scores can effectively capture and reflect
+the actual abilities of agents to particular task domains.
+4.3 A BLATION STUDIES
+10 2
+10 1
+100
+Proportion of Dataset
+69.0
+69.5
+70.0
+70.5
+71.0Accuracy
+69.9
+70.3
+70.5
+Optimization
+Random Selection
+10 2
+10 1
+100
+Proportion of Dataset
+76
+78
+80
+82
+84Pass@1
+79.3
+82.3 82.9
+Optimization
+Random Selection
+Figure 2: Experimental results of optimizing agent team with small subsets of MMLU (left) and Hu-
+manEval (right). X-axis denotes the proportion to the original datasets. We also randomly selected
+the same amount of agents as a baseline.
+Data Efficiency of Agent Team Optimization We further demonstrate the data efficiency of agent
+team optimization by performing it based on different amount of data. The experiments are con-
+ducted on the MMLU and HumanEval datasets. We sample the subsets with the proportions of 0.01
+and 0.1 of the original dataset. Agent team optimization is performed on the subsets and tested the
+optimized team of agents on the whole dataset. The settings are identical to experiments in Sec-
+tion 4.1. As shown in Figure 2, with the optimized team of agents on 0.1 of the original dataset,
+DyLAN has demonstrated similar performance compared to optimizing on the whole dataset, with
+8
+
+Under review as a conference paper at ICLR 2024
+12345678 Number of Agents
+68.0
+68.5
+69.0
+69.5
+70.0
+70.5
+71.0Accuracy
+68.4
+69.9
+70.5
+69.5
+DyLAN
+LLM Debate (4 agents)
+8 7 4 3 2 1Number of Agents
+0
+2
+4
+6
+8
+10
+12
+14#API Calls
+2.83
+3.904.39
+8.30
+LLM Debate (4 agents)
+DyLAN
+Figure 3: Impact of optimized agent team size. 2 ∼4 agents are selected from 7 candidate agents
+based on Agent Importance Score. Accuracy (left) and #API calls (right) on MMLU are reported.
+only 0.2 loss of overall accuracy on MMLU and 0.6 loss of Pass@1 on HumanEval. Especially,
+as code review has significant impact on the performance on code generation, it is critical to se-
+lect a proper set of judges to provide code review. We can observe that even with only 0.01 of the
+original dataset, DyLAN could obtain a significant improvement of +3.7 over random selection on
+HumanEval, indicating its effectiveness on selecting proper team of agents.
+Impact of Optimized Agent Team Size As shown in Figure 3, DyLAN with an optimized team of
+3 agents can outperform both the same architecture with 7 agents and LLM Debate with 4 agents,
+suggesting the effectiveness of our proposed agent optimization. The efficiency is also significantly
+improved by 52.9% and 67.8%, respectively. These results indicate that an optimized selection of
+agents would be able to collaborate on tasks better and reach the consensus much faster and more
+accurately than many agents thrown together at random.
+Table 7: Ablation study on the
+early-stopping mechanism (es) and the
+inference-time agent selection compo-
+nent ( its). #API denotes the average
+number of API calls.
+Method MATH MMLU HumanEval
+Acc. #API Acc. #API Pass@1 #API
+DyLAN 35.7 7.15 70.5 4.39 82.9 16.85
+w/o es 35.0 13.00 70.1 13.00 80.5 19.00
+w/o its 33.8 8.20 69.9 7.05 76.2 17.98
+Impact of Early-Stopping and Inference-Time Agent
+Selection As shown in Table 7, early-stopping mechanism
+boosts efficiency to a great extent by minimizing #API
+calls by 45.0%, 66.2%, and 11.3% on MATH, MMLU,
+and HumanEval respectively, while providing slight per-
+formance improvement. Inference-time agent selection,
+however, is critical to enhance the correctness of the fi-
+nal answer. We conjecture it is because low-performing
+agents are filtered at specific time steps.
+Stability of DyLAN with Different Backbone Models
+There is also a notable difference in code generation tasks
+when the backbone model changes (Table 5). Reflexion
+and CodeT’s performances are heavily related to the backbone model (L4 vs. L5 and L6 vs. L9).
+Instead, DyLAN shows a steady, consistent high performance (L7 vs. L10) under different backbone
+models with almost the same amount of API calls.
+5 C ONCLUSION AND FUTURE WORK
+This work introduces a framework named Dynamic LLM-Agent Network (DyLAN) for LLM-agent
+collaboration on complicated tasks. DyLAN enables agents to interact for multiple rounds in a dy-
+namic architecture with inference-time agent selection and an early-stopping mechanism to improve
+performance and efficiency. We further design an automatic agent team optimization algorithm
+based on an unsupervised metric termed Agent Importance Score , enabling the selection of best
+agents based on the contribution each agent makes. Overall, DyLAN reveals significant improve-
+ment on diverse tasks with relatively less computational cost compared to baselines.
+In this work, the agents are driven by GPT-3.5-turbo and GPT-4, we will explore the effectiveness
+of DyLAN on agents built on open-source foundation models in future. And it is also worth to
+extend DyLAN to more complicate scenarios such as software development, virtual room chat,
+video games, and so on (Hong et al., 2023; Nascimento et al., 2023; Zhou et al., 2023; Zhu et al.,
+2023; Chan et al., 2023).
+9
+
+Under review as a conference paper at ICLR 2024

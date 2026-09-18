@@ -1,0 +1,646 @@
+record_id: awesome:ggjy:a944cbe68471
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2508.04700
+fetched_title: SEAgent: Self-Evolving Computer Use Agent with Autonomous Learning from Experience
+fetched_at: 2026-09-18T19:08:27Z
+
+SEAgent: Self-Evolving Computer Use Agent with
+Autonomous Learning from Experience
+Zeyi Sun1,2 Ziyu Liu1,2 Yuhang Zang2 Yuhang Cao2
+Xiaoyi Dong2,3 Tong Wu3 Dahua Lin2,3 Jiaqi Wang2
+1Shanghai Jiao Tong University 2Shanghai Artificial Intelligence Laboratory
+3The Chinese University of Hong Kong
+szy2023@sjtu.edu.cn, wangjiaqi@pjlab.org.cn
+https://github.com/SunzeY/SEAgent
+Abstract
+Repurposing large vision-language models (LVLMs) as computer use agents
+(CUAs) has led to substantial breakthroughs, primarily driven by human-labeled
+data. However, these models often struggle with novel and specialized software,
+particularly in scenarios lacking human annotations. To address this challenge,
+we propose SEAgent, an agentic self-evolving framework enabling CUAs to au-
+tonomously evolve through interactions with unfamiliar software. Specifically,
+SEAgent empowers computer-use agents to autonomously master novel software
+environments via experiential learning, where agents explore new software, learn
+through iterative trial-and-error, and progressively tackle auto-generated tasks or-
+ganized from simple to complex. To achieve this goal, we design a World State
+Model for step-wise trajectory assessment, along with a Curriculum Generator
+that generates increasingly diverse and challenging tasks. The agent’s policy is
+updated through experiential learning, comprised of adversarial imitation of failure
+actions and Group Relative Policy Optimization (GRPO) on successful ones. Fur-
+thermore, we introduce a specialist-to-generalist training strategy that integrates
+individual experiential insights from specialist agents, facilitating the development
+of a stronger generalist CUA capable of continuous autonomous evolution. This
+unified agent ultimately achieves performance surpassing ensembles of individual
+specialist agents on their specialized software. We validate the effectiveness of
+SEAgent across five novel software environments within OS-World. Our approach
+achieves a significant improvement of 23.2% in success rate, from 11.3% to 34.5%,
+over a competitive open-source CUA, i.e., UI-TARS.
+1 Introduction
+“A new generation of agents will acquire superhuman capabilities by learning predominantly from
+experience. ” [55]
+— David Silver , Richard S. Sutton
+With the rapid development of large vision-language models (LVLMs) [ 61, 16, 7, 64, 42, 5, 60],
+computer use agents (CUAs) [ 3, 43, 48, 29, 67] have not only emerged but also demonstrated
+increasing practical utility. By leveraging the powerful perception and reasoning capabilities of
+LVLMs, these agents can interpret screenshots as visual inputs and operate computers via keyboard
+and mouse actions. Despite their promising capabilities, current CUAs [ 47, 46, 12, 19, 6, 34]
+primarily depend on costly human-curated datasets [12, 9, 67, 24, 28], which are typically derived
+preprint.
+arXiv:2508.04700v2 [cs.AI] 12 Aug 2025
+
+Software Specialized RLDirect multi-software RL Software Specialists
+Software Generalist
+Create light effect on top left
+corner and make focus blur
+centered on bird’s head.
+I’m not familiar with this
+software for image editing.
+Task
+Gen
+Action
+Eval
+Initial
+Action Model
+Specialist
+Action Model
+Step1. Click the filter panel
+to create light effect...
+Create light effect on top left
+corner and make focus blur
+centered on bird’s head.
+Trying to learn all
+the software at once
+is too hard for me...
+State
+Caption
+Figure 1: SEAgent enables computer use agents self-evolving in novel environments by au-
+tonomously exploring and learning from their own experiences without human intervention. The
+specialist-to-generalist training strategy further enhances the development of a strong generalist agent.
+from demonstrations [34, 78, 18, 51, 75] or video tutorials in the wild [70]. However, new software
+continuously emerges and existing software may regularly be updated, often in the absence of
+annotated human data. It is both necessary and timely to enter an era that emphasizes learning from
+experience [55] in CUA domain. In this paper, we aim to enable CUAs to autonomously explore
+unfamiliar software environments and evolve into experts without relying on human supervision.
+To address this challenge, we propose SEAgent, an agentic self-evolving framework in which
+Computer Use Agents (CUAs) are exposed to previously unfamiliar software environments and
+engage in autonomous exploration and experiential learning, as illustrated in Fig. 1. Enabling such self-
+evolution requires addressing two key challenges: (1) generating executable tasks within unfamiliar
+software environments, and (2) accurately assessing task success and precisely identifying the step
+at which failure occurs. To this end, we introduce a World State Model for environmental state
+captioning and step-wise trajectory assessment, together with a Curriculum Generator powered by
+a continuously updated software guidebook memory to generate increasingly diverse and challenging
+tasks, thereby establishing a curriculum learning paradigm. The agent’s policy is optimized through
+experiential learning from both failures and successes, combining adversarial imitation of failure
+actions and Group Relative Policy Optimization (GRPO) on successful ones.
+Given the critical role of reward accuracy, we conduct extensive evaluations and observe that existing
+reward models of computer use tasks fall short in terms of judgment precision and reward density.
+Leveraging the enhanced long-context processing capabilities of advanced LVLMs, we input the
+agent’s full trajectory of states into the reward model and fine-tune a reward model, World State
+Model, using Qwen2.5-VL [7], substantially narrowing the gap with commercial models such as
+GPT-4o [42] with +7.5% improvement in precision compared to baseline model in evaluating CUAs’
+trajectories on AgentRewardBench [35], enable World State Model to provide high quality step level
+reward signals in self-evolving agentic system.
+Moreover, SEAgent enables agents to evolve into either single-software specialists or multi-software
+generalists. To overcome the limitation that directly training a generalist underperforms compared to
+specialists, inspired by [77], we introduce a novel specialist-to-generalist training strategy, which
+even surpasses the performance of individual specialists on their respective software applications.
+We perform extensive experiments of SEAgent built on UI-TARS [48] and evaluated on five profes-
+sional software applications from OSWorld [68]. SEAgent with the specialist-to-generalist strategy
+significantly improves the UI-TARS [48] from 11.3% to 34.5%. Furthermore, SEAgent with the
+2
+
+specialist-to-generalist strategy (34.5%) outperforms both specialist RL (32.2%) and generalist
+RL (30.6%) by a substantial margin, demonstrating the effectiveness of the specialist-to-generalist
+paradigm. In general, SEAgent offers a promising approach for developing more powerful and
+versatile computer-use agents without human involvement.
+2 Related Work
+Agent for Computer Use. With the recent advances in LLMs and LVLMs [61, 16, 30, 7, 64], which
+enable human-level perception and reasoning capabilities, the development of agents for computer use
+has garnered significant attention [22, 20, 11, 41, 29]. These agents either rely solely on structured
+text inputs [47, 40, 46, 26, 36] or, in a more human-like manner, use multi-modal inputs such as
+screenshots combined with textual conditions [21, 29, 67, 43]. Although they have been extensively
+studied and show strong performance on in-domain benchmarks [34, 79, 31, 27, 11], computer use
+agents still lag significantly behind human-level performance in simulated environments [ 68, 50,
+25, 80]. This gap highlights the challenges posed by the multi-dimensional demands on LVLMs,
+including grounding, decision-making, and reasoning. Some approaches address this by decomposing
+tasks into specialized expert models [15, 62] and employing agent collaboration [1, 2, 32, 74] through
+prompt engineering [71, 19, 76, 63, 66]. However, improvements from these training-free methods
+remain limited without fine-tuning. In this work, we explore the next phase of computer use agents,
+where a pretrained agent is fine-tuned to learn from its own experience, enabling self-evolution on
+novel, specialized software without human annotations.
+Reinforcement Learning for LLMs/LVLMs. Previous scalable training efforts for LLMs and
+LVLMs [61, 16, 30, 7, 64, 69, 59, 58, 13] have primarily relied on supervised fine-tuning (SFT) [30,
+65]. Analogous to imitation learning or behavior cloning in reinforcement learning (RL), SFT
+trains models to produce desired outputs based on labeled data, making it heavily dependent on
+high-quality human-curated procedures. Recently, DeepSeek-R1 [17] demonstrated strong reasoning
+capabilities via Group Relative Policy Optimization (GRPO) [53] using verifiable rewards. Earlier
+works [44, 82, 49] have also employed RL for single-turn optimization from human feedback.
+However, in agentic scenarios such as computer usage—where feedback is sparse with reward signals
+often results from multi-step interactions—it becomes crucial to introduce stable, step-level reward
+signals. Prior RL approaches for agents [ 6, 47, 81, 73, 8] have fine-tuned their own critic models
+for advantage estimation [52], either using output reward models (ORMs) trained on labeled data
+or adopting Direct Preference Optimization (DPO) [49] based on interaction data [46, 48]. In this
+work, we investigate various strategies for constructing high-performing reward models for CUAs
+and find that full-process-based analysis yields more accurate evaluations with fine-grained reward
+signals compared to training dedicated critic models for advantage estimation as done in [6, 47] or
+with filtered behavior cloning [45, 10].
+3 Methods
+Problem Formulation. The objective of SEAgent is to establish a training pipeline enabling the
+Computer Use Agent (CUA) to autonomously explore its environment (Sec. 3.1) and progressively
+self-evolve on novel software applications via reinforcement learning from experience (Sec. 3.2).
+Specifically, the SEAgent pipeline comprises three primary components: an Actor Modelπ perform-
+ing exploratory actions to accomplish these tasks, and a World State ModelMstate describing the
+current environment state and evaluating the success or failure of executed actions, and a Curriculum
+GeneratorMtask that continuously proposes more diverse and challenging exploration tasks:
+(1) Actor Modelπ: The policyπ(a|st,I ) defines the probability of taking actiona at time stept,
+conditioned on the current statest and the overall task instructionI.
+(2) World State ModelMstate: This component is a fine-tuned Large Vision-Language Model
+(LVLM) responsible for providing detailed descriptions of environment states. It also evaluates
+each step of the trajectory executed by the Actor Model π, producing trajectory judgement J
+which indicates whether the task has been successfully completed. Joint training with state change
+captioningC of the software GUI has been shown to enhance judgment accuracy, as shown in Table 1.
+3
+
+Curriculum
+Generator
+Screenshot
+Action
+Software Agent
+Task Buffer
+Trajectory
+World State Model
+Positive Action Negative Action
+Window
+Grounding
+time text testInput Text
+Click Point
+Trajectory
+Description
+Actor
+Grades
+Software Guidebook Memory
+Policy Update
+Curriculum
+Actor
+World State ModelCurriclum Generator
+Actor’s Grades
+TrajectoriesTask buffer
+Guidance
+Phased Iteration
+Draw a green rectangle
+with 50% transparency.
+Draw a rectangle.
+Create a 50% transparency
+green background for the title.
+Update
+Task Sampling
+World State Judgement Task evolving
+Rule Based Verifiers
+Autonomous RL
+Environment
+Adversarial Imitation
+GRPO with verifiable rewards
+Figure 2: SEAgent autonomous exploration and experiential learning pipeline. Guided by tasks
+generated by the Curriculum Generator, the Actor Model is updated according to step-level rewards
+from the World State Model through verifiable reward functions tailored for different action types.
+(3) Curriculum GeneratorMtask: This component utilizes a powerful Large Language Model
+(LLM) to automatically generate novel exploration tasks. It also maintains and updates a software
+guidebookU based on the state change captioningC and the trajectory judgementJ provided by
+Mstate during interactions. The gradually enriched guidebook U enablesMtask to progressively
+generate increasingly diverse and challenging tasks in a curriculum learning fashion.
+SEAgent can be applied to enable the self-evolution of a computer-use agent, either as a specialist for
+a single software or as a generalist across multiple software. However, we observe that direct training
+for generalist agents is suboptimal. We introduce a specialist-to-generalist training strategy, which
+achieves even better overall performance than training multiple generalist agents, as discussed in
+Sec. 3.3.
+3.1 Autonomous Exploration with Self-evolving Curriculum
+Autonomous exploration is essential for enabling the Computer Use Agent (CUA) to develop profi-
+ciency in novel software applications that are previously unseen or poorly understood. This process
+involves addressing two key challenges: (1) generating executable tasks within unfamiliar software
+environments, and (2) evaluating task completion success and pinpointing the specific step at which
+failure occurs. To tackle these challenges, we introduce two novel components: the World State
+ModelMstate and the Curriculum GeneratorMtask. These components jointly support a self-evolving
+curriculum paradigm, which facilitates the autonomous generation of increasingly diverse and
+challenging tasks.
+The self-evolving curriculum paradigm pipeline is structured into P sequential phases. Before
+the first phase, a set of initial tasks targeting basic GUI operations is generated (details provided in
+Sup. C.1). In each phase, these tasks are executed and step-wise evaluated. The resulting judgments
+and descriptions of the exploration trajectories are fed into the Curriculum GeneratorMtask, which
+updates a self-maintained software guidebook U. Leveraging this updated guidebook and the
+current capabilities of the CUA, the generator then produces more diverse and challenging tasks for
+subsequent phases. The following outlines each step of the process in detail:
+(1) Task initiation: The initial state of the unfamiliar software is provided, typically in the form of
+screenshots of its basic GUI interface. The World State ModelMstate performs dense captioning of
+the GUI elements, including button detection and OCR-based recognition. These detailed captions
+are passed to the Curriculum Generator Mtask, which generates an initial set of task instructions
+I0 ={I (1)
+0 ,I (2)
+0 ,···} along with an initial software guidebookU0 for the software.
+(2) World state judgment: In thep-th phase of Auto Exploration, the Actor Modelπp executes tasks
+based on the instructions inIp. Each execution is evaluated by the World State ModelMstate, which
+provides feedbackJp ={J (1)
+p ,J (2)
+p ,···} for each step within the operation trajectory. In addition, it
+generates a detailed description of GUI state changes based on captured screenshots, denoted asCp.
+(3) Task self-evolving: Based on the outcomesJp andCp, the Curriculum GeneratorMtask produces
+a more challenging task set Ip+1 and expands the agent’s knowledge boundary by updating the
+software guidebook toUp+1. The detailed prompting process is illustrated in Fig. 8. This iterative
+4
+
+update can be formalized as:
+Up+1,Ip+1 =Mtask(Up,Ip,Jp,Cp) (1)
+Here,Up+1 serves as a more comprehensive software guidebook memory, whileIp+1 represents a
+more challenging task set tailored to the current capabilities of the Actor Model πp. Examples of
+Ip are provided in Fig. 4, where the Actor Modelπ demonstrates curriculum learning by handling
+increasingly complex tasks across different phases p. Illustrations of Up across various software
+applications are provided in Sup. J. Comparison with previous methods [39, 38, 56] on task generation
+are detailed in Sup.C.2
+(4) Autonomous RL Training: Through iterative reinforcement learning, the Actor Model πp is
+updated based on its execution of the instruction setIp, guided by evaluation feedbackJp and a set
+of action-specific verifiable functionsRverifer. The resulting policyπp+1 is then used as the actor in
+the subsequent phase. Further details are provided in Sec. 3.2.
+3.2 Reinforcement Learning from Experience
+The World State ModelMstate provides step-level reward signals for reinforcement learning. Unlike
+previous reward models for CUA [47, 6, 46, 45, 35], ourMstate model takes the entire trajectory of
+states and actions,H ={(s0,a 0), (s1,a 1),... }, as input. It classifies each actiona as eitheraF or
+aT , whereaF indicates an incorrect action leading to failure or redundant loops, andaT represents a
+correct action that contributes to successful progression without redundancy. The curated prompt
+used for judgment is depicted in Fig. 7. For historical states that result in aT , we encourage CUA
+to reinforce these actions through verifiable rewards defined by a set of functionsRverifer ={rdist}.
+Conversely, for states leading toaF , we penalize them using negative KL divergence with adversarial
+imitation.
+Adversarial Imitation for Failure Action Punishment.To explicitly encourage the policy to diverge
+from failure-inducing behaviors, we employ a contrastive log-ratio loss based on a reference failure
+actionaF . This objective encourages the policy to sample actionsa that minimize alignment with the
+failure actionaF :
+LAI(πθ) = Eν
+
+− log πθ(a|s,I )
+πref(aF|s,I )
+
+(2)
+This formulation serves as an adversarial imitation signal. By maximizing divergence from this
+distribution, the agent is trained to explore alternative action distributions that deviate from those
+leading to failure, particularly in complex GUI interaction scenarios. Notably, this loss shares a
+similar form with DPO [49] but only the negative part.
+Verifiable Rewards for Correct Action Encouragement. To more effectively guide the policy
+toward correct actionsaT , we adopt Reinforcement Learning with Verifiable Rewards (RLVR) [17,
+53], which has recently shown success in enhancing language models on tasks with objectively
+verifiable answers, such as mathematics [ 53], and more recently, counting and grounding in the
+vision-language domain [33, 54, 37]. After labeling the correct step (s,aT ) using the World State
+Model, we apply Group Relative Policy Optimization (GRPO), computing the relative advantage of
+each response based on its reward:
+A(i) = r(i)− mean({r(j)}G
+j=1)
+std({r(j)}G
+j=1) , i = 1,··· ,G. (3)
+As we design distinct reward signals for different action types, we define the reward function between
+a predicted actiona and the ground-truth actionaT as:
+r(i) =r(a(i),aT ) = I
+
+type(a(i)) = type(aT )
+
++rdist(a(i),aT ), (4)
+where I(·) is the indicator function that returns 1 if the predicted action and ground-truth action are of
+the same type, and 0 otherwise. The distance-based reward termrdist(a(i),aT ) is defined according
+to the specific action type: for click actions, it is computed based on the normalized L1 distance
+between the clicked coordinates; for drag and select actions, it is computed using the Intersection
+over Union (IoU) between the predicted and ground-truth bounding boxes; and for type actions, it
+5
+
+is determined by the character-level BLEU score between the predicted and ground-truth text. All
+rdist rewards are normalized to the range [0, 1] to ensure consistency across different action types. A
+comprehensive list ofrdist(a(i),aT ) definitions for various action types is provided in Tab. 8. The
+final loss of GRPO is directly adopted from [53]:
+LGRPO(πθ) =−E(s,I)∼D,{a(i)}G
+i=1∼πref(·|s,I) (5)
+"
+1
+G
+GX
+i=1
+1
+|a(i)|
+|a(i)|X
+t=1
+n
+min
+
+r(i)
+t (θ)A(i), clip(r(i)
+t (θ), 1−ϵ, 1 +ϵ)A(i)
+
+−βD (i,t)
+KL (πθ∥πref)
+o#
+,
+where ri,t(θ) = πθ(a(i)|s,I )
+πθref (a(i)|s,I ) andDi,t
+KL(πθ,π ref) = πref(a(i)|s,I )
+πθ(a(i)|s,I ) − 1− logπref(a(i)|s,I )
+πθ(a(i)|s,I ).
+Similar to [53, 17], advantageA is weighted on the whole reasoning token logits to encourage free
+form thinking for performing action and planning.
+The final training loss is defined as a weighted combination of positive and negative action samples,
+i.e., correct actionsaT and incorrect actionsaF :L(π(θ)) =LGRPO +γLAI. We setγ = 0.2 during
+training, and the rationale for this choice is discussed in the ablation study presented in Sup. F.
+This strategy is shown to be more effective in Sec. 4.2 compared to Generalized Advantage Estimation
+(GAE) [52]-based RL methods [47, 6], as the more powerful reward modelMstate provides accurate
+step-level reward signals by leveraging the entire episode trajectoryH from a global perspective.
+3.3 From Specialist to Generalist.
+Achieving a generalist agent capable of operating across multiple software platforms is an ambitious
+and valuable goal. We first attempted to train such a generalist directly using the proposed SEAgent
+framework across all software environments. However, this approach led to suboptimal performance
+compared to specialized agents, as the actor struggled to learn effectively in the multi-software
+environment.
+We thus introduce a specialist to generalist strategy, as illustrated in Fig. 1. Specifically, we first train
+software-specialized agents via SEAgent on individual environments, allowing each to master a spe-
+cific application. These specialists are then distilled into a single generalist model through supervised
+fine-tuning (SFT) on synthesized successful trajectories. Finally, the generalist is refined via SEAgent
+on multiple software. This generalist, now equipped with better reasoning, planning abilities, and
+software-specific commonsense, achieves significantly improved performance, outperforming both
+the SEAgent via direct general RL and the performance combination of multi-specialists as in Table 2.
+4 Experiments
+4.1 Benchmark of Reward Model for computer use agent.
+Providing CUA agents with reliable reward signals is crucial for enabling self-evolution in agentic
+systems, consisting of an actor (CUA) and a judge model, especially when interacting with unfamiliar
+software environments. Recent work, AgentRewardBench [35], proposes to evaluate the precision of
+reward models by assessing the accuracy of judge predictions on web-based tasks using trajectories
+from diverse agents. Building upon AgentRewardBench [35], we further extend the evaluation beyond
+web tasks to a broader set of PC software environments. Specifically, we evaluate on all 339 feasible
+tasks from OSWorld [68], using rule-based criteria for determining success or failure. Trajectories
+are sampled from UI-TARS [ 48] and Gemini-2.5-Pro [ 14], and rule-based evaluation is used as
+ground-truth supervision. We then compute the confusion matrix by comparing the predictions of
+different reward models against these labels.
+The judge strategy in AgentRewardBench [35] relies solely on the final state and the associated action
+history. However, it is more natural and reliable for a judge model to consider the entire trajectory
+when assessing task success, rather than focusing only on the final state. For example, consider
+6
+
+Table 1: Precision and Negative Predictive Value (NPV) on AgentReardBench [ 35] and OS-
+World [68] with last screenshot only (LS) or entire process screenshots (ES) as input. World State
+Model closes the gap with commercial model supporting full process high resolution screenshots as
+input. The co-training with screenshot change description (CD) improves judgment precision.
+Model Input
+AgentRewardBench OS-World-Full Prof/Office
+Precision NPV Precision NPV Precision NPV
+GPT-4o [23] LS 68.1 92.3 46.3 88.2 40.5 81.0
+ES 72.1 92.2 74.6 95.2 70.4 85.3
+Qwen2.5-VL-72B [7] LS 64.5 94.2 41.5 86.9 31.7 78.7
+ES 26.2 83.0 26.8 83.0 25.6 76.6
+Qwen2.5-VL-7B [7] LS 64.1 90.3 37.3 85.2 31.8 79.0
+ES 25.4 83.8 20.0 81.7 23.5 76.0
+World State Model (w/o CD) ES 69.1 88.5 71.1 88.4 65.0 81.1
+World State Model (w/ CD) ES 71.6 91.2 73.9 90.5 69.3 82.0
+the task of booking a flight to London. A final state message such as "Your flight ticket has been
+successfully booked." does not confirm whether the correct date and time were selected, which can
+lead to compromised judgment accuracy.
+However, we observe that current open-sourced LVLMs do not perform well under this more holistic
+evaluation strategy. As shown in Fig. 3, feeding additional historical screenshots into Qwen2.5-VL [7]
+significantly degrades its Average Precision (AP), diverging notably from GPT-4o [23] on the same
+curated prompt detailed in Fig.6. We attribute this performance drop to the insufficient pretraining of
+Qwen2.5-VL on long sequences of high-resolution screenshots, which likely pushes it toward the
+limits of its 32K context length.
+To address this issue, we propose a distilled model based on Qwen2.5-VL-7B, referred to as World
+State Model, which conducts step-by-step screenshot analysis to produce final judgments. The
+training process for World State Model is detailed in Sup. A.2, using a dataset of 0.86K GPT-4o [23]
+generated evaluations on trajectories with dense GUI change descriptions, exclusively from Chrome
+within the OSWorld [68] environment. Despite being trained solely on Chrome data, World State
+Model exhibits strong generalization to both other professional software in OSWorld and the external
+AgentRewardBench [35] benchmark. This demonstrates that the model learns transferable judgment
+patterns rather than overfitting to the specifics of a single application, thanks to the diversity and
+quality of step-level annotations in the training data.
+40
+45
+50
+55
+60
+65
+70
+75
+Qwen2.5-VL-72B
+Qwen2.5-VL-7B
+GPT-4o
+GUI-Judge
+40
+45
+50
+55
+60
+65
+70
+75
+Qwen2.5-VL-72B
+Qwen2.5-VL-7B
+GPT-4o
+GUI-Judge
+Average Precision
+1 2 4 8 all #states (screenshot)
+Figure 3: The Average Precision on AgentRe-
+wardBench [35], where GUI-Judge exhibits an
+improvement in AP as the number of input middle
+states increases, showing a similar trend to that of
+the closed sourced GPT-4o [23] when compared
+with its base model.
+We evaluate World State Model and our
+full-process screenshot-conditioned strategy on
+AgentRewardBench [35], as well as on agent
+trajectories from OSWorld [68]. As shown in
+Tab. 1 and further analyzed in Fig. 3, World State
+Model achieves state-of-the-art performance
+among open-sourced models, significantly nar-
+rowing the gap with GPT-4o [23]. More impor-
+tantly, it exhibits a similar performance trend to
+GPT-4o when conditioned on historical screen-
+shots. Despite being trained on a relatively
+small dataset, World State Model is explicitly
+encouraged to capture the sequential dependen-
+cies among historical screenshots and to perform
+step-by-step reasoning for final judgment. Serv-
+ing as our foundation reward model, World State
+Model provides reliable, step-level reward sig-
+nals that support downstream policy learning. In line with our agentic system design—which
+emphasizes the evolution of the actor agent with full open-sourced models—we intentionally avoid
+relying on GPT-4o [23] API calls for judgment during training and inference (also due to inefficiency).
+More details of World State Model is supplied in Sup.A.
+7
+
+Table 2: Success Rate (SR) on OSWorld [68]. SEAgent demonstrates strong performance after
+reinforcement learning from experience. In addition to evolving on separate software, a new General
+Model achieves better performance after another iteration of SEAgent. *Indicates specialist agents
+trained separately for each software with ensembled results. All results are averaged over three runs.
+Model VScode GIMP Impress VLC Writer Overall
+Human Performance 73.9 73.1 80.9 70.6 73.9 74.5
+GPT-4o [23] 4.35 3.85 6.77 16.1 4.35 7.08
+GPT-4V [42] 0.00 7.69 2.52 18.3 4.35 6.59
+Gemini-Pro-1.5 [60] 0.00 11.5 13.2 6.53 8.71 7.99
+Claude3.7 Sonnet [4] 18.8 24.4 10.6 27.5 17.4 19.7
+Gemini-Pro-2.5 [14] 21.7 26.9 9.92 25.5 24.6 21.7
+UI-TARS-7B-DPO [34] 13.0 23.1 4.26 11.8 4.35 11.3
+UI-TARS-72B-DPO [34] 18.8 25.6 6.38 15.7 8.70 15.0
+DigiRL [6] (Specialized RL)* 21.7 32.1 12.8 23.5 18.8 21.8
+WebRL [47] (Specialized RL)* 27.5 29.5 10.6 25.5 15.9 21.8
+SEAgent (Specialized RL)* 37.7 38.5 22.0 33.3 29.0 32.2
+DigiRL [6] (General RL) 21.7 35.9 12.1 19.6 15.9 21.0
+WebRL [47] (General RL) 20.3 32.5 9.93 21.6 14.5 19.6
+SEAgent (General RL) 36.2 39.7 19.9 31.4 26.1 30.6
+SEAgent (General SFT) 30.4 37.2 18.4 31.9 20.3 27.9
+SEAgent (Specialist-to-Generalist) 40.5 42.3 22.7 35.3 31.8 34.5
+4.2 Self evolution of GUI Agents
+0
+5
+10
+15
+20
+25
+30
+35
+40
+45
+-Type text in the first box.
+-Add a new page.
+-Delete the existing text box.
+-Create a title “GUI RL!” and
+put it in the center of the page.
+-Draw a green rectangle with
+50% transparency.
+-Create a title “GUI RL!”
+with green background in
+the center of the page.
+-Create a new file.
+-Open settings.
+-Open a folder as project.
+-Change the style of vscode
+to “Light+”
+-Install python extension.
+Phase 1 Phase 2 Phase 3
+-Open the video on desktop.
+-Increase the volume.
+-Open VLM configurator.
+-Save current video to 1.mp4
+in desktop folder.
+-Stop the current video.
+-Add all the music files in
+the "My Music" folder to
+the playlist and set it to
+loop playback.
+-Set a breakpoint at line 14
+in the current .py script
+and start debugging it.
+-Open girl.png on the desktop.
+-Creat a black box on image.
+-Rotate current image.
+-Crop the head of the bird
+and save it to a new image
+named “head.png” onto the
+desktop.
+-Write the text “RL” at the
+center of the opened image.
+-Create a new image with a
+size of 1600 by 900 pixels.
+Phase
+P1 P2 P3P0
+SR
+Figure 4: Self-evolved task instructions and success rate (SR) curves across different software.
+Tasks are progressively upgraded by the Curriculum Generator without human intervention, based on
+the evolving capabilities of the Actor Model at different training phases.
+Models Before Self-Evolution. Our self-evolving system is initialized with three locally deployed
+models: UI-TARS-7B-DPO [48] as the Actor Model, World State Model as the step-level reward
+model, and Qwen2.5-72B [72] as the Curriculum Generator for task evolution with software guide-
+book memory. We conduct experiments on five professional and office-related software applications
+from OSWorld [68]. As shown in Tab. 2, the initial actor agent demonstrates limited performance on
+these software environments, achieving an average success rate of 11.3% only.
+Evolution Process Details. At beginning, we provide World State Model with the initial GUI state
+of the novel software. The Curriculum Generator then generates the first software guidebook and
+a set of basic tasks (illustrated in Fig.5). This yields an initial instruction set I0, averaging 150.2
+instructions, which are executed by the Actor Model. The resulting trajectories are evaluated by
+World State Model and parsed into an average of 1361.5 multi-turn conversation pairs (detailed
+statistics are in Sup.H). We then perform reinforcement fine-tuning (RFT) following the methodology
+described in Sec. 3.2. Training is conducted for 1k iterations on 8 NVIDIA A100 80GB GPUs, with
+G = 8, a batch size of 16, and a learning rate of 2× 10−5, scheduled via cosine decay. This evolution
+process is repeated iteratively for three phases using the same training configuration.
+Specialist Evaluation. For a fair comparison with previous reinforcement learning methods [6, 47],
+we adapt their training strategies to the UI-TARS [48] model. Specifically, we initialize the actor
+8
+
+agent from UI-TARS-7B-DPO and, instead of providing step-level reward signals, We evaluate its
+executed trajectories with binary success or failure outcomes using World State Model. A separate
+critic model is also initialized from UI-TARS-7B-DPO, with additional random initialized MLP
+layers taking the LLM’s hidden states as input to regress value predictions. This critic is trained to
+perform advantage estimation based on Generalized Advantage Estimation (GAE) [ 52]. The loss
+functions follow the same configurations as in [6, 47]. Both the critic and the actor agent are trained
+iteratively using the same phased reinforcement fine-tuning (RFT) process, where the Curriculum
+Generator continually generates new curriculum-style tasks.
+As shown in Fig. 4 and Tab. 2, we train separate actor agents for five different software applications.
+Our approach, denoted as SEAgent (Specialist), achieves strong performance compared to previous
+reinforcement learning methods such as DigiRL [6] and WebRL [47]. We attribute this improvement
+to the use of World State Model, which provides fine-grained, step-level reward signals derived from
+a comprehensive understanding of the full history of states and actions. This contrasts with previous
+approaches that rely on separate critic models—typically initialized from the actor itself—to estimate
+advantages from sparse, final success/failure signals. Furthermore, the curriculum of task instructions
+generated by the Curriculum Generator, as illustrated in Fig. 4, validates the effectiveness of our
+autonomous learning framework. These tasks progress from simple to complex based on the actor’s
+evolving capabilities, enabling it to gradually specialize in each target software environment. Based
+on the observed evolution curves, we set the number of training phases to three, as performance gains
+saturate beyond that point.
+From Specialist to Generalist. After training five strong software specialists, we pursue generaliza-
+tion using the methodology described in Sec. 3.3. Specifically, we collect task instructions generated
+during each specialist’s training phase and use them to prompt the respective specialists for execution.
+A total of 3.5K successful trajectories, along with their corresponding reasoning traces, are distilled
+into a new base model (UI-TARS-7B [48]) via supervised fine-tuning (SFT). This distilled model is
+then further optimized through reinforcement learning (RL) across all five software environments.
+As shown in Tab. 2, the resulting generalist model surpasses the performance of the individual
+specialist ensemble, demonstrating the effectiveness of a specialization-first strategy for achieving
+generalization. By learning from a broad range of software tasks, the generalist improves its reasoning
+and decision-making capabilities, acquiring transferable commonsense knowledge across domains.
+Table 3: Ablation of different configurations and their cor-
+responding VScode success rates on OSWorld [68]. Using
+World State Model as the reward model yields significant per-
+formance gains. We further compare different training strate-
+gies including supervised fine-tuning (behavior cloning),
+GRPO, and Adversarial Imitation (AI).
+Qwen2.5VL-72B World State Model SFT (BC) GRPO AI VScode SR
+13.0
+✓ ✓ 10.1
+✓ ✓ 11.6
+✓ ✓ 23.2
+✓ ✓ ✓ 30.4
+✓ ✓ 34.8
+✓ ✓ ✓ 37.7
+Ablation Study of Specialist Train-
+ing. In Tab. 3, we present an ab-
+lation study on the effectiveness of
+various components in our training
+pipeline, using the success rate on VS-
+Code from OSWorld [68] as the eval-
+uation metric. First, we ablate the use
+of the World State Model for reward
+signal generation. Its high precision
+in judging the success or failure of
+the actor agent’s actions—compared
+to using a base model—is shown to be
+essential for effective self-evolution.
+In addition to reward quality, reinforcement fine-tuning (RFT) also proves critical. Compared to
+direct supervised fine-tuning (behavior cloning), RFT encourages more diverse and exploratory
+reasoning patterns under verifiable rewards, enabling more generalized task planning. Finally, incor-
+porating adversarial imitation to penalize critical failure-inducing actions allows the CUA to learn
+from its mistakes, yielding additional performance gains. This highlights the importance of learning
+not only from successful behaviors but also from failure signals.
+5 Conclusion
+In this work, we introduce SEAgent, an autonomous Computer Use Agent (CUA) exploration system
+that learns from its own experience on specific software. Powered by a robust World State Model that
+provides step-level reward signals, and a carefully designed reinforcement learning framework that
+9
+
+encourages free-form reasoning through trial and error, the CUA is able to evolve into a specialist for
+individual software platforms. Furthermore, a specialist-to-generalist training strategy enables the
+development of a strong generalist agent capable of operating across multiple software environments.
+Given that computer software constitutes a highly regularized virtual world, we believe this work can
+inspire future research on agentic systems in both gaming and real world embodied environments.
+Limitations and future work. While promising, our work still has several unresolved limitations.
+Firstly, our self evolving agent system is bounded by GUI-Judge to provide reliable reward signal
+instead of real signal from environment. As its still challenging to learning from sparse reward signal
+in complex environment. Secondly, though we tested on relatively complex and novel software like
+libreoffice-tools and GIMP. The task is still relatively simple as it only takes a human expert less
+than 20 step to accomplish. How to adapt the system to achieve hours-long workflow in even more
+challenging software used by real human expert are thus interesting future directions.

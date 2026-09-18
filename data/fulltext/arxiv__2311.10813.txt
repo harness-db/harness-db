@@ -1,0 +1,837 @@
+record_id: arxiv:2311.10813
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2311.10813
+fetched_title: A Language Agent for Autonomous Driving
+fetched_at: 2026-09-18T19:08:37Z
+
+Published as a conference paper at COLM 2024
+A Language Agent for Autonomous Driving
+Jiageng Mao1∗ Junjie Ye1∗ Yuxi Qian1 Marco Pavone2,3 Yue Wang1,3
+1University of Southern California 2Stanford University 3NVIDIA
+{jiagengm, yejunjie, yuxiqian, yue.w }@usc.edu, pavone@stanford.edu
+Abstract
+Human-level driving is an ultimate goal of autonomous driving. Con-
+ventional approaches formulate autonomous driving as a perception-
+prediction-planning framework, yet their systems do not capitalize on the
+inherent reasoning ability and experiential knowledge of humans. In this
+paper, we propose a fundamental paradigm shift from current pipelines,
+exploiting Large Language Models (LLMs) as a cognitive agent to inte-
+grate human-like intelligence into autonomous driving systems. Our sys-
+tem, termed Agent-Driver, transforms the traditional autonomous driv-
+ing pipeline by introducing a versatile tool library accessible via function
+calls, a cognitive memory of common sense and experiential knowledge
+for decision-making, and a reasoning engine capable of chain-of-thought
+reasoning, task planning, motion planning, and self-reflection. Powered
+by LLMs, our Agent-Driver is endowed with intuitive common sense and
+robust reasoning capabilities, thus enabling a more nuanced, human-like ap-
+proach to autonomous driving. We evaluate our system on both open-loop
+and close-loop driving challenges, and extensive experiments substantiate
+that our Agent-Driver significantly outperforms the state-of-the-art driving
+methods by a large margin (more than 30% on the nuScenes dataset). Our
+approach also demonstrates superior interpretability and few-shot learning
+ability to these methods. Please visit our webpage for more details.
+1 Introduction
+(a) Conventional Perception-Prediction-Planning Pipeline.
+Perception Prediction Planning
+(b) Agent-Driver: LLMs as an Agent for Autonomous Driving.
+Neural Modules
+Tool Library
+Reasoning Engine
+Agent-Driver
+Cognitive Memory
+Sensory
+Inputs Action
+ActionSensory
+Inputs
+Figure 1: Comparison between (a) the conven-
+tional driving system and (b) the proposed Agent-
+Driver. Our approach transforms the conventional
+perception-prediction-planning framework by intro-
+ducing LLMs as an agent for autonomous driving.
+Imagine a car navigating a quiet
+suburban neighborhood. Suddenly,
+a ball bounces onto the road. A
+human driver, leveraging extensive
+experiential knowledge, would not
+only perceive the immediate pres-
+ence of the ball, but also instinc-
+tively anticipate the possibility of
+a chasing child and consequently
+decide to decelerate. In contrast,
+an autonomous vehicle, devoid of
+such reasoning and experiential an-
+ticipation, might continue driving
+until sensors detect the child, only
+allowing for a narrower margin of
+safety. The importance of human
+prior knowledge in driving systems becomes clear: driving is not merely about reacting
+to the visible, but also to the conceivable scenarios where the system needs to reason and
+respond even in their absence.
+To integrate human prior knowledge into autonomous driving systems, previous ap-
+proaches (Sadat et al., 2020; Casas et al., 2021; Hu et al., 2022; 2023; Jiang et al., 2023)
+∗indicates equal contribution.
+1
+arXiv:2311.10813v4 [cs.CV] 28 Jul 2024
+
+Published as a conference paper at COLM 2024
+Detection Module
+Prediction Module Occupancy Module Mapping Module
+Neural Modules
+Cognitive Memory
+Notable objects: Truck at (3.04, 8.03)
+Potential effects: Truck is decelerating
+Chain-of-Thoughts Reasoning
+Driving behavior: change lane to right
+Velocity estimation: deceleration
+Driving plan:
+change_lane_to_right_with_deceleration
+Task Planning
+Planned driving trajectory:
+[(0.04, 1.26), …, (0.39, 7.39)]
+Motion Planning
+Reasoning Engine
+Re-planned trajectory after collision check:
+[(0.04, 1.26), …, (0.39, 7.39)]
+[(0.04, 1.26), …, (0.39, 6.21)]
+Self-Reflection
+Text Interface
+Memory Data:
+- Common sense
+- Experience
+Environmental information:
+- Detections
+- Predictions
+- Occupancy
+- Map
+Ego-States
+Historical Trajectory
+Rule (1): Avoid collisions with other objects
+…
+Rule (N): Maintain a safe distance to the front object
+Commonsense Memory
+Tool Library
+get_leading_object()
+…
+get_objects_in_range(r)
+Detection Functions
+get_pred_trajs_for_object(i)
+…
+get_waypoint(i, t)
+Prediction Functions
+get_occ_at_loc_time(loc, t)
+…
+collision_check(traj)
+Occupancy Functions
+get_drivable(loc)
+…
+get_lanes(loc)
+Mapping Functions
+Past scenario (1): Environmental info 1, Driving Trajectory 1
+…
+Past scenario (N): Environmental info N, Driving Trajectory N
+Experience Memory
+ActionsObservations Environmental Update
+Reasoning
+&
+Planning
+Memory
+&
+Tool Use
+Large Language Models
+as an Agent
+Figure 2: Architecture of Agent-Driver. Our system dynamically collects necessary environ-
+mental information from the output of neural modules via the tool library. The collected
+information is further utilized to query the cognitive memory. Consequently, the reasoning
+engine takes collected environmental information and retrieved memory data as input, and
+traceably derives a safe and comfortable trajectory for driving through chain-of-thought
+reasoning, task planning, motion planning, and self-reflection.
+deconstruct the human driving process into three systematic steps following Figure 1 (a).
+Perception: they interpret the human perceptual process as object detection (Mao et al.,
+2023b) or occupancy estimation (Peng et al., 2020). Prediction: they abstract human drivers’
+foresight of upcoming scenarios as the prediction of future object motions (Casas et al., 2018).
+Planning: they emulate the human decision-making process by planning a collision-free
+trajectory, either using hand-crafted rules (Treiber et al., 2000) or by learning from data (Zeng
+et al., 2019). Despite its efficacy, this perception-prediction-planning framework overly simpli-
+fies the human decision-making process and cannot fully model the complexity of driving.
+For instance, perception modules in these methods are notably redundant, necessitating
+the detection of all objects in a vast perception range, whereas human drivers can main-
+tain safety by only attending to a few key objects. Moreover, prediction and planning are
+designed for collision avoidance with detected objects. Nevertheless, they lack deeper rea-
+soning ability inherent to humans, e.g. deducing the connection between a visible ball and
+a potentially unseen child. Furthermore, it remains challenging to incorporate long-term
+driving experiences and common sense into existing autonomous driving systems.
+In addressing these challenges, we found the major obstacle of integrating human priors into
+autonomous driving lies in the incompatibility of human knowledge and neural-network-
+based driving systems. Human knowledge is inherently encoded and utilized as language
+representations, and their reasoning process can also be interpreted by language. However,
+conventional driving systems rely on deep neural networks that are designed to process
+numerical data inputs, such as sensory signals, bounding boxes, and trajectories. The
+discrepancy between language and numerical representations poses a significant challenge
+to incorporating human experiential knowledge and reasoning capability into existing
+driving systems, thereby widening the chasm from genuine human driving performance.
+Taking a step towards more human-like autonomous driving, we propose Agent-Driver, a
+cognitive agent empowered by Large Language Models (LLMs). The fundamental insight
+of our approach lies in the utilization of natural language as a unified interface, seamlessly
+bridging language-based human knowledge and reasoning ability with neural-network-
+based systems. Our approach fundamentally transforms the conventional perception-
+prediction-planning framework by leveraging LLMs as an interactive scheduler among
+system components. As depicted in Figure 1 (b), on top of the LLMs, we introduce: 1)
+a versatile tool library that interfaces with neural modules via dynamic function calls,
+2
+
+Published as a conference paper at COLM 2024
+streamlining perception with less redundancy, 2) a configurable cognitive memory that
+explicitly stores common sense and driving experiences, infusing the system with human
+experiential knowledge, and 3) a reasoning engine that processes perception results and
+memory data to emulate human-like decision-making. Specifically, the reasoning engine
+performs chain-of-thought reasoning to recognize key objects and events, task planning
+to derive a high-level driving plan, motion planning to generate a driving trajectory, and
+self-reflection to ensure the safety of the planned trajectory. These components, coordinated
+by LLMs, culminate in an anthropomorphic driving process. To conclude, we summarize
+our contributions as follows:
+• We present Agent-Driver, an LLM-powered agent that revolutionizes the traditional
+perception-prediction-planning framework, establishing a powerful yet flexible
+paradigm for human-like autonomous driving.
+• Agent-Driver integrates a tool library for dynamic perception and prediction, a
+cognitive memory for human knowledge, and a reasoning engine that emulates hu-
+man decision-making, all orchestrated by LLMs to enable a more anthropomorphic
+autonomous driving process.
+• Agent-Driver significantly outperforms the state-of-the-art autonomous driving sys-
+tems by a large margin, with over 30% collision improvements in motion planning.
+Our approach also demonstrates strong few-shot learning ability and interpretabil-
+ity on the nuScenes benchmark.
+• We provide ablation studies to dissect the proposed architecture and understand
+the efficacy of each module, to facilitate future research in this direction.
+2 Related Works
+Perception-Prediction-Planning in Driving Systems. Modern autonomous driving systems
+rely on a perception-prediction-planning paradigm to make driving decisions based on
+sensory inputs. Perception modules aim to recognize and localize objects in a driving
+scene, typically in a format of object detection (Mao et al., 2021b; Wang et al., 2022; Mao
+et al., 2021a; 2023b) or object occupancy prediction (Peng et al., 2020; Tong et al., 2023).
+Prediction modules aim to estimate the future motions of objects, normally represented
+as predicted trajectories (Casas et al., 2018; Ivanovic & Pavone, 2019; Shi et al., 2022) or
+occupancy flows (Agro et al., 2023; Casas et al., 2021). Planning modules aim to derive a
+safe and comfortable trajectory, using rules (Urmson et al., 2008; Fan et al., 2018; Sauer et al.,
+2018; Chen et al., 2015; Bacha et al., 2008; Leonard et al., 2008; Thrun et al., 2006; Treiber
+et al., 2000) or learning from human driving trajectories (Dauner et al., 2023; Chitta et al.,
+2022; Mao et al., 2023a). These three modules are generally performed sequentially, either
+trained separately or in an end-to-end manner (Liang et al., 2020; Sadat et al., 2020; Casas
+et al., 2021; Hu et al., 2022; 2023). This perception-prediction-planning framework overly
+simplifies the human driving process and cannot effectively incorporate human priors such
+as common sense and past driving experiences. By contrast, our Agent-Driver transforms
+the conventional perception-prediction-planning framework by introducing LLMs as an
+agent to bring human-like intelligence into the autonomous driving system.
+LLMs in Autonomous Driving. Trained on Internet-scale data, LLMs (Brown et al., 2020;
+OpenAI, 2023; Touvron et al., 2023a;b) have demonstrated remarkable capabilities in com-
+monsense reasoning and natural language understanding. How to leverage the power
+of LLMs to tackle the problem of autonomous driving remains an open challenge. GPT-
+Driver (Mao et al., 2023a) handled the planning problem in autonomous driving by reformu-
+lating motion planning as a language modeling problem and introducing fine-tuned LLMs
+as a motion planner. DriveGPT4 (Xu et al., 2023) proposed an end-to-end driving approach
+that leverages Vision-Language Models to directly map sensory inputs to actions. DiLu (Wen
+et al., 2023) introduced a knowledge-driven approach with Large Language Models. These
+methods mainly focus on an individual component in conventional driving systems, e.g.
+question-answering (Xu et al., 2023), planning (Mao et al., 2023a), or control (Sha et al., 2023).
+Some approaches (Fu et al., 2023; Wen et al., 2023) are implemented and evaluated in simple
+simulated driving environments. By contrast, Agent-Driver presents a systematic approach
+3
+
+Published as a conference paper at COLM 2024
+that leverages LLMs as an agent to schedule the whole driving system, leading to a strong
+performance on the real-world driving benchmark.
+3 Agent-Driver
+In this section, we present Agent-Driver, an LLM-based intelligent agent for autonomous
+driving. We first introduce the overall architecture of our Agent-Driver in Section 3.1. Then,
+we introduce the three key components of our method: tool library (Section 3.2), cognitive
+memory (Section 3.3), and reasoning engine (Section 3.4).
+3.1 Overall Architecture
+Conventional perception-prediction-planning pipelines leverage a series of neural networks
+as basic modules for different tasks. However, these neural-network-based systems lack
+direct compatibility with human prior knowledge, constraining their potential for leverag-
+ing such priors to enhance driving performance. To handle this challenge, we propose a
+novel framework that leverages text representations as a unified interface to connect neural
+networks and human knowledge. The overall architecture of Agent-Driver is shown in
+Figure 2. Our approach takes sensory data as input and introduces neural modules for
+processing these sensory data and extracting environmental information about detection,
+prediction, occupancy, and map. On top of the neural modules, we propose a tool library
+where a set of functions are designed to further abstract the neural outputs and return
+text-based messages. For each driving scenario, an LLM selectively activates the required
+neural modules by invoking specific functions from the tool library, ensuring the collec-
+tion of necessary environmental information with less redundancy. Upon gathering the
+necessary environmental information, the LLM leverages this data as a query to search
+in a cognitive memory for pertinent traffic regulations and the most similar past driving
+experience. Finally, the retrieved traffic rules and driving experience, together with the
+formerly collected environmental information, are utilized as inputs to an LLM-based rea-
+soning engine. The reasoning engine performs multi-round reasoning based on the inputs
+and eventually devises a safe and comfortable trajectory for driving. Our Agent-Driver
+architecture harnesses dynamic perception and prediction capability brought by the tool
+library, human knowledge from the cognitive memory, and the strong decision-making
+ability of the reasoning engine. This synergistic integration results in a more human-like
+driving system with enhanced decision-making capability.
+3.2 Tool Library
+The profound challenge of incorporating human knowledge into neural-network-based
+driving systems is reconciling the incompatibility between text-based human priors and the
+numerical representations from neural networks. While prior works (Kuo et al., 2022) have
+attempted to translate text-based priors into semantic features or regularization terms for
+integration with neural modules, their performances are still constrained by the inherent
+cross-modal discrepancy. By contrast, we leverage text as a unified interface to connect
+neural modules and propose a tool library built upon the neural modules to dynamically
+collect text-based environmental information.
+The cornerstones of the tool library are four neural modules, i.e., detection, prediction,
+occupancy, and map modules, which process sensory data from observations and generate
+detected bounding boxes, future trajectories, occupancy grids, and maps respectively. The
+neural modules cover various tasks in perception and prediction and extract environmental
+information from observations. However, this information is largely redundant, with
+a significant portion insignificant to decision-making. To dynamically extract necessary
+information from the neural module outputs, we propose a tool library—where a set of
+functions are designed—to summarize the neural outputs into text-based messages, and the
+information collection process can be established by dynamic function calls. An illustration
+of this process is shown in Figure 3.
+Functions. We devised various functions for detection, prediction, occupancy, and mapping,
+in order to extract useful information from the neural module’s outputs respectively. Our
+4
+
+Published as a conference paper at COLM 2024
+tool library contains more than 20 functions covering diverse usages. Here are some exam-
+ples. For detection, get leading object returns a text description of the object in front of
+the ego-vehicle on the same lane. For prediction, get pred trajs for object returns a text-
+based predicted future trajectory for a specified object. For occupancy, get occ at loc time
+returns the probability that a specific location is occupied by other objects at a given timestep.
+For map, get lanes returns the information of the left and right lanes to the ego-vehicle, and
+get shoulders returns the information of the left and right road shoulders to the ego-vehicle.
+Detailed descriptions of all functions are in Appendix A.1.
+Task: You should think about what types of information (Detections, Predictions, Maps,
+Occupancy) you need to extract from the driving scenario [context information].
+Do you need to execute object detection? Please answer YES or NO.
+YES You can execute some of the following functions:
+- get_leading_object_detection() # Get detection of the leading
+object, the function will return the leading object id and its
+position and size.
+- …
+get_front_object_detections; parameters: {} Executing the function
+from tool library …
+Front object detections:
+Object detected, object type: car, object id: 2, position: (4.36, 9.56), size: (4.72, 1.86)
+…
+Do you need to execute trajectory prediction? Please answer YES or NO.
+YES You can execute some of the following functions:
+- get_leading_object_future_trajectory() …
+get_future_trajectories_for_specific_objects;
+parameters: {'object_ids': [2, …, 23]}
+Executing the function
+from tool library …
+Future trajectories for specific objects:
+Object type: car, object id: 2, future waypoint coordinates in 3s: [(4.36, 9.56), … ]
+Do you need to get occupancy information?
+Please answer YES or NO.
+NO
+Do you need to get map information? Please answer YES or NO.
+Yes
+You can execute some of the following functions:
+- get_drivable(locations) …
+get_lanes; parameters: {}
+get_shoulders: parameters: {}
+Executing the functions
+from tool library …
+Current ego-vehicle's distance to the left lane … the right lane …
+Current ego-vehicle's distance to the left shoulder … the right shoulder …
+Agent System Prompts
+Detection Module
+Prediction Module
+Mapping Module
+Function
+Call
+Function
+Call
+Function
+Call
+Figure 3: Illustration of function calls in the tool
+library. Agent-Driver can effectively collect nec-
+essary environmental information from neural
+modules through dynamic function calls.
+Tool Use. With the functions in the tool
+library, an LLM is instructed to collect
+necessary environmental information
+through dynamic function calls. Specif-
+ically, the LLM is first provided with
+initial information such as the current
+state for its subsequent decision-making.
+Then, the LLM will be asked whether it
+is necessary to activate a specific neural
+module, i.e.detection, prediction, occu-
+pancy, and map. If the LLM decides to
+activate a neural module, the functions
+related to this module will be provided
+to the LLM, and the LLM chooses to call
+one or some of these functions to col-
+lect the desired information. Through
+multiple rounds of conversations, the
+LLM eventually collects all necessary
+information about the current environ-
+ment. Compared to directly utilizing
+the outputs of the neural modules, our
+approach reduces the redundancy in
+current systems by leveraging the rea-
+soning power of the LLM to determine
+what environmental information is of
+real importance to the decision-making
+process. Furthermore, the neural mod-
+ules are only activated when the LLM
+decides to call the relevant functions,
+which brings flexibility to the system.
+A detailed example of LLM leveraging tool functions for environment perceiving is shown
+in Appendix A.2.
+3.3 Cognitive Memory
+Human drivers navigate using their common sense, such as adherence to local traffic
+regulations, and draw upon driving experiences in similar situations. However, it is non-
+trivial to adapt this ability to the conventional perception-prediction-planning framework.
+By contrast, our approach tackles this problem through interactions with a cognitive memory.
+Specifically, the cognitive memory stores text-based common sense and driving experiences.
+For every scenario, we utilize the collected environmental information as a query to search in
+the cognitive memory for similar past experiences to assist decision-making. The cognitive
+memory contains two sub-memories: commonsense memory and experience memory.
+Commonsense Memory. The commonsense memory encapsulates the essential knowledge
+a driver typically needs for driving safely on the road, such as traffic regulations and
+knowledge about risky behaviors. It is worth noting that the commonsense memory is purely
+text-based and fully configurable, that is, users can customize their own commonsense
+memory for different driving conditions by simply writing different types of knowledge
+into the memory.
+5
+
+Published as a conference paper at COLM 2024
+Experience Memory. The experience memory contains a series of past driving scenarios,
+where each scenario is composed of the environmental information and the subsequent
+driving decision at that time. By retrieving the most similar experiences and referencing
+their driving decisions, our system enhances its capacity for making more informed and
+resilient driving decisions.
+Cognitive MemoryQuery
+Encode Encode
+K-NN
+Search
+Query Scenario
+The most similar past scenario is the scenario (k) Past Scenario (k)
+Stage-1: Vector Search
+Stage-2: LLM-Based Fuzzy Search
+Retrieve
+Past Scenario (i)
+Environmental
+Info
+- Detection
+- Prediction
+- Occupancy
+- Map
+- Ego-states
+Past Scenario (1):
+Environmental Info (1);
+Driving Trajectory (1);
+…
+Past Scenario (N):
+Environmental Info (N);
+Driving Trajectory (N);
+Past Scenario (j) Past Scenario (k)
+In this step, you need to retrieve the most similar past driving
+experience to the current query scenario to assist decision-making
+Query Scenario: …
+Past Scenario (i): … Past Scenario (j): … Past Scenario (k): …
+Figure 4: Illustration of memory search. The
+proposed two-stage search algorithm effec-
+tively retrieves the most similar driving expe-
+rience and facilitates the subsequent decision-
+making process.
+Memory Search. As exhibited in Figure 4,
+we present an innovative two-stage search
+algorithm to effectively search for the most
+similar past driving scenario in the expe-
+rience memory. The first stage of our algo-
+rithm is inspired by vector databases (Lewis
+et al., 2020; Wang et al., 2021), where we
+encode the input query and each record
+in the memory into embeddings and then
+retrieve the top-K similar records via K-
+nearest neighbors (K-NN) search in the em-
+bedding space. Since the driving scenar-
+ios are quite diverse, the embedding-based
+search is inherently limited by the encod-
+ing methods employed, resulting in insuf-
+ficient generalization capabilities. To over-
+come this challenge, the second stage incor-
+porates an LLM-based fuzzy search, where
+the LLM is tasked to rank these records ac-
+cording to their relevance to the query. This ranking is based on the implicit similarity
+assessment by the LLM, leveraging its capabilities in generalization and reasoning.
+The cognitive memory equips our system with human knowledge and past driving experi-
+ences. The retrieved most similar experiences, together with commonsense and environ-
+mental information, collectively form the inputs to the reasoning engine. Text as a unified
+interface aligns the environmental information with human knowledge, thereby enhancing
+our system’s compatibility. Please refer to Appendix B for more details.
+3.4 Reasoning Engine
+Reasoning, a fundamental ability of humans, is critical to the decision-making process.
+Conventional methods directly plan a driving trajectory based on perception and predic-
+tion results, while they lack the reasoning ability inherent to human drivers, resulting in
+insufficient capability to handle complicated driving scenarios. Conversely, as shown in
+Figure 5, we propose a reasoning engine that effectively incorporates reasoning ability into
+the driving decision-making process. Given the environmental information and retrieved
+memory, our reasoning engine performs multi-round reasoning to plan a safe and comfort-
+able driving trajectory. The proposed reasoning engine consists of four core components:
+chain-of-thought reasoning, task planning, motion planning, and self-reflection.
+Chain-of-Thought Reasoning. Human drivers are able to identify the key objects and their
+potential effects on driving decisions, while this important capability is typically absent
+in conventional autonomous driving approaches. To embrace this reasoning ability in our
+system, we propose a novel chain-of-thought reasoning module, where we instruct an LLM
+to reason on the input environmental information and output a list of key objects and their
+potential effects in text. To guide this reasoning process, we instruct the LLM via in-context
+learning of a few human-annotated examples. We found this strategy successfully aligns the
+reasoning power of the LLM with the context of autonomous driving, leading to improved
+reasoning accuracy.
+Task Planning. High-level driving plans provide essential guidance to low-level mo-
+tion planning. Nevertheless, traditional methods directly perform motion planning with-
+out relying on this high-level guidance, leading to sub-optimal planning results. In our
+approach, we define high-level driving plans as a combination of discrete driving be-
+haviors and velocity estimations. For instance, the combination of a driving behavior
+6
+
+Published as a conference paper at COLM 2024
+change lane to left and a velocity estimation deceleration results in a high-level driving
+plan change lane to left with deceleration. We instruct an LLM via in-context learning
+to devise a high-level driving plan based on environmental information, memory data, and
+chain-of-thought reasoning results. The devised high-level driving plan characterizes the
+ego-vehicle’s coarse locomotion and serves as a strong prior to guide the subsequent motion
+planning process.
+**Chain-of-thoughts reasoning:**
+- Notable objects: pedestrian at (0.80,18.81), moving to (-2.53,20.89) at 3.0 second.
+- Potential effects: may collide if continue driving at this speed.
+- Notable objects: …
+- Potential effects: …
+**Task descriptions:**
+You're an autonomous vehicle's brain. Plan a safe trajectory to avoid obstacles…
+**Environmental information:**
+Front object detections: … Future trajectories for specific objects:… Map information: …
+**Common sense:**
+- Maintain a safe distance from the objects in front of you...
+**Past driving experience for reference:**
+Scenario information: … Referenced planning results: …
+**Task planning:**
+Behavior: move forward Speed: deceleration
+Driving plan: move forward with a deceleration.
+**Motion planning:**
+Trajectory: [(-0.03, 2.47), …, (-0.49, 13.22)]
+**Self-reflection:**
+No collision. No change to the trajectory.
+Visual Demonstration
+Figure 5: Illustration of reasoning engine.
+Agent-Driver makes driving decisions like hu-
+man in a step-by-step procedure.
+Motion Planning. Motion planning aims
+to devise a safe and comfortable trajectory
+for driving, and each trajectory is repre-
+sented as a sequence of waypoints. Fol-
+lowing (Mao et al., 2023a), we re-formulate
+motion planning as a language modeling
+problem. Specifically, we leverage environ-
+mental information, memory data, reason-
+ing results, and high-level driving plans col-
+lectively as inputs to an LLM, and we in-
+struct the LLM to generate text-based driv-
+ing trajectories by reasoning on the inputs.
+By fine-tuning with human driving trajecto-
+ries, the LLM can generate trajectories that
+closely emulate human driving patterns. Fi-
+nally, we transform the text-based trajecto-
+ries back into real trajectories for system
+execution.
+Self-Reflection. Self-reflection is a crucial ability in humans’ decision-making process, aim-
+ing to re-assess the former decisions and adjust them accordingly. To model this capability
+in our system, we propose a collision check and optimization approach. Specifically, for a
+planned trajectory ˆτ from the motion planning module, the collision check function in the
+tool library is first invoked to check its collision. If collision detected, we refine the trajectory
+ˆτ into a new trajectory τ∗ by optimizing the cost functionC:
+τ∗ = minτ C(τ, ˆτ) = minτ λ1||τ− ˆτ||2 + λ2Fcol (τ). (1)
+In this manner, the safety of the planned trajectory is greatly improved.
+Our reasoning engine models the human decision-making process in driving as a step-by-
+step procedure involving reasoning, hierarchical planning, and self-reflection. Compared to
+prior works, our approach effectively emulates the human decision-making process, leading
+to enhanced decision-making capability and superior planning performance. More details
+of the reasoning engine can be found in Appendix C.
+4 Experiments
+In this section, we demonstrate the effectiveness, few-shot learning ability, and other char-
+acteristics of Agent-Driver through extensive experiments. First, we introduce the experi-
+mental settings in Section 4.1. Next, we evaluate the planning performance of our approach
+on both open-loop and closed-loop settings (Section 4.2). Subsequently, we investigate the
+few-shot learning ability (Section 4.3), interpretability (Section 4.4), compatibility (Section
+4.5), and stability (Section 4.6) of Agent-Driver. Finally, we discuss the choices of in-context
+learning and fine-tuning in Section 4.7. More experiments can be found in Appendix D.
+4.1 Experimental Setup
+Benchmarks. For open-loop autonomous driving, we conduct experiments on the large-
+scale nuScenes dataset (Caesar et al., 2020). The nuScenes dataset is a real-world autonomous
+driving dataset that contains 1, 000 driving scenarios and approximately 34, 000 key frames
+encompassing a diverse range of locations and weather conditions. We follow the general
+practice and split the whole dataset into training and validation sets. We utilize the training
+set to train the neural modules and instruct the LLMs, and we utilize the validation set to
+7
+
+Published as a conference paper at COLM 2024
+Method L2 (m)↓ Collision (%)↓
+1s 2s 3s Avg. 1s 2s 3s Avg.
+ST-P3 metrics
+ST-P3 (Hu et al., 2022) 1.33 2.11 2.90 2.11 0.23 0.62 1.27 0.71
+VAD (Jiang et al., 2023) 0.17 0.34 0.60 0.37 0.07 0.10 0.24 0.14
+GPT-Driver (Mao et al., 2023a) 0.20 0.40 0.70 0.44 0.04 0.12 0.36 0.17
+Agent-Driver (ours) 0.16 0.34 0.61 0.37 0.02 0.07 0.18 0.09
+UniAD metrics
+NMP (Zeng et al., 2019) - - 2.31 - - - 1.92 -
+SA-NMP (Zeng et al., 2019) - - 2.05 - - - 1.59 -
+FF (Hu et al., 2021) 0.55 1.20 2.54 1.43 0.06 0.17 1.07 0.43
+EO (Khurana et al., 2022) 0.67 1.36 2.78 1.60 0.04 0.09 0.88 0.33
+UniAD (Hu et al., 2023) 0.48 0.96 1.65 1.03 0.05 0.17 0.71 0.31
+GPT-Driver (Mao et al., 2023a) 0.27 0.74 1.52 0.84 0.07 0.15 1.10 0.44
+Agent-Driver (ours) 0.22 0.65 1.34 0.74 0.02 0.13 0.48 0.21
+Table 2: Open-loop planning performance compared to the state-of-the-arts. Agent-Driver
+significantly outperforms prior works in terms of L2 and collision rate. Our approach attains
+more than 30% performance gains in collisions compared to the state-of-the-art methods.
+evaluate the performance of our approach, ensuring a fair comparison with prior works.
+Following prior works (Hu et al., 2022; 2023; Jiang et al., 2023), the L2 error and collision
+rate are reported to evaluate the planning performance. For the closed-loop autonomous
+driving, we adopt the Town05-Short benchmark (Prakash et al., 2021) powered by the
+CARLA simulator (Dosovitskiy et al., 2017) for evaluation. The Town05-Short benchmark
+consists of 10 challenging driving routes with 3 intersections each, including a high density
+of dynamic agents. We adopt the widely-used route completion and driving scores to
+evaluate the planning performance. Route Completion denotes the progress of driving on a
+route, and the Driving Score additionally takes comfort and safety into calculation. More
+details of the open-loop and closed-loop evaluation metrics can be found in Appendix D.1.
+Implementation Details. We utilize gpt-3.5-turbo-0613 as the foundation LLM for different
+components in our system. For motion planning, we follow (Mao et al., 2023a) and fine-tune
+the LLM with human driving trajectories in the nuScenes training set for one epoch. For
+neural modules, we adopted the modules in (Hu et al., 2023). For closed-loop experiments,
+we leveraged the perception modules in LAV (Chen & Kr¨ahenb ¨uhl, 2022) and kept the other
+parts of our system the same. We also followed the same training setting and evaluation
+protocols in (Chen & Kr¨ahenb ¨uhl, 2022) for a fair comparison. More implementation details
+can be found in the appendix D.2.
+4.2 Comparison with State-of-the-art Methods
+Open-Loop Results. As shown in Table 2, Agent-Driver surpasses state-of-the-art methods
+in both metrics and decreases the collision rate of the second-best performance by a large
+margin. Specifically, under ST-P3 metrics, Agent-Driver realizes the lowest average L2
+error and greatly reduces the average collision rates by 35.7% compared to the second-
+best performance. Under UniAD metrics, Agent-Driver achieves an L2 error of 0.74 and
+a collision rate of 0.21%, which are 11.9% and 32.3% better than the second-best methods
+GPT-Driver (Mao et al., 2023a) and UniAD (Hu et al., 2023), respectively. The promising
+performance on the collision rate verifies the effectiveness of the reasoning ability of Agent-
+Driver, which considerably increases the safety of the proposed autonomous driving system.
+Methods Driving Score ↑ Route Completion↑
+CILRS (Codevilla et al., 2019) 7.47 13.40
+LBC (Cui et al., 2021) 30.97 55.01
+Transfuser (Prakash et al., 2021) 54.52 78.41
+ST-P3 (Hu et al., 2022) 55.14 86.74
+VAD (Jiang et al., 2023) 64.29 87.26
+Agent-Driver (Ours) 57.33 91.37
+Table 1: Closed-loop planning performance
+compared to the state-of-the-arts. Agent-
+Driver yields the best route completion and an
+on-par driving score compared to prior arts.
+Closed-Loop Results. To analyze the per-
+formance of our approach in closed-loop
+settings, we evaluate Agent-Driver against
+other state-of-the-art methods on the au-
+thoritative CARLA simulator. The results
+on the Town05-Short benchmark (Chitta
+et al., 2022) are shown in Table 1. Agent-
+Driver achieves the highest route comple-
+tion, surpassing the second-best VAD (Jiang
+et al., 2023) by 4.1%. In terms of driving
+score, Agent-Driver also yields a performance of 57.33%, which is on par with the prior arts.
+8
+
+Published as a conference paper at COLM 2024
+*****Environmental information:*****
+Front object detections:
+Front object detected, object type: pedestrian, object id: 0, position: (-4.32, 13.85), size: (0.76, 0.91)
+…
+Front object detected, object type: pedestrian, object id: 9, position: (2.23, 19.39), size: (0.57, 0.69)
+Future trajectories for specific objects:
+Object type: pedestrian, object id: 0, future waypoint coordinates in 3s: [(-4.44, 14.50), …]
+…
+Object type: pedestrian, object id: 9, future waypoint coordinates in 3s: [(1.74, 19.76), …]
+Map information (road shoulders):
+Current ego-vehicle's distance to left shoulder is 0.5m and right shoulder is 4.5m
+*****Common sense:*****
+- Maintain a safe distance from the objects in front of you...
+*****Past driving experience for reference:*****
+Most similar driving experience from memory with similarity score: 0.77:
+Scenario information: …
+The planned trajectory in this scenario for your reference:[(0.04,2.49), … ,(0.30,12.26)]
+*****Chain-of-thoughts reasoning:*****
+- Notable objects: pedestrian at (0.80,18.81), moving to (-2.53,20.89) at 3.0 second
+- Potential effects: may collide if continue driving at this speed.
+…
+*****Task planning:*****
+Behavior: forward; Speed: deceleration; Driving plan: move forward with a deceleration
+*****Motion planning:*****
+Trajectory: [(-0.03, 2.47), (-0.10, 4.84), (-0.19, 7.10), (-0.29, 9.25), (-0.39, 11.29), (-0.49, 13.22)]
+*****Self-reflection:*****
+No collision. No change to the motion planning result.
+*****Environmental information:*****
+Front object detections:
+Front object detected, object type: car, object id: 4, position: (-2.11, 14.95), size: (1.96, 4.76)
+…
+Front object detected, object type: car, object id: 6, position: (5.31, 32.79), size: (1.90, 4.48)
+Future trajectories for specific objects:
+Object type: pedestrian, object id: 4, future waypoint coordinates in 3s: [(-2.39, 14.80), …]
+…
+Object type: pedestrian, object id: 6, future waypoint coordinates in 3s: [(5.32, 32.78), …]
+Map information (lanes):
+Current ego-vehicle's distance to left lane is 1.5m and right lane is unknown
+*****Common sense:*****
+- Avoid collision with other objects...
+*****Past driving experience for reference:*****
+Most similar driving experience from memory with similarity score: 0.45:
+Scenario information: …
+The planned trajectory in this scenario for your reference:[(-0.14,0.98), … ,(-5.10,8.27)]
+*****Chain-of-thoughts reasoning:*****
+- Notable objects: car at (-2.11,14.95), moving to (-2.84,14.53) at 1.5 second
+- Potential effects: inside the safety zone of the ego-vehicle at 1.5 second.
+…
+*****Task planning:*****
+Behavior: turn left; Speed: deceleration; Driving plan: turn left with a deceleration
+*****Motion planning:*****
+Trajectory: [(-0.11,0.94), (-0.31,1.81), (-0.62,2.75), (-1.16,3.88), (-1.84,4.93), (-2.95,6.29)]
+*****Self-reflection:*****
+No collision. No change to the motion planning result.
+Figure 7: Interpretability of Agent-Driver. In the referenced images, planned trajectories of
+our system and human driving trajectories are in red and green respectively. Agent-Driver
+extracts meaningful objects (in yellow) from all detected objects (in blue) via the tool library.
+The reasoning engine further identifies notable objects (in red). Messages from the tool
+library, cognitive memory, and reasoning engine are recorded in colored text boxes. Every
+message is documented and our system is conducted in an interpretable and traceable way.
+4.3 Few-shot Learning
+Avg. Collision (%)
+Avg. L2 (m)
+1.20
+0.80
+Percentage of training samples
+Baseline trained with 100% data1.03 0.31
+28.2%
+32.3%
+0.20
+0.40
+Figure 6: Few-shot learning. The motion plan-
+ner in Agent-Driver fine-tuned with 1% data
+exceeds the state-of-the-art (Hu et al., 2023)
+trained on full data, verifying its few-shot
+learning ability.
+To assess the generalization ability of mo-
+tion planning in our approach, we conduct
+a few-shot learning experiment, where we
+keep other components the same and fine-
+tuned the core motion planning LLM with
+0.1%, 1%, 10%, 50%, and 100% of the train-
+ing data for one epoch. For comparison, we
+adopted the motion planner in UniAD (Hu
+et al., 2023) trained with 100% data as the
+baseline. The results are shown in Figure 6.
+Notably, with only 0.1% of the full training
+data, i.e., 23 training samples, Agent-Driver
+realizes a promising performance. When
+exposed to 1% of training scenarios, the pro-
+posed method surpasses the baseline by a
+large margin, especially under the average
+collision rate. Furthermore, with increased
+training data, Agent-Driver stably achieves
+better motion planning performance.
+4.4 Interpretability
+Unlike conventional driving systems that rely on black-box neural networks to perform
+different tasks, the proposed Agent-Driver inherits favorable interpretability from LLMs.
+As shown in Figure 7, the output messages of LLMs from the tool library, cognitive memory,
+and reasoning engine are recorded during system execution. Hence the whole driving
+decision-making process is transparent and interpretable.
+9
+
+Published as a conference paper at COLM 2024
+4.5 Compatibility with Different LLMs
+Method L2 (m)↓ Collision (%)↓
+1s 2s 3s Avg. 1s 2s 3s Avg.
+Llama-2-7B 0.25 0.69 1.47 0.80 0.02 0.27 0.78 0.35
+gpt-3.5-turbo-1106 0.24 0.71 1.47 0.80 0.03 0.08 0.63 0.25
+gpt-3.5-turbo-0613 0.22 0.65 1.34 0.74 0.02 0.13 0.48 0.21
+Table 3: Compatibility to different LLMs.
+Agent-Driver realizes satisfactory motion
+planning performance utilizing different types
+of LLMs as agents.
+We tried leveraging the Llama-2-7B (Tou-
+vron et al., 2023b), gpt-3.5-turbo-1106, and
+gpt-3.5-turbo-0613 models as the founda-
+tion LLMs in our system. Table 3 demon-
+strates that Agent-Driver powered by dif-
+ferent LLMs can yield satisfactory perfor-
+mances, verifying the compatibility of our
+system with diverse LLM architectures.
+4.6 Stability
+Percentage of training samples 0.10% 1% 10% 50% 100%
+Number of invalid outputs 2 0 0 0 0
+Table 4: Stability of Agent-Driver exposed to
+different amounts of training samples. With
+only 1% training samples ( ∼ 230 samples),
+Agent-Driver produces zero invalid output.
+LLMs typically suffer from arbitrary
+predictions—they might produce invalid
+outputs ( e.g., hallucination or invalid
+formats)— which is detrimental to driving
+systems. To investigate this effect, we con-
+ducted a stability test of our Agent-Driver.
+Specifically, we used different amounts of
+training data to instruct the LLMs in our system, and we tested the number of invalid
+outputs during inference on the validation set, where we define “invalid” as waypoint
+outputs containing non-numerical values. As shown in Table 4, Agent-Driver exposed to
+only 1% of the training data sees zero invalid output during inference of 6,019 validation
+scenarios, suggesting that our system attains high output stability with proper instructions.
+4.7 In-Context Learning vs. Fine-T uning
+Modules Avg. L2 (m) Avg. Col. (%)CoT Reason.+Task Plan. Motion Plan.
+Fine-tuning In-context learning 1.81 0.79
+In-context learning In-context learning 1.90 0.79
+Fine-tuning Fine-tuning 0.72 0.22
+In-context learning Fine-tuning 0.74 0.21
+Table 5: In-context learning vs. fine-tuning.
+In-context learning performs slightly better in
+reasoning and task planning. Fine-tuning is
+indispensable for motion planning.
+Two prevalent strategies to instruct an LLM
+for novel tasks are in-context learning and
+fine-tuning. To determine which is the most
+effective strategy, we apply these two strate-
+gies to the LLMs of the chain-of-thought
+reasoning, task planning, and motion plan-
+ning modules respectively, benchmarking
+them on the downstream motion planning
+performance. As indicated in Table 5, in-
+context learning performs slightly better than fine-tuning in collision rates for reasoning and
+task planning, suggesting that in-context learning is a favorable choice in these modules.
+In motion planning, the fine-tuning strategy significantly outperforms in-context learning,
+demonstrating the necessity of fine-tuning LLMs in motion planning.
+5 Conclusion
+This work introduces Agent-Driver, a novel human-like paradigm that fundamentally
+transforms autonomous driving pipelines. Our key insight is to leverage LLMs as an agent
+to schedule different modules in autonomous driving. On top of the LLMs, we propose a
+tool library, a cognitive memory, and a reasoning engine to bring human-like intelligence
+into driving systems. Extensive experiments on the real-world driving dataset substantiate
+the effectiveness, few-shot learning ability, and interpretability of Agent-Driver. These
+findings shed light on the potential of LLMs as an agent in human-level intelligent driving
+systems. For future works, we plan to optimize the LLMs for real-time inference.
+10
+
+Published as a conference paper at COLM 2024
+Ethics Statement
+This paper presents Agent-Driver, a novel method that leverages large language models as
+an agent for autonomous driving. While Agent-Driver uses language generation as part of
+its reasoning and planning process, the goal is to improve the quality of representations and
+decision-making for autonomous vehicles, not text generation itself. Therefore, the potential
+negative impact of Agent-Driver on areas like misinformation or deepfakes is minimal.
+On the privacy protection side, Agent-Driver uses driving data that does not include any
+personal or location information. In summary, we believe Agent-Driver does not lead to
+any ethics concerns.
+Reproduciblity Statement
+We provide as many implementation details as possible in the paper submission and in the
+appendix. We also include the code for Agent-Driver, including the large language model,
+neural modules, tool library, cognitive memory, and reasoning engine components in the
+supplementary material. This will allow others to faithfully reproduce our results and build
+upon our proposed approach.
+Acknowledgments
+We’d like to acknowledge Xinshuo Weng for fruitful discussions. We also acknowledge a
+gift from Google Research.

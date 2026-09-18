@@ -1,0 +1,710 @@
+record_id: github:kreneskyp/ix
+source_used: github_repo
+fetched_url: https://github.com/kreneskyp/ix/tree/v0.19.1
+fetched_title: kreneskyp/ix
+fetched_at: 2026-09-18T19:08:44Z
+
+# kreneskyp/ix
+ref: tag:v0.19.1 8acacd58ce1c0c1665169140758b427a95f9461b 2024-02-08
+description: Autonomous GPT-4 agent platform
+topics: ai, gpt-4, openai, python
+
+## README (README.md)
+# iX - Autonomous GPT-4 Agent Platform
+
+[![Unit Tests](https://img.shields.io/github/actions/workflow/status/kreneskyp/ix/test.yml)](https://github.com/kreneskyp/ix/actions/workflows/test.yml)
+[![Discord Server](https://dcbadge.vercel.app/api/server/jtrMKxzZZQ)](https://discord.gg/jtrMKxzZZQ)
+[![Twitter Follow](https://img.shields.io/twitter/follow/kreneskyp?style=social)](https://twitter.com/kreneskyp)
+
+<div>
+<img align="left" src="ix_350.png" alt="midjourney prompt: The ninth planet around the sun">
+<p>
+<br>
+<br>
+<br>
+<br>
+Amidst the swirling sands of the cosmos, Ix stands as an enigmatic jewel,
+where the brilliance of human ingenuity dances on the edge of forbidden
+knowledge, casting a shadow of intrigue over the galaxy.
+
+\- Atreides Scribe, The Chronicles of Ixian Innovation
+<p>
+</div>
+<div>
+<br>
+<br>
+<br>
+<br>
+<br>
+</div>
+
+## 🌌 About
+<div>
+IX is a platform for designing and deploying autonomous and [semi]-autonomous LLM powered agents and workflows. IX
+provides a flexible and scalable solution for delegating tasks to AI powered agents. Agents created with the platform
+can automate a wide variety of tasks, while running in parallel and communicating with each other.
+<br>
+</div>
+
+##### Build AI powered workflows:
+- QA chat bots
+- Code generation
+- Data extraction
+- Data analysis
+- Data augmentation
+- Research assistants
+
+## Key Features
+
+### 🧠 Models
+- OpenAI
+- Google PaLM (Experimental)
+- Anthropic (Experimental)
+- Llama (Experimental)
+
+### ⚒️ No-code Agent Editor
+No-code editor for creating and testing agents. The editor provides an interface to drop and connect nodes into a graph
+representing the cognitive logic of an agent. Chat is embedded in the editor to allow for rapid testing and debugging.
+
+https://github.com/kreneskyp/ix/assets/68635/f43923b9-7bce-4b64-b30e-3204eb1673e4
+
+### 💬 Multi-Agent Chat interface
+Create your own teams of agents and interact with them through a single interface. Chat room support multiple agents.
+By default it includes the IX moderator agent, which delegates tasks to other agents. You can `@mention` specific
+agents to complete the tasks.
+
+https://github.com/kreneskyp/ix/assets/68635/d1418c23-afb5-4aed-91c7-bf99b1c165d5
+
+### 💡 Smart Input
+The smart input bar auto-completes agent `@mentions` and file & data `{artifacts}` created by tasks.
+
+https://github.com/kreneskyp/ix/assets/68635/27cf7085-7349-4641-9327-d31a3041a94c
+
+### ⚡ Message Queue Drive Agent Workers
+The agent runner backend is dockerized and is triggered with a celery message queue. This allows the backend to scale
+horizontally to support a fleet of agents running in parallel.
+
+![WorkerScalingTest_V3](https://github.com/kreneskyp/ix/assets/68635/bac934be-01c6-4882-bcfc-73a5ee85aa1e)
+
+### ⚙️ Component Config Layer
+
+IX implements a component config layer that maps LangChain components to the configuration graph. The config layer
+powers a number of other systems and features. For example, component field and connector definitions are used to
+render nodes and forms dynamically in the no-code editor.
+
+## 🛠️ Getting Started
+
+##### Prerequisites
+<details>
+<summary>Windows Linux Subsystem (windows only)</summary>
+<ol>
+<li>Open powershell</li>
+<li>run `wsl --install` to install and/or activate WSL</li>
+</ol>
+</details>
+<details>
+<summary>Docker</summary>
+Install Docker Desktop for your OS:<br/>
+<A href="https://www.docker.com/products/docker-desktop/">https://www.docker.com/products/docker-desktop/</A>
+
+Detailed install instructions:
+<ul>
+<li><a href="https://docs.docker.com/desktop/install/mac-install/">Mac</a></li>
+<li><a href="https://docs.docker.com/desktop/install/windows-install/">Windows</a></li>
+</ul>
+</details>
+<details>
+<summary>Python</summary>
+Python 3.8 or higher is required for the CLI. The app python version is managed by the image.
+</details>
+
+### Agent-IX CLI
+
+The quickest way to start IX is with the agent-ix CLI. The CLI starts a preconfigured docker cluster with
+docker-compose. It downloads the required images automatically and starts the app cluster.
+
+```bash
+pip install agent-ix
+ix up
+```
+
+Scale agent workers with the `scale` command. Each worker will run agent processes in parallel. The limit to the number
+of workers is based on available memory and CPU capacity.
+
+```bash
+ix scale 5
+```
+
+The client may start a specific version, including the unstable `dev` image built on `master` branch.
+```bash
+ix up --version dev
+```
+
+## How does it work
+
+### Basic Usage
+You chat with an agent that uses that direction to investigate, plan, and complete tasks. The agents are
+capable of searching the web, writing code, creating images, interacting with other APIs and services. If it can be
+coded, it's within the realm of possibility that an agent can be built to assist you.
+
+1. Setup the server and visit [http://0.0.0.0:8000](http://0.0.0.0:8000), a new chat will be created automatically with the default agents.
+
+2. Enter a request and the IX moderator will delegate the task to the agent best suited for the response. Or `@mention`
+an agent to request a specific agent to complete the task.
+
+3. Customized agents may be added or removed from the chat as needed to process your tasks
+
+### Creating Custom Agents and Chains
+
+IX provides the moderator agent IX, a coder agent, and other example agents. Custom agents
+may be built using the chain editor or the python API.
+
+#### Chain Editor
+
+1. Navigate to the [chain editor](http://localhost:8000/chains/new)
+2. Click on the root connector to open the component search
+3. Drag agents, chains, tools, and other components into the editor
+4. Connect the components to create a chain
+5. Open the test chat to try it out!
+
+#### Python API
+Chains [python API docs](docs/chains/chains.rst)
+
+## 🧙 Development setup
+
+### 1. Prerequisites
+
+Before getting started, ensure you have the following software installed on your system:
+
+<details>
+<summary>Windows Linux Subsystem (windows only)</summary>
+<ol>
+<li>Open powershell</li>
+<li>run `wsl --install` to install and/or activate WSL</li>
+</ol>
+</details>
+<details>
+<summary>Docker</summary>
+Install Docker Desktop for your OS:<br/>
+<A href="https://www.docker.com/products/docker-desktop/">https://www.docker.com/products/docker-desktop/</A>
+
+Detailed install instructions:
+
+<ul>
+<li><a href="https://docs.docker.com/desktop/install/mac-install/">Mac</a></li>
+<li><a href="https://docs.docker.com/desktop/install/windows-install/">Windows</a></li>
+</ul>
+</details>
+<details>
+<summary>Git & Make</summary>
+<ul>
+<li><b>Mac:</b> <code>brew install git make</code></li>
+<li><b>Linux:</b> <code>apt install git make</code></li>
+<li><b>Windows (WSL):</b> <code>apt install git make</code></li>
+</ul>
+</details>
+
+### 2. Clone the repository
+
+```bash
+git clone https://github.com/kreneskyp/ix.git
+cd ix
+```
+
+### 3. Setup env
+
+Setup config in `.env`
+
+```bash
+cp .env.template .env
+```
+
+```
+OPENAI_API_KEY=YOUR_KEY_HERE
+```
+
+### 4. Build & Initialize the IX cluster.
+The image will build automatically when needed in most cases. Set `NO_IMAGE_BUILD=1` to skip rebuilding the image.
+
+Use the `image` target to build and start the IX images. The `dev_setup` target will build the frontend and
+initialize the database. See the developer tool section for more commands to manage the dev environment.
+
+```
+make dev_setup
+```
+
+### 5. Run the IX cluster
+
+The IX cluster runs using docker-compose. It will start containers for the web server, app server, agent workers, database,
+redis, and other supporting services.
+
+```bash
+make cluster
+```
+
+### 6. View logs
+
+Web and app container logs
+```bash
+make server
+```
+
+Agent worker container logs
+```bash
+make worker
+```
+
+### 7. Open User Interface
+
+Visit [http://0.0.0.0:8000](http://0.0.0.0:8000) to access the user interface. From there you may create and edit
+agents and chains.
+The platform will automatically spawn agent processes to complete tasks as needed.
+
+### Scaling workers
+Adjust the number of active agent workers with the `scale` target. The default is 1 agent worker to handle tasks. There
+is no hard limit on agents, but the number of workers is limited by available memory and CPU capacity.
+
+```bash
+make scale N=5
+```
+
+## Developer Tools
+
+Here are some helpful commands for developers to set up and manage the development environment:
+
+### Running:
+- `make up` / `make cluster`: Start the application in development mode at [http://0.0.0.0:8000](http://0.0.0.0:8000).
+- `make server`: watch logs for web and app containers.
+- `make worker`: watch logs for agent worker containers.
+
+### Building:
+- `make image`: Build the Docker image.
+- `make frontend`: Rebuild the front end (GraphQL, relay, webpack).
+- `make webpack`: Rebuild JavaScript only.
+- `make webpack-watch`: Rebuild JavaScript on file changes.
+- `make dev_setup`: Builds frontend and generates database.
+- `make node_types_fixture`: Builds database fixture for component type definitions.
+
+### Database
+- `make migrate`: Run Django database migrations.
+- `make migrations`: Generate new Django database migration files.
+
+### Utility
+- `make bash`: Open a bash shell in the Docker container.
+- `make shell`: Open a Django shell_plus session.
+
+### Agent Fixtures
+
+Dump fixtures with the `dump_agent` django command. This command will gather and dump the agent and chain, including
+the component graph.
+
+1.
+```
+make bash
+```
+2.
+```bash
+./manage.py dump_agent -a alias
+```
+
+## File tree (first 400 of 865 paths)
+.coveragerc
+.dockerignore
+.env.template
+.flake8
+.github/FUNDING.yml
+.github/PULL_REQUEST_TEMPLATE.md
+.github/actions/run-docker/action.yml
+.github/workflows/nodejs-artifact.yml
+.github/workflows/publish-dev.yml
+.github/workflows/publish.yml
+.github/workflows/test.yml
+.gitignore
+.prettierignore
+CHANGELOG.md
+Dockerfile
+LICENSE
+Makefile
+README.md
+babel.config.js
+bin/celery.sh
+bin/get_uuid.py
+bin/install_node.sh
+bin/ix_asgi.sh
+bin/nvm_init.sh
+bin/vault.py
+bin/vault_unseal.py
+bin/webpack.sh
+client_config/docker-compose.yml
+client_config/ix_env.py
+client_config/nginx.conf
+client_config/vault-config.hcl
+docker-compose.yml
+docs/FizzBuzzExample.gif
+docs/chains/artifacts.rst
+docs/chains/chains.rst
+docs/chains/data.rst
+docs/chains/llm.rst
+docs/chains/memory.rst
+docs/chains/routing.rst
+docs/chat.png
+docs/chat_interactions.png
+docs/create_task.png
+docs/model_options.png
+frontend/App.js
+frontend/admin/AdminSettingsView.js
+frontend/agents/AgentCard.js
+frontend/agents/AgentCardListButton.js
+frontend/agents/AgentEditButton.js
+frontend/agents/AgentEditorRedirect.js
+frontend/agents/AgentNewRedirect.js
+frontend/agents/AgentSelect.js
+frontend/agents/NewAgentButton.js
+frontend/chains/BaseEdge.js
+frontend/chains/ChainCard.js
+frontend/chains/ChainCardList.js
+frontend/chains/ChainCardListButton.js
+frontend/chains/ChainDraggable.js
+frontend/chains/ChainEditButton.js
+frontend/chains/ChainEditorView.js
+frontend/chains/ChainGraphEditor.js
+frontend/chains/ChainListView.js
+frontend/chains/ChainSelect.js
+frontend/chains/LinkEdge.js
+frontend/chains/NewChainButton.js
+frontend/chains/PropEdge.js
+frontend/chains/edges.js
+frontend/chains/editor/ChainEditorAPIContext.js
+frontend/chains/editor/ChainEditorPane.js
+frontend/chains/editor/ChatPane.js
+frontend/chains/editor/ComponentTypeMultiSelect.js
+frontend/chains/editor/ComponentTypeSelect.js
+frontend/chains/editor/ConfigEditorPane.js
+frontend/chains/editor/ConnectorPopover.js
+frontend/chains/editor/DraggableNode.js
+frontend/chains/editor/EditorRightSidebar.js
+frontend/chains/editor/EditorTopBar.js
+frontend/chains/editor/NodeSelector.js
+frontend/chains/editor/NodeTypeSearch.js
+frontend/chains/editor/NodeTypeSearchButton.js
+frontend/chains/editor/OpenAIConfigForm.js
+frontend/chains/editor/PromptEditor.js
+frontend/chains/editor/PromptMessageInput.js
+frontend/chains/editor/TestChatPane.js
+frontend/chains/editor/constants.js
+frontend/chains/editor/contexts.js
+frontend/chains/editor/fields/BranchesField.js
+frontend/chains/editor/fields/DescriptionField.js
+frontend/chains/editor/fields/MapField.js
+frontend/chains/editor/fields/NameField.js
+frontend/chains/editor/run_log/ExecutionDetail.js
+frontend/chains/editor/run_log/ExecutionList.js
+frontend/chains/editor/run_log/NodeExecutionIcon.js
+frontend/chains/editor/run_log/RunEventSubscription.js
+frontend/chains/editor/run_log/RunIcon.js
+frontend/chains/editor/run_log/RunLog.js
+frontend/chains/editor/run_log/RunLogMenuButton.js
+frontend/chains/editor/run_log/RunLogModal.js
+frontend/chains/editor/run_log/RunLogProvider.js
+frontend/chains/editor/run_log/icons.js
+frontend/chains/editor/run_log/useRunEventStream.js
+frontend/chains/editor/run_log/useRunLog.js
+frontend/chains/editor/sidebar/EditorAgentCard.js
+frontend/chains/editor/styles.js
+frontend/chains/editor/useColorMode.js
+frontend/chains/flow/BranchNode.js
+frontend/chains/flow/ChainNode.js
+frontend/chains/flow/CollapsibleSection.js
+frontend/chains/flow/ConfigNode.js
+frontend/chains/flow/DirectRootNode.js
+frontend/chains/flow/FlowNode.js
+frontend/chains/flow/FunctionSchemaNode.js
+frontend/chains/flow/GroupNode.js
+frontend/chains/flow/JSONTransformNode.js
+frontend/chains/flow/MapNode.js
+frontend/chains/flow/NodeMenu.js
+frontend/chains/flow/PromptNode.js
+frontend/chains/flow/RootNode.js
+frontend/chains/flow/useFlowConnectors.js
+frontend/chains/hooks/useChain.js
+frontend/chains/hooks/useChainEditorAPI.js
+frontend/chains/hooks/useChainEditorMutation.js
+frontend/chains/hooks/useChainState.js
+frontend/chains/hooks/useChainUpdate.js
+frontend/chains/hooks/useConnectionValidator.js
+frontend/chains/hooks/useDisplayGroups.js
+frontend/chains/hooks/useEdgeState.js
+frontend/chains/hooks/useGraphForReactFlow.js
+frontend/chains/hooks/useNodeEditorAPI.js
+frontend/chains/hooks/useNodeState.js
+frontend/chains/hooks/useSelectedNode.js
+frontend/chains/hooks/useTabDataArray.js
+frontend/chains/hooks/useTabDataField.js
+frontend/chains/hooks/useTabDataObject.js
+frontend/chains/hooks/useTabState.js
+frontend/chains/hooks/useTestChat.js
+frontend/chains/styles.css
+frontend/chains/utils.js
+frontend/chat/ChatInterface.js
+frontend/chat/ChatMessages.js
+frontend/chat/ChatView.js
+frontend/chat/NewChatRedirect.js
+frontend/chat/agents/AgentToggleButton.js
+frontend/chat/agents/ChatAgentCard.js
+frontend/chat/agents/RemoveAgentModalTrigger.js
+frontend/chat/avatars/AssistantAvatar.js
+frontend/chat/avatars/Avatar.js
+frontend/chat/avatars/SystemAvatar.js
+frontend/chat/avatars/UserAvatar.js
+frontend/chat/buttons/AuthorizeCommandButton.js
+frontend/chat/buttons/AutonomousToggle.js
+frontend/chat/buttons/ChatMembersButton.js
+frontend/chat/buttons/NewChatButton.js
+frontend/chat/buttons/RunButton.js
+frontend/chat/contexts.js
+frontend/chat/history/ChatHistoryView.js
+frontend/chat/history/ChatTable.js
+frontend/chat/hooks/useChatArtifactSubscription.js
+frontend/chat/hooks/useChatGraph.js
+frontend/chat/hooks/useChatMessageSubscription.js
+frontend/chat/hooks/useChatMessageTokenSubscription.js
+frontend/chat/hooks/useClearMessages.js
+frontend/chat/hooks/useCreateChat.js
+frontend/chat/hooks/useMessageStream.js
+frontend/chat/hooks/useSendInput.js
+frontend/chat/hooks/useTextToSpeech.js
+frontend/chat/input/ArtifactElement.js
+frontend/chat/input/ArtifactSearchResults.js
+frontend/chat/input/ChatInput.js
+frontend/chat/input/ChatInputContext.js
+frontend/chat/input/ChatInputProvider.js
+frontend/chat/input/Element.js
+frontend/chat/input/Leaf.js
+frontend/chat/input/MentionElement.js
+frontend/chat/input/MentionSearchResults.js
+frontend/chat/input/useAutoComplete.js
+frontend/chat/input/useChatInputEditor.js
+frontend/chat/input/useInsertMessage.js
+frontend/chat/input/useSendInput.js
+frontend/chat/messages/ArtifactContent.js
+frontend/chat/messages/ArtifactFileContent.js
+frontend/chat/messages/ArtifactListContent.js
+frontend/chat/messages/AssistantContent.js
+frontend/chat/messages/AuthRequestContent.js
+frontend/chat/messages/AuthorizeContent.js
+frontend/chat/messages/AutonomousModeContent.js
+frontend/chat/messages/ChatMessage.js
+frontend/chat/messages/ChatMessageAvatar.js
+frontend/chat/messages/CommandContent.js
+frontend/chat/messages/ExecuteContent.js
+frontend/chat/messages/ExecuteErrorContent.js
+frontend/chat/messages/FeedbackContent.js
+frontend/chat/messages/FeedbackRequestContent.js
+frontend/chat/messages/SystemContent.js
+frontend/chat/messages/ThinkContent.js
+frontend/chat/messages/ThoughtContent.js
+frontend/chat/sidebar/ArtifactDetail.js
+frontend/chat/sidebar/ArtifactDetailModal.js
+frontend/chat/sidebar/ArtifactModalButton.js
+frontend/chat/sidebar/SideBarAgentList.js
+frontend/chat/sidebar/SideBarArtifactList.js
+frontend/chat/sidebar/SideBarPlanList.js
+frontend/components/APIErrorList.js
+frontend/components/AsyncAPIObjectSelect.js
+frontend/components/AutoResizingTextArea.js
+frontend/components/ColorModeButton.js
+frontend/components/DeleteButton.js
+frontend/components/DictForm.js
+frontend/components/FileDropZone.js
+frontend/components/HashListForm.js
+frontend/components/HighlightText.js
+frontend/components/HighlightedCode.js
+frontend/components/ListForm.js
+frontend/components/ListItemNode.js
+frontend/components/Modal.js
+frontend/components/Overlay.js
+frontend/components/Pagination.js
+frontend/components/PlusMessageIcon.js
+frontend/components/RequiredAsterisk.js
+frontend/components/SliderInput.js
+frontend/components/StyledIcon.js
+frontend/components/WithPortal.js
+frontend/components/code_editor/CodeEditor.js
+frontend/components/code_editor/LineNumbers.js
+frontend/components/code_editor/normalize-tokens.js
+frontend/components/code_editor/theme-dark.js
+frontend/components/code_editor/theme-light.js
+frontend/components/select/MenuList.js
+frontend/components/select/Option.js
+frontend/components/select/SingleValue.js
+frontend/components/select/useChakraStyles.js
+frontend/components/select/useSelectStyles.js
+frontend/environment.js
+frontend/hooks/useLinkedScroll.js
+frontend/hooks/useScrollbarCSS.js
+frontend/hooks/useUpload.js
+frontend/icons/ChatHistoryIcon.js
+frontend/icons/IndicatorIcon.js
+frontend/icons/JSONSchemaIcon.js
+frontend/icons/LoopIcon.js
+frontend/icons/MergeIcon.js
+frontend/icons/OpenAPIIcon.js
+frontend/icons/SVGIcon.js
+frontend/icons/SchemaIcon.js
+frontend/icons/SplitIcon.js
+frontend/icons/StackableIcon.js
+frontend/index.js
+frontend/json_form/Input.js
+frontend/json_form/JSONForm.js
+frontend/json_form/JSONSchemaForm.js
+frontend/json_form/fields/APISelect.js
+frontend/json_form/fields/Checkbox.js
+frontend/json_form/fields/Dict.js
+frontend/json_form/fields/HashList.js
+frontend/json_form/fields/Input.js
+frontend/json_form/fields/List.js
+frontend/json_form/fields/Secret.js
+frontend/json_form/fields/SecretSelect.js
+frontend/json_form/fields/Select.js
+frontend/json_form/fields/Slider.js
+frontend/json_form/fields/TextArea.js
+frontend/json_form/utils.js
+frontend/planner/PlanContent.js
+frontend/relay-environment.js
+frontend/routes.js
+frontend/schemas/SchemaDeleteButton.js
+frontend/schemas/SchemaForm.js
+frontend/schemas/SchemaFormModalButton.js
+frontend/schemas/SchemaSelect.js
+frontend/schemas/SchemaTable.js
+frontend/schemas/json/JSONSchemaDisplay.js
+frontend/schemas/json/JSONSchemaDraggable.js
+frontend/schemas/json/JSONSchemaForm.js
+frontend/schemas/json/JSONSchemaFormRightPanel.js
+frontend/schemas/json/JSONSchemaMenuItem.js
+frontend/schemas/json/JSONSchemaSelect.js
+frontend/schemas/openapi/OpenAPIDraggable.js
+frontend/schemas/openapi/OpenAPIFormRightPanel.js
+frontend/schemas/openapi/OpenAPISchemaForm.js
+frontend/schemas/openapi/OpenAPISchemaMenuItem.js
+frontend/schemas/openapi/OpenAPISchemaSelect.js
+frontend/schemas/openapi/SchemaActionSelect.js
+frontend/schemas/openapi/SchemaDefsList.js
+frontend/schemas/openapi/SchemaPathsList.js
+frontend/schemas/openapi/SchemaServerSelect.js
+frontend/schemas/openapi/useInputSchema.js
+frontend/schemas/openapi/useOpenAPIActions.js
+frontend/schemas/openapi/useOpenAPISchema.js
+frontend/secrets/SecretSelect.js
+frontend/secrets/SecretTypeSelect.js
+frontend/secrets/SecretsDeleteButton.js
+frontend/secrets/SecretsForm.js
+frontend/secrets/SecretsFormModalButton.js
+frontend/secrets/SecretsMenuItem.js
+frontend/secrets/SecretsTable.js
+frontend/site/CenteredSpinner.js
+frontend/site/Layout.js
+frontend/site/LeftMenuPopover.js
+frontend/site/MenuItem.js
+frontend/site/Navigation.js
+frontend/site/RightSidebar.js
+frontend/site/ScrollableBox.js
+frontend/site/SidebarTabs.js
+frontend/site/css.js
+frontend/site/key_frames.js
+frontend/site/sidebar/RightSidebarSizer.js
+frontend/site/sidebar/Sidebar.js
+frontend/site/sidebar/context.js
+frontend/site/sidebar/useSidebarStyle.js
+frontend/skills/SkillDeleteButton.js
+frontend/skills/SkillDraggable.js
+frontend/skills/SkillForm.js
+frontend/skills/SkillFormModalButton.js
+frontend/skills/SkillIcon.js
+frontend/skills/SkillMenuItem.js
+frontend/skills/SkillSelect.js
+frontend/skills/SkillTable.js
+frontend/static/robots.txt
+frontend/theme.js
+frontend/users/UserSettingsView.js
+frontend/utils/array.js
+frontend/utils/hooks/useAxios.js
+frontend/utils/hooks/useAxiosDelete.js
+frontend/utils/hooks/useCreateAPI.js
+frontend/utils/hooks/useCreateUpdateAPI.js
+frontend/utils/hooks/useDebounce.js
+frontend/utils/hooks/useDeleteAPI.js
+frontend/utils/hooks/useDetailAPI.js
+frontend/utils/hooks/useObjectEditorView.js
+frontend/utils/hooks/usePaginatedAPI.js
+frontend/utils/hooks/useUpdateAPI.js
+frontend/utils/slate.js
+ix.code-workspace
+ix/__init__.py
+ix/agents/__init__.py
+ix/agents/callback_manager.py
+ix/agents/exceptions.py
+ix/agents/fixtures/default_agent.json
+ix/agents/history.py
+ix/agents/migrations/0001_initial.py
+ix/agents/migrations/0002_agent_agent_class_path.py
+ix/agents/migrations/0003_remove_agent_commands_remove_agent_system_prompt_and_more.py
+ix/agents/migrations/0004_agent_alias.py
+ix/agents/migrations/0005_alter_agent_config.py
+ix/agents/migrations/0006_remove_agent_agent_class_path.py
+ix/agents/migrations/0007_agent_is_test.py
+ix/agents/migrations/0008_agent_group_agent_user.py
+ix/agents/migrations/__init__.py
+ix/agents/models.py
+ix/agents/process.py
+ix/agents/prompt_builder.py
+ix/agents/prompts.py
+ix/agents/tests/__init__.py
+ix/agents/tests/echo_command.py
+ix/agents/tests/mock_llm.py
+ix/agents/tests/test_history.py
+ix/agents/tests/test_process.py
+ix/agents/tests/test_prompt_builder.py
+ix/api/__init__.py
+ix/api/agents/__init__.py
+ix/api/agents/endpoints.py
+ix/api/agents/types.py
+ix/api/artifacts/__init__.py
+ix/api/artifacts/endpoints.py
+ix/api/artifacts/types.py
+ix/api/auth.py
+ix/api/chains/__init__.py
+ix/api/chains/endpoints.py
+ix/api/chains/types.py
+ix/api/chats/__init__.py
+ix/api/chats/endpoints.py
+ix/api/chats/types.py
+ix/api/components/__init__.py
+ix/api/components/endpoints.py
+ix/api/components/types.py
+ix/api/datasources/__init__.py
+ix/api/datasources/endpoints.py
+ix/api/datasources/types.py
+ix/api/editor/__init__.py
+ix/api/editor/endpoints.py
+ix/api/editor/types.py
+ix/api/secrets/__init__.py
+ix/api/secrets/endpoints.py
+ix/api/secrets/types.py
+ix/api/tests/__init__.py
+ix/api/tests/test_agents.py
+ix/api/tests/test_artifacts.py
+ix/api/tests/test_chains.py
+ix/api/tests/test_chat.py
+ix/api/tests/test_editor.py
+ix/api/tests/test_secrets.py
+ix/api/workspace/__init__.py
+ix/api/workspace/endpoints.py
+ix/chains/__init__.py
+ix/chains/agent_interaction.py
+ix/chains/agents.py
+ix/chains/artifacts.py
+ix/chains/asyncio.py
+ix/chains/callbacks.py
+ix/chains/components/__init__.py
+ix/chains/components/document_loaders.py

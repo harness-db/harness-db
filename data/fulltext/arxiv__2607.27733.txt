@@ -1,0 +1,774 @@
+record_id: arxiv:2607.27733
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2607.27733
+fetched_title: VeriSkill: A Self-Evolution Framework for Program Verification Skills
+fetched_at: 2026-09-18T19:01:10Z
+
+VeriSkill: A Self-Evolution Framework for Program Verification Skills
+Changguo Jia1∗, Tianqi Zhao2∗, Zhiyou Xiao1, Weiming Zhang3, Minghui Zhou1†
+1Peking University, Beijing, China
+2Zhongguancun Laboratory, Beijing, China
+3Shanghai Jiao Tong University, Shanghai, China
+jiachangguo@stu.pku.edu.cn, zhaotq@zgclab.edu.cn, xiaozhiyou@stu.pku.edu.cn,
+WeimingZhang_2020@sjtu.edu.cn, zhmh@pku.edu.cn
+Abstract
+Automating program verification with LLM agents requires
+generating specifications, annotations, auxiliary lemmas, and
+toolinvocations,allofwhichdependonreusableskills.Anat-
+uralremedyisskillself-evolution:distillingskillsfromtrajec-
+tories and refining them through feedback. However, existing
+evolution methods struggle with program verification tasks
+because they cannot reliably identify skill-specific failures or
+extract actionable signals from opaque verifier feedback. In
+this paper, we proposeVeriSkill, a self-evolution frame-
+work built for program verification. It attributes verification
+failurestoskilldeficiencies,distillsdiagnosticsignaturesinto
+reusable lessons, and iteratively refines candidate skills, ad-
+mitting only revisions that improve verification performance
+while preserving program semantics. Experiments show that
+VeriSkillconsistentlyoutperformsallbaselinesacrossmul-
+tipleverificationtools,agentframeworks,andLLMbackends.
+1 Introduction
+Program verification aims to establish that a program im-
+plementation satisfies its formal specification (Hoare 1969).
+Inpractice,usersmanuallyannotateprogramswithfunction
+contracts,intermediateassertions,andauxiliarylemmas,af-
+terwhichverificationtoolsgeneratethecorrespondingverifi-
+cation conditions and invoke Satisfiability Modulo Theories
+(SMT) solvers to discharge them. Constructing correct an-
+notations requires considerable expertise and manual effort,
+making program verification at scale challenging. Recently,
+theemergenceofLLMagentsandagentskillshasmadefully
+automated program verification increasingly feasible.
+Agent skills encapsulate reusable operational knowledge
+that enables LLM agents to perform specialized tasks. A
+skill typically contains task-specific workflows, tool-use in-
+structions, and error-handling procedures. Empirical studies
+showthatskillqualitysubstantiallyaffectsagentbehavior(Li
+et al. 2026; Zhou et al. 2026). Yet writing and maintaining
+a high-quality skill requires expert effort that is always in
+short supply.Skill self-evolutionaddresses this bottleneck
+by automatically revising skills based on accumulated task
+experience.
+Most existing methods of skill self-evolution are domain-
+agnostic, extracting lessons from successful and failed exe-
+∗These authors contributed equally.
+†Corresponding author.
+cution trajectories and incorporating them into skills. Rep-
+resentative methods follow this trajectory-based paradigm
+indifferentways.Trace2Skilldistillstrajectory-localexperi-
+enceintotransferableinstructions(Nietal.2026).SkillOpt-
+Lite streamlines skill self-evolution into file-system-based
+trajectory exploration, consensus attribute mining, and in-
+dependent validation gating (Shen, Li, and Zhang 2026),
+while EvoSkill analyzes execution failures to iteratively re-
+fine structured skills under validation-based frontier selec-
+tion (Alzubi et al. 2026).
+However, general methods of skill self-evolution are not
+well suited to program verification. A failed verification at-
+temptdoesnotnecessarilyindicateaskilldeficiency,making
+it difficult to determine whether the skill should be revised.
+For example, even when the source program and its annota-
+tions are both correct, verification may fail because of lim-
+itations in the underlying SMT solver, which are unrelated
+to the skill. Moreover, outputs from verification tools report
+failedverificationconditions,whicharenotdirectlyreusable
+procedural knowledge. For example, an incorrect loop in-
+variant often results from a flawed mathematical derivation,
+whiletheresultingfailedverificationconditionsprovidelittle
+guidance for correcting the derivation. As a result, program
+verificationskillsrequireaspecializedself-evolutionframe-
+work.
+In this paper, we proposeVeriSkill, a self-evolution
+framework for program verification skills that turns verifi-
+cationfailuresintoactionableimprovements.Unlikegeneric
+evolution approaches,VeriSkillprecisely isolates skill-
+relatedfailures,extractsgeneralizablelessonswhilediscard-
+inginstance-specificnoise,andadmitsonlyvalidatedlessons
+that measurably boost verification success without breaking
+program semantics—making skill self-evolution both tar-
+getedandtrustworthy.Theframeworkoperatesinthreesteps.
+First, to determine whether a failed verification attempt in-
+dicates a skill deficiency,VeriSkillperforms responsibil-
+ity attribution for each verification failure by examining the
+failed task, verifier feedback, current skill, generated arti-
+fact,human-verifiedartifact,andevolutionmemory.Itdistin-
+guishesfailuresandretainsonlytheskill-responsiblefailures
+asevolutionsignals.Second,toturnfailedverificationcondi-
+tionsintoreusableproceduralknowledge,VeriSkillclusters
+failuresbydiagnosticsignaturesandabstractsareusableles-
+sonfromeachfailurepattern.Eachsignaturecaptureswhere
+arXiv:2607.27733v1 [cs.AI] 30 Jul 2026
+
+the verification attempt fails, what kind of skill deficiency is
+exposed, and what procedural guidance is missing. Human-
+verified artifacts are used as evidence for the missing guid-
+ance,butinstance-specificverificationdetailsareremovedso
+that the resulting lesson specifies general applicability con-
+ditions and non-applicable cases. Finally,VeriSkillitera-
+tively refines candidate skills through executable validation.
+Eachlessonisintegratedintoacandidateskillandrevisedon
+same-patternattributionandtransfersetsuntilitpasseslocal
+checks. Locally valid candidates are admitted only if they
+improve validation performance while preserving program
+semantics. All outcomes are stored in evolution memory to
+guide later revisions.
+WeevaluateVeriSkillacrossdifferentverificationtools,
+including Dafny, Frama-C, and VeriFast.VeriSkillcon-
+sistently outperforms non-evolution and existing baselines
+of skill self-evolution, while ablation studies confirm the
+contribution of its core components. Moreover, the evolved
+skills retain their effectiveness across different agent frame-
+works and LLM backends. A case study further shows how
+VeriSkillturnsaspecificverifierfailureintoareusableskill
+update,explainingitsadvantageovergenericmethodsofskill
+self-evolution.Toconclude,ourprimarycontributionsareas
+follows:
+•We identify validated verification-responsibility patterns
+as the proper learning unit for reliable skill evolution in
+program verification.
+•Weproposethefirstself-evolutionframeworkforprogram
+verification skills, which attributes reusable deficiencies,
+abstractstransferableknowledge,anditerativelyvalidates
+revisions before admission.
+•We implement the framework as a prototype tool. Exper-
+iments show thatVeriSkillconsistently outperforms all
+baselines across multiple verification tools, agent frame-
+works, and LLM backends.
+2 Related Work
+2.1 Skill Self-evolution
+Recent work learns reusable skills from agent experience.
+Trace2Skill consolidates trajectory-local lessons into trans-
+ferable instructions (Ni et al. 2026). SkillOpt and SkillOpt-
+Lite refine skill text from rollout feedback and retain revi-
+sions through validation (Yang et al. 2026a; Shen, Li, and
+Zhang 2026). EvoSkill analyzes execution failures and pre-
+serveseffectiveskillfoldersthroughvalidation(Alzubietal.
+2026), while SkillCAT contrasts successful and failed tra-
+jectories before replaying candidate revisions (Chen et al.
+2026). CoEvoSkills co-evolves a surrogate verifier to pro-
+vide revision signals (Zhang et al. 2026), whereas Au-
+toSkillderivesandreusesskillsfromdialogueandinteraction
+traces for lifelong learning (Yang et al. 2026b). These meth-
+ods mainly rely on task outcomes or learned verification;
+VeriSkillinstead uses formal-verifier evidence to attribute
+skill-responsible failures and admits revisions only under
+semantic-preservation constraints.
+2.2 LLM-Assisted Program Verification
+Recent studies investigate how LLMs can assist program-
+verificationtasks.DafnyBenchestablishesabenchmarkpro-
+tocol for proof-hint generation with iterative verifier feed-
+back(Loughridgeetal.2024),whileFM-Benchdecomposes
+program verification into multiple subtasks across several
+specification languages to evaluate distinct verification ca-
+pabilities (Cao et al. 2025). AxDafny further demonstrates
+that iterative generation and verification can be orchestrated
+through an agentic workflow (Breen et al. 2026).
+A second line of work synthesizes specifications and an-
+notations through verifier-guided refinement. SpecGen gen-
+erates pre- and postconditions (Ma et al. 2024), AutoSpec
+iteratively refines specifications according to verifier feed-
+back (Wen et al. 2024), and Laurel first localizes a missing
+Dafny assertion from verifier diagnostics before generating
+it (Mugnier et al. 2025). Preguss extends this paradigm to
+large C programs by combining static-analysis-guided de-
+composition with verifier-driven refinement of interproce-
+dural specifications (Wang et al. 2026).
+Other systems focus on invariant synthesis and struc-
+turedproofrepair.LemurintegratesLLM-generatedlemmas
+andinvariantsintodeductiveverificationthroughbacktrack-
+ing (Wu, Barrett, and Narodytska 2024), LaM4Inv couples
+LLM generation with bounded model checking (Wu et al.
+2024),andLoopyappliesHoudini-stylefilteringtocandidate
+invariants (Kamath et al. 2023). AutoVerus further orches-
+trates specializedagents for differentverifier error typesand
+performs staged proof refinement (Yang et al. 2025), resem-
+blingVeriSkill’s use of diagnostic signatures to organize
+verification failures. However, across these systems, verifier
+feedback is primarily consumed within individual attempts
+to repair a specific artifact. The resulting procedural knowl-
+edge is not externalized as a persistent skill reusable across
+tasks, verifiers, and model backbones.VeriSkillfills this
+gap by converting validated verifier feedback into a portable
+skill artifact.
+3 Problem Formulation
+Our goal is to evolve a verification skill into a more effec-
+tive one that improves the agent’s performance on program-
+verification tasks. Specifically, letπdenote the agent’s
+solution-generation policy. Thenπ(· |x,S)is the condi-
+tional distribution over candidate solutions given taskxand
+skillS, where·denotes the candidate-solution argument of
+the distribution. Given a skillS, a distributionDover ver-
+ification tasks, a program-verification taskx∼ D, and a
+candidate solutiona∼π(·|x,S), the expected verification
+success rate ofSis defined as
+J(S) =E x∼DEa∼π(·|x,S)[V(x,a)],(1)
+whereV(x,a)∈{0,1}indicates whether the candidate so-
+lution passes the verifier. Therefore, the objective of skill
+self-evolution is to find a better skill:
+S⋆∈arg max
+S
+J(S).(2)
+At the same time, any candidate solution must satisfy the
+semantic-preservation constraint:
+M(x,a) = 1,(3)
+
+I Attributionrollout under the current skill
+EvolutionDatasetT
+Agentπ
+under skill St
+trainset
+VerifierV(x,a)
+M(x,a) = 1
+FailuresE
+Evolution memoryEM ✓accepted ✗rejected ○skipped
+Attribute the failure
+artifact · verifier log · St·
+reference proof · EM
+✗not the skill's fault —discarded
+✓the skill's fault —evolvable
+taskunsatisfiability
+skillnoncompliance
+knowledgegap
+Evolvable failuresFskill
+II Abstraction
+Diagnostic signature
+(i) where
+it breaks
+(ii) which
+responsibility
+(iii) why
+skill failed
+Cluster by failure pattern
+failures needing the same verification
+responsibility form cluster C
+benchmark
+Final skillŜ
+Abstract Lesson
+keepthe reusable part,
+dropthe example path
+Candidate lessonℓwhat · when · how
+III Admission
+ProbeS'= Revise(St,ℓc,EM)
+rerun the agent and the verifier
+ACbuild TCtransfer
+Validate onV
+validation set
+probe gategain· M= 1
+accept
+proverlimitation
+attributions abstraction
+next round
+rejected —keep St
+PASS
+admission gateĴV(S′) > ĴV(St) · M= 1
+St+1= StSt+1= S′
+reject
+Figure 1: Overview ofVeriSkill. The framework (1) attributes failures and retains only skill-responsible cases, (2) clusters
+compatible diagnostic signatures to abstract reusable lessons, and (3) iteratively refines candidate skills through executable
+validation.
+whereM(x,a)indicates that the candidate solution should
+not modify the original executable program.
+During this process, a verification failure cannot be di-
+rectly equated with a defect in the skill. A failure may arise
+from the program or annotation itself, from the limits of the
+verificationtool’ssolvingcapabilities,orfromtheagentfail-
+ingtofollowtheexistingskillguidance.Ifaskillismodified
+directly based on failure evidence, the system might encode
+problemsthatcannotbesolvedbyskillupdates,oraccidental
+execution errors, into the skill, potentially pushing the skill
+self-evolution in the wrong direction.
+Therefore, reliable skill self-evolution for program verifi-
+cation requires three stages. First, it performs responsibility
+attribution to identify failures that can serve as valid signals
+for skill updates. Second, it conducts fine-grained diagnosis
+of skill defects and abstracts reusable lessons from failure
+clusters. Finally, it uses executable validation and an admis-
+sion mechanism to determine whether a candidate revision
+truly improves the complete skill. Together, these require-
+ments transform skill optimization from “modify whenever
+afailureisobserved”into“admitonlyupdatesthathavebeen
+attributed, abstracted, and validated”.
+4 VeriSkill
+This section presents the proposed skill-evolution frame-
+work,withthreestagesdetailedinthefollowingsubsections.
+We also illustrate the overall workflow in Figure 1 and pro-
+vide the corresponding pseudocode in Algorithm 1.
+4.1 Stage 1: Failure Attribution and Filtering
+The first stage determines whether a verification failure
+should trigger skill revision. Its purpose is to distinguish
+failuresattributabletotheskillfromthosecausedbythetask
+or verification environment. Given a failed task,VeriSkill
+performsresponsibilityattributionbyjointlyconsideringthe
+generated result, verifier output, skill, human-verified refer-
+ence solution, and evolution memory. It classifies the failure
+into the following four categories.
+•Taskunsatisfiability:Thesourceprogramandannotations
+do not support the verification objective.
+•Proverlimitation:Theproofobligationisreasonable,but
+the current prover lacks the capability to discharge it.
+•Skill noncompliance: The skill provides relevant guid-
+ance, but the agent fails to follow it.
+•Skill knowledge gap: The skill lacks the reusable proce-
+dural knowledge required for the verification task.
+The first two categories are excluded from skill evolution,
+whereas the latter two are retained as skill-related failures.
+VeriSkillalso consults historical attribution evidence in
+evolution memory. Records identifying similar failures as
+taskunsatisfiability,proverlimitation,oroutcomesofinvalid
+revisions help prevent repeated misattribution. Based on the
+current evidence and this history,VeriSkillretains only
+skill-related failures that are likely to be improved through
+textual updates. These evolvable failures form the basis for
+lesson abstraction and revision generation in the subsequent
+stages.
+4.2 Stage 2: Lesson Abstraction via Pattern-Level
+Defect Clustering
+After Stage 1 identifies skill-related failures, Stage 2 deter-
+mines how the skill should be revised without generating a
+
+patch directly from an individual example.VeriSkillex-
+tractsdiagnosticsignatures,clustersfailureswithsharedpat-
+terns,abstractstheircommonverificationresponsibility,and
+generates candidate lessons using evolution memory.
+VeriSkillfirst extracts a diagnostic signature for each
+failure.Thediagnosticsignaturecontainsthefollowingthree
+components.
+•Proof-obligation localization: Identify where the proof
+fails, such as invariant initialization, invariant preserva-
+tion, memory safety, or termination.
+•Verification-responsibility abstraction: Identify the
+reusable proof responsibility missing from the candidate
+solution, such as establishing entry facts, preserving an
+invariant, or supplying an intermediate lemma.
+•A skill failure mechanism: Identifies how the skill text
+causes the failure, such as missing, unclear, overly ab-
+stract, or difficult-to-locate guidance.
+Using these signatures,VeriSkillgroups failures with a
+sharedstructureintofailure-patternclusters.Itthenabstracts
+the common verification responsibility within each cluster
+as its aggregate diagnosis. Reasoning over a cluster allows
+VeriSkillto capture semantically equivalent proof respon-
+sibilities across syntactically different solutions and avoids
+overfitting a revision to a single example.
+When abstracting verification responsibility,VeriSkill
+refers to human-verified reference artifacts, but does not di-
+rectly turn them into lessons. A reference solution typically
+contains two kinds of information: reusable verification re-
+sponsibilities for the same type of task, and the specific path
+used for the current example, such as a particular invari-
+ant form, assertion location, lemma expression, or constant
+choice.VeriSkillretains only the former and removes the
+latter,therebyavoidingthehard-codingofexample-levelout-
+puts into the skill.
+To better leverage historical experience when reasoning
+about strategies of skill self-evolution,VeriSkillalso re-
+trievesrecordsfromevolutionmemoryforthecurrentfailure
+pattern, including prior attributions, abstracted responsibil-
+ities, lessons, validation outcomes, and applicability condi-
+tions.Acceptedrevisionsprovidereusableproceduralknowl-
+edgeasguidance,whereasrejectedorskippedrevisionspre-
+vent repeated ineffective or unsafe updates. With memory,
+lessongenerationbecomesapattern-levelupdateconstrained
+byhistoricalvalidationevidenceratherthanalocalinduction
+from the current failed examples.
+Finally,VeriSkillgenerates candidate lessons based on
+thefailurepattern,sharesverificationresponsibility,andevo-
+lution memory. A candidate lesson must specify its appli-
+cability conditions, concrete proof steps, and inapplicable
+cases, while avoiding task IDs, file names, concrete vari-
+able names, or constants. The resulting lesson is thus not an
+example-level patch, but reusable procedural knowledge for
+a class of similar failure patterns.
+4.3 Stage 3: Executable Validation and Admission
+The goal of the third stage is to iteratively refine the candi-
+date skill so that it transfers to unseen cases with the same
+failurepatternbeforeadmission.GiventhecurrentskillS t,a
+Algorithm 1VeriSkill Evolution Loop
+Require:CurrentskillS,evolutiontasksT,validationtasks
+V, evolution memoryEM
+1:loop
+2:// Stage 1: Failure attribution and filtering
+3:E←ExecuteAndCollect(S,T)
+4:F←AttributeFailures(E,S,EM)
+5:F skill←FilterEvolvable(F,EM)
+6:ifF skill =∅then
+7:break
+8:end if
+9:// Stage 2: Lesson abstraction via pattern-level defect
+clustering
+10:C←DiagnoseAndCluster(F skill,S,EM)
+11:C←SelectCluster(C,EM)
+12:(A C,TC)←SplitAttributionTransfer(C)
+13:K←AbstractResponsibility(A C,S,EM)
+14:ifK=∅then
+15:EM←RecordSkipped(EM,C)
+16:continue
+17:end if
+18:// Stage 3: Executable validation and admission
+19:repeat
+20:ℓ←BuildLesson(K,S,EM)
+21:S ′←ConstructCompleteCandidate(S,ℓ,EM)
+22:Z←EvaluateLocalCandidate(S,S ′,AC,TC)
+23:EM←RecordLocalOutcome(EM,C,ℓ,S ′,Z)
+24:untilLocalPasses(Z)∨BudgetExhausted(C)
+25:if¬LocalPasses(Z)then
+26:continue
+27:end if
+28:if bJV(S′)> bJV(S)∧M(x i,aS′
+i ) = 1,∀x i∈Vthen
+29:S←S ′
+30:EM←RecordAccepted(EM,C,ℓ,S ′,Z,V)
+31:else
+32:EM←RecordRejected(EM,C,ℓ,Z,V)
+33:end if
+34:end loop
+35:returnS
+candidatelessonℓ c,andevolutionmemoryEM,VeriSkill
+first constructs a candidate skill:
+S′ = Revise(St,ℓc,EM).(4)
+This is a controlled revision rather than a textual append.
+The lesson is integrated into the appropriate part of the skill
+according to its applicability scope and revision type. For
+example, the candidate may rewrite an unclear process, add
+conditional guidance for an uncovered case, or turn an ab-
+stractprincipleintoexplicitexecutionsteps,whilepreserving
+unrelated sections and the original task contract.
+VeriSkillthenrerunstheagentandverifierwiththecan-
+didateskillS ′onattributioncasesandheld-outtransfercases
+from the same failure pattern. LetAc denote the attribution
+cases used to analyze the failure pattern and construct the
+lesson,andletT c denotesame-patterndisjointtransfercases
+that were not involved in lesson construction. Their local
+
+effects are defined as
+bτattr(S′) = 1
+|Ac|
+X
+xi∈Ac
+h
+V(xi,aS′
+i )−V(x i,aSt
+i )
+i
+,
+bτtrans(S′) = 1
+|Tc|
+X
+xi∈Tc
+h
+V(xi,aS′
+i )−V(x i,aSt
+i )
+i
+.
+(5)
+Here,bτattrcheckswhetherthecandidateskillrepairsthefail-
+uresthatmotivatedtherevision,whilebτ trans checkswhether
+the same revision transfers to unseen cases with the same
+failure pattern. Local testing also rejects pass-to-fail regres-
+sions or modifications to the original executable code. If the
+candidatefailseitherlocaltest,VeriSkillusestheresulting
+repairandregressionevidencetorefinethelessonandrevise
+the skill again for the same failure pattern. This revise–test
+loopcontinuesuntilacandidatepassesbothlocaltestsorthe
+failure-pattern budget is exhausted.
+Only a locally valid candidate proceeds to the disjoint
+validation setV. The success rate on the validation set is
+defined as
+bJV(S) = 1
+|V|
+X
+xi∈V
+V(xi,aS
+i ),(6)
+wherea S
+i denotes the candidate artifact generated by the
+agent for taskxi under the guidance of skillS. A candidate
+thatpassesfrozenvalidationisadmitteddirectly.Specifically,
+VeriSkillrequiresthecandidateskilltostrictlyimprovethe
+validation-set success rate while preserving the integrity of
+all validation tasks:
+St+1 =
+
+
+
+S′, bJV(S′)> bJV(St)∧M(x i,aS′
+i ) = 1,
+∀xi∈V,
+St,otherwise.
+(7)
+An admitted skill becomes the evolution target for the
+next round. Meanwhile, every candidate revision, whether
+accepted,rejected,orskipped,isrecordedinevolutionmem-
+orywithitsfailurepattern,attribution,lesson,validationout-
+come, and applicability conditions. Later rounds reusethese
+records to guide verification-responsibility attribution and
+lesson generation while avoiding revisions already shown to
+be ineffective or risky.
+Thus, through local probing, iterative validation, and
+memory updates,VeriSkillturns candidate lessons into
+skillself-evolutionconstrainedbyexecutableverificationev-
+idence.
+5 Experimental Setup
+Datasets and Benchmarks.We evaluate on three verifi-
+cation tools with disjoint datasets and benchmarks.
+Dafny: Datasets and benchmarks are constructed from
+DafnyBench(Loughridgeetal.2024).BecauseDafnyBench
+comprisesalargesetofDafnyprogramsandisnotinherently
+intendedasabenchmarkforC-to-Dafnytranslation,wesam-
+ple200tasks,manuallyconstructplain-Cinputspairedwith
+hidden Dafny references, and split them 4:1:5 into training,
+validation, and benchmark.
+Frama-C: Datasets are built by searching GitHub with
+Frama-C/WP and ACSL keywords, inspecting candidate
+repositoriesindescendingrelevanceorder,andselectingfour
+relevant repositories as data sources (Frama-C 2026b; Blan-
+chard2020;Frama-C2026a;FraunhoferFOKUS2026).We
+parse function-level examples, strip ACSL annotations to
+form plain-C inputs, filter and deduplicate verifier-passing
+references, and manually check the resulting pairs. Two ex-
+perts with formal-verification experience cross-validate the
+correctness of the annotations. This yields 85 C-to-ACSL
+evolution tasks split 68/17 for training and validation. The
+benchmark is the Frama-C-Problems benchmark (Patnaik
+2020).
+VeriFast: Since little existing C-to-VeriFast benchmark is
+available, we construct both the datasets and benchmarks
+from GitHub sources (VeriFast 2026; Jacobs 2026), follow-
+ing the same procedures as Frama-C. After function pars-
+ing,VeriFast-annotationstripping,verifierfiltering,dedupli-
+cation, and manual checking, we obtain 200 C-to-VeriFast
+tasks, split them 4:1:5 into training, validation, and bench-
+mark.
+Agents and baselines.The main comparison uses two
+agent/backbone pairs:Claude Code(Anthropic 2026b)
+withOpus 4.8, andCodex(OpenAI 2026) with
+GPT 5.6 Sol. For cross-model transfer, we run GLM-5.2,
+Kimi-K2.7, Qwen3.7-Max, DeepSeek-V4-Pro, and Qwen3-
+Coder through the same Terminus terminal-agent wrap-
+per (Terminal-Bench 2026), keeping prompts, verifier com-
+mands, and task environments fixed while varying only the
+backend model.
+WecompareVeriSkillagainst7baselines.NoSkillgives
+theagentonlythetaskprompt,whileLLMSkilladdsaone-
+passgeneratedverifierskillfollowingthepractice(Yanetal.
+2026).Human Skilluses GitHub-sourced expert skills for
+Dafny and Frama-C, both validated by a formal-verification
+expertwithsevenyearsofexperience;forVeriFast,wherelit-
+tle suitable public skill was found, the same expert authored
+theskill.Skill-CreatorisAnthropic’sofficialskill-authoring
+framework,whichdraftsreusableskillfoldersanditeratively
+revises them from self-graded feedback (Anthropic 2026a).
+EvoSkillmaintains a Pareto frontier of agent programs and
+mutates selected frontier members by proposing new skill
+foldersfromsampledfailurebatches(Alzubietal.2026).Au-
+toSkillderives reusable skills from dialogue and interaction
+traces (Yang et al. 2026b).SkillOpt-Liteevolves skill text
+through trajectory exploration and validation gating (Shen,
+Li, and Zhang 2026). All methods receive the same inputs,
+verifier settings, and target-agent configuration.
+Metrics.Following patch-correctness assessment in au-
+tomated program repair and execution-based evaluation in
+program translation (Le et al. 2018; Ye, Martinez, and
+Monperrus 2021; Rozière et al. 2020), our primary met-
+ric isPASS, defined as the percentage of benchmark tasks
+for which the generated artifact is accepted by the target
+verifier and also passes semantic-preservation checks. The
+semantic-preservation check rejects artifacts that edit exe-
+cutablebehaviororintroduceverification-bypassconstructs.
+For annotation-only tracks, this requires the executable C
+
+Verifier No Skill LLM Skill Human Skill Skill-Creator EvoSkill AutoSkill SkillOpt-LiteVeriSkill∆
+Agent framework: Claude Code•LLM backbone: Opus 4.8
+Dafny 14.0 21.3 7.7 39.3 32.3 41.0 42.3 57.3 +43.3
+Frama-C 56.9 47.1 58.2 58.2 54.2 60.8 65.4 74.5 +17.6
+VeriFast 38.0 32.0 24.3 58.3 53.0 62.7 78.3 84.0 +46.0
+Agent framework: Codex•LLM backbone: GPT 5.6 Sol
+Dafny 17.0 27.3 12.3 21.7 30.3 35.7 62.7 66.0 +49.0
+Frama-C 57.5 38.6 59.5 56.2 55.6 60.1 66.7 83.0 +25.5
+VeriFast 41.7 44.0 35.0 63.0 58.0 67.7 76.0 93.0 +51.3
+Table 1: Verifier PASS rate (%) on three verification tracks under two agent configurations.Boldmarks the best score per row;
+underlinemarks the second-best. The∆column reports the absolute improvement ofVeriSkillover theNo Skillbaseline.
+projectiontomatchtheinputaftererasingannotations,com-
+ments, and whitespace. For C-to-Dafny, the check compares
+alignedcallables,controlflow,stateupdates,returns,andas-
+sertions across the source and generated artifacts. For every
+evaluationsetting,weruneachmethodthreetimesandreport
+the average as the final result.
+6 Experimental Results
+To provide a comprehensive evaluation, we conduct exten-
+sive experiments covering baseline comparisons, ablation
+studies, and cross-model transferability. Because each ex-
+perimentrequiresrepeatedLLM-agentexecutionandformal
+verification over multiple evolution iterations, the complete
+evaluation incurred approximately US$15Kin API costs.
+6.1 Main Results
+ToevaluatewhetherVeriSkillproducesastrongerskillthan
+otherbaselines,weevaluateallmethodsonthreeverification
+tracks under two agent/backbone configurations and report
+the three-trial mean PASS rate in Table 1.
+VeriSkillachievesthe bestscore inall sixverifier–agent
+configurations.AgainstNoSkill,itimprovesPASSby+43.3,
++17.6, and+46.0pp on Dafny, Frama-C, and VeriFast with
+Claude Code/Opus 4.8, and by+49.0,+25.5, and+51.3pp
+withCodex/GPT5.6Sol.Comparedwiththestrongestcom-
+petingbaselineineachrow,VeriSkillstilladds+15.0,+9.1,
+and+5.7pp under Claude, and+3.3,+16.3, and+17.0pp
+under GPT. Thus, the gains exceed prompt strength alone
+and remain above the strongest baseline SkillOpt-Lite.
+Overall, evolved skills are clearly stronger than non-
+evolved skills: one-pass LLM Skill and Human Skill are
+inconsistent, sometimes falling below No Skill, whereas
+methods of skill self-evolution usually provide larger gains.
+However, these generic methods of skill self-evolution still
+lag behindVeriSkill, suggesting that program verification
+benefits from a customized evolution loop built around re-
+sponsibility attribution, lesson abstraction, and executable
+validation.
+6.2 Ablation Study
+To explore which parts ofVeriSkillare responsible for the
+outstanding performance, we isolate the three core mecha-
+Setting PASS(%)∆vs. Full
+FullVeriSkill57.3—
+w/o Responsibility Attribution 44.3−13.0
+w/o Lesson Abstraction 49.0−8.3
+w/o Executable Validation 36.0−21.3
+Table2:ComponentablationontheDafnytrack(Opus4.8).
+EachrowremovesonestageofVeriSkillwhileleavingthe
+restofthepipelineunchanged.∆vs.Fullreportstheabsolute
+drop from fullVeriSkill.
+nisms by removing one stage at a time on the Dafny track
+with Claude Code/Opus 4.8, while keeping the remaining
+pipeline and evaluation setting unchanged:
+•w/o Responsibility Attribution: every verification fail-
+ure is treated as a reusable skill deficiency, regardless of
+alternative failure sources.
+•w/o Lesson Abstraction: candidate guidance is derived
+from direct generated–reference differences rather than
+their proof functions.
+•w/o Executable Validation: candidate skills skip the
+revise–test loop on attribution and transfer cases, pro-
+ceeding directly to validation.
+Table 2 shows that all three mechanisms are necessary,
+with executable validation contributing the largest margin.
+Removing the revise–test loop over attribution and trans-
+fer cases lowers PASS from 57.3 to 36.0, a21.3pp drop.
+The loop uses cases from the same failure pattern to itera-
+tively improve lesson accuracy before validation. Bypassing
+this process leaves lesson errors unresolved, limiting same-
+pattern generalization and propagating faulty guidance to
+later tasks.
+Responsibility attribution is the second most important
+component, with a13.0pp drop when removed. This indi-
+catesthattreatingeveryverifierfailureasaskilldefectinjects
+noisy supervision into evolution, because some failures are
+caused by task unsatisfiability or prover limitations rather
+than missing reusable guidance. Removing lesson abstrac-
+tion causes a smaller but still substantial8.3pp drop, show-
+
+EvoSkillVeriSkill
+Source code Null-pointer Judgement:if (ptr == NULL) { abort(); }
+Skill updatePreserve failure-guard branches Do not fabricate branches for untranslatable failure guards
+Evaluation Dafny PASS: 32.3% Dafny PASS: 57.3%
+Table 3: A Dafny case study on branch-count deficits.
+GLM-5.2 Kimi-K2.7 Qwen3.7-Max DeepSeek V4-Pro Qwen3-Coder
+0
+20
+40
+60Pass Rate (%)
+12.0
+10.3
+7.7 6.0
+2.0
+55.7
+(+43.7)
+51.7
+(+41.4)
+44.3
+(+36.6)
+41.0
+(+35.0)
+17.3
+(+15.3)
+No Skill
+With Skill
+Figure 2: Cross-model transferability under the Terminus
+agent framework.
+ing that abstract lessons act as reasoning guidance toward
+the correct revision direction rather than letting example-
+specific details dominate the update. Together, the ablations
+support the design ofVeriSkill: attribution controls which
+failuresbecomelearningsignals,abstractionderivesreusable
+lessons,andexecutablevalidationiterativelyimproveslesson
+accuracy on same-pattern cases before global validation.
+6.3 Cross-Model Transferability
+We evaluate whether an evolved skill has cross-model trans-
+ferability as reusable knowledge rather than remaining a
+model-specific prompt artifact. A skill is meant to exter-
+nalize and stabilize procedural knowledge, so once useful
+verificationguidanceisextractedandwrittenintotheskill,it
+should transfer to other capable LLMs instead of remaining
+tied to the model used during evolution. To test this, we take
+the final skill evolved with Codex, deploy it unchanged in
+theTerminusagentframework,andcompareeachTerminus-
+backed LLM against its No Skill setting on the same Dafny
+benchmark.
+The results in Figure 2 support this view. The Codex-
+evolved skill improves every Terminus-backed LLM, with
+gainsrangingfrom+15.3to+43.7pp,eventhoughnomodel-
+specificevolutionisperformed.Thistransferabilityindicates
+thatVeriSkilldoesnotmerelytuneagent-orLLM-specific
+behavior.Itextractsverificationproceduresthatcanbereused
+as external knowledge by different models. Transferability
+is strongest for models that already have moderate no-skill
+performance, where the skill can redirect existing reasoning
+abilitytowardDafnyprogramconstruction.Forweakerback-
+ends,theskillstillhelps,butthelowerfinalPASSshowsthat
+reusable knowledge does not replace the model’s ability to
+execute the verification strategy faithfully.
+7 Case Study
+We conduct a case study to explain whyVeriSkillout-
+performs generic baselines of skill self-evolution. We com-
+pare with EvoSkill because it is conceptually closest to
+VeriSkill: both methods iteratively update skills from fail-
+ures, but EvoSkill uses a generic failure-driven evolution
+loop rather than a program-verification-specific one.
+Table 3 illustrates whyVeriSkillimproves over generic
+baselines of skill self-evolution. The same C fragment can
+lead to opposite skill updates: EvoSkill interpretation pre-
+serves the null-check branch to match source control flow,
+whereasVeriSkillrecognizesthatthebranchisahost-level
+executability guard and should not be fabricated in Dafny
+when it carries no verified data-state behavior. This case
+explains whyVeriSkillstands out: it does not merely re-
+act to failure signals, but interprets them through program-
+verification-specificattributionandlessonabstractionbefore
+updating the skill.
+8 Conclusion
+This paper presentsVeriSkill, a self-evolution framework
+tailored to program verification that turns verification fail-
+ures into targeted and trustworthy skill improvements. First,
+it performs responsibility attribution to retain only skill-
+responsible failures as evolution signals. Second, it clusters
+thesefailuresbydiagnosticsignaturesandabstractsreusable
+lessons that capture missing procedural guidance while re-
+moving instance-specific details. Finally, it iteratively re-
+fines candidate skills through executable validation and ad-
+mits only revisions that improve verification performance
+while preserving program semantics. Evolution outcomes
+are stored in memory to guide subsequent revisions.
+The experiments show that this program-verification-
+specificevolutionframeworkVeriSkillconsistentlyoutper-
+forms other methods across Dafny, Frama-C, and VeriFast.
+The ablation study confirms that responsibility attribution,
+lesson abstraction, and executable-validation checks each
+contributetothefinalskillquality.Thecross-modeltransfer-
+abilityexperimentfurthershowsthatevolvedskillscanben-
+efitotherLLMs,supportingtheviewthatVeriSkillextracts
+reusableverificationknowledgeratherthanamodel-specific
+prompt artifact. Finally, the case study explains this advan-
+tage concretely:VeriSkilldoes not merely react to failure
+signals, but interprets them through program-verification-
+specific attribution and lesson abstraction before updating
+the skill.

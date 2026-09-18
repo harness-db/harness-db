@@ -1,0 +1,923 @@
+record_id: arxiv:2603.00686
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2603.00686
+fetched_title: RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+fetched_at: 2026-09-18T19:01:12Z
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+Andrew Zhuoer Feng *†α Cunxiang Wang *βα Yu Luoα Bosi Wenα Yidong Wangγ Lin Fanβ Yilin Zhouβ
+Zikang Wangβ Wenbo Yuβ Lindong Wuβ Hongning Wangα Minlie Huangα
+αTsinghua University βZ.ai γPeking University
+Abstract
+Large Language Models have evolved from
+single-round generators into long-horizon agents,
+capable of complex text synthesis scenarios.
+However, current evaluation frameworks lack
+the ability to assess the actual synthesis opera-
+tions, such as outlining, drafting, and editing.
+Consequently, they fail to evaluate the actual and
+detailed capabilities of LLMs. To bridge this gap,
+we introduceRA VEL, an agentic framework
+that enables the LLM testers to autonomously
+plan and execute typical synthesis operations,
+including outlining, drafting, reviewing, and
+refining. Complementing this framework,
+we present C3EBENCH, a comprehensive
+benchmark comprising 1,258 samples derived
+from professional human writings. We utilize
+a “reverse-engineering” pipeline to isolate
+specific capabilities across four tasks: CLOZE,
+EDIT, EXPAND, and END-TO-END. Through
+our analysis of 14 LLMs, we uncover that
+most LLMs struggle with tasks that demanding
+contextual understanding under limited or
+under-specified instructions. By augmenting
+RA VELwith SOTA LLMs as operators, we find
+that such agentic text synthesis is dominated by
+the LLM’sreasoning capabilityrather than raw
+generative capacity. Furthermore, we find that a
+strong reasoner can guide a weaker generator to
+yield higher-quality results, whereas the inverse
+does not hold. Our code and data are available
+at https://github.com/ZhuoerFeng/
+RAVEL-Reasoning-Agents-Text-Eval.
+*Equal contribution . †Work done during Andrew interned
+at Z.ai. . Correspondence to: Andrew Zhuoer Feng <fze22 @
+mails.tsinghua.edu.cn>, Cunxiang Wang<wangcunxiang303 @
+gmail.com>, Minlie Huang<aihuang @ tsinghua.edu.cn>.
+Preprint. March 3, 2026.
+𝑜1 𝑜𝑖 𝑜𝑛
+Instruction
+𝑚1 𝑚𝑖 𝑚𝑛
+Instruction Result Text
+Draft into manuscripts 𝑚𝑖 𝑖=1
+𝑛
+Self-check & Refine manuscripts
+Plan Outlines 𝑜𝑖 𝑖=1
+𝑛
+Auto-regressive Generation
+LLM black box
+Result T ext
+Tradition evaluation mode
+It ignores...
+... these detailed
+capabilities.
+Agentic Synthesis
+Figure 1.An Illustration of the evaluation mode gap.
+1. Introduction
+Large Language Models (LLMs) have evolved from simple
+monolithic auto-regressive generators (Vaswani et al., 2023;
+Brown et al., 2020; Ouyang et al., 2022) into long-horizon
+agents capable of handling complex, sophisticated long-
+form text synthesis (Yao et al., 2023; Bai et al., 2024; Park
+et al., 2023; Singh et al., 2025; Gemini Team, Google, 2025;
+Anthropic, 2025). Most recent frameworks involve LLMs
+to perform long-form text synthesis in an agentic approach
+(Yang et al., 2022; Madaan et al., 2023; Schick et al., 2022).
+In practical text synthesis scenarios, LLMs have to handle
+distinct tasks, such as outline planning (Yang et al., 2022;
+Rashkin et al., 2020), drafting partial sections (Schick et al.,
+2022; Bai et al., 2024), content-specific editing (Ke et al.,
+2024; Lin et al., 2024), rather than a simple one-run gen-
+eration (Wu et al., 2025; Liu et al., 2024). These tasks are
+usually concurrent and interleaved during the whole syn-
+thesis task. However, current evaluation protocols (Zheng
+et al., 2023; Fu et al., 2023; Kim et al., 2024b; Du et al.,
+2025) and benchmarks (Wu et al., 2025; Liu et al., 2024;
+Zheng et al., 2023; Kim et al., 2024a) treat the complex
+composition as a single run generation, neglecting the intri-
+cate capability differences. As a result, they fail to show the
+actual and detailed capabilities of LLMs during handling
+real text synthesis.
+To align the evaluation framework with the actual LLM
+1
+arXiv:2603.00686v1 [cs.CL] 28 Feb 2026
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+capability, we proposedRA VEL(ReasoningAgents for
+Validating andEvaluatingLLM text synthesis), a frame-
+work that integrates the tested LLM to autonomously plan
+and execute the synthesis operations by itself, expanding the
+evaluation scope to more complex scenarios. This agentic
+setup allows us to evaluate the LLM based on its execution
+trajectory rather than just the final output. Specifically, we
+feature four representative synthesis operations (outlining,
+drafting, reviewing and editing) as the action spaceA and
+formalize the process as a sequential decision process (SDP),
+where the stateS represents the evolving synthesized tex-
+tual content. By reasoning and acting (Yao et al., 2023), the
+LLM evolves the text and terminates the synthesis until the
+text meets the quality threshold evaluated by itself.
+To complementRA VEL, we present C3EBENCH(derived
+fromCloze,Edit,Expand,End2End), a comprehensive
+benchmark consisting of 1,258 samples and expanding four
+distinct synthesis scenarios: CLOZE, EDIT, EXPAND, END-
+TO-END. Unlike existing datasets (Wu et al., 2025; Kim
+et al., 2024a) that pairing text references from elaborated
+instructions, C3EBENCHemploys a “reverse-construction”
+pipeline to pair professional human references (golden truth)
+with instructions, in order to recover the complexity and
+reality of actual text synthesis.
+We conduct an extensive empirical analysis of 14 main-
+stream LLMs, including proprietary models (Singh et al.,
+2025; Gemini Team, Google, 2025; Anthropic, 2025; Team
+et al., 2025; GLM-Team, 2025; xAI, 2025; DeepSeek-AI,
+2024) and open-source counterparts (Grattafiori et al., 2024;
+Yang et al., 2025). By leveragingRA VELto roll out exe-
+cution trajectories of the tested LLMs, we expose critical
+behavioral divergenceshidden by static leaderboard rank-
+ings. Our results show that most LLMs are capable of han-
+dling tasks with detailed and clear specifications from the
+instructions, yet struggle with scenarios where instructional
+specifications are limited while contextual understanding is
+demanded heavily. There is a critical irrelevancy between
+refinement density and quality gains: while models like
+Claude-4.5 and Qwen3-32B exhibit high refinement density,
+they frequently fail to convert iterations into quality gains,
+contrasting with models (such as Gemini-3 Pro) that make
+more efficient and effective refinement. Further ablation
+studies withRA VELdemonstrate that synthesis success
+is dominated by theLLM’s reasoning abilityto plan and
+critique, rather than the raw generative capacity during re-
+fining drafts. In particular, we find that a strong reasoner
+can effectively guide a weaker generator to success by 39%,
+whereas a strong generator cannot compensate for the defi-
+cient reasoner.
+2. Preliminaries
+2.1. Problem Formulation and Notation
+To construct realistic, long-horizon synthesis scenarios for
+evaluating the capabilities of LLMs, we must move beyond
+static input-output based evaluations. As discussed, text syn-
+thesis is inherently iterative and hierarchical. Consequently,
+we formalize the synthesis task not as single-step generation,
+but as a Sequential Decision Process (SDP), denoted by the
+tuple⟨Q,S,A,P,R⟩:
+•Q represents thequery space. A specific query q∈Q
+is defined by a topicTand a style guideG.
+•S is thestate space. A state st ∈ Sat step t is a
+tripletst =⟨O,M⟩ , where outlineO={o 1,...,o n}
+is the set of planned outline nodes, and manuscript
+M={m 1,...,m n}is the synthesized text nodes.
+•A is theaction spaceconsisting of five operations:
+A={outline,draft,review,refine,finish}.
+•P:S×A→S is thetransition function, repre-
+senting the deterministic or stochastic update of the
+manuscript based on the execution of an action.
+•R:S×Q→R is theintrinsic reward function. Cru-
+cially,R is not provided by an external environment
+oracle; instead, the agent serves as its owngenerative
+oracleto estimate the quality ofs t relative toq.
+2.2. Optimization Objective
+The policyπθ(at|st,q) maps the current state and query to
+an actionat. Because ground-truth feedback is inaccessible
+during inference for the LLM agent, the process is driven
+by the internal reward estimatorR. Formally, we seek the
+most efficient trajectory to reach a statesT that satisfies a
+quality thresholdτ:
+min
+a0:T
+Ts.t.R(s T,q)≥τ(1)
+This formulation enforces a closed-loop refinement process
+where REVIEWand REFINEactions iteratively improve the
+manuscript until the quality constraint is met.
+3. The RA VEL Framework
+We instantiate the SDP formulation viaRA VEL, an envi-
+ronment where the LLM functions as an autonomous agent.
+Unlike static generation pipelines,RA VELoperates on a
+Reasoning-Actparadigm (Yao et al., 2023). At each step
+t, the agent observes the statest and samples an actionat
+along with execution parameters:
+(at,paramst)∼π θ(st,promptsys)(2)
+2
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+𝑓outline
+(Outlining)
+𝑓draft
+(Drafting)
+𝑓refine
+(Refinement)
+𝑓𝑟𝑒𝑣𝑖𝑒𝑤
+(Review)
+Synthesis State Structure
+𝒮𝑡 = ⟨ 𝒪, ℳ ⟩
+𝑜1 𝑜𝑖 𝑜𝑛
+𝑚1 𝑚𝑖 𝑚𝑛
+Outline
+Manuscript𝑇, 𝐺
+Topic
+Guide
+(Reasoning Agent)
+Policy 𝝅𝜽
+Reasoning
+for next action 𝑎𝑡 ∼ 𝜋𝜃(𝑆𝑡)
+Context Manager
+(Protocol)
+Initialize outline
+list 𝒪 = [𝑜1, 𝑜2, … ] Drafting 𝑚𝑖 based on 𝑜𝑖
+Newly Refined 𝑚𝑖 Review critique 𝜙𝑖 for 𝑚𝑖
+𝜙1 𝜙𝑖 𝜙𝑛 Critiques
+Topic 𝑇, Guide 𝐺
+T opic𝑇, Guide 𝐺, outline 𝑜𝑖
+Manuscript 𝑚𝑖
+Related critique 𝜙𝑖
+T opic𝑇, Guide 𝐺, manuscript 𝑚𝑖
+Snapshot
+Current State 𝒮𝑻
+Current State 𝒮𝑻
+Action T aken
+Routing
+State/Action
+parameters After T ermination
+Final Synthesized T ext
+Topic 𝑻, Guide 𝑮
+Figure 2.RA VEL: an evaluation framework that integrates the testing LLM in agentic text synthesis. After receiving the writing
+instruction, the testing LLM will autonomously reason the synthesis actions to take, and carry out the actions to update its state.
+where promptsys encodes the protocol for state transi-
+tions and the definition of action primitives. After the
+agent conducts the action at, the state st is updated to
+a new state st+1 ← P(st,at,paramst). Therefore, the
+holistic trajectory after execution is denoted as T=
+{(at,paramst),st+1}T
+t=0. The transition dynamics P are
+defined by four specialized action primitives,Outline, Draft,
+Review,andRefine, which we detail below.
+3.1. Outlining
+The outlining primitivefoutline : (T,G)→O generates the
+initial structural backbone of the manuscript, where T is
+the writing topic and G is the genre specification. Each
+outline nodeoi∈O is defined as a tuple containing textual
+specificationsti and a status indicatorσi:
+O={o i}n
+i=1,whereo i =⟨t i,σi⟩(3)
+The indicator σi ∈ {pending, drafted, revision needed
+,completed} tracks the lifecycle of each node. Upon ex-
+ecution offoutline, allσi are initialized to “pending”. This
+primitive serves to establish global coherence and structural
+constraints prior to more specified content synthesis.
+3.2. Guided Synthesis: Drafting
+The drafting primitive fdraft is responsible for generating
+content for a target outline node. To ensure narrative consis-
+tency, we define each manuscript nodemi∈M as a tuple
+⟨t,ϕ⟩i, wheret represents the textual content andϕ denotes
+the associated critique (initially empty).
+For a selected node oi with σi =“pending” , the agent
+generatesmi.t conditioned on the preceding contextmi−1.t,
+the topicT, and the style guideG:
+mi.t←f draft(T,G,o i,mi−1.t,)(4)
+Upon completion, the status indicator of oi is updated to
+σi =“drafted” . This sequential dependency ensures that
+the local synthesis remains aligned with the global discourse
+flow established by previous nodes.
+3.3. Quality Assessment: Review
+To simulate the self-checking scenario, the review primitive
+freview evaluates the manuscriptmi.t against the query con-
+straints⟨T,G⟩ . It yields a quantitative score ri∈[1,10]
+and a qualitative natural language critiqueϕi:
+(ri,ϕi)←f review(mi.t,T,G)(5)
+whereri andϕi are then stored within mi to guide subse-
+quent refinement. The state transition for the corresponding
+outline nodeoi is governed by a quality thresholdτ:
+σi←
+(
+completed,ifr i≥τ
+revision needed,ifr i <τ (6)
+This thresholding mechanism hints that the agent only pro-
+ceeds to subsequent nodes or the terminal state once the
+current content satisfies the internal quality standards.
+3.4. Refinement
+The refinement primitivefrefine simulates the human edito-
+rial revision, reflecting the iterative nature of human writing.
+The agent invokes this primitive to update the manuscript
+contentmi.tby incorporating the critiquesm i.ϕ:
+mi.t←f refine(mi.t,mi.ϕ,T,G)(7)
+3
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+where left hand side mi.t is the revised text intended to
+address the identified deficiencies. Following the execution
+offrefine, the status indicator is reset: σi←“drafted” This
+transition effectively returns the node to theReviewphase,
+establishing a non-linear optimization path.
+3.5. Termination Criteria
+Algorithm 1RA VEL Agentic Synthesis Loop
+1:Input:TopicT, Style GuideG, Thresholdτ
+2:Initialize:s 0←⟨∅,∅⟩,t←0,a −1← ∅
+3:T ←{a−1,s 0}
+4:whilea t̸=finishandt<T max do
+5:a t←π θ(st)
+6:ifa t =outlinethen
+7:O←f plan(T,G)
+8:else ifa t =draftthen
+9:m i.t←f draft(T,G,o i,mi−1.t,)
+10:else ifa t =reviewthen
+11:(r i,ϕi)←f review(mi.t,T,G)
+12:else ifa t =refinethen
+13:m i.t←f refine(mi.t,mi.ϕ,T,G)
+14:end if
+15:UpdateState:s t+1←P(s t,at)
+16:T=T S{at,st+1}
+17:t←t+ 1
+18:end while
+19:Return:M,T
+The termination of the agentic workflow is controlled by a
+dual-criterion termination policy. The process reaches a ter-
+minal statesT when the policyπθ emits the terminal action
+at =finish . Alternatively, we enforce that the environment
+halts the policy if the stept exceeds a maximum execution
+stepTmax, saving the final manuscript and the trajectoryT .
+The orchestration of agent logic withinRA VELis described
+in Algorithm 1.
+4. C3EBENCH: Benchmarking the Full
+Synthesis Lifecycle
+To complement our evaluation framework, we introduce
+C3EBENCH, a comprehensive benchmark constructed to
+isolate and evaluate the distinct capabilities required for
+agentic text synthesis. Rather than treating generation as a
+monolithic task, C3EBENCHcharacterizes the synthesizing
+process with four distinct scenarios. In order to represent
+the high-quality demand of actual text synthesis demands,
+we use processed high-quality professional human writing
+as references and reverse-construct the instruction queries.
+C3EBENCHevaluates LLMs across varying levels of gran-
+ularity, from end-to-end generation to specific editing capa-
+bilities, bridging the gap in task coverage during evaluation.
+Document
+Instruction Document
+Instruction
+Outline
+End2End Expand
+Masked Document
+Cloze
+Recovered fill-ins
+Text with critiques
+Edit
+Refined Text
+Figure 3.Overview of the C3EBENCHtask formulations.
+4.1. Task Formulation
+We formalize the text synthesis process as a function
+W=f(I,G) , where the modelf generates textW condi-
+tioned on an instructionI and optional grounding inputs
+G={i 1,i 2,...,i n}. To examine different perspectives
+of the writing process, we design one coarse-grained task
+(End2End) and three fine-grained subtasks (Expand,Cloze,
+Edit). The task formats are visualized in Figure 3, with
+statistics provided in Table 1, specific task examples pro-
+vided in Table 4.
+End2End Generation.This task evaluates the LLM’s abil-
+ity to synthesize coherent text from scratch. Given a high-
+level instructionI (specifying theme, style, and constraints),
+the model must generate a complete text W that satisfies
+all requirements without additional grounding. This tests
+the model’s capacity for long-form text synthesis with au-
+tonomous planning and generation.
+Expand (Outline-Conditioned Generation).This task
+assesses the ability to adhere to structural and outline con-
+straints. The LLM is provided with an instructionI and a
+detailed outlineGoutline. The objective is to synthesize the
+full textW by strictly expanding upon the provided outline
+points, requiring precise control over content flow.
+Cloze (Contextual Infilling).This task tests local coher-
+ence and context awareness. Selected spans within a refer-
+ence text are masked. Given the surrounding contextGcontext
+and the mask position, the LLM must reconstruct the miss-
+ing content. Unlike standard pre-training objectives, our
+masks target semantically dense segments (e.g., rhetorical
+narrations or transitional clauses) rather than random tokens.
+Edit (Feedback-Driven Revision).This task evaluates the
+ability to refine text based on critiques. The input con-
+sists of a draft textGdraft and specific revision instructions
+Ifeedback. The model must produce a polished version W
+that addresses the critique while maintaining the original
+intent. This mimics the human iterative writing process.
+4
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+Table 1.Statistics of the Chinese (CN) and English (EN) datasets.
+Lengths are measured in tokens/characters.
+Task Lang. Instruction Input Reference Total
+Avg. Max. Min. Avg. Max. Avg. Max.
+Cloze CN 44.40 60 33 2037.44 4795 422.04 1458 200
+EN 19.00 19 19 951.89 5179 408.55 2412 150
+Expand CN 109.94 183 64 359.57 750 1779.80 3894 200
+EN 246.72 387 141 239.23 342 1546.07 4863 99
+Edit CN 178.00 178 178 2434.84 4338 982.32 2159 200
+EN 85.00 85 85 405.72 1229 419.47 1904 110
+End2E CN 86.62 171 33 0.00 0 1856.66 3967 200
+EN 67.17 86 43 0.00 0 1624.09 5744 99
+4.2. Data Construction Pipeline
+Constructing a high-quality benchmark is challenging due
+to the difficulty of obtaining paired instructions and pro-
+fessional references. To address this, we adopt aReverse-
+Constructionparadigm (Thorne et al., 2018): we source
+high-quality references R first, then annotate the corre-
+sponding instructionsI and inputsG with the help of auto-
+mated LLM tools. The pipeline consists of 3 stages:
+Stage 1: Sourcing and Filtering.We curated a corpus of
+professional writings from various specialized sources (fic-
+tion, essays, reports, contracts). To ensure reference quality
+(R), we applied a strict two-step verification: 1.Genre Clas-
+sification:GPT-5.2 classified texts by genre, with human
+verification correcting errors ( 1.4% error rate). 2.Qual-
+ity Filtering:Using Claude-4.5-Sonnet with genre-specific
+rubrics (Appendix D.3), we discarded texts scoring below 4
+out of 5. Figure 6 shows the taxonomy and distribution.
+Stage 2: Instruction Construction via Reverse-
+Engineering.We employ specific strategies to reverse-
+engineer task inputs from the verified referenceR. Human
+annotators construct with the help of a pre-processing LLM.
+End2End & Expand:We model the construction as
+(I,G)←BackConstruct(R) . A prompted LLM summa-
+rizes the content (S), extracts the topic (T ), and compiles
+genre-specific constraints(G). ForEnd2End, I is derived
+from the topicT and genre constraintsG. ForExpand, G
+incorporates the detailed outlineS.
+Cloze:We identify spans in R that are crucial to the nar-
+rative flow. These spans are masked to create the input,
+ensuring the task requires semantic deduction rather than
+simple pattern matching.Edit:To create realistic revision
+scenarios, we first generate a draft with LLM (via the Cloze
+task) and compare it against the professional referenceR.
+Experts analyze the gap between the draft and R to craft
+specific critique instructionsIfeedback. This ensures the feed-
+back creates a trajectory from the draft towards the human
+reference. The prompts for the assisting LLM (Gemini-3-
+Pro) are in Appendix A.1, A.2, A.3 and A.4. The reference
+instruction templates for human are in Appendix A.5.
+Stage 3: Quality Assurance & Reference Optimization.
+We implemented a human-in-the-loop review to validate the
+(I,G,R) triplets. Domain experts verified the naturalness
+of generated instructions. Crucially, we employed aBest-of-
+N Reference Optimization. We recognize that while our
+human sources are professional, SOTA LLMs can occasion-
+ally yield superior specific outputs. We generated responses
+using GPT-4o, GLM-4.5-plus, and Gemini-2.5-Flash and
+performed blind pairwise comparisons against the human
+reference. In 10.5% of cases where models outperformed
+the human text, we updatedR to the model output, estab-
+lishing a hybrid optimized reference standard. Finally, we
+performed safety checks using GPT-5.2, followed by human
+verification to remove PII and sensitive content. Appendix B
+shows the guideline for human experts.
+Evaluation Setup.We employ an LLM-as-a-judge ap-
+proach (Zheng et al., 2023) for single-round evaluation.
+To ensure alignment with human judgment, we develop
+evaluation prompts for 4 tasks, respectively (Appendix E).
+5. Experiments
+In this section, we empirically evaluate the performance of
+state-of-the-art LLMs within theRA VELframework with
+C3EBENCH. Our analysis addresses the following concerns.
+Capability:Can LLMs maintain professional-grade textual
+quality under C3EBENCHconstraints?Dynamics:How
+do different LLMs behave within theRA VELagentic loop?
+In particular, are they capable of effective self-planning
+and self-refinement?Reason & Generation:What char-
+acterizes the discrepancy between reasoning efficiency and
+generation quality during text synthesis?
+5.1. Experimental Setup
+We conducted evaluations on a diverse set of14 LLMs, cat-
+egorized into proprietary models (GPT-5.2, Gemini-3 Pro,
+Claude-4.5) and open-source models (Llama-3.1, Qwen3
+series). For the C3EBENCHinference, all LLMs are pro-
+vided with identical inputs and generation hyperparameters
+(temperature=0.7). For the experiment inRA VEL, we use
+the END2ENDtask from C3EBENCH, to record the behav-
+ioral performance during comprehensive text-synthesis. The
+maximum execution step was set toTmax = 50. The qual-
+ity thresholdτ for the review primitive was set to 8.0. We
+adopt GPT-5.2-1120 as the LLM judge. The implementation
+prompts ofRA VELenvironment are listed in Appendix G.
+5.2. Agentic Evaluation Metrics
+To rigorously quantify the reasoning efficacy and generation
+quality of LLMs withinRA VEL, we define four metrics.
+These metrics capture task completion, structural overhead,
+and the effectiveness of the self-refinement loop.
+5
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+Table 2.Main benchmarking results on the C3EBENCHandRA VEL. Metrics are grouped intoTask Capabilities,Agentic Dynamics,
+andOverall Efficiency.Boldindicates top performance per category.
+Model C3EBENCHTasks (Score↑) Agentic Dynamics Execution Efficiency
+Cloze Expand Edit E2E S%η traj %↓ρ ref%δ gain Judge ERRπθ%↓ |O| |T|
+Proprietary LLMs
+GPT-5.2-2025-11-20 (Singh et al., 2025) 4.53 7.897.50 7.37 64.3 2.35 17.9 0.00 6.64 0.95 15.5 30.2
+Gemini-3 Pro (Gemini Team, Google, 2025) 4.44 7.79 7.18 7.51 95.1 2.322.4027.96 7.05 0.007.1 16.2
+Claude-4.5 Sonnet (Anthropic, 2025) 4.44 7.79 7.42 7.52 68.1 2.95 100.5 19.55 6.68 0.0010.3 28.0
+Grok-4 (xAI, 2025) 4.42 7.76 7.12 7.39 69.0 2.50 38.2 3.52 6.31 0.03 7.4 18.4
+GLM-4.7 (GLM-Team, 2025) 2.62 7.25 5.43 7.17 73.3 2.51 38.5 0.00 6.31 0.37 7.3 18.0
+Qwen3-Max (Yang et al., 2025) 4.32 7.867.717.35 47.81.9223.9 0.00 5.74 0.007.3 13.1
+Kimi-K2-Thinking (Team et al., 2025) 3.99 7.75 7.057.71 58.3 2.81 55.4 0.00 6.48 1.32 7.9 21.6
+DeepSeek-v3.2 (DeepSeek-AI et al., 2025) 4.22 7.33 7.21 7.45 95.72.59 26.2 2.18 6.64 0.02 7.0 17.9
+Open Source LLMs
+Llama-3.1-405B (Grattafiori et al., 2024) 3.09 3.64 5.94 3.51 47.7 3.94 30.3 1.09 5.05 0.00 7.5 29.6
+Hermes-3-Llama-70B (Grattafiori et al., 2024) 1.88 5.55 4.19 5.28 91.8 3.16 18.711.394.58 0.00 7.7 24.1
+Llama-3.1-8B (Grattafiori et al., 2024) 2.44 5.89 5.85 5.33 0.0 8.59 18.3 4.60 1.66 0.04 5.8 51.0
+Qwen3-235B-A22B (Yang et al., 2025) 4.60 7.49 7.67 7.38 89.42.4720.5 0.006.94 0.008.3 20.1
+Qwen3-32B (Yang et al., 2025) 3.74 6.56 7.05 6.07 58.5 3.02 105.8 5.54 5.54 0.00 7.2 21.2
+Qwen3-8B (Yang et al., 2025) 3.14 6.14 6.99 5.65 94.72.4313.92.57 5.51 0.02 7.518.0
+Task Success Rate (S).Measures the agent’s ability to
+converge within the budget Tmax. A trial is successful if
+the policyπθ triggers the terminal action “finish”. For N
+samples:
+S= 1
+N
+NX
+j=1
+I
+
+∃t≤T max :a (j)
+t =finish
+
+(8)
+Trajectory Efficiency (ηtraj).Evaluates reasoning effi-
+ciency by calculating the ratio of total actions |T| to the
+planned outline size n=|O| . This reflects the execution
+overhead:ηtraj = |T|
+n . A theoretical lower bound ofηtraj≈2
+indicates optimal execution (draft→ pass review). Higher
+values imply intensive revision cycles.
+Refinement Density (ρref).Quantifies the intensity of self-
+correction relative to the manuscript scale:
+ρref = 1
+n
+|T|X
+t=1
+I(at =review)(9)
+Highρref suggests the LLM requires multiple iterations of
+scrutiny to meet the thresholdτ.
+Refinement Delta (δgain).Quantifies the magnitude of im-
+provement achieved through the iterative loop:
+δgain = 1
+|K|
+X
+k∈K
+(r′
+k−rk)(10)
+A positiveδgain confirms effective value alignment, demon-
+strating that revisions genuinely enhance output quality.
+To provide deeper insight into model behavior, we report
+three auxiliary statistics: (1)Action Failure Rate( ERRπθ):
+the ratio of invalid actions to total attempts, measuring how
+frequentlyπθ fails to generate executable parameters; (2)
+Outline Length( |O|): the average number of items in
+the generated plans; and (3)Trajectory Length(|T| ): the
+average number of interaction steps per episode.
+5.3. Main Results and Analysis
+Table 2 presents the comprehensive benchmarking results.
+Our analysis reveals distinct behavioral patterns across
+model families, highlighting the gap between raw gener-
+ation capability and agentic reasoning proficiency during
+text-synthesis.
+Capability. LLMs perform poorly in under-specified
+tasks.Beyond aggregate rankings, C3EBENCHreveals
+the vulnerability in LLM text synthesis: a heavy reliance
+on explicit instruction scaffolding. As shown in Table 2,
+all models exhibit significant performance degradation in
+CLOZE, with even the strongest proprietary models fail-
+ing to exceed a score of 5.0. In CLOZE, LLMs are only
+provided with the previous and succeeding contexts of the
+inpainting text without the explicit instruction requirements.
+Furthermore, a consistent performance delta exists between
+EXPANDand End2End tasks, particularly in open-source
+models (Qwen3-235B-A22B achieves 7.49 on EXPANDvs.
+7.38on END2END).
+Conclusively, while LLMs excel at following detailed in-
+structions, there is a gap in autonomous text synthesis. By
+exposing this lack of generative autonomy, C3EBENCH
+identifies this critical frontier for future work in agentic
+text synthesis, moving beyond simple instruction-following
+toward true intent-based composition.
+Apart from the above findings,Proprietary models estab-
+lish the current state-of-the-art.As expected, proprietary
+models demonstrate superior performance across allTask
+Capabilitiesmetrics.GPT-5.2achieves the highest scores
+in Cloze (4.53) and Conditional Writing (7.89), indicating
+6
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+0
+20
+40
+60Step T
+med: 11.0
+Claude-4.5 Sonnet
+med: 7.0
+Deepseek-v3.2
+med: 7.0
+GLM-4.7
+0
+20
+40
+60Step T
+med: 15.0
+GPT-5.2
+med: 7.0
+Gemini-3 Pro
+med: 8.5
+Grok-4
+0
+20
+40
+60Step T
+med: 10.0
+Kimi-k2-thinking
+med: 14.0
+Llama-3.1-405B
+med: 10.0
+Llama-3.1-70B
+0
+20
+40
+60Step T
+med: 34.0
+Llama-3.1-8b
+med: 9.0
+Qwen3-235B-A22B
+Start Step End Step
+med: 8.0
+Qwen3-32B
+Start Step End Step
+0
+20
+40
+60Step T
+med: 8.0
+Qwen3-8B
+Start Step End Step
+med: 8.0
+Qwen3-max
+Figure 4.Analysis of Paragraph Lifecycles across LLMs.We
+plot the distribution of the initial drafting step (Start Step) versus
+the terminal completion step (End Step) for all generated sections.
+The difference of the medium (∆med) is captioned in each figure.
+Some LLMs (GPT-5.2) exhibit asequential drafting pattern
+with staggered start times. In contrast, efficiency-oriented LLMs (
+Gemini, DeepSeek) demonstrate a“batch” approach, initializing
+all content early (t≈0) followed by global refinement.
+strong instruction-following and context-handling abilities.
+Interestingly,Gemini-3 Pro, while slightly falling short in
+raw generation scores, exhibits the highest execution robust-
+ness with a Task Success Rate S of 95.1%, significantly
+outperforming GPT-5.2 (64.3%).Open-source models are
+closing the gap, with notable exceptions.TheQwen3-
+235B-A22Bmodel stands out as the premier open-source
+contender, matching or even surpassing proprietary models
+in specific metrics, achieving the highestJudge score of 6.94
+among all models except Gemini-3 Pro. However,Llama-
+3.1-8Bfails completely (S= 0.0% ) with a high trajectory
+error rate, indicating that models below a certain scale lack
+the requisite planning capability to navigate the hierarchical
+RA VELworkflow, often getting stuck in repetitive loops or
+generating malformed JSON actions.
+Dynamics.A critical insight from theAgentic Dynam-
+icsmetrics is the disconnection between thefrequencyof
+refinement and thequality gainfrom it:
+A. High Efficiency Refinement v.s. Inefficient Loops:
+Gemini-3 Prodemonstrates an ideal agentic behavior. It has
+a low Refinement Rate (ρref = 2.4%) but an exceptionally
+high Refinement Delta (δgain = 27.96). This implies that it
+rarely needs to be revised, but when it does, it effectively
+leverages the critique to make substantial improvements.
+Conversely, models likeClaude-4.5 SonnetandQwen3-
+32Bexhibit extremely high Refinement Rates ( >100% ,
+implying at least one revision per section) but moderate
+Refinement Deltas. This points to a “struggling” behavior
+where the LLM agents recognize quality issues but fail to fix
+them efficiently, leading to prolonged execution trajectories
+without proportional quality gains.
+B. Planning Horizon Length:We observe a fundamen-
+tal trade-off between the complexity of the initial plan and
+task success.GPT-5.2andClaude-4.5tend toward long-
+specification, generating outlines|O|>10 . While detailed,
+this high-dimensional planning increases the probability of
+exceedingTmax, leading to lower success rates S (64.3%
+forGPT-5.2). In contrast,Gemini-3 Proadopts a succinct
+planning horizon. By generating more concise outlines, it
+achieves superior execution robustness (S= 95.1% ) and
+higher responsiveness. For real-world deployment, this sug-
+gests that “shorter” planning is often more token-efficient
+and less prone to agentic drift.
+Strategic Differences in Synthesis Trajectories.To char-
+acterize the underlying reasoning logic ofRA VEL, we ana-
+lyze the temporal lifecycle of paragraph generation across
+14 LLMs with their trajectories. For each paragraphk, we
+record the initial drafting stepTstart and the terminal comple-
+tion stepTend (defined as passing review or reachingTmax).
+As illustrated in Figure 4, we identify two distinct behavioral
+paradigms.Interleaved Sequential Synthesis (ISS):Exem-
+plified byGPT-5.2andClaude-4.5, these models exhibit a
+“plan-write-review-refine” loop for each individual section.
+This is evidenced by high median Tstart values and signif-
+icant variance in drafting onset, indicating that the agent
+purposefully delays the synthesis of subsequent sections
+until the current paragraph satisfies the quality threshold
+τ.Parallelized Batch Synthesis (PBS):Represented by
+Gemini-3 ProandDeepSeek-v3.2, these models adopt a
+“write-all-then-refine” strategy. Here, Tstart for nearly all
+paragraph clusters at t≈0 . The agent prioritizes estab-
+lishing a global draft before entering an intensive, iterative
+refinement phase for the complete manuscript.
+While both paradigms achieve comparable terminal quality,
+PBSgenerally demonstrates superior efficiency. The re-
+duced lag inPBSsuggests a robust ability to manage global
+context, avoiding the localized “refinement loops” that often
+trapISSstrategies.
+7
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+Qwen3-32B Qwen3-Max
+0
+20
+40
+60
+80
+100
+(%)
+Qwen3-32B Qwen3-Max
+0
+5
+10
+15
+20
+25
+| |
+Qwen3-32B Qwen3-Max
+0
+20
+40
+60
+80
+100
+120
+140
+ref (%)
+Qwen3-32B Qwen3-Max
+0
+5
+10
+15
+20
+gain
+Qwen3-32B Qwen3-Max
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+Judge
+Base Model (Gemini)
+frefine (Gemini)
+Figure 5.Sensitivity analysis of reasoning vs. generation capabilities withinRA VEL.
+5.4. Reason & Generate: Who Takes the Decisive Role?
+We aim to further investigate the reasoning and generation
+mechanisms by addressing the “review-refine deadlock,”
+specifically focusing on whether the refiner or the reviewer
+plays the decisive role in this process. We conduct the anal-
+ysis usingQwen3-32BandQwen3-Maxas the performers,
+as theirρref indicates a tendency for intensive revision. To
+enhance the robustness ofRA VEL, we upgrade its underly-
+ing tools: instead of parameterizing the primitives with the
+testing LLMs themselves, we substitute it with Gemini-3
+Pro, thereby ensuring superior execution performance. Con-
+sequently, this configuration strengthensRA VELwith a
+more potent reasoner (πθ) or refiner (frefine).
+The results reveal a critical insight:reasoning domi-
+nates generation in complex text synthesis.Integrating a
+stronger reasoner (πθ=Gemini3-Pro) significantly increases
+synthesis success rates (S>95% ) across both backbones.
+Notably, for Qwen3-32B, the superior reasoner drastically
+suppresses the refinement frequency (ρref), suggesting that
+optimal reasoning over next-step actions effectively obvi-
+ates the need for iterative review-refine loops. Counter-
+intuitively, simply enhancing the generator (frefine=Gemini3-
+Pro) does not guarantee quality improvements, though it
+does help optimize task success rate. For instance, applying
+the Gemini refiner to Qwen3-32B resulted in a negative re-
+finement gain (δgain =−1.86 ), whereas the Gemini-driven
+reasoner achieved a substantial refinement quality improve-
+ment for Qwen3-Max (δgain = 21.66 ). This confirms that
+high-quality synthesis stems more from structural reasoning
+than from local generation.
+5.5. Meta Evaluation of LLM-as-a-judge
+To ensure that the automated LLM-as-a-judge practice
+aligns with human perception, we conduct a meta-evaluation
+to measure the reliability of the LLM-as-a-judge. Specif-
+ically, we selected 200 instructions (50 for Cloze, 50 for
+Edit, 50 for Expand, and 50 for End2End) from C3EBENCH,
+and ensured random and even coverage of all genres. For
+each instruction, 9 LLM-generated writings are included, as
+Table 3.Ablation on LLM-as-a-judge setting.
+SETTINGCLOZEEXPANDEDITEND2END
+CURRENT88.0 88.0 90.0 92.0
+−RUBRIC76.0 78.0 74.0 72.0
+−TRAITS78.0 82.0 78.0 76.0
+−REFERENCE72.0 64.0 64.0 56.0
+sourced from Table 2. We engaged 36 expert annotators with
+backgrounds in writing; further details about their expertise
+are provided in Appendix F.1. All annotators underwent
+training based on the annotation guidelines outlined in Ap-
+pendix F.3, and were instructed to rate the LLM outputs
+on a scale of 1 to 5. We then pair two human-scored LLM
+responses into a meta evaluation sample, testing whether
+the LLM judge is able to discriminate the relative quality.
+More annotation details (annotator agreement) can be found
+in Appendix F.2. We ablate the current LLM-as-a-judge’s
+evaluation protocol design mentioned in Section 4.1, by re-
+moving essential components including rubrics, traits, and
+the existence of a reference. The judge will provide the
+evaluation score for both of the candidates. We report the
+mean consistency between the judge’s scoring preferences
+and human scoring preferences as the performance metric.
+Results in Table 3 reveal that the existence of high qual-
+ity reference is the most crucial part in the evaluation per-
+formance (+36% in END2END). The rubric and trait de-
+sign are also important designs, improving performance
+from (+11% to +13.5%). Conclusively, the current LLM
+judge configuration validates the alignment of our evalua-
+tion framework.
+6. Related Work
+6.1. Benchmarking LLM Writing
+Prior research on evaluating LLM-generated writing has
+primarily focused on creative story generation, emphasiz-
+ing fluency and coherence through datasets like RocStories
+(Mostafazadeh et al., 2016) and metrics like OpenMEV A
+8
+
+RA VEL: Reasoning Agents for Validating and Evaluating LLM Text Synthesis
+(Guan et al., 2021). While these works highlight narrative
+quality, their scope is constrained to specific genres (e.g., fic-
+tion) and narrow evaluation dimensions. Recent benchmarks
+for general text generation emphasize instruction-following
+(Zheng et al., 2023; Liu et al., 2024), lexical quality and co-
+herence (Zhang et al., 2024a;b), as well as domain expertise
+(Liang et al., 2023). However, they inadequately address the
+open-ended nature of writing tasks. Very recent work (Wu
+et al., 2025) seeks an instruction-following way for writing
+evaluation. For instance, reference-based metrics (Deutsch
+et al., 2022) prioritize structural conformity over creative
+divergence, while existing LLM-as-a-judge methods face
+challenges in capturing genre-specific stylistic subtleties.
+C3EBENCHadvances these researches by expanding eval-
+uation to 12 diverse genres beyond story generation, and
+explicitly addressing the complex actual scenarios rather
+than only leaving the text synthesis as a black-box process.
+6.2. LLM-based Evaluation
+Recent advances in LLM-based evaluation utilize propri-
+etary models for automated scoring through prompt engi-
+neering (Zheng et al., 2023; Liu et al., 2023) or supervised
+training on human annotations (Wang et al., 2024b; Ke
+et al., 2024). These methods surpass traditional metrics like
+BLEU (Papineni et al., 2002) and ROUGE (Lin, 2004) in
+efficiency and alignment with human correlation, particu-
+larly for constrained tasks such as summarization. How-
+ever, their reliability weakens in the context of open-ended
+writing evaluation: verbosity bias (Zheng et al., 2023), posi-
+tional bias (Wang et al., 2024a), and rubric dependency (Ke
+et al., 2024; Kim et al., 2024a) hinder their generalizability.
+In contrast, attempts (Wu et al., 2025) that involve LLMs
+autonomously generating evaluation criteria and rubrics
+emerged, but their robustness remain unexamined.
+7. Conclusion
+This work introducesRA VELand C3EBENCHto shift text
+synthesis evaluation from static outputs to dynamic agen-
+tic processes. Our empirical analysis demonstrates that
+synthesis success stems primarily from reasoning efficacy
+(planning and critiquing) rather than raw generative capacity
+(editing or drafting). We also identify a significant bottle-
+neck in autonomous planning, where models excel at local
+drafting but struggle with high-level structural coherence
+without explicit scaffolding. These findings suggest that
+the path toward true intent-driven composition lies not in
+scaling generation but in developing robust autonomous
+reasoning capabilities.
+8. Limitations
+Our study presents two primary limitations regarding bench-
+mark language coverage and generalizability.
+First, C3EBENCHis currently constructed exclusively for
+English and Chinese. While these languages represent
+distinct linguistic typologies, the absence of low-resource
+languages limits our ability to generalize findings across
+broader linguistic families.
+Second, theRA VELaction spaceA is deliberately restricted
+to “close-book” synthesis operations (planning, drafting,
+critiquing, reviewing), excluding external tool use such
+as web search. This design choice was made to isolate
+the LLM’s internal reasoning and compositional coherence
+from confounding variables like retriever performance or
+factual hallucination. Consequently, our evaluation char-
+acterizes “closed-book” synthesis capabilities; extending
+this framework to “open-book” settings involving retrieval-
+augmented generation or multi-modal integration features
+is another distinct challenge for future research.
+Finally, we employ a standard single-pass LLM-as-a-judge
+rather than complex multi-agent judging frameworks. This
+decision is pragmatic: our single-pass judge demonstrates
+high human alignment (≈90% ), providing sufficient dis-
+criminatory power while avoiding the prohibitive computa-
+tional costs of iterative judging. This efficiency is critical for
+scaling evaluation to the super-long text synthesis scenarios.

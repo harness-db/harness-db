@@ -1,0 +1,866 @@
+record_id: s2_snowball:de09da5551d04a7e3643178b8a88b724414d5f3e
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2606.26969
+fetched_title: Einstein World Models
+fetched_at: 2026-09-18T19:00:56Z
+
+Einstein World Models
+Munachiso Samuel Nwadike 1,2, Zangir Iklassov 1, Ali Mekky 1
+Zayd M. Kawakibi Zuhri 1, Kentaro Inui1,2,3
+1MBZUAI 2RIKEN AIP, Japan 3Tohoku University
+munachiso.nwadike@mbzuai.ac.ae
+Abstract
+Doesintelligencerequire the ability to rea-
+son about phenomena beyond direct experi-
+ence? It is natural to suspect that some com-
+plex thought cannot be captured through lan-
+guage alone. However, of particular concern to
+this work, is whethervisualisingcounterfactual
+events cancomplement languageas a mech-
+anism for complex thought. We ask whether
+LLMs can be trained to utilise such visualisa-
+tion mechanisms, in a way that benefits their
+reasoning abilities. Motivated by this question,
+we proposeEinstein World Models. EWMs
+are a blueprint for LLM-based reasoning sys-
+tems that place visual-temporal rollouts inside
+the reasoning trace, allowing them to reason in
+ways that text alone may not support well. In an
+EWM, the LLM calls aworld-module(not to be
+confused with a world model), to produce short
+rollouts of scenes under consideration. The re-
+turned rollout is treated not as the answer, but
+as an inspectable hypothesis that can support
+later reasoning. Einstein World Models extend
+the capability of LLMs for tool calling (such as
+web search or code execution), into the domain
+of visual thought experiments.
+Prologue
+A call for datasets becomes meaningful after the
+desirable capability has been specified. This cul-
+minates in Section 5. The predominance of this
+work therefore aims to motivate a learnable format
+for visual thought experimentation, proposing the
+architecture and training objectives necessitating
+their training data. This work may therefore be
+understood as an operationalisation of a promising
+capability whose data requirements are, per this
+moment, a conceivably fertile frontier.
+1 Introduction
+Scientific invention often makes abstract ideas
+tractable by turning them intothought experiments.
+In a thought experiment, we visualise a scene, let it
+unfold, and notice what changes.
+Einstein’s recollection of special relativity be-
+gins with precisely such a thought experiment, later
+popularised through the image of Bern’s famous
+clock tower. In hisAutobiographical Notes(Ein-
+stein, 1949), he recalls imagining what it would
+be like to chase a beam of light. If he could ac-
+celerate until he matched the speed of the beam,
+would it eventually appear to hang motionless be-
+Figure 1: Einstein World Models(proposed) build upon traditional LLM reasoning traces. However, in addition to
+generating tokens acrossN autoregressive steps, the model may, at a sparse set ofM intermediate steps, invoke a
+callable world-module. The returned visual-temporal rollout becomes part of the trace as an inspectable hypothesis.
+arXiv:2606.26969v1 [cs.AI] 25 Jun 2026
+
+side him? In those notes, Einstein writes that such
+a stationary light wave seemed impossible both
+empirically and according to Maxwell’s equations.
+His simple thought experiment hadtransformed
+an abstract tensionbetween electrodynamics and
+intuitions about motion, into a concrete scene upon
+which reasoning could be built.
+It is precisely in this spirit that “Einstein World
+Models” invoke “ Einstein”. Vitally, the “E” in
+EWM also carries a dual reading, overloaded to
+mean “Externalised”. Externalisation brings the
+thought experiment into view as an inspectable
+reasoning trace component, and therefore, as a
+measurable one (Nwadike et al., 2026), as per
+chain-of-thought (Wei et al., 2022). LLMs can
+already search the web when they lack reliable
+facts (Nakano et al., 2021), run code when
+numerical calculation is needed (Gao et al., 2023),
+and call external tools when a task is easier to act
+out than to solve from tokens alone (Schick et al.,
+2023; Yao et al., 2023; Patil et al., 2024). What we
+propose is to render LLMs capable of imagining a
+scene, when quantitatively beneficial.
+Hadamard (Hadamard, 1945), in his inquiry into
+the inner mental processes behind mathematical in-
+vention, recorded Einstein’s self-description of the
+thought experiment process in strikingly imagistic
+terms:
+—Professor Albert Einstein(Hadamard, 1945)
+“The psychical entities which seem to serve as
+elements in [my] thought are certain signs and more
+or less clear images which can be ‘voluntarily’ repro-
+duced and combined.
+. . . The above mentioned elements are, in
+my case, of visual and some of muscular type.
+Conventional words or other signs have to be sought
+for laboriously only in a secondary stage, when the
+mentioned associative play is sufficiently established
+and can be reproduced at will. ”
+In a thought experiment, the combination of vi-
+suals, albeit subject to meaning, takes precedence,
+while symbols and words play an augmentative
+role. Although LLMs already excel with words and
+symbols in chain-of-thought, their visual-temporal
+reasoning faculties are yet to capture this dynamic
+(kindly see Section 4). Thus, in an effort towards
+precisely this dynamic, prior work has popularised
+world models (LeCun et al., 2022).
+These works often characterise world modelling
+as either passive visual prediction from experience
+(Bardes et al., 2024; Garrido et al., 2025), or action-
+conditioned prediction for embodied agents (Mur-
+Labadia et al., 2026; Nam et al., 2026; Maes et al.,
+2026). However, if world models are treated mainly
+as high-fidelity simulators of futures tethered either
+to observed states or to chosen actions, then thought
+experiments become correspondingly limited ei-
+ther to experience, or to intervention (see Supple-
+mentary Notes, Part C). Einstein World Models
+reconsider this correspondence. Much like Ein-
+stein could visualise riding beside a beam of light
+without first having to ride one, a language model
+should be able to benefit from imagining how a
+described scene could unfold, without necessarily
+acting within it.
+A decisive element inEinstein World Modelsis
+the choice of aworld-modulecapable of produc-
+ing useful video thought experiment rollouts, as
+discussed in Section 3. Equally central is the abil-
+ity to integrate these rollouts back into the LLM’s
+reasoning trace, as discussed in Section 2.
+Our analysis of this element forms one of
+three contributions: First, we propose Einstein
+World Models as a mechanism for selective visual-
+temporal thought experiments instantiated by tool-
+use behavior in LLM reasoning. Second, we dis-
+tinguish Einstein World Models as reasoning sys-
+tems, from the world-modules they call, treating
+generated rollouts as inspectable intermediate ar-
+tifacts. Third, we offer dataset and training rec-
+ommendations for training LLMs into Einstein
+World Model reasoners, capable of utilising visual-
+temporal thought-experiment traces.
+2 Einstein World Models
+2.1Overview
+The objectives ofEinstein World Modelsare
+twofold. First, we wish to imbue language models
+with the ability to construct visualisations when
+answering questions that require physical intuition
+or scene-level visualisation. Second, we wish to ob-
+tain a window into those visualisations. An EWM
+rollout, as illustrated in Figure 1, is in effect, a visi-
+ble hypothesis about how a described scene might
+unfold.
+LetT denote a reasoning trace, and letN denote
+the number of autoregressive text-generation steps
+in that trace. A standard CoT trace uses these N
+steps to generate text alone. An Einstein World
+Model also generates text autoregressively, but at
+a sparse set of M intermediate generation steps,
+
+CoT
+Vision
+Encoder
+“If I chased light, would it stand still?”
+VLM
+VL-JEPA
+Predictor
+LLM
+LLM
+Minimise
+Difference
+—
+Vision
+Encoder
+Text
+Encoder
+LLM
+×N
+×M
+Question
+Visuals
+World- module
+Visuals
+Visuals
+×N
+“If I chased light,
+would it stand still?”
+“If I chased light, would it stand still?”
+“If I chased
+light, would it
+stand still?”
+EWM
+Thoughts
+Answer
+Question
+Question
+Thoughts
+Answer
+Answer
+Answer
+Question
+Figure 2:If Einstein were travelling away from the Bern clock tower at the speed of light, would the clock’s
+hands appear frozen in time?This figure compares how different reasoning paradigms would support such a
+thought experiment.Top left:In CoT, the LLM reasons only through N autoregressive text-generation steps.Top
+right:In VLMs, visual information can condition generation, but the relevant visuals are externally provided,
+rather than visualised during the reasoning trace.Bottom left:In VL-JEPA-style world models, predictive visual
+representations are learned from observed visual inputs, but the visual prediction itself is not selectively invoked as
+an intermediate reasoning artifact.Bottom right:InEinstein World Models, by contrast, the LLM (the reasoner)
+preserves autoregressive text generation while taking responsibility for deciding when to invoke a world-module
+M times, how to query it, and how to incorporate each returned rollout into subsequent reasoning. Each rollout
+therefore enters the trace as a visible thought experiment rather than as a pre-given input or final answer.
+queries a world-module. Each call to the world-
+module produces a short video sequence, which
+is then returned to the reasoner and used to con-
+dition subsequent generation. Figure 2 contrasts
+this structure with CoT, VLMs, and VL-JEPA-style
+world models.
+For problems in which Einstein World Models
+are useful, we expect that
+0<M≪N−1,
+as the purpose of a rollout is not to replace the
+chain-of-thought, but to externalise a visualised
+scene, at moments where doing so facilitates sub-
+sequent reasoning.
+
+Once returned, the rollout becomes part of the
+reasoning trace. The choice of prompt used to
+query the world-module is therefore part of the
+reasoning problem as well. As with web search, the
+query helps determine what information is returned.
+InEinstein World Models, the reasoner must learn
+not only when to visualise, but how to query for the
+visualised scene that will support later reasoning.
+2.2Rollouts as Inspectable Hypotheses
+Externalised thought makes latent assumptions vis-
+ible (Nwadike et al., 2026).Einstein World Mod-
+elsextend this principle from language to visual-
+temporal reasoning. Instead of leaving the model’s
+visualised scene implicit, the system renders that
+scene as an examinable video artifact, for instance
+as a sequence of frames.
+Because this rollout is externalised, it can be
+shared and studiedwithout access to model weights
+or hidden activations. In this sense,Einstein World
+Modelsturn an otherwise private visualised episode
+into a public object of analysis, even when the
+underlying model is not itself open to inspection.
+Key here is the distinction between thein-
+spectabilityof the world-module’s rollout, and the
+physicalplausibilityof the rollout. A rollout is
+not considered more plausible solely because it
+is inspectable. Furthermore, the visual-temporal
+rollout need not begin from physically ordinary
+premises in order to be informative. Einstein’s own
+light-chasing scene, for example, was not valuable
+because it was itself a realisable experiment. To
+the contrary, it wasconspicuously counterfactual.
+However, it was valuable because it made a counter-
+intuitive possibility precise enough to reason about.
+Similarly, we neither treat the rendered visibility
+of an EWM rollout as evidence of its plausibility,
+nor its imperfections as evidence that it is uninfor-
+mative. What matters is whether the hypothesis it
+exposes can be inspected, tested, and improved.
+2.3 Inference
+At inference time, anEinstein World Modelis spec-
+ified by two core components
+πθ andW.
+Here,πθ denotes theEinstein reasoner, a trainable
+LLM policy parameterised by θ, andW denotes
+the world-module.πθ generates a reasoning trace
+and may queryW for visual-temporal rollouts. If
+queried,W generates these video rollouts, and re-
+turns them toπθ for further autoregression.
+For a text-only input problemx, inference con-
+structs a thought trace with the initialisation
+T0 =x,
+such thatTt then denotes the partial trace after step
+t. At each step, the Einstein reasoner defines a con-
+ditional distribution over the next model-generated
+segment,
+πθ(·|T t).
+A generated segment is either a non-tool segment
+st, such as language reasoning or a final answer,
+or a world-module query segment qt. If a query
+qt is generated, the world-module returns a visual-
+temporal rollout
+vt∼W(q t).
+The trace update is therefore
+Tt+1 =T t⊕
+(
+st,ifWis not queried,
+[qt,vt],ifWis queried. (1)
+Thus, ordinary text segments are appended directly
+to the trace, while world-module calls append the
+reasoner-generated query, concatenated with the
+returned rollout observation. If the generated seg-
+ment is a final answer, inference terminates and
+returns that answer.
+In implementation, these trace segments
+can be serialised with special tags, format-
+ted similarly to recent RL-based tool-use sys-
+tems for search and agentic tool interaction
+(Jin et al., 2025; Singh et al., 2025). An
+EWM trace may use <think>...</think>
+for language reasoning, <tool_call>{“name”:
+“world_module”, “query”: q}</tool_call>
+for a world-module query,<visual_rollout>...
+</visual_rollout> for the returned visual-
+temporal rollout, and <answer>...</answer> for
+the final answer.
+The <visual_rollout> segment is returned by
+W. In practice,W may render a short sequence of
+frames, which can be encoded into visual tokens
+for incorporation into the reasoning trace. The
+rendered frames remain available for inspection,
+while the visual tokens provide the representation
+consumed by the reasoner.
+2.4 Training
+At the initial stage, the reasoner undergoes super-
+vised fine-tuning on EWM trace formats with stan-
+dard next-token cross-entropy, masking returned
+
+rollout observations from the loss as detailed in the
+Supplementary Notes, part A.
+Consistent with standard practice in recent
+reasoning-model training (Guo et al., 2025), we
+then recommend following SFT with RLVR-style
+training over complete EWM trajectories, since
+target tasks provide verifiable final answers even
+when intermediate visual thought experiments re-
+main unlabeled. RL-based tool use already pro-
+vides a standard methodology for training LLMs to
+call fixed external systems, such as search engines,
+and incorporate their returned outputs (Jin et al.,
+2025; Qian et al., 2025; Singh et al., 2025).
+Formally, letD={(x i,y⋆
+i )}n
+i=1 be a dataset of
+text-only problemsxi with verifiable final answers
+y⋆
+i . A sampled EWM trajectory is a completed
+thought traceT containing all language-reasoning
+segments, world-module queries, returned rollouts,
+and the final answerˆy.
+Let r(ˆy,y⋆) denote the verifier reward for the
+final answer. For exact-answer tasks, this may sim-
+ply ber(ˆy,y⋆) =1[ˆy=y ⋆].
+Since world-module calls may be computation-
+ally expensive and should be used selectively, we
+define an EWM reward that combines final-answer
+correctness with an optional additional reward term
+for world-module usage.
+rM(T,y ⋆) =r(ˆy,y⋆) +rW(T).(2)
+Here,rW(T) denotes the optional implementation-
+dependent reward for world-module calling behav-
+ior in the trace. We address this reward in Sec-
+tion 2.4.1.
+A GRPO-style implementation (Shao et al.,
+2024) can optimise this reward with a clipped sur-
+rogate. For each training pair (x,y⋆)∼D , sample
+G complete EWM rollouts τ1:G ={τ i}G
+i=1 using
+the frozen old reasonerπ old with access toW.
+Letri =rM(τi,y⋆). The group-relative advan-
+tage of rolloutiis
+Ai = ri−¯r
+sr +ϵ adv
+,
+where ¯randsr are the mean and standard deviation
+of theri withinτ 1:G.
+Letτi = (zi1,...,z iLi) denote the serialized tra-
+jectory, whereLi is its length andzit is the token at
+positiont. Also let 1 it = 1 for policy-generated to-
+kens and 1 it = 0 for returned rollout observations.
+DefineLg
+i =PLi
+t=1 1 it, and, for generated tokens,
+ρit = πθ(zit|τ i,<t)
+πold(zit|τ i,<t).
+Writing clipϵ(r) = clip(r,1−ϵ,1 +ϵ) , the EWM
+training objective is
+JE(θ) =E x,τ 1:G
+"
+1
+G
+GX
+i=1
+1
+Lg
+i
+LiX
+t=1
+1 it
+min(ρitAi,clip ϵ(ρit)Ai)
+−βD KL(πθ∥πref)
+#
+.
+(3)
+Here,πref is the original pre-RL LLM used as
+a reference policy, and β≥0 controls the KL
+penalty that discourages drift from it.
+Feasibility.Prior work suggests that language
+models can acquire structured representations of
+space, time, colour, and other real-world variables
+from language alone (Gurnee and Tegmark, 2024;
+Huh et al., 2024). The LLM already contains much
+of the world knowledge needed to query a world-
+module effectively. Thus, the remaining task is
+not necessarily fresh pretraining from scratch, but
+targeted post-training. Furthermore, autoregressive
+reasoning and video rollouts share a forward tem-
+poral structure. A chain of thought advances token
+by token, while a visualised scene advances frame
+by frame. The unidirectional nature of autoregres-
+sion is surprisingly robust in practice (Nwadike
+et al., 2025). It is also reflected in models that com-
+bine autoregressive prediction with latent diffusion
+sampling (Parker-Holder et al., 2024).
+2.4.1Selective Thought Experiments
+The rW term is intended to encourage selective
+world-module use. IfrW(T) = 0 , then selectivity
+can be learned solely through the final-answer re-
+ward, as in Jin et al. (2025) and Qian et al. (2025).
+Emerging evidence, however, suggests that shaping
+rewards beyond final-answer correctness can en-
+courage more specific behaviours, from improved
+reasoning to more efficient tool use (Guo et al.,
+2025; Chen et al., 2026; Wang et al., 2025). For
+example, one may set rW(T) =−λM(T)/B ,
+where M(T) counts world-module calls, B is a
+call budget, and λ≥0 controls the penalty for
+excessive calling.
+Upon choice of rW, Algorithm 1 summarises
+how the resulting rewardrM may be utilised during
+training. OptimisingJE in Eq. 3 converts this trace-
+level reward into group-relative advantages over
+complete EWM trajectories. Traces where a visual
+thought experiment proves useful enough to justify
+its world-module usage receive higher advantages,
+
+while unnecessary or unhelpful calls receive lower
+advantages. The reasoner therefore learns when to
+queryWand how to use the returned rollout.
+Algorithm 1Proposed EWM RLVR protocol
+Require: DatasetD, reasonerπθ, reference policy
+πref, world-moduleW, group sizeG
+1:foreach GRPO update rounddo
+2:Set frozen old policyπ old←π θ
+3:Sample training batch fromD
+4:foreach(x,y ⋆)in the batchdo
+5:SampleGtrajectoriesτ 1:G
+usingπ old with access toW
+6:foreach trajectoryτ i do
+7:Generate<think>,<tool_call>,
+or<answer>segments
+8:ifthe world-module is invokedthen
+9:CallWwith the query
+in<tool_call>
+10:Append rollout as a
+<visual_rollout>segment
+11:end if
+12:Compute rewardr i =r M(τi,y⋆)
+13:end for
+14:Compute group-relative advantagesA i
+15:end for
+16:Compute importance weightsρ it
+over reasoner-generated tokens
+17:Mask returned visual-rollout observations
+from the policy loss
+18:Updateπ θ by maximisingJE in Eq. 3
+19:end for
+3World-Module Selection
+Since RLVR optimises the reasoner’s use of the
+world-module rather than the world-module itself,
+the question becomes how to select a module that
+produces useful visual-temporal thought experi-
+ments.
+3.1 Architecture
+World-modules may come in several forms. We
+modify recent informal taxonomies (Li and Labs,
+2026) of worldmodelsto distinguish candidate
+world-modules:
+1. Renderers: return observations, such as images
+or video frames. InEWMs, renderers are the
+default world-modules. Text-to-video genera-
+tors, or image-to-video generators used within a
+text-to-image pipeline, are of particular interest.
+This includes (but is not limited to) diffusion and
+flow-matching video models, provided their roll-
+outs expose information that can support later
+reasoning (Kong et al., 2024; Wan Team et al.,
+2025; HaCohen et al., 2024).
+2. Simulators: allow the reasoner to intervene in
+a visualised world and observe what follows.
+Interactive world models such as Genie-style
+systems provide one example of this interface
+(Bruce et al., 2024; Parker-Holder et al., 2024),
+and benchmarks such as WBench suggest that
+the coherence of such interactive rollouts can be
+measured (Ying et al., 2026). However, in prac-
+tice, repeated renderer calls may play the role
+of a simulator, making arenderer(aforemen-
+tioned) the primary world-module of interest.
+In particular, the LLM can inspect one visu-
+alised consequence, revise its hypothesis, and
+then request another rollout from a modified
+condition or counterfactual premise. Simulators
+are therefore useful when a thought experiment
+requires explicit intervention, but they are not
+required for the centralEinstein World Model
+mechanism.
+3. Planners: InEinstein World Models, planning
+remains the role of the LLM reasoner, since the
+aim is visual-temporal reasoning over thought
+experiment sequences, rather than embodied
+robotic action.
+3.2 World-Module Quality
+Einstein’s visual thought experiments were disci-
+plined by strong physical intuition. A generated
+video rollout may therefore only be as useful as
+the physical intuitions sustained by its underlying
+video model.
+Diffusion models remain strong candidates be-
+cause their intuitive-physics quality can be mea-
+sured through human-verifiable likelihood esti-
+mates derived from the denoising objective of the
+diffusion model. Yuan et al. (2025) use precisely
+this technique to find substantial differences be-
+tween video diffusion models, with stronger perfor-
+mance from recent systems. Some video genera-
+tors remain unreliable physical simulators (Bansal
+et al., 2025; Zhang et al., 2025; Motamed et al.,
+2026). However, not all diffusion models are equal,
+and the frontier is fast-improving. Recent physics-
+aware generators further suggest that explicit dy-
+namical priors can improve physical consistency
+and controllability (Yuan et al., 2026).
+Einstein World Models also require rollout faith-
+fulness. A faithful rollout exposes information that
+the reasoner actually uses and that the final answer
+
+depends on. An unfaithful rollout, much like in tra-
+ditional chain-of-thought, may not reveal the com-
+putation that produced the answer (Turpin et al.,
+2023; Lanham et al., 2023). The response is not
+to abandon the need for video rollout traces, but to
+evaluate and improve their faithfulness (Nwadike
+et al., 2026).
+3.3Ensembling
+Einstein World Models already allow repeated
+world-module calls within a single reasoning trace.
+Here,ensemblingextends beyond repeated calls
+to a single module to describe the comparison of
+visual hypotheses generated by different world-
+modules, much as different humans may visualise
+the same problem differently. One module may
+favour visual realism, another physical consistency,
+and another temporal continuity. Because rollouts
+are externalised, these assumptions can be com-
+pared rather than left hidden. The problem is there-
+fore not only to select a strong world-module, but to
+select modules whose inductive biases are usefully
+different.
+Inensembling, different LLM reasoners, at-
+tached to different world-modules, exchange roll-
+outs and critiques before answering. Each rollout
+proposes a different interpretation of the scene, and
+disagreement reveals what must be inspected next.
+4 Related Work
+Chain-of-thought (Wei et al., 2022) made interme-
+diate reasoning visible, but made it visible only as
+language. Many commonsense questions depend
+on variables that text traces represent poorly, in-
+cluding object identity, containment, contact, heat,
+motion, and material state. Humans often reason
+about such variables through visualisation. Ein-
+stein World Models seek to provide an analogous
+capability for language models by treating visu-
+alised visual episodes as intermediate reasoning
+artifacts.
+Whiteboard-of-Thought (Menon et al., 2024)
+is a notable procedural predecessor for Einstein
+World Models. It gives a multimodal model a vi-
+sual scratchpad, asks it to draw intermediate rea-
+soning steps as an image, often through code, and
+then feeds that image back into the model for final
+reasoning. Einstein World Models preserve this
+feedback loop, but change the artifact from a static
+drawing to a short video rollout that serves as a
+visual play-through of a hypothesis.
+Hu et al. (2024) similarly give multimodal LMs
+an external visual sketchpad for intermediate rea-
+soning. However, the resulting artifacts are mainly
+static visual annotations (auxiliary lines, bounding
+boxes, segmentation masks, etc.) produced through
+programmatic tools, rather than visual-temporal
+rollouts.
+Wu et al. (2024) propose Visualization-of-
+Thought (V oT), a related method for spatial reason-
+ing in LLMs. However, V oT focuses on controlled
+2D grid-world tasks rather than real-world visual-
+temporal thought experiments. Its visualisations
+remain text-form grids or maps, not separate visual-
+temporal rollouts. Thus, V oT is best understood as
+a prompting strategy for symbolic state tracking,
+whereas the aim of Einstein World Models is to let
+a reasoner call a world-module and incorporate the
+resulting rollout into its trace.
+In other work, Chern et al. (2025) showed that
+when generating an image from a prompt, interme-
+diate visual subgoals can guide the model toward a
+better final image. However, their work focused on
+the objective of image generation as the end goal,
+rather than enhanced reasoning as the end goal (the
+latter being merely facilitated by visualisation as a
+means to an end).
+Tong et al. (2025) study whether video gen-
+eration models can reason by producing answer-
+bearing videos. Einstein World Models pursue a
+different research objective. Rather than asking
+whether the video generator can serve as the rea-
+soner, EWMs ask whether an LLM can use video
+generation as a thought experiment tool. In other
+words, rather than replacing the LLM with a video
+generator, we ask how frontier LLMs can decide
+when visualisation is useful, selectively invoke the
+world-module, and integrate the resulting rollout
+back into reasoning.
+Yang et al. (2025) and Yu et al. (2026) explore
+the importance of visualisation for 3D spatial rea-
+soning in VQA-style settings, where the model
+begins from an observed image and generates addi-
+tional views to answer questions about that scene.
+This differs from the setting of interest here, where
+thought experiments are used to support text-based
+reasoning problems and the model must decide,
+as part of its own reasoning process, when visual-
+temporal rollouts are useful.
+We discuss the relationship between Einstein
+World Models and contemporary agentic LLM sys-
+tems in the Supplementary Notes, Part B.
+
+5 Future Work: A Call for Datasets
+A central bottleneck for Einstein World Models is
+data. Few existing datasets explicitly target the
+behaviour Einstein World Models require. The
+missing setting is neither ordinary text reasoning,
+nor visual question answering over an already pro-
+vided image. It is a setting in which an LLM is
+fully capable of taking in text alone as input (even
+without the aid of visual inputs, when requested),
+and can perform a visual thought experiment in
+its reasoning trace before outputting final answer
+tokens. This makes dataset construction the imme-
+diate experimental bottleneck for Einstein World
+Models, since the core learning problem still lacks
+a suitable benchmark.
+SimpleBench is one of the rare public datasets
+pointing in this direction. However, the full dataset
+contains only a little over 200 questions, while its
+public release exposes only 10, making it useful as
+an illustration, rather than as a training corpus. The
+questions in SimpleBench are short and text-only,
+yet difficult, because answering them correctly of-
+ten depends on performing a thought experiment
+about how a described scene unfolds. Consider the
+following example:
+SimpleBench(Philip and Hemang, 2024)
+Test Sample #2
+Question:A juggler throws a solid blue ball a meter
+in the air and then a solid purple ball (of the same size)
+two meters in the air. She then climbs to the top of
+a tall ladder carefully, balancing a yellow balloon on
+her head. Where is the purple ball most likely now, in
+relation to the blue ball?
+A. at the same height as the blue ball
+B. at the same height as the yellow balloon
+C. inside the blue ball
+D. above the yellow balloon
+E. below the blue ball
+F. above the blue ball
+Correct Answer:A.
+What makes this question difficult for LLMs is
+that it requires visualising the scene, and realising
+that, although the purple ball is thrown higher than
+the blue ball, enough time passes for both solid
+balls to fall back down before any juggler could
+possibly finish climbing a ladder while carefully
+balancing a balloon on their head. A text-only LLM
+may over-formalise the prompt and conclude that
+the answer depends on unspecified variables such
+as launch velocity or climbing time. However, a
+one- or two-metre throw lasts only moments, while
+carefully climbing a tall ladder takes long enough
+for ordinary solid balls to land. An EWM rollout
+would externalise such a missing visual-temporal
+computation, allowing it to become part of the rea-
+soning trace.
+Existing physical reasoning datasets are valu-
+able, but many begin with the relevant scene al-
+ready available. Some focus on two-dimensional
+puzzle images (Bakhtin et al., 2019). Others ask
+models to explain, predict, or judge physical events
+in supplied video clips (Yi et al., 2020; Bear et al.,
+2021; Riochet et al., 2018; Bordes et al., 2025).
+Still, others focus on the physical fidelity of video
+generators. Even then, the visual scene is supplied
+in advance, either as initial frames to complete,
+or as rendered samples to score (Upadhyay et al.,
+2026; Yuan et al., 2025). By contrast, Einstein
+World Models need datasets where the problem be-
+gins as language, and the model must decide, for
+itself, whether to generate a visualisation.
+We therefore make an open call for datasets in
+this setting. Ideally, such datasets should contain
+both problems that benefit from visual thought ex-
+periments, and problems that do not, allowing Ein-
+stein World Models to learn not only how to visu-
+alise, but also when not to.
+Epilogue
+This paper proposed Einstein World Models, for
+treating visual thought experiments as a tool-use
+behaviour in LLM reasoning. The central idea is
+that some questions require a model to visualise
+how a described scene unfolds, and that this may
+be poorly supported by language alone. EWMs
+keep the LLM as the reasoner, but allow it to call a
+world-module, render a short visual-temporal roll-
+out, and return that rollout to the reasoning trace
+before answering. A video rollout is not assumed
+to be a perfect simulation, but rather a visual hy-
+pothesis about how a described situation may un-
+fold. Its distinctive usefulness comes from being
+externalised, making the model’s reasoning process
+available for inspection and debugging. The path
+forward thus requires both better world-module
+curation, as well as better datasets to allow for
+training LLMs on when and how thought experi-
+ments should be invoked. In this sense, Einstein
+World Models point toward language models that
+reason not only through words and symbols, but
+through externalised visual walk-throughs.
+
+Supplementary Notes
+ASupervised Finetuning
+Before reinforcement learning, the Einstein rea-
+soner may be warm-started with supervised fine-
+tuning on valid EWM trace formats using a stan-
+dard cross-entropy loss. This stage teaches the syn-
+tax and role structure of EWM reasoning traces,
+including ordinary language reasoning, world-
+module query segments, returned visual-rollout
+observations, and final-answer segments. For ex-
+ample, traces may use <think> for language rea-
+soning, <tool_call> for world-module queries,
+<visual_rollout> for returned observations, and
+<answer>for final answers.
+Let
+DSFT ={(x i,T ⋆
+i )}i
+be a supervised dataset of input problems and target
+EWM traces. Each traceT ⋆
+i contains both reasoner-
+generated segments and observation segments re-
+turned by the world-module. The model is trained
+with standard next-token cross-entropy, but only on
+tokens generated by the reasoner. Returned visual
+rollouts are observations, not policy actions, and
+are therefore masked from the supervised loss.
+Let z⋆
+t denote the target token at position t in
+the serialized traceT ⋆. Let 1 t = 1 ifz⋆
+t is a tar-
+get token that the reasoner is expected to produce,
+and let 1 t = 0 ifz⋆
+t is part of a returned rollout
+observation. The masked supervised fine-tuning
+loss is:
+LSFT(θ) =
+− E
+(x,T ⋆)∼DSFT
+
+1P
+t 1 t
+X
+t
+1 t logπθ
+
+z⋆
+t|T ⋆
+<t
+
+!
+.
+Thus, supervised fine-tuning prepares the Ein-
+stein reasonerπθ for RLVR by teaching it the for-
+mat of valid EWM traces, while RLVR teaches
+when and why such traces should contain visual
+thought experiments. Crucially,DSFT should in-
+clude both call and no-call traces, so that the model
+learns the world-module interface without learning
+to invokeWby default.
+BRelation to Agentic Systems
+Modern LLM agents are commonly understood as
+language models augmented with additional ma-
+chinery for tool use, planning, environment inter-
+action, or action execution on behalf of a user (Yao
+et al., 2023; Shen et al., 2023). However, although
+an EWM can be incorporated into an agentic sys-
+tem, it is not necessarily an agent in itself. Such
+systems may qualify as Einstein World Models
+when they use a world-module to generate visual-
+temporal rollouts as intermediate reasoning arti-
+facts, but not merely by virtue of being agents. Ex-
+isting agentic systems can call tools, but they do not
+by default perform externalised visual thought ex-
+periments in the sense proposed here. Conversely,
+an Einstein World Model need not have the broader
+infrastructure of a general-purpose agent for exe-
+cuting user-facing actions, such as managing soft-
+ware repositories or querying databases. It may be
+implemented as a language reasoner that calls a
+world-module only to imagine a described scene,
+inspect the resulting rollout, and incorporate it into
+its reasoning trace. In this sense, EWMs describe a
+reasoning capability that can either stand alone, or
+be added to agentic systems.
+CRelation to Other World Models
+The termworld modelhas a long history in AI,
+especially in model-based reinforcement learning,
+where learned models of environment dynamics
+support planning, control, and interaction with an
+environment (Sutton, 1991; Ha and Schmidhuber,
+2018). In this lineage, a world model helps an
+agent anticipate possible futures before acting in
+the external world. More recent proposals similarly
+treat world models as central components of au-
+tonomous systems that learn to predict, reason, and
+plan over future states (LeCun et al., 2022).
+Einstein World Models shift the emphasis from
+the notion of a worldmodelto that of a world-
+module. An EWM is not itself a learned dynamics
+model, simulator, or video generator. It is a reason-
+ing system in which the LLM remains the reasoner
+and calls the world-module when a visual-temporal
+thought experiment may support its reasoning trace.
+The world-module is the component most closely
+aligned with what is traditionally the predictive
+component of a world model. It need not be a full
+3D simulator, and is treated only as a component
+of a reasoning system. Its role in an EWM is to
+supply an inspectable rollout rather than to replace
+the LLM’s reasoning process.
+This distinction also shifts what must be learned.
+Whereas many world-model architectures focus on
+modelling environmental dynamics, EWMs focus
+on how a reasoner should selectively invoke visual-
+isation to facilitate reasoning.

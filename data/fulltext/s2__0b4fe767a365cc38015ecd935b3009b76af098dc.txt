@@ -1,0 +1,903 @@
+record_id: s2:0b4fe767a365cc38015ecd935b3009b76af098dc
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2512.20973
+fetched_title: DAO-Agent: Zero Knowledge-Verified Incentives for Decentralized Multi-Agent Coordination
+fetched_at: 2026-09-18T19:00:19Z
+
+DAO-Agent: Zero Knowledge-Verified Incentives for
+Decentralized Multi-Agent Coordination
+Yihan Xia
+xiayihan2023@email.szu.edu.cn
+Shenzhen University
+Shenzhen, China
+Taotao Wang∗
+ttwang@szu.edu.cn
+Shenzhen University
+Shenzhen, China
+Wenxin Xu
+xuwenxin2022@email.szu.edu.cn
+Shenzhen University
+Shenzhen, China
+Shengli Zhang
+zsl@szu.edu.cn
+Shenzhen University
+Shenzhen, China
+Abstract
+Autonomous Large Language Model (LLM)-based multi-agent sys-
+tems have emerged as a promising paradigm for facilitating cross-
+application and cross-organization collaborations. These autonomous
+agents often operate in trustless environments, where centralized
+coordination faces significant challenges, such as the inability to
+ensure transparent contribution measurement and equitable in-
+centive distribution. While blockchain is frequently proposed as a
+decentralized coordination platform, it inherently introduces high
+on-chain computation costs and risks exposing sensitive execution
+information of the agents. Consequently, the core challenge lies in
+enabling auditable task execution and fair incentive distribution for
+autonomous LLM agents in trustless environments, while simulta-
+neously preserving their strategic privacy and minimizing on-chain
+costs. To address this challenge, we propose DAO-Agent, a novel
+framework that integrates three key technical innovations: (1) an on-
+chain decentralized autonomous organization (DAO) governance
+mechanism for transparent coordination and immutable logging;
+(2) a ZKP mechanism approach that enables Shapley-based contri-
+bution measurement off-chain, and (3) a hybrid on-chain/off-chain
+architecture that verifies ZKP-validated contribution measurements
+on-chain with minimal computational overhead. We implement
+DAO-Agent and conduct end-to-end experiments using a crypto
+trading task as a case study. Experimental results demonstrate that
+DAO-Agent achieves up to 99.9% reduction in verification gas costs
+compared to naive on-chain alternatives, with constant-time veri-
+fication complexity that remains stable as coalition size increases,
+thereby establishing a scalable foundation for agent coordination
+in decentralized environments.
+Keywords
+Multi-Agent Systems, Blockchain, Zero-Knowledge Proofs, Shapley
+Value, Decentralized Autonomous Organizations
+1 Introduction
+Autonomous Large Language Model (LLM)-based multi-agent sys-
+tems have emerged as a promising paradigm for cross-application
+collaborations [15, 30]. However, these agents often operate in trust-
+less environments where centralized coordination faces significant
+∗Corresponding author.
+challenges: ensuring transparent contribution measurement, equi-
+table incentive distribution, and preventing strategic manipulation
+by rational agents.
+While blockchain offers decentralized coordination through smart
+contracts and Decentralized Autonomous Organizations (DAOs),
+it introduces prohibitive on-chain computation costs and risks ex-
+posing sensitive agent execution data [ 8, 22]. Existing solutions
+face fundamental limitations: permissioned blockchains sacrifice
+decentralization [3], oracle-based systems reintroduce centralized
+trust [10, 17], and current verifiable computation approaches lack
+practical scalability for dynamic multi-agent scenarios [14].
+This analysis reveals a fundamental dilemma between trust and
+efficiency as Multi-Agent Systems (MAS) evolve towards DAOs.
+Traditional blockchain architectures adhere to “Code is Law, ” offer-
+ing maximal transparency but suffering from severe computational
+constraints that preclude complex LLM reasoning or game-theoretic
+calculations (e.g.,𝑂(𝑛 !) complexity). Conversely, off-chain systems
+possess abundant compute but lack verifiable mechanisms to ensure
+task quality or fair reward distribution.
+To resolve this, our research goal is to establish a“Compute
+Off-chain, Verify On-chain”paradigm. Specifically, we aim to
+achieve:
+• From Unstructured to Ordered: Bridging the gap between
+natural language goals and executable logic by utilizing
+LLMs for dynamic task planning and DAG generation.
+• Fairness through Game Theory: Ensuring equitable in-
+centive distribution through Shapley values, which axiomat-
+ically quantify each agent’s marginal contribution to collab-
+orative outcomes.
+• Proof as Justice: Replacing reliance on centralized coordi-
+nators with Zero-Knowledge Proofs (ZKP), effectively trans-
+forming “trust in intermediaries” into “trust in mathematics. ”
+We proposeDAO-Agent, a novel framework integrating these
+principles. DAO-Agent employs a hybrid architecture where agents
+collaborate off-chain while ensuring verifiable contribution mea-
+surement through cryptographic proofs.
+Our main contributions are three key technical innovations:
+(1) Hybrid On-chain/Off-chain Architecture:We design a
+novel architecture that separates computationally intensive
+Shapley value calculation from lightweight on-chain verifi-
+cation, achieving constant𝑂(1)verification cost regardless
+of agent count.
+arXiv:2512.20973v1 [cs.MA] 24 Dec 2025
+
+Conference’17, July 2017, Washington, DC, USA Xia et al.
+(2) Fair Contribution Measurement:We implement a contri-
+bution measurement system based on Shapley values from
+cooperative game theory. This mechanism provides axiomat-
+ically fair reward allocation, making honest participation a
+dominant strategy for rational agents.
+(3) Verifiable “Proof as Justice” Architecture:We construct
+a ZKP-based verification pipeline (using recursive proof com-
+position: STARK proofs wrapped in Groth16) that allows the
+blockchain to verify off-chain game-theoretic computations
+with𝑂( 1) cost, ensuring that the incentive distribution is
+mathematically proven to be fair without exposing private
+strategies.
+We implement DAO-Agent and demonstrate its effectiveness
+through crypto trading experiments, showing significant cost re-
+duction while maintaining fairness and system robustness at scale.
+The remainder of this paper systematically develops our solution:
+Section 3 formalizes the system model and trustless coordination
+challenges that motivate our architectural design; Section 4 presents
+our hybrid on-chain/off-chain framework that transforms abstract
+design goals into concrete cryptographic protocols; and Section 5
+validates our approach through comprehensive experiments demon-
+strating constant-cost verification and fair incentive distribution.
+Note that detailed ZKP construction is discussed in Section 4.3.
+2 Related Work
+Our work intersects three research domains: multi-agent collabo-
+ration systems, blockchain-based coordination mechanisms, and
+zero-knowledge proof technologies. We position DAO-Agent rela-
+tive to prior work in each area and highlight our contributions.
+2.1 Multi-Agent Collaboration
+Recent advances in large language models have enabled sophisti-
+cated multi-agent collaboration systems capable of autonomous
+task decomposition and execution. MegaAgent [30] demonstrates
+that LLM-based systems can scale to hundreds of agents without
+predefined standard operating procedures, while production sys-
+tems like Anthropic’s multi-agent research platform [2] leverage
+multiple Claude agents for parallel search and synthesis. Building
+on this foundation, HiveMind [31] introduces contribution-guided
+prompt optimization using Shapley value analysis, demonstrating
+principled agent evaluation in centralized environments. Surveys
+[16, 27] identify coordination, scalability, and autonomous decision-
+making as central challenges. However, existing approaches pre-
+dominantly assume centralized coordination or trusted execution
+environments, with none addressing fair contribution measurement
+or equitable incentive distribution in competitive multi-agent sce-
+narios. DAO-Agent extends this line of work by introducing decen-
+tralized coordination through blockchain governance, employing
+game-theoretic Shapley value computation for axiomatically fair
+reward allocation, and achieving privacy-preserving contribution
+measurement through zero-knowledge proofs.
+2.2 Blockchain-Based Coordination
+Decentralized Autonomous Organizations (DAOs) have emerged
+as a novel governance structure enabled by blockchain technology
+[7, 22]. Recent work has begun exploring DAOs for AI coordina-
+tion, though primarily focusing on human-in-the-loop governance
+rather than fully autonomous agent collaboration [ 6]. However,
+DAO governance faces persistent challenges including the whale
+problem and collusion issues [26]. The Shapley value [21, 23] pro-
+vides a principled approach to fair allocation, but its exponential
+computational complexity renders direct on-chain computation
+prohibitively expensive. Recent advances in DAG-based approxi-
+mations [31] have significantly reduced computational overhead
+while maintaining theoretical guarantees. DAO-Agent builds upon
+these techniques and further addresses the challenge of trustless
+verification through a hybrid architecture that separates computa-
+tion from verification, achieving constant verification cost (∼27k
+gas) independent of agent count while preserving computational
+privacy through zero-knowledge proofs.
+2.3 Verifiable Computation and Privacy
+Zero-knowledge proofs (ZKPs) have evolved from theoretical cryp-
+tographic primitives to practical tools for blockchain scalability
+and privacy [24]. Comparative analyses [13] distinguish zkSNARKs
+from zkSTARKs in terms of proof size, verification cost, and trusted
+setup requirements. However, existing applications primarily fo-
+cus on transaction validation and state transitions [1, 5, 11], with
+limited exploration of verifiable computation for multi-party coor-
+dination. Recent advances in multi-modal learning and semantic
+completion techniques [29] demonstrate sophisticated approaches
+to cross-modal data alignment and semantic understanding, which
+inform our approach to ensuring data integrity across heteroge-
+neous agent outputs. DAO-Agent employs a STARK-to-SNARK
+proof aggregation pipeline to apply ZKPs to a novel domain: prov-
+ing correctness of Shapley value computation over committed agent
+outputs, achieving𝑂( 1) on-chain verification cost while supporting
+exponential off-chain computation complexity.
+3 Problem Setup
+This section establishes the system model, formalizes core chal-
+lenges in trustless multi-agent coordination, and defines formal
+security properties that guide the architectural design in Section 4.
+3.1 System and Threat Model
+System Model.Consider a collaborative task 𝑇 that involves𝑛
+autonomous LLM agents, denoted asN={𝑎 1,...,𝑎 𝑛}, each pos-
+sessing specialized capabilities. Each agent𝑎𝑖 produces an output
+𝑜𝑖 during the task execution, where their outputs may be interde-
+pendent. We model this as a cooperative game Γ=(N,𝑣) , where
+the characteristic function𝑣 : 2N→R maps each agent coalition
+𝑆⊆ N to a real value 𝑣(𝑆) quantifying the collaborative value
+created by that subset of agents [ 23]. Formally,𝑣(𝑆)=𝑓 eval(𝑂𝑆)
+where𝑂𝑆 ={𝑜 𝑖 : 𝑎𝑖 ∈𝑆} represents the collective outputs of
+coalition𝑆, and𝑓eval(·) is a task-specific evaluation function. We in-
+stantiate this framework with a cryptocurrency trading task where
+agents collaboratively analyze market data, synthesize trading per-
+spectives, and generate investment strategies. In this domain,𝑣(𝑆)
+quantifies the trading performance achieved by coalition𝑆 based
+on their collective market analysis and decision-making accuracy.
+The marginal contribution of agent𝑎𝑖 to coalition𝑆 is quantified by
+
+DAO-Agent: Zero Knowledge-Verified Incentives for Decentralized Multi-Agent Coordination Conference’17, July 2017, Washington, DC, USA
+𝑣(𝑆∪{𝑎 𝑖})−𝑣(𝑆) . This formulation accommodates collaborative
+synergies through superadditivity:
+𝑣(N)>
+∑︁
+𝑖∈N
+𝑣({𝑎𝑖})(1)
+where𝑣(N) denotes the grand coalition value and𝑣({𝑎𝑖}) repre-
+sents agent𝑖’s standalone contribution. This inequality formalizes
+the collaborative synergy property where collective performance
+exceeds individual capabilities [19, 25].
+Threat Model.Rational, self-interested agents may seek to max-
+imize individual rewards through three primary attack vectors:(1)
+Output Manipulation, where an agent submits a modified output
+𝑜′
+𝑖 ≠𝑜 𝑖 after observing others’ contributions to inflate its perceived
+value;(2) Collusion, where a coalition of agents 𝐾⊆N coordinates
+to unfairly redistribute rewards in their favor; and(3) Strategic
+Withholding, where an agent reduces its effort contribution𝑒𝑖 be-
+low an expected baseline ¯𝑒 while relying on others to compensate
+for the deficit.
+Trust Model.Our model assumes a secure underlying blockchain
+and cryptographic primitives. Specifically: agents cannot compro-
+mise the blockchain infrastructure, as Byzantine fault tolerance en-
+sures the probability of a successful network-level attack,𝜖blockchain,
+is a negligible function of the security parameter𝜆 (i.e.,𝜖blockchain =
+negl(𝜆) where negl(𝜆) denotes any function that decreases faster
+than the inverse of any polynomial in 𝜆) [33]. All cryptographic
+primitives (e.g., hash functions) are assumed to be secure under
+standard computational assumptions. The off-chain Coordinator
+is trusted forliveness(i.e., it will eventually perform its computa-
+tional tasks) but not forcorrectness; its computational integrity is
+enforced cryptographically through zero-knowledge proofs, which
+are verified on-chain.
+3.2 Core Challenges
+Given the threat model, we identify three fundamental challenges
+for trustless, fair, and scalable multi-agent collaboration:
+Challenge C1 (Fair Contribution Measurement):How to
+quantify each agent’s contribution when outputs are interdepen-
+dent and collaborative value exhibits the superadditivity property
+(Eq. 1)? The measurement must satisfy axiomatic fairness—equal
+marginal contributions yield equal rewards, zero marginal contri-
+bution yields zero reward—while accounting for interaction effects.
+Challenge C2 (Verifiable Output Authenticity):How to en-
+sure inputs for contribution measurement are authentic and tamper-
+proof? The system must prevent retroactive output manipulation
+with negligible failure probability, even when agents observe others’
+contributions before finalizing their own.
+Challenge C3 (Scalable Privacy-Preserving Verification):
+How to achieve verifiable fairness without prohibitive on-chain
+costs or revealing strategic information? Fair allocation mechanisms
+like Shapley values require𝑂( 2𝑛) coalition evaluations, economi-
+cally infeasible on-chain beyond𝑛> 6agents. Revealing individual
+outputs may expose competitive strategies.
+Existing approaches face fundamental limitations: centralized co-
+ordinators lack transparency (violating C2); permissioned blockchains
+sacrifice decentralization; oracle-based systems reintroduce trust
+assumptions; direct on-chain Shapley computation violates C3’s
+scalability requirement.
+3.3 Design Goals and Formal Guarantees
+We address challenges C1–C3 through three design goals, each
+paired with a verifiable guarantee that maps the identified risk to a
+concrete mitigation.
+3.3.1 Goal G1: Fair and Incentive-Compatible Contribution Mea-
+surement.To resolve Challenge C1, DAO-Agent must discourage
+strategic deviation while preserving Shapley fairness across all
+coalitions.
+Guarantee G1 (Incentive Compatibility and Collusion Re-
+sistance).DAO-Agent makes honest participation weakly domi-
+nant for each agent and suppresses coordinated manipulation as
+the population grows:
+(1)E[reward 𝑖(honest)]≥E[reward 𝑖(𝜎′
+𝑖)] for every unilateral
+deviation𝜎′
+𝑖 .
+(2) Coalition gain satisfies gain𝐾≤ |𝐾|
+𝑛 ·𝑣(N)+𝑂
+
+|𝐾| 2
+𝑛
+
+for any
+colluding subset𝐾⊆N.
+Here, reward𝑖(·) denotes the expected on-chain payout to agent𝑎𝑖
+under the strategy profile supplied as an argument;𝜎′
+𝑖 denotes any
+unilateral deviation from the honest policy; 𝐾 labels a colluding
+coalition distinct from the generic coalition symbol𝑆; and gain𝐾
+captures the aggregate reward uplift that coalition 𝐾 can realize
+relative to honest execution.
+Shapley allocation (Section 4.2) enforces axiomatic fairness, elim-
+inating profitable unilateral deviations when computation is faithful.
+Guarantee G2 (3.3.2) makes tampering detectable with overwhelm-
+ing probability, so deviations yield no reward. The coalition bound
+follows from the Shapley efficiency axiom: total surplus remains
+𝑣(N) , turning collusion into a zero-sum redistribution that vanishes
+as𝑛increases.
+Theorem 3.1 (Incentive Compatibility).Under the Shapley
+allocation{𝜙𝑖} with cryptographic commitment binding (G2), honest
+participation is a weakly dominant strategy for each agent𝑎 𝑖∈N.
+Proof Sketch. By the Shapley efficiency axiom, ˝
+𝑖∈N 𝜙𝑖 =
+𝑣(N) . Any unilateral deviation𝜎′
+𝑖 that attempts to increase𝜇𝑖 must
+either (1) modify the committed output, which is detected with
+probability1−negl(𝜆) by G2, or (2) manipulate the Shapley com-
+putation, which is verified by the ZKP (G3). In both cases, the devi-
+ation triggers verification failure, resulting in zero payout. Thus,
+E[reward𝑖(𝜎′
+𝑖)]≤negl(𝜆)·𝑣(N)<E[𝜙 𝑖].□
+3.3.2 Goal G2: Cryptographic Commitment for Output Authenticity.
+Challenge C2 demands a verifiable link between off-chain execution
+artifacts and on-chain settlement.
+Guarantee G2 (Commitment Binding).Once an agent output
+𝑜𝑖 is committed at time𝑡, any modification𝑜′
+𝑖 ≠𝑜 𝑖 is detected and
+rejected with probability at least1−negl(𝜆) . For any coalition𝑆⊆
+N with the associated output set𝑂𝑆 ={𝑜 𝑖 :𝑎𝑖∈𝑆} (the collection
+of the outputs from the agents in𝑆) and the corresponding output
+hash setH𝑂𝑆 ={𝐻(𝑜 𝑖) : 𝑜𝑖∈𝑂 𝑆} (the set of the cryptographic
+hashes of these outputs),
+Pr[Accept(𝑂′
+𝑆)|∃𝑜 ′
+𝑖∈𝑂′
+𝑆 :𝐻(𝑜 ′
+𝑖)∉H 𝑂𝑆]≤negl(𝜆).(2)
+where𝑂′
+𝑆 is the submitted output set for coalition𝑆, andAccept(·) is
+the verification predicate that returns true if the submitted outputs
+are consistent with the on-chain commitment [9, 18].
+
+Conference’17, July 2017, Washington, DC, USA Xia et al.
+This guarantee is realized through a dual-commitment scheme
+that provides a trustless foundation for off-chain computation. First,
+agent outputs (𝑜𝑖) are deterministically captured and hashed; the
+resulting hash set is stored on IPFS to generate a content identifier
+(CID), which is then anchored on-chain [4, 28]. Second, the evalu-
+ated coalition value (𝑣(𝑆) ) is also hashed, and its hash (𝐻(𝑣(𝑆)) ) is
+committed directly to the blockchain. This layered cryptographic
+binding ensures that any tampering with either the outputs or their
+evaluated value is detected when the Coordinator verifies the data
+against the immutable on-chain anchors (as detailed in Algorithm 1).
+Security relies on the collision resistance of the hash function 𝐻
+and the immutability of the blockchain.
+Theorem 3.2 (Commitment Binding).For any adversary A
+running in polynomial time, the probability of producing a valid
+output set𝑂′
+𝑆 inconsistent with the on-chain commitment is negligible:
+Pr[Accept(𝑂′
+𝑆)∧∃𝑜 ′
+𝑖 :𝐻(𝑜 ′
+𝑖)∉H 𝑂𝑆]≤negl(𝜆).
+Proof Sketch. AssumeA produces𝑜′
+𝑖 ≠𝑜 𝑖 such that𝐻(𝑜′
+𝑖)=
+𝐻(𝑜𝑖). This implies a hash collision, which contradicts the collision
+resistance of 𝐻 under standard assumptions. Since the hash set
+H𝑂𝑆 is anchored on the immutable blockchain, any modification to
+𝑂𝑆 after commitment requires finding a collision, occurring with
+probability at most negl(𝜆).□
+3.3.3 Goal G3: Zero-Knowledge Proofs for Scalable Verification.
+Challenge C3 requires verifiable computation without transferring
+exponential costs to the blockchain.
+Guarantee G3 (Computational Scalability).Verification cost
+remains𝑂( 1) as agent count 𝑛 grows, even when contribution
+measurement requires𝑂( 2𝑛) coalition evaluations. This decouples
+on-chain verification from off-chain computational complexity, en-
+abling practical deployment at scale.
+The guarantee is realized through a hybrid proof pipeline: the
+off-chain prover executes the full Shapley computation off-chain,
+produces a STARK proof, and recursively compresses it into a
+constant-size Groth16 proof for on-chain verification (Section 4.3)
+[12]. Consequently, the blockchain only performs a fixed-cost pair-
+ing check while inheriting soundness from the underlying proof
+systems.
+Theorem 3.3 (Verification Soundness).For any computation-
+ally bounded adversary, the probability of the on-chain verifier accept-
+ing an incorrect Shapley allocation is negligible: Pr[𝑓 verify(𝜋,𝑝𝑢𝑏)=
+1∧∃𝑖:𝜇 𝑖 ≠𝜙 𝑖]≤negl(𝜆).
+Proof Sketch. The ZKP circuit enforces constraint (iii): ∀𝑖 :
+𝜇𝑖 =𝜙𝑖({𝑣(𝑆)}) . By the knowledge soundness of the Groth16 proof
+system, any accepting proof𝜋 implies the existence of a valid wit-
+ness satisfying all constraints. If𝜇𝑖 ≠𝜙 𝑖, constraint (iii) is violated,
+and no valid proof exists. The probability of forging a proof with-
+out a valid witness is bounded by the soundness error of Groth16,
+which is negl(𝜆)under the𝑞-PKE assumption [12].□
+Having established the system model, identified core challenges,
+and formalized design goals with security guarantees, we now
+present the concrete architectural mechanisms that realize these
+properties in Section 4.
+4 DAO-Agent Framework Design
+To address the challenges of fair contribution measurement (C1),
+output authenticity (C2), and scalable verification (C3), we propose
+the framework of DAO-Agent. As illustrated in Figure 1, our design
+is a hybrid on-chain/off-chain architecture that synergizes three
+core technical components: (1) an on-chain DAO for governance
+and settlement, (2) an off-chain workflow for agent execution and
+contribution measurement, and (3) a zero-knowledge proof (ZKP)
+mechanism cryptographically link the two. This separation of con-
+cerns allows computationally intensive tasks to execute off-chain
+while leveraging the blockchain for what it does best: providing a
+trustless source of truth for verification and settlement [20, 32].
+The on-chain component serves three critical functions that
+distinguish DAO-Agent from traditional off-chain computation ap-
+proaches: (1)Governance Anchor: immutable task lifecycle man-
+agement and agent registration via smart contract state machine,
+ensuring transparent coordination with cryptographic certainty; (2)
+Verification Layer: constant-cost ZKP verification (approximately
+27k gas) that remains independent of agent count𝑛, enabling scal-
+able trust without prohibitive on-chain expenses; (3)Settlement
+Engine: cryptographically certain incentive distribution with on-
+chain transparency, eliminating the need for trusted third parties
+while preserving execution privacy. This hybrid model represents a
+paradigm shift from direct on-chain computation—where Shapley
+value calculation would require𝑂( 2𝑛) gas—to verification-centric
+architecture that inherits blockchain’s trust properties while avoid-
+ing its computational limitations.
+4.1 Workflow-Based Commitments and Hybrid
+Trust Pipeline
+The DAO-Agent framework implements a comprehensive hybrid
+workflow that orchestrates the entire lifecycle of decentralized
+multi-agent collaboration through cryptographically secure coor-
+dination between off-chain execution and on-chain verification.
+Algorithm 1 presents the complete four-phase protocol that system-
+atically addresses the fundamental challenges of fair contribution
+measurement, output authenticity, and scalable verification identi-
+fied in Section 3.2.
+Hybrid Protocol Overview.Algorithm 1 orchestrates the com-
+plete workflow through four distinct phases that systematically
+address the challenges of fair contribution measurement (C1), out-
+put authenticity (C2), and scalable verification (C3). The protocol
+maintains a clear separation of concerns: computationally inten-
+sive tasks execute off-chain while the blockchain provides trustless
+verification and settlement with cryptographic certainty.
+Cryptographic Infrastructure.The algorithmic realization
+of our hybrid architecture relies on a carefully orchestrated set
+of cryptographic primitives and smart contract interfaces that
+bridge the gap between off-chain computation and on-chain verifi-
+cation. The IPFS decentralized storage system serves as our content-
+addressed persistence layer, where𝑓IPFS(·) atomically stores hash
+sets and returns content identifiers (CIDs) that serve as tamper-
+proof references to agent outputs. These CIDs are subsequently
+anchored on-chain through the smart contract’s commitment in-
+terfaceEcommit(·), which generates immutable timestamps 𝑡block
+and transaction hashes txHash that provide cryptographic binding
+
+DAO-Agent: Zero Knowledge-Verified Incentives for Decentralized Multi-Agent Coordination Conference’17, July 2017, Washington, DC, USA
+Figure 1: The DAO-Agent hybrid architecture, integrating off-chain collaborative execution with on-chain cryptographic
+verification. The framework bridges the trust gap through a four-phase workflow: (1) Off-Chain Execution and Multi-Tier
+Commitment, where agent outputs 𝑂𝑆 and coalition values 𝑣(𝑆) are hashed (H𝑂𝑆,H𝑣(𝑆) ) and anchored on-chain via IPFS CIDs;
+(2) Coordinator Integrity Verification, where the Coordinator trustlessly validates hash integrity and evaluates axiomatically
+fair rewards using the Shapley value 𝜙𝑖 while enforcing the Efficiency Axiom ( ˝𝜇𝑖 =𝑣(N) ); (3) Recursive Proof Composition,
+involving the generation of a STARK proof for the 𝑂( 2𝑛) Shapley computation, subsequently compressed into a constant-size
+Groth16 proof for blockchain compatibility; and (4) On-Chain Settlement, where the verification contract performs a single
+𝑂(1)pairing check to trigger automated reward distribution.
+for all off-chain artifacts. The dual-retrieval mechanismEgetCID(𝑆)
+andEgetValueHash(𝑆) enables the Coordinator to trustlessly recon-
+struct the complete commitment state, while IPFS.get(·) resolves
+CIDs to their corresponding hash sets for integrity verification.
+Zero-knowledge proof generation through𝑓proveZK(·) transforms
+the exponentially complex Shapley computation into succinct cryp-
+tographic arguments, and the verification function 𝑓verify(·) pro-
+vides constant-cost on-chain validation that remains independent
+of the underlying computational complexity. Finally, the incen-
+tive distribution mechanism𝑓allocate(·) atomically transfers rewards
+according to the proven-fair allocation, completing the trustless
+coordination cycle while maintaining execution privacy and com-
+putational efficiency.
+Phase 1: Subset Execution and Hash Commitment.Every
+possible agent coalition𝑆⊆Nexecutes the collaborative task off-
+chain, producing outputs that are immediately cryptographically
+secured. This phase implements the Commitment Binding guaran-
+tee (G2) through a dual-commitment scheme that prevents output
+manipulation without relying on agent self-reporting.
+Phase 2: Coordinator Verification and Shapley Computa-
+tion.The Coordinator acts as a trustless computation node that
+verifies the integrity of all committed data and computes axiomat-
+ically fair Shapley value allocations. This phase realizes the In-
+centive Compatibility guarantee (G1) by ensuring that contribu-
+tion measurements are both cryptographically verifiable and game-
+theoretically sound.
+Phase 3: Zero-Knowledge Proof Generation.Zero-knowledge
+proofs are generated to attest to the correctness of the entire off-
+chain computation without revealing sensitive execution details.
+This phase provides the Computational Scalability guarantee (G3)
+by converting exponential off-chain computation into constant-size
+cryptographic proofs.
+Phase 4: On-Chain Verification and Settlement.The smart
+contract performs efficient on-chain verification and atomically dis-
+tributes incentives according to the proven-fair allocation. This final
+phase ensures that all previous computations are cryptographically
+validated before any value transfer occurs.
+The framework’s operation is orchestrated by the smart contract
+E, which implements a hybrid trust model combining off-chain
+computational efficiency with on-chain verification integrity. On-
+chain verification consumes approximately 27k gas regardless of
+agent count𝑛, achieving constant𝑂( 1) complexity through succinct
+non-interactive argument verification. This represents a paradigm
+shift from traditional on-chain computation—where exact Shapley
+
+Conference’17, July 2017, Washington, DC, USA Xia et al.
+Algorithm 1:DAO-Agent Hybrid Workflow
+Input:Task𝑇, Agent SetN={𝑎 1,...,𝑎 𝑛}, CoordinatorC
+// Phase 1: Subset Execution and Hash Commitment
+1foreachcoalition𝑆⊆Ndo
+2Agents in𝑆execute𝑇in workflow environment;
+3𝑂 𝑆←{𝑜 𝑖 :𝑎 𝑖∈𝑆}// Coalition𝑆output set
+4H 𝑂𝑆←{𝐻(𝑜 𝑖):𝑜 𝑖∈𝑂 𝑆}// Hash set of outputs
+5CID 𝑂𝑆←𝑓 IPFS(H𝑂𝑆)
+Ecommit(CID𝑂𝑆)→(𝑡 block,txHash)
+𝑣(𝑆)←𝑓 eval(𝑂𝑆)// Coalition value
+evaluation
+6H 𝑣(𝑆) ←𝐻(𝑣(𝑆))// Hash of coalition value
+7E commitValue(H𝑣(𝑆))→(𝑡 ′
+block,txHash′)
+// Phase 2: Coordinator Verification and Shapley
+Computation
+8foreachreceived𝑂 𝑆 do
+9CID 𝑂𝑆←E getCID(𝑆)assert
+{𝐻(𝑜𝑖):𝑜 𝑖∈𝑂 𝑆}=IPFS.get(CID 𝑂𝑆);
+10foreachreceived𝑣(𝑆)do
+11H 𝑣(𝑆) ←E getValueHash(𝑆)assert𝐻(𝑣(𝑆))=H 𝑣(𝑆)
+12{𝜇 𝑖 :𝑎 𝑖∈N}← 1
+𝑛
+˝
+𝑆⊆N\{𝑎 𝑖}
+𝑛−1
+|𝑆|
+−1𝑣(𝑆∪{𝑎 𝑖})−𝑣(𝑆)
+// Shapley allocation
+// Phase 3: Zero-Knowledge Proof Generation
+13𝜋←𝑓 proveZK({𝜇𝑖 :𝑎 𝑖∈N},{H 𝑂𝑆,H𝑣(𝑆),𝑂𝑆,𝑣(𝑆)});
+// Phase 4: On-Chain Verification and Settlement
+14𝑝𝑢𝑏_𝑖𝑛𝑝𝑢𝑡𝑠←({𝜇 𝑖 :𝑎 𝑖∈N},𝑣(N),{H 𝑂𝑆 :𝑆⊆
+N},{H 𝑣(𝑆) :𝑆⊆N});
+15if𝑓 verify(𝜋,𝑝𝑢𝑏_𝑖𝑛𝑝𝑢𝑡𝑠,E)=truethen
+16𝑓 allocate({𝜇𝑖 :𝑎 𝑖∈N})→E;
+17return{𝜇 𝑖 :𝑎 𝑖∈N};
+18return abort;
+value calculation would require exponential𝑂( 2𝑛) gas consump-
+tion—to a verification-centric approach that inherits blockchain’s
+trust properties while avoiding its computational limitations. Our
+hybrid architecture reduces on-chain verification complexity from
+exponential to constant, enabling practical deployment for large-
+scale multi-agent coordination while maintaining cryptographic
+certainty.
+From Protocol to Mechanisms.While Algorithm 1 presents
+the complete workflow coordination, three fundamental technical
+mechanisms enable this hybrid architecture to achieve its security
+and efficiency guarantees. First, the protocol requiresfair contribu-
+tion measurementthat can withstand strategic manipulation by
+rational agents—this necessitates a rigorous game-theoretic foun-
+dation that we develop in Section 4.2. Second, the Coordinator
+must generatecryptographic proofsthat convincingly demon-
+strate computation integrity without revealing sensitive execution
+data—this demands sophisticated zero-knowledge proof integration
+detailed in Section 4.3. Third, the entire system must maintaincom-
+putational scalabilityas the number of agents grows, requiring
+careful architectural decisions that separate expensive off-chain
+computation from lightweight on-chain verification.
+The following sections dissect these three critical mechanisms.
+Section 4.2 establishes the game-theoretic foundation by demon-
+strating how Shapley values provide axiomatically fair contribution
+measurement that makes honest participation a dominant strat-
+egy for agents. Section 4.3 then shows how zero-knowledge proofs
+cryptographically link the off-chain Shapley computation to on-
+chain verification, ensuring that fairness guarantees are preserved
+while maintaining execution privacy. Together, these mechanisms
+transform the high-level workflow presented above into a concrete,
+implementable system that resolves the tension between decen-
+tralization, privacy, and computational efficiency in multi-agent
+coordination.
+4.2 Shapley-Based Contribution Measurement
+To achieve fair contribution measurement (C1) and realize the In-
+centive Compatibility guarantee (G1), we ground our reward mech-
+anism in the Shapley value from cooperative game theory. The
+Shapley value,𝜙𝑖(𝑣) , provides an axiomatically fair allocation by
+quantifying each agent𝑎𝑖’s contribution as its average marginal
+value across all possible coalition permutations.
+Formally, for each agent𝑎𝑖∈N, the Shapley value is:
+𝜙𝑖({𝑣(𝑆):𝑆⊆N})= 1
+𝑛
+∑︁
+𝑆⊆N\{𝑎 𝑖}
+𝑛−1
+|𝑆|
+−1𝑣(𝑆∪{𝑎 𝑖})−𝑣(𝑆) (3)
+The weight term ensures that all agent joining orders are equally
+likely, eliminating order bias. This method yields a unique allocation
+satisfying four axioms:Efficiency( ˝
+𝑖∈N 𝜙𝑖 =𝑣(N)),Symmetry,
+Dummy, andAdditivity. The uniqueness of this allocation pro-
+vides an indisputable foundation for fair rewards, making honest
+participation a dominant strategy when combined with the crypto-
+graphic guarantees that follow. The efficiency axiom is particularly
+central to our design, serving as: (1) a theoretical guarantee of
+complete value distribution, (2) a computational constraint veri-
+fied within the ZKP, and (3) a final on-chain check using public
+inputs. To formalize this verification, we distinguish between the
+true Shapley value, defined by the function 𝜙𝑖, and the concrete
+allocation vector computed by the Coordinator, which we denote
+as{𝜇𝑖}. The core of the ZKP is to prove that the submitted {𝜇𝑖}
+correctly corresponds to the output of the𝜙𝑖 function for all agents
+(i.e., that𝜇 𝑖 =𝜙𝑖).
+Within our hybrid architecture, Shapley computation is per-
+formed off-chain by the Coordinator, leveraging the computational
+efficiency of traditional computing environments while maintaining
+verifiability through on-chain commitments. The on-chain smart
+contractE does not perform the expensive 𝑂( 2𝑛) coalition eval-
+uations directly; instead, it verifies that the off-chain computa-
+tion was performed correctly on the committed data through zero-
+knowledge proof verification. This separation enables the system
+to achieve both computational scalability and cryptographic verifi-
+ability without compromising either property.
+4.3 Zero-Knowledge Proof Integration
+To address scalable, privacy-preserving verification (C3) and pro-
+vide the Computational Scalability guarantee (G3), DAO-Agent
+
+DAO-Agent: Zero Knowledge-Verified Incentives for Decentralized Multi-Agent Coordination Conference’17, July 2017, Washington, DC, USA
+Algorithm 2:ZKP Construction: Witness Generation and
+Constraint Enforcement
+Input:Coalition Outputs{𝑂 𝑆}, Coalition Values{𝑣(𝑆)},
+Shapley Allocation{𝜇 𝑖}, Commitments
+{H𝑂𝑆,H𝑣(𝑆)}
+Output:Proof𝜋and public inputs
+//Phase I: Off-Chain Witness Computation
+// Generates the execution traceWfor the
+arithmetic circuit
+1W←InitTrace();
+2foreach𝑆⊆Ndo
+3W.AppendInput(𝑂 𝑆,𝑣(𝑆));
+4foreachagent𝑎 𝑖∈Ndo
+5𝜙 𝑖←ComputeShapley(𝑖,{𝑣(𝑆)})// Execute Eq. 3
+6W.RecordComputation(𝑖,𝜙 𝑖);
+//Phase II: In-Circuit Constraint Enforcement
+// Arithmetic constraints verified within the ZK
+circuit
+7Circuit Logic:
+// C1: Input Consistency Check
+8foreach𝑆⊆Ndo
+9constrain
+PoseidonHash(W.𝑂𝑆)≡𝑝𝑢𝑏𝑙𝑖𝑐_𝑖𝑛𝑝𝑢𝑡.H 𝑂𝑆 ;
+10constrain
+PoseidonHash(W.𝑣(𝑆))≡𝑝𝑢𝑏𝑙𝑖𝑐_𝑖𝑛𝑝𝑢𝑡.H 𝑣(𝑆) ;
+// C2: Shapley Arithmetization
+11foreachagent𝑎 𝑖∈Ndo
+// Polynomial constraints for Eq. 3
+12𝑠𝑢𝑚←0;
+13foreach𝑆⊆N\{𝑎 𝑖}do
+14𝑐𝑜𝑒𝑓𝑓←Lookup( 𝑛−1
+|𝑆|
+−1
+);
+15𝑚𝑎𝑟𝑔𝑖𝑛𝑎𝑙←W.𝑣(𝑆∪{𝑎 𝑖})−W.𝑣(𝑆);
+16𝑠𝑢𝑚←𝑠𝑢𝑚+(𝑐𝑜𝑒𝑓𝑓×𝑚𝑎𝑟𝑔𝑖𝑛𝑎𝑙);
+17constrainW.𝜇 𝑖≡𝑠𝑢𝑚×𝑛 −1;
+// C3: Efficiency Axiom Check
+18constrain ˝W.𝜇𝑖≡W.𝑣(N);
+//Phase III: Recursive Proof Generation
+19𝜋←STARK.Prove(𝐶𝑖𝑟𝑐𝑢𝑖𝑡,W,𝑝𝑢𝑏𝑙𝑖𝑐_𝑖𝑛𝑝𝑢𝑡𝑠);
+20return(𝜋,𝑝𝑢𝑏𝑙𝑖𝑐_𝑖𝑛𝑝𝑢𝑡𝑠);
+integrates zero-knowledge proofs. This allows the off-chain Coor-
+dinator to prove the correctness of the computationally expensive
+Shapley value calculation without revealing any private data (e.g.,
+agent strategies embedded in outputs) and without imposing expo-
+nential costs on the blockchain. The on-chain verification compo-
+nent consumes approximately 27k gas regardless of agent count,
+achieving the𝑂( 1) complexity required for practical deployment
+at scale.
+4.3.1 Proof of Correct Computation.The Coordinator uses a prov-
+ing function of ZKP to generate a proof𝜋 attesting to the integrity
+of the entire off-chain collaboration process. The proving function
+of ZKP takes public input and private witness as the inputs and
+produces a proof for the computation correctness. The verifica-
+tion function of ZKP requires only the proof and public inputs to
+confirm the correctness of the computation, achieving this with
+significantly lower complexity compared to re-executing the entire
+computation process.
+Specifically, the ZKP protocol is defined over a relationR com-
+prising a private witnessΩ private and public inputΩ public:
+Ωprivate =({𝑂 𝑆}𝑆⊆N,{𝑣(𝑆)} 𝑆⊆N),
+Ωpublic =({𝜇 𝑖},𝑣(N),{H 𝑂𝑆},{H𝑣(𝑆)}) (4)
+Here, Ωprivate encapsulates the complete execution trace, including
+all coalition outputs𝑂𝑆 and their corresponding evaluations𝑣(𝑆) .
+The public input Ωpublic serves as the on-chain anchor, containing
+the proposed Shapley allocation {𝜇𝑖}, the grand coalition value
+𝑣(N) , and the set of committed cryptographic hashes. The validity
+of the proof𝜋 is contingent upon satisfying the following arithmetic
+constraints:
+ 
+
+(i)∀𝑆⊆N:{𝐻(𝑜 𝑖):𝑜 𝑖∈𝑂 𝑆}=H 𝑂𝑆,
+(ii)∀𝑆⊆N:𝐻(𝑣(𝑆))=H 𝑣(𝑆),
+(iii)∀𝑖:𝜇 𝑖 =𝜙𝑖({𝑣(𝑆):𝑆⊆N}),
+(iv)
+∑︁
+𝑖∈N
+𝜇𝑖 =𝑣(N)
+(5)
+These constraints enforce the system’s core integrity properties:
+(i) Input Consistency:guarantees that the private witness
+values correspond exactly to the immutable on-chain com-
+mitments, preventing retroactive data manipulation.
+(ii) Value Authenticity:ensures the coalition evaluations used
+in the circuit match the committed values.
+(iii) Computational Correctness (Shapley Arithmetization):
+validates that the allocation {𝜇𝑖} is derived via the exact
+Shapley formula (Eq. (3)). We arithmetize the iterative sum-
+mation and combinatorial weighting logic into polynomial
+constraints (see Algorithm 2, Lines 13-20), thereby proving
+that the𝑂( 2𝑛) factorials and marginal contributions were
+computed correctly.
+(iv) Conservation of Value:enforces the Efficiency Axiom,
+ensuring the total distributed reward strictly equals the gen-
+erated value.
+These cryptographic assertions form the basis of our "Code is
+Law" implementation, distinguishing DAO-Agent from systems
+relying on optimistic assumptions or centralized verifiers. Algo-
+rithm 2 delineates the formal separation between off-chain trace
+generation and in-circuit constraint enforcement.
+4.3.2 Recursive Proof Composition and On-Chain Verification.To
+reconcile the computational complexity of Shapley value derivation
+with the strict gas limits of blockchain execution, we employ a
+recursive proof composition strategy. The pipeline initiates with
+the generation of STARK proofs (Scalable Transparent Arguments
+of Knowledge), which provide the necessary computational capacity
+for checking𝑂( 2𝑛) coalition values without trusted setup. However,
+the resulting proofs are typically large (tens of kilobytes), rendering
+direct on-chain verification economically infeasible.
+
+Conference’17, July 2017, Washington, DC, USA Xia et al.
+4 6 8 10
+Number of Agents (n)
+105
+106
+107
+Verification Cost (Gas)
+-92.6% -98.0% -99.6% -99.9%
+Scalability Comparison: Verification Gas Cost
+On-chain Shapley (Baseline)
+DAO-Agent (Ours)
+Figure 2: Scalability Comparison: Verification Gas Cost (Log
+Scale). The bar chart demonstrates a massive cost reduction
+of up to 99.9% for larger agent coalition ( 𝑛= 10), contrasting
+the exponential growth of the baseline with the constant cost
+of our hybrid approach.
+To address this, we utilize a proof-carrying data (PCD) approach
+where the STARK proof 𝜋STARK is recursively verified within a
+secondary circuit. This circuit generates a succinct Groth16 proof
+𝜋SNARK, compressing the verification complexity to constant size.
+This STARK-to-SNARK recursion leverages the transparency and
+scalability of STARKs for the heavy arithmetic lifting (Shapley com-
+putation) while utilizing the compactness of pairing-based SNARKs
+for final on-chain settlement. Consequently, the smart contract
+performs a single𝑂( 1) pairing check (≈ 27k gas), decoupling the
+on-chain verification cost from the exponential off-chain workload.
+5 Experimental Evaluation
+5.1 Experimental Setup
+We implement a multi-agent cryptocurrency trading system with a
+fixed architecture (2 data analysis agents, 1 decision-making agent,
+and a variable number of market perspective agents, where 𝑥∈
+{1, 3, 5, 7}) deployed on an Ethereum testnet. For each coalition
+𝑆⊆N , we quantify its value𝑣(𝑆) using Sharpe ratio-based trading
+performance metrics over ETH/USDT historical data from 2022-
+2024. The experiments evaluate agent sets of size𝑛∈{ 4, 6, 8, 10},
+requiring2𝑛 coalition evaluations each.
+Our performance assessment is structured into two key areas:
+the off-chain computational overhead required for proof genera-
+tion and the on-chain resource consumption for verification. We
+evaluate DAO-Agent against anOn-chain Shapleybaseline, which
+performs all computations directly in a smart contract. The coalition
+value function𝑣(𝑆) is computed using Sharpe ratio-based trading
+performance metrics, validated against historical ground-truth data.
+The results validate our hybrid model’s ability to achieve constant-
+cost on-chain scalability while managing exponential complexity
+off-chain.
+4 6 8 10
+Number of Agents (n)
+100
+101
+102
+103
+Time (s)
+Computational Latency Breakdown
+Proof Gen (STARK)
+Compression (Groth16)
+On-chain Verification
+Figure 3: Computational Latency Breakdown (Log Scale). The
+grouped bar chart reveals the trade-off: while off-chain proof
+generation (STARK) scales exponentially, the on-chain veri-
+fication time remains negligible and constant (<0.4𝑠).
+5.2 Off-Chain Computational Performance
+The primary computational workload of DAO-Agent resides in
+the off-chain proof generation pipeline (Phase 3). As detailed in
+Table 1 and Figure 3, the STARK proof generation time is the main
+bottleneck, scaling exponentially with the number of agents. This
+duration increases from 21.22 seconds for 4 agents to 425.60 seconds
+for 10 agents, reflecting the 𝑂( 2𝑛) complexity of the underlying
+Shapley value computation.
+In contrast, the subsequent proof conversion to Groth16 remains
+highly efficient and does not exhibit exponential growth. Further-
+more, the final proof size increases only marginally, from 1,417
+bytes to 1,802 bytes, ensuring that the cryptographic artifacts re-
+main compact and manageable. These results pinpoint the STARK
+generation as the key scalability constraint of the off-chain process.
+Table 1: ZKP Performance: Proof Generation and Verification
+Metrics
+Agents STARK (s) Groth16 (s) Size (B) Verify (s)
+4 21.22 233.41 1,417 0.358
+6 56.46 217.19 1,545 0.368
+8 201.36 310.27 1,673 0.354
+10 425.60 298.15 1,802 0.362
+5.3 On-Chain Cost and Scalability
+The central advantage of the DAO-Agent framework is its ability
+to achieve constant-cost on-chain scalability. Figure 2 illustrates
+the dramatic difference between our hybrid approach and the on-
+chain baseline. While the baseline’s gas cost explodes exponentially,
+DAO-Agent’s verification cost remains flat at approximately 27k
+gas, regardless of the number of agents.
+
+DAO-Agent: Zero Knowledge-Verified Incentives for Decentralized Multi-Agent Coordination Conference’17, July 2017, Washington, DC, USA
+4 6 8 10
+Number of Agents (n)
+0
+500
+1000
+1500
+2000Proof Size (Bytes)
+On-chain Verification Stability
+Proof Size (Bytes)
+Verify Time (s)
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+On-chain Verify Time (s)
+Figure 4: On-chain Verification Stability. The dual-axis bar
+chart illustrates that both Proof Size (Left Axis) and Verifi-
+cation Time (Right Axis) remain stable and low despite the
+increasing complexity of the multi-agent task.
+As shown in Table 2, this translates to a gas reduction of 99.9%
+for a 10-agent system (27k vs. 28.6M gas). This efficiency transforms
+an intractable𝑂( 2𝑛) on-chain problem into a lightweight𝑂( 1) ver-
+ification. The on-chain verification itself is consistently fast, taking
+approximately 0.36 seconds (see Table 1). This low, predictable gas
+cost, comparable to a standard ERC-20 transfer, confirms that DAO-
+Agent is economically viable for practical deployment at scale.
+Table 2: Gas Cost Comparison: On-chain vs. DAO-Agent Veri-
+fication
+Agents On-chain Gas DAO-Agent Gas Reduction
+4 367K 27K 92.6%
+6 1.33M 27K 98.0%
+8 6.35M 27K 99.6%
+10 28.6M 27K 99.9%
+6 Conclusion
+This paper addressed the core challenge of achieving fair, scalable,
+and privacy-preserving coordination in decentralized multi-agent
+systems, which is hindered by prohibitive on-chain computation
+costs and the lack of verifiable contribution measurement. We intro-
+duced DAO-Agent, a novel hybrid on-chain/off-chain framework
+that leverages the blockchain as a trust anchor while offloading com-
+putationally intensive tasks. Our approach cryptographically links
+Shapley value-based contribution measurements to a constant-cost
+on-chain verification mechanism using zero-knowledge proofs.
+Our experimental evaluation demonstrates the practicality and
+efficiency of DAO-Agent. By transforming the exponential𝑂( 2𝑛)
+on-chain complexity into a constant𝑂( 1) verification process, our
+method reduces gas costs by up to 99.9% for 10 agents compared to
+a purely on-chain implementation. This breakthrough makes fair,
+trustless multi-agent coordination economically viable in decen-
+tralized environments.
+While our experiments validate efficiency for up to 10 agents,
+the architecture is designed for extensibility. The off-chain proof
+generation complexity (𝑂( 2𝑛) for exact Shapley) can be addressed
+through approximation techniques such as Monte Carlo Shapley
+estimation, enabling larger-scale deployments with minimal preci-
+sion trade-offs. Furthermore, the system’s security model, which
+currently assumes coordinator liveness, could be strengthened by
+introducing redundant coordinators or decentralized challenge-
+response mechanisms. The security framework relies on standard
+cryptographic assumptions and is adaptable to post-quantum hash
+functions for future-proofing.
+In summary, DAO-Agent provides a robust and efficient blueprint
+for building trustless, incentive-compatible multi-agent systems.
+By offering substantial cost savings for frequent coordination tasks,
+it paves the way for more sophisticated and secure decentralized
+collaborations. Future work could further enhance performance by
+exploring layer-2 deployment and proof batching techniques.

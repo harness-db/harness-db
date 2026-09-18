@@ -1,0 +1,1491 @@
+record_id: arxiv:2608.01369
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2608.01369
+fetched_title: CRAFTS: COLLABORATIVEROLE-ADAPTIVEFINE-TUNING OF LLM AGENTS FORCHEMICALPROCESSSIMULATION
+fetched_at: 2026-09-18T19:01:09Z
+
+CRAFTS: COLLABORATIVEROLE-ADAPTIVEFINE-TUNING OF
+LLM AGENTS FORCHEMICALPROCESSSIMULATION
+PREPRINT
+Ziyun Zhang1,† Yuxin Lin2,† Eldin Wee Chuan Lim1,∗ Xinghao Ding2,∗
+1Department of Chemical & Biomolecular Engineering, National University of Singapore
+2Key Laboratory of Multimedia Trusted Perception and Efficient Computing,
+Ministry of Education of China, Xiamen University, Xiamen, Fujian, China
+†Equal contribution.∗Corresponding authors.
+/githubGitHub
+ABSTRACT
+Constructing an executable chemical-process model remains manually intensive. Chemical engineers
+translate underspecified requests into coupled decisions about unit operations, thermodynamics,
+streams, specifications, degrees of freedom (DoF), initialization, solver repair, and optimization; one
+error can invalidate the model. CRAFTS mirrors the staged workflow of chemical engineers by decom-
+posing simulation building into bounded subtasks assigned to seven bounded roles, with deterministic
+IDAES/Pyomo gates between stages. Given a natural-language request, process flowsheet diagram
+(PFD) evidence, and curated chemical-engineering knowledge, Input Understanding and Intent re-
+cover requirements, constraints, and process semantics; visual, topology, and specification specialists
+translate them into typed simulator contracts; and Debug and Optimization support bounded repair
+and eligible optimization. Fine-tuning is applied to the three schema-critical visual, topology, and
+specification roles, while the remaining roles use untuned Qwen. The resulting VisualGraphIR,
+TopologyIR, SpecIR, BuildPlan, and SolveReport expose unit, port, thermodynamic, numerical, and
+execution decisions. Compatible constructors, property packages, and runners are attached only
+after semantic artifacts pass engineering gates. We introduce OpenIDAES-450, a 450-case IDAES
+process- simulation dataset, and evaluate the complete seven-role LangChain/LangGraph workflow
+through solve and eligible optimization on its frozen 82-case held-out split. CRAFTS completes the
+prescribed validation and execution contract for for 91.5% of cases and achieves unit, stream, and
+directed-connection F1 scores of 0.815, 0.791, and 0.782. These results demonstrate the effectiveness
+of role specialization, typed intermediate representations, and deterministic engineering gates for
+reliable automated process-model construction.
+Keywordschemical process simulation · multi-agent systems· IDAES/Pyomo· code-oriented modeling· LoRA
+fine-tuning
+1 Introduction
+Large language models (LLMs) increasingly coordinate scientific tools [ 1, 2, 3], extract structured records from
+technical text [4], and drive autonomous laboratory and discovery workflows [5, 6]. These systems show that LLMs can
+orchestrate scientific tools, but their targets are experimental protocols, retrosynthesis, or extracted records rather than
+executable process-simulation models.
+Despite mature commercial simulators such as Aspen Plus/HYSYS, chemical-process model construction still depends
+heavily on manual engineering work and domain experience [7, 8]. An engineer must interpret an incomplete process
+need, organize unit operations and streams, choose compatible thermodynamics and property packages, specify operating
+targets, close DoF, initialize recycles, and diagnose numerical failures. When a model fails, the relevant cause may
+be distributed across flowsheet connections, configuration choices, initialization procedures, and solver diagnostics,
+arXiv:2608.01369v1 [cs.AI] 2 Aug 2026
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Prior works — Multi-agent over Black-box Simulation CFAFTS (Ours) — Fine-Tuning of Multi-agent over White-box Simulation
+1 Evidence & Understand
+• Nature language
+• PFD/Sketch
+• Specifications
+2 Planning & Generation
+Planer
+Parser
+Coder
+3 Simulation & Debug
+Com Interface
+4 Evaluation & Optimization
+Black-box
+Simulator
+No access equations
+Hard to diagnose
+Hard to reproduce
+Gradient unavailable
+Multi-agent Collaboration LLMs & AI Capabilities
+• Reasoning & Planning
+• Code Generation
+• Knowledge Retrieval
+Tool & Environment
+• Aspen Plus/HYSYS
+• Com Interface
+• Only Window System
+Challenge & Limitation
+Commercial APIs
+AspenTech: License
+Expensive
+Limited Transparency
+LangGraph Multi-agent Local & Fine-tune LLMs Tool & Environment Advantages
+1 Input Understanding
+• Nature language
+• PFD/Sketch
+• ChE Knowledge
+2 Intent Route Search
+• Key unit options
+• Thermodynamics, etc.
+Process family (e.g. HDA)
+3 Fine-tune agents build Topology
+Descriptor
+{
+’’equipment’’: […],
+’’streams’’: […],
+’’units’’: […],
+’confidence’’: 0.93
+}
+4 Evaluation & Optimization
+Topology
+Specification
+White-box
+Simulator
+• IDAES-based simulation
+• Equation-oriented
+• Direct Python coding
+• Local Qwen Deployment
+• Domain-specific Fine-tuning
+• Engineering Reasoning
+Fully local & Private
+IDEAS: Open-source
+Cheaper
+More transparent
+Full access equations
+Easy to diagnose
+Easy to reproduce
+Gradient information
+&
+&
+Figure 1: From closed simulation workflows to inspectable equation-oriented models. Left: conventional process
+simulation (e.g. Aspen Plus/HYSYS) relies on expert-driven interaction with commercial simulators, where model
+construction and failure diagnosis often require expert-driven interaction and uniform inspectable substrate for agentic
+reasoning. Right: CRAFTS combines LoRA-adapted Qwen agents with an open IDAES/Pyomo substrate. Agents
+generate typed engineering artifacts that are compiled into executable models whose variables, constraints, equations,
+and solver diagnostics remain inspectable for further validation, repair, and optimization. The detailed multi-agent
+workflow and deterministic gates are presented in Figure 2.
+CapabilityCePro. 1 T2Sim.2 S2Sim.3 Ours
+Open equation substrate✗ ✗ ✗ ✓
+Structured artifacts△✓ ✓ ✓
+Role-specific fine-tuning✗ ✗ ✗ ✓
+ChE knowledge✓△ △✓
+Fail-closed checks△ △✓ ✓
+Process optimization✓ ✓ ✗ ✓
+Table 1: Demonstrated capabilities of contemporary process-simulation agent systems: 1CeProAgents [13], 2From Text
+to Simulation [14], and 3Sketch2Simulation [15]. ✓ first-class,△ partial, ✗ functionality outside demonstrated scope.
+making repair iterative and expert-intensive. These choices are tightly coupled: a wrong endpoint, component alias,
+property boundary, or specification target can invalidate downstream construction or solving. A plausible paragraph,
+flowsheet sketch, or generated script is therefore not enough; an executable model must satisfy structural, physical,
+numerical, and solver contracts simultaneously.
+Chemical engineers address this complexity through staged behavior. They recover requirements and constraints,
+assemble and inspect topology, close the numerical model, materialize and initialize it, read diagnostics, and repair
+the failed layer before optimization. While the CRAFTS decomposes model construction into distinct but dependent
+engineering subtasks, assigns bounded responsibility to collaborating role-specialized LLM agents, and passes typed
+artifacts through deterministic gates. This division of labor is motivated by the different error surfaces of interpretation,
+topology, specification, and execution, rather than by generic LLM orchestration. It accelerates the engineer’s iterative
+workflow without replacing engineering judgment, while preserving the intermediate state and intervention points on
+which that workflow relies.
+This design follows process-systems engineering (PSE), where a flowsheet is an equation-oriented model with unit-
+operation structure, thermophysical packages, specifications, and solver state, not merely a diagram or paragraph [9, 10].
+Built on the open IDAES/Pyomo substrate [ 11, 12], CRAFTS exposes equations, variables, constraints, and solver
+state as inspectable and programmable objects, enabling localized validation and repair. It materializes VisualGraphIR,
+TopologyIR, SpecIR, BuildPlan, SolveReport, and optional optimization records before and during execution. Figure 1
+contrasts closed, expert-driven simulation workflows with the open-substrate pipeline, while Figure 2 shows the typed
+handoffs, deterministic gates, and bounded stage-specific repair.
+CRAFTS makes four contributions:
+2
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+• Typed engineering formulation.CRAFTS converts requests and optional PFDs into explicit requirement,
+visual, topology, specification, build, and solve artifacts, exposing simulator-critical decisions before code
+generation.
+• Role-specific adaptation.Seven bounded roles separate interpretation, graph recovery, numerical closure,
+diagnosis, and optimization; dedicated LoRA adapters are used only for the three schema-critical roles.
+• Fail-closed executable workflow.Deterministic gates validate schema, topology, ports, thermodynamics, DoF,
+initialization, physical consistency, and solver status, while stage-local repair preserves previously validated
+state.
+• Open benchmark and controlled evaluation.OpenIDAES-450 provides 450 auditable IDAES tasks, a frozen
+82-case test split, and per-case artifacts and execution traces for reproducible comparison.
+2 Related Work
+ChE representation and simulation.Natural language, PFDs, SFILES/eSFILES, and learned flowsheet representations
+encode increasing levels of process structure [16, 17, 18]. However, these representations do not by themselves resolve
+the topology, property-package, specification, and degrees-of-freedom decisions required for executable equation-
+oriented simulation. Commercial simulators provide mature modeling and automation capabilities, but typically do not
+expose the complete symbolic model and execution state through a uniform, programmatically inspectable substrate. In
+contrast, IDAES represents variables, constraints, connections, specifications, and solver results as accessible Python
+objects. This inspectability supports reproducible model assembly, structural validation, and localized diagnosis. Prior
+IDAES studies consider reinforcement-learning-based conceptual design [19] and knowledge-graph digital twins [20],
+but do not investigate LLM-based multi-agent systems for autonomous construction, validation, and repair of executable
+equation-oriented process models. CRAFTS then builds on the code-native IDAES/Pyomo ecosystem to integrate LLM
+agents with inspectable process-model objects and solver states.
+Agentic process simulation.Recent systems apply LLMs and autonomous agents to automate simulation planning [14],
+text-to-flowsheet generation [21], sketch-to-HYSYS conversion [15], Aspen Plus process development [13, 22], and
+natural-language interfaces for A VEV A simulation, distillation design, optimization, carbon accounting, microreactor
+design, and flowsheet correction [ 23, 24, 25, 26]. Related studies further explore domain adaptation, multi-agent
+optimization, scientific-agent evaluation, and automated research workflows [27, 28, 29, 30].
+Despite this progress, many existing approaches remain challenged by (i) reliance on commercial simulation platforms
+with limited programmatic access to internal model structures and execution states, which complicates inspection,
+debugging, and reproducible repair; (ii) dependence on hosted proprietary AI models, which restricts local deployment,
+controllability, and practical adoption in industrial settings; and (iii) insufficient integration of ChE knowledge into
+agentic flowsheet construction, resulting in weak consistency guarantees across topology, thermophysical properties,
+specifications, and simulator capabilities. CRAFTS studies this combined setting on the open IDAES/Pyomo substrate,
+where role-specific agents propose engineering artifacts and deterministic gates control their promotion into executable
+models.
+3 Problem Setting
+3.1 Task Definition
+Given a request bundle xi = (r i, pi), curated ChE knowledge (K), and verified IDAES-based simulator capabilities
+(C), CRAFTS generates validated simulator-facing artifacts
+Ai =f(x i, K, C) ={G i, Vi, Ti, Si, Bi, Ei, Oi},(1)
+where ri is the natural-language request and pi is PFD evidence. The generated artifacts include a requirement
+interpretation artifact (Gi), VisualGraphIR (Vi), TopologyIR (Ti), SpecIR (Si), compiled BuildPlan (Bi), SolveReport
+(Ei), and optional optimization artifact (Oi). K encodes reusable ChE knowledge for unit operations, thermodynamics,
+ports, DoF closure, initialization, and simulator constraints.
+Following PSE practice that treats model structure and execution state as first-class objects [9, 11], we evaluate two
+complementary properties: structural reference alignment and executable workflow success. Structural reference is
+measured by macro F1 over normalized unit records (UC), stream records (SC), and directed connection pairs (CC).
+3
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+For requestiand metricm, let eYi,m andY i,m denote predicted and reference sets:
+F1 i,m =
+
+
+
+0,no valid artifact,
+1, eYi,m =Y i,m =∅,
+2| eYi,m∩Y i,m|
+| eYi,m|+|Y i,m|
+,otherwise.
+(2)
+The benchmark-level score is
+F1 m = 1
+N
+NX
+i=1
+F1 i,m.(3)
+The Workflow Success (WS) measures whether a request completes all required stages, including interpretation,
+topology validation, specification closure, BuildPlan compilation, model construction, initialization, accepted solver
+termination, and optional optimization. Letz i,s∈{0,1}indicate whether requestisatisfies stages:
+Wi =
+Y
+s∈Si
+zi,s,(4)
+WS = 100
+N
+NX
+i=1
+Wi.(5)
+UC, SC, and CC measure agreement with the frozen structural reference, whereas Workflow Success measures
+completion of the prescribed validation and execution contract; all metrics use the same fixed denominator. Explicit-
+request satisfaction and physical residuals are reported separately in the supplementary material.
+3.2 Artifact State
+CRAFTS maintains typed intermediate artifacts that preserve engineering decisions throughout the model-construction
+process. The requirement artifact Gi captures interpreted process objectives, constraints, ambiguities, and provenance.
+When PFD evidence is available, VisualGraphIR Vi represents visual entities and relations, while TopologyIR Ti and
+SpecIRS i encode the process structure and operating specifications required for simulator construction.
+A deterministic compiler transforms validated structural artifacts into an executable construction plan:
+Bi = compile(T i, Si, C),(6)
+where C specifies verified simulator capabilities. The resulting SolveReport Ei records construction status, initialization
+results, degrees-of-freedom closure, solver termination, physical checks, and failure diagnostics. Optional optimization
+artifactsO i finally store validated optimization configurations and results.
+These artifacts form the structured LangGraph state. Each role receives only the request, available evidence, curated
+ChE knowledge, promoted ancestors, and simulator capability constraints; evaluator references remain inaccessible
+during generation, repair, and execution.
+3.3 Promotion States
+Rather than relying on free-form agent outputs, CRAFTS promotes artifacts through deterministic validation stages.
+Representation gates verify artifact schema, entity consistency, and required relations. Compilation gates validate unit
+availability, port compatibility, property-package support, graph connectivity, and specification targets before model
+generation. Runtime gates validate model construction, degrees-of-freedom closure, initialization, solver termination,
+physical consistency, and optimization feasibility when required.
+A request is considered workflow-successful only when all required stages in Eq. 5 are satisfied. These promotion
+states provide explicit checkpoints for diagnosis and bounded repair while preserving the intermediate engineering state
+throughout execution.
+4 CRAFTS Workflow
+4.1 Overview
+CRAFTS decomposes chemical-process model construction into staged agentic reasoning and deterministic validation
+rather than a single code-generation task. Specialized agents progressively transform engineering requests and available
+4
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Algorithm 1ChE-informed artifact promotion
+1:Interpret chemical engineer’s natural-language requests/PFD cues into ChE-informed stateG
+2:Generate and validate VisualGraphIRV
+3:ifvisual contracts failthen
+4:bounded repair or fail closed
+5:end if
+6:Assemble and validate TopologyIRT
+7:iftopology contracts failthen
+8:bounded repair or fail closed
+9:end if
+10:Generate SpecIRS; validate schema, targets, and expected-DoF intent
+11:ifspecification contracts failthen
+12:bounded repair or fail closed
+13:end if
+14:Compile acceptedT,S, andCinto hermetic BuildPlanB
+15:ExecuteBin sandbox mode
+16:ifthe solved state passes execution checks and optimization is requestedthen
+17:validate variables/objective, release controls, and optimize
+18:end if
+19:Record reports, provenance, and terminal statusE
+process evidence into typed intermediate artifacts, including requirement interpretation, VisualGraphIR, TopologyIR,
+SpecIR, BuildPlan, and SolveReport. Deterministic gates validate artifact contracts, compile accepted representations,
+execute the resulting IDAES model, and perform bounded stage-specific repairs. This separation allows LLM agents
+to provide flexible engineering reasoning while preserving the reliability and inspectability required for equation-
+oriented simulation. Figure 2 illustrates the workflow on a toluene hydrodealkylation (HDA) process, and Algorithm 1
+summarizes artifact promotion.
+4.2 Requirement and Structure Recovery
+The Input Understanding Agent extracts process objectives, operating constraints, topology relations, and unresolved
+ambiguities from the original request. The Intent Router maps these requirements to relevant chemical engineering
+concepts and unit-operation relations using curated ChE knowledge. The resulting requirement artifact provides a
+structured basis for downstream model construction.
+When PFD evidence is available, the Visual Agent converts visual information into VisualGraphIR, representing
+process entities and their relations. The Topology Agent then maps the interpreted requirements and visual evidence to
+TopologyIR, defining the process structure required for simulation. A deterministic topology validator checks schema
+validity, connectivity, port compatibility, and simulator capability constraints before promotion.
+4.3 Specification Closure and Model Compilation
+After topology validation, the Specification Agent generates SpecIR to define operating targets and close the degrees
+of freedom of the process model. Deterministic specification gates verify target validity, variable resolution, and
+consistency with the accepted topology before model construction.
+The deterministic compiler then constructs the BuildPlan Bi, as defined in Eq. 6. Unlike model-generation stages,
+compilation and execution are fully deterministic to avoid LLM’s flexible reasoning: promoted artifacts are translated
+into IDAES objects, initialized, and solved without further LLM intervention. The resulting SolveReport records
+numerical status, realized degrees of freedom, solver termination, physical checks, and failure diagnostics.
+4.4 Diagnosis, Bounded Repair, and Optimization
+When validation or execution fails, CRAFTS localizes the failure to the corresponding artifact stage rather than
+regenerating the entire model. A debugging role analyzes the request, promoted artifacts, validator reports, and solver
+diagnostics to identify the responsible layer, and a deterministic failure router applies an allowlisted repair before
+returning the artifact to its validation stage. Invalid artifacts are prevented from propagating downstream, and runs that
+exhaust the repair budget fail closed. This stage-specific repair strategy preserves intermediate engineering decisions
+5
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+from idaes.core import
+from idaes.models.unit_
+models import *
+import pyomo.environ as pyo
+...
+Supported
+1 User input & ChE Evidence
+(Input Agent-assisted)
+ChE User:
+Build the HDA process with
+the separation section after
+the recycle loop. The
+process should include the
+liquid preheater and the
+distillation column.
+1.2 Retrieved ChE knowledge
+1.1 PFD/Flowchart Evidence
+• Process family
+• Unit operator registry
+• Property package & components
+• IDAES/Pyomo builder availability
+• Engineer heuristic & constraints
+2 Evidence Grounding & Intent
+Routing (Intend Agent-assisted)
++
+Retrieved Process Family:
+HDA in BTX system
+1. hydrodealkylation (HDA)
+• Temp. = 573-673 K
+• Pressure = 2-4 MPa
+• Catalyst: Pt/Pd/Ni
+H2
+CH4+
+2. Reactor (R101)
+(toluene) (benzene)
+(hydrogen) (methane)
+4. Distillation column
+(C102)
+Overhead: Benzene
+Bottoms: Toluene
+(High purity)
+3. Flash separator (F101)
+Vapor (H2, CH4)
+Liquid (Aromatics)
+Toluene disproportionation (TDP)
+2
++
+(toluene) (benzene) (xylene)
+Reject cue: No xylene product
+3 Topology Reconstruction
+(LoRA Topology Agent-assisted)
+Qwen3-VL-8B-Instruct
+(LoRA Visual Role)
+{
+“confidence’’: 0.93
+“label_text’’: “F101”,
+“equipment’’: “Flash column”,
+“topology’’: “one_inlet_two_out let”,
+“role_hint’’: “post-reactor separation”,
+“shape_cues”: “drum-like vertical vessel”
+“state_cues”: {“T”: “325 K”, “∆P”: “0 Pa”}
+}
+1. Label Cue
+2. Shape Cue 3. State Cue
+• Vertical vessel
+• Rounded drum
+Equipment
+Identifier
+(OCR)
+Operating info.
+(text recognition
++ understanding)
+4. Connection Cue
+• 1 inlet (left)
+• 2 outlets (top, right)
+• Branch topology
+5. Context Cue
+• Downstream of R101
+• Upstream of C102
+• Post-reactor separation
+Qwen2.5-Coder-7B
+(LoRA Topology/Spec Role)
+1. Feed streams 2. Reactor (R101)
+3. Flash (F101)
+4. Column (C102)
+5. Context Cue
+4 Specification Generation
+(LoRA Topology/Spec Agent-assisted)
+• Toluene feed flow
+0.30 mol/s C7H8
+• Hydrogen feed flow
+0.30 mol/s H2
+0.02 mol/s CH4
+• Conversion 75%
+• Outlet temp. 600 K
+• Pressure 3.5 bar
+• Flash temp. 325 K
+• Flash ∆P 0 Pa
+• Reflux ratio 0.5
+• Distillate (Benzene) 0.95
+• Bottoms (Toluene) 0.95
+• Compressor (C101)
+• 20% recycle to purge
+2.1 Accepted Intent
+2.2 Rejected Intent
+3.2 Structured Visual (Typed JSON)
+3.1 Visual Agent Sees in the PFD
+4.1 Process Specifications Extracted
+5 Determistic Validation
+1. Connectivity check
+• All stream are physically connected
+• No broken or missing connections
+2. Property Package Check
+• All required properties are available
+3. DoF (Degree of Freedom)
+• Total DoF = 0
+• The model is square and solvable
+Interpret the request as
+HDA with flash separation
+and vapor recycle. Preserve
+......, while routing the flash
+liquid through a preheater to
+a distillation column for
+benzene–toluene recovery.
+6 Solve IDAES / Plan and optimize
+(Optimization Agent-assisted)
+Check IDAES/Pyomo flowsheet
+Plan and execute optimization
+1. Repository check
+2. IDAES builder check
+6.1 Workflow Checks & Execution
+project_repo/
+unit_models/
+property_models/
+solver_plugins/
+utils/
+config.yaml
+4. Solved Result Report
+BuildPlanIR
+Sandbox
+Solver
+3. Solve Execution
+Metric
+Status
+DoF
+Benzene
+Toluene
+Conversion
+Column Reflux
+Convergence
+Solve time
+Value
+Optimal
+0
+0.162 mol/s
+0.105 mol/s
+0.75
+0.5
+Success
+33.21 s
+5. Optimization planning (opt.)
+7 Debug & Recovery Agent (LangGraph)
+ Objective
+ Variables
+ Method
+ Next step
+etc.
+• Diagnose: Read failure and identify root
+• Repair: fix and return to relevant node
+• Validate: Continue when validation pass
+Figure 2: CRAFTS artifact workflow illustrated through an HDA (hydrodealkylation to benzene) example. Starting
+from the chemical engineer user request, PFD, and ChE-knowledge-informed evidence, the workflow performs intent
+routing, VisualGraphIR, TopologyIR and SpecIR generation, deterministic connectivity, property-package, and DoF,
+BuildPlan compilation, and IDAES/Pyomo execution before optional optimization. Failed artifacts are returned to their
+responsible stage for bounded diagnosis and repair through the LangGraph workflow architecture. LLM agents provide
+stage-specific engineering reasoning, while validation, compilation, repair application, and numerical execution remain
+deterministic workflow operations.
+and supports transparent debugging of the model-construction process. After a valid solve, an optimization role then
+proposes an objective, decision variables, constraints, and target DoF.
+Promoted artifacts are maintained throughout the workflow, while validation, compilation, repair, simulation, and
+optimization remain non-LLM execution stages under fixed solver settings.
+5 Experiments
+5.1 Benchmark
+OpenIDAES-450 contains 450 user-facing chemical-engineering requests paired with executable IDAES process
+models, intermediate artifacts, and auditable execution records. The benchmark covers unit-operation selection, topology
+construction, property-package assignment, specification closure, initialization, recycle handling, solver diagnosis,
+and optimization. We freeze 82 requests as the held-out test set for all reported evaluations, while the remaining 368
+requests are used only for training and development of CRAFTS-specific components. Test membership, request order,
+and evaluation denominators remain fixed across all experiments. Cases derived from the same source model or process
+template are assigned to the same split, and duplicate requests and topology records are removed before evaluation.
+5.2 Evaluation Protocol
+All experiments use the same frozen 82-request test set, evaluator-only references, structural scorers, and failure-retention
+rules. For framework comparisons, we keep the CRAFTS role interfaces, artifact schemas, deterministic gates, compiler,
+and execution settings fixed while replacing only the orchestration framework. For model comparisons, alternative
+backends are evaluated through the same role interfaces and workflow configuration. Literature baselines retain their
+original architectures and are reported separately. These comparisons evaluate complete system configurations under a
+shared artifact and execution protocol, rather than isolated foundation-model capabilities.
+5.3 Implementation Details
+CRAFTS is implemented as a LangGraph workflow with seven model-backed roles and deterministic validation and
+execution nodes. LangChain interfaces bind each role to its prompt, schema, structured-output parser, and artifact
+6
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Method Execution Structural F1
+Workflow Success (%)↑UC↑SC↑CC↑
+Architecture controls
+CeProAgents-style [13] 74.4 0.486 0.188 0.300
+Text-to-Simulation-style [14] 68.3 0.456 0.210 0.293
+Sketch2Simulation-style [15] 76.8 0.454 0.196 0.289
+Orchestration-framework controls
+OpenAI Agents SDK [31] 79.3 0.571 0.363 0.474
+Microsoft Agent Framework [32] 72.0 0.544 0.364 0.453
+CrewAI [33] 76.8 0.556 0.360 0.466
+Uniform-model controls
+GPT-5 mini [34] 54.9 0.392 0.280 0.203
+Claude Sonnet 4.6 [35] 45.1 0.210 0.159 0.167
+Gemini 3.5 Flash [36] 28.0 0.215 0.166 0.128
+CRAFTS (role-adaptive local Qwen) 91.5 0.815 0.791 0.782
+Table 2: Frozen 82-request results (higher is better). Workflow Success is the percentage of requests that pass every
+required stage in Eq. 5 and is reported independently of fixed-denominator structural macro F1. Both the architecture
+and orchestration-framework controls use GPT-5 mini with the shared IDAES execution substrate and structured-output
+schema; the architecture controls are author reimplementations of the cited agent decompositions.
+contract. The Visual Descriptor uses Qwen3-VL-8B-Instruct with supervised fine-tuning (SFT) via LoRA, while the
+Topology and Specification Agents use separate LoRA adapters on Qwen2.5-Coder-7B-Instruct; the remaining four roles
+use locally deployed Qwen3.6-27B with ChE-knowledge-informed prompting. All Qwen fine-tuning and local inference
+are performed on NVIDIA A40 GPUs, whereas external baseline models are accessed through their commercial APIs.
+Candidate outputs are archived and promoted only after passing deterministic fail-closed contracts. Full training settings,
+software versions, hardware details, and role-level configurations are provided in the supplementary material.
+6 Main Results
+6.1 Overall comparison.
+Table 2 compares architecture, orchestration, and uniform-model controls on the frozen held-out requests. Workflow
+Success measures end-to-end completion under the shared CRAFTS/IDAES execution protocol, while UC, SC, and CC
+independently measure structural agreement with evaluator-only references. A request contributes zero only when it
+produces no scorable topology artifact, and all 82 requests remain in every denominator. CRAFTS succeeds on 75 of 82
+requests (91.5%), with a two-sided 95% Wilson interval of 83.4–95.8%. All methods are evaluated on the same 82
+requests using fixed decoding and execution settings, and the reported results are point estimates on this frozen test split.
+Observed differences and relational assembly.CRAFTS obtains the highest observed value in every column. Relative
+to the strongest non-CRAFTS value in each column, the measured differences are 12.2 percentage points for Workflow
+Success and 0.244/0.427/0.308 for UC/SC/CC. The larger SC and CC gains are particularly important in chemical
+process modeling: identifying individual units such as a flash, reactor, or compressor is insufficient unless material
+identity is preserved across branches, stream connectivity remains consistent, and every connection terminates at a
+legal, directionally correct port. CRAFTS therefore improves not only equipment recovery but also relational flowsheet
+assembly, which directly determines whether an equation-oriented model can be constructed and solved. UC/SC/CC
+measure structural reference alignment, whereas Workflow Success additionally incorporates topology, thermodynamic,
+specification, construction, initialization, numerical, and requested-optimization gates.
+Role-adapted local models.Under the same role graph and evaluation protocol, the locally deployed role-adaptive
+Qwen configuration outperforms all evaluated uniform commercial-backend substitutions. Its Workflow Success exceeds
+GPT-5 mini, Claude Sonnet 4.6, and Gemini 3.5 Flash by 36.6, 46.4, and 63.5 percentage points, respectively. These
+system-level results show that the role-adaptive configuration is more effective than the evaluated uniform-model
+substitutions under the same workflow.
+7
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+0.0 0.5 1.0
+Normalized optimizer step
+0.4
+0.6
+0.8
+1.0
+Target-token probability
+Visual
+Topology
+Specification
+Train
+Held-out
+95% CI
+Figure 3: LoRA SFT target-token probability over normalized optimizer steps for the Visual Descriptor (Qwen3-VL-8B)
+and the Topology and Specification Agents (Qwen2.5-Coder-7B). Solid and dashed curves denote training and held-out
+validation, respectively; shading indicates 95% confidence intervals.
+Ablated condition Execution Structural F1
+Work. Success (%)↑UC↑SC↑CC↑
+Local Qwen (no FT) 36.6 0.242 0.109 0.135
+No ChE knowledge 0.00 0.058 0.116 0.083
+No visual evidence 25.6 0.174 0.078 0.105
+Merged topo.–spec. 30.5 0.273 0.117 0.133
+No Debug replay 18.3 0.151 0.104 0.090
+Full CRAFTS 91.5 0.815 0.791 0.782
+Table 3: Ablation study of CRAFTS on the frozen 82-request test split. The results quantify the impact of role-specific
+adaptation, ChE-informed reasoning, visual evidence, topology–specification separation, and debugging-based repair
+on executable process-model construction.
+The visual stage requires multimodal interpretation of process symbols, spatial relations, and stream connectivity;
+topology construction requires schema-constrained graph generation and simulator compatibility reasoning; and
+specification closure requires precise mapping between engineering targets, variables, and degrees of freedom. The
+gains from role adaptation therefore reflect capability alignment between agents and engineering subtasks rather than a
+ranking of foundation models themselves.
+The results support the combined heterogeneous-backbone and role-specific adaptation design over uniformly assigning
+one hosted model to all roles. Figure 3 shows that the topology and specification adapters converge faster than the visual
+adapter under the reported SFT metric, consistent with their more structured output spaces.
+6.2 Ablation Study
+Table 3 evaluates five system variants on the same frozen 82-request split. The untuned condition removes the three
+role-specific LoRA adapters; the ChE and visual conditions remove the corresponding model-visible evidence; joint
+topology–specification generation removes the independent TopologyIR-to-SpecIR promotion boundary; and the
+no-Debug condition disables bounded repair.
+Ablation observations.Removing role-specific adaptation reduces Workflow Success from 91.5% to 36.6%, with
+larger losses in SC and CC than in UC, showing that stream identity and directed port binding are more demanding than
+equipment recognition. Removing model-visible ChE knowledge leaves limited local structural overlap but yields no
+workflow-successful request, because unit, component, phase, property-package, specification, and initialization choices
+must remain jointly compatible. Removing PFD evidence produces the largest SC drop, from 0.791 to 0.078, reflecting
+the role of arrows, branches, merges, and recycle loops in stream reconstruction. Joint topology–specification generation
+reduces Workflow Success to 30.5%, supporting independent TopologyIR promotion before numerical specification.
+Disabling Debug replay reduces Workflow Success to 18.3%, showing that bounded stage-specific repair is integral to
+the complete workflow.
+8
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+This observation is consistent with the audit that 75 of 82 cases required at least one debugging interaction, demonstrating
+that iterative diagnosis is intrinsic to practical process-model construction.
+7 Discussion and Limitations
+Engineering insight.CRAFTS reflects a central principle of chemical-process modeling: executable flowsheets emerge
+from coordinated engineering stages rather than a single generation step. The larger improvements in SC and CC than in
+UC indicate that the primary challenge is not recognizing individual equipment types, but preserving relational process
+structure. In equation-oriented simulation, valid models require consistent stream identity, directional port connectivity,
+compatible property domains, and numerically meaningful specifications across the entire flowsheet. These results
+suggest that process-model intelligence depends strongly on maintaining structured engineering relations rather than
+only recovering isolated process entities.
+Why artifact-based agents work.The effectiveness of CRAFTS arises from separating flexible LLM-based reasoning
+from deterministic engineering execution. Specialized agents handle stage-specific decisions, while typed artifacts
+preserve explicit engineering states across topology construction, specification closure, diagnosis, and execution. Unlike
+free-form agent communication, these artifacts provide a shared and inspectable state that allows deterministic gates to
+validate structural, physical, and numerical consistency before information propagates downstream. Bounded repair
+then revises the responsible modeling layer using validated intermediate states rather than regenerating the entire model.
+This design matches the iterative workflow used by chemical engineers, where flowsheet structure, numerical closure,
+and solver behavior are progressively refined through diagnosis and correction.
+Limitations and future extensions.The current evaluation focuses on ChE modeling tasks within the verified IDAES
+capability surface represented by OpenIDAES-450. Extending CRAFTS to broader process families, additional property
+models, and more diverse optimization settings remains an important direction. The current benchmark also emphasizes
+auditable process-model construction; future work can investigate larger-scale industrial flowsheets, richer multimodal
+inputs, and adaptive knowledge resources. The artifact and execution traces introduced by CRAFTS provide a foundation
+for such extensions.
+8 Conclusion
+We presented CRAFTS, a locally deployable LLM multi-agent system for constructing executable chemical-process
+models from underspecified requests. Through seven role-adaptive agents and deterministic workflow nodes, CRAFTS
+transforms natural-language and PFD evidence into typed VisualGraphIR, TopologyIR, SpecIR, BuildPlan, SolveReport,
+and optional optimization artifacts, with engineering gates enforcing structural, thermodynamic, numerical, and
+execution contracts.
+CRAFTS targets equation- and code-oriented chemical-process modeling over the open IDAES/Pyomo substrate,
+exposing process structure, equations, constraints, DoF, solver diagnostics, and optimization controls as inspectable
+program objects. On the frozen 82-request OpenIDAES-450 split, CRAFTS achieves 91.5% Workflow Success and
+UC/SC/CC macro F1 scores of 0.815/0.791/0.782, obtaining the best observed results among the evaluated architecture,
+orchestration, and uniform-model controls under the shared workflow. These results demonstrate the potential of ChE-
+informed, locally deployable LLM collaboration as an effective and auditable approach for executable chemical-process
+model construction.
+9
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+A Role-Specific Fine-Tuning Details
+Only the Visual Descriptor, Topology Agent, and Specification Agent use role-specific LoRA adapters; the other
+four roles use ordinary Qwen. The frozen 82-case benchmark is excluded from SFT, prompt construction, and
+the ChE knowledge base. The complementary 368 cases supply the training evidence and transferable engineering
+guidance. Controlled transformations yield 5,000/1,000/1,000 train, validation, and test records for each text adapter and
+1,033/238/240 multimodal records for the visual adapter. These are role-level records rather than additional benchmark
+cases.
+Fine-tuned role Backbone and adapter Supervised contract Epochs Steps
+Visual Descriptor Qwen3-VL-8B-Instruct +
+LoRA
+Raster PFD and role prompt to validated
+VisualGraphIR with equipment, labels, directions,
+branches, and recycle cues
+3 732
+Topology Agent Qwen2.5-Coder-7B-
+Instruct + LoRA
+Normalized request, typed visual evidence, and ChE
+guidance to candidate TopologyIR with units, ports,
+arcs, packages, and terminals
+2 1,250
+Specification Agent Qwen2.5-Coder-7B-
+Instruct + LoRA
+Accepted TopologyIR and numerical evidence to
+SpecIR with targets, values, units, provenance, fix
+intent, and solve intent
+2 1,250
+Table 4: Role-specific fine-tuning configuration. Adapters are optimized independently because the three roles expose
+different schemas and validation surfaces. Steps are optimizer steps from the frozen training traces.
+A.1 Software, Hardware, and Promotion
+The frozen jobs use Python 3.10.20, PyTorch 2.6.0 with CUDA 12.4, Transformers 5.7.0, PEFT 0.19.1, Tokenizers
+0.22.2, and Safetensors 0.7.0. The Visual Descriptor additionally uses bitsandbytes 0.49.2 for four-bit NF4 loading,
+Accelerate 1.13.0 for device placement, Pillow 12.2.0, and NumPy 2.2.6. Training and local inference run on NVIDIA
+A40 GPUs. PEFT 0.19.1 is recorded in every adapter; the remaining pins were reconstructed from the persistent
+interpreter on 2026-07-22 because the original runs did not retain a complete transitive lock file.
+Checkpoint promotion follows the artifact contract of each role rather than training loss alone. VisualGraphIR, Topolo-
+gyIR, and SpecIR checkpoints must pass their respective schema and engineering gates. Figure 3 reports held-out SFT
+target-token probability over normalized optimizer steps; solid curves aggregate the multi-seed experiments and shaded
+regions show their 95% confidence intervals.
+10
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+B Web Interface and Audited Case Demonstrations
+B.1 Web Interface Demonstration
+Figure 4 shows the local browser interface used to inspect a saved NGCC trajectory. The interface exposes the user
+request and inputs, saved runs, ordered stage status, source PFD, and the sanitized artifact selected for inspection. It
+reads persisted run records and does not modify model-visible context, execution, or scoring.
+Figure 4: Web interface demonstration for a saved NGCC trajectory. Request controls and the run list appear at left;
+stage status, source PFD, and selected artifact details appear at right. The screenshot documents the interaction and
+audit surfaces only; benchmark results use the frozen artifacts described in the main paper.
+11
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+B.2 Audited Case Demonstrations
+The following five demonstrations reproduce frozen, artifact-linked trajectories from the held-out evaluation. Each trace
+preserves the request, role handoffs, typed artifacts, deterministic gates, execution report, and Debug state from one run.
+They illustrate system behavior and do not change the fixed-denominator results reported in the main text.
+HDA Flash
+HDA flash: complete interaction trace
+ChE-knowledge-informed LangGraph trajectory
+LangGraph collaboration profile(to Audit report):
+Input Understanding, Intent, Visual, Topology, Specification, deterministic validation, initialization, solve, and reporting form one artifact-consistent trajectory.
+Text roles use medium reasoning and the Visual Descriptor uses low reasoning. Five scoped model-agent calls generate 15 visibility-audit events, comprising
+five each for prepared calls, responses, and finalized calls, with zero boundary errors. The Debug supervisor is armed before Stage 1. All five role outputs are
+accepted on attempt 0 with no schema repair, fallback, or Debug replay; the deterministic solve reaches the report boundary.
+Stage 1: Input Understanding: preserve requirements, relations, and negations
+Root User(to Input Understanding): Build an HDA hydrodealkylation flowsheet with feed mixing, heating, reaction, flash separation, purge, compression,
+and vapor recycle. Use the compact flash configuration without a downstream distillation column.
+Input Understanding(to Intent Router):
+Normalize the task as build_and_solve in the HDA hydrodealkylation domain. Required features are feed_mixing, heater, reactor,
+flash_separator, purge, compressor, vapor_recycle, and compact_flash_configuration; the negated feature is distillation_column.
+Record the six directed relations: feed mixing feeds the heater, the heater feeds the reactor, the reactor feeds the flash, the flash vapor feeds both compressor
+and purge, and the compressor recycles to feed mixing. Record the bounded assumption that standard HDA connections fill details absent from the request, no
+unresolved ambiguity,needs_clarification=false, and confidence 0.95. The first structured role output passes the contract.
+Stage 2: Intent: recover the ChE process boundary and downstream obligations
+Intent Router(to ChE evidence / Visual Descriptor):
+Interpret the request as HDA Flash in the reaction_separation family with confidence 1.0 while preserving the explicit no-distillation boundary. The
+ChE interpretation requires feed mixing, reaction preheating, hydrodealkylation, vapor–liquid separation, a purge, recompression, vapor recycle, and a
+separate benzene-rich liquid path. The first structured role output passes the contract.
+Stage 3: Visual evidence: translate the PFD into an inspectable observation
+ChE evidence coordinator(to Visual Descriptor):
+Provide the process request together with authoritative HDA process documentation as a role-scoped engineering evidence packet. It covers visible equipment
+labels, stream directions, the vapor-recycle cue, the purge branch, the liquid-product path, and operating annotations. Only the Visual Descriptor receives the
+raster and its role-specific ChE guidance; the image is process evidence, not an evaluator topology or executable implementation.
+Visual Descriptor(to VisualGraphIR Validator / Topology Agent):
+Act as a modeling-assistance perception adapter upstream of topology synthesis. Convert the raster PFD into a typed visual record of visi-
+ble equipment, label text, arrow direction, products, branches, recycle cues, confidence, evidence links, and uncertainty. Do not independently
+choose IDAES property packages, ports, specifications, or executable model code. The Topology Agent will combine this validated observa-
+tion with routed ChE evidence and simulator capability constraints. The promoted artifact contains 12 visual nodes and 12 directed edges:
+nodes I101,I102,M101,H101,R101,F101,S101,C101,F102,P101,P102,P103 and edges I101->M101, I102->M101, M101->H101, H101->R101,
+R101->F101, F101->S101, S101->P103, S101->C101, C101->M101 (recycle), F101->F102, F102->P101, and F102->P102. It also reads the two feed
+conditions, heater/reactor/flash labels, 20% purge, compressor pressure, second-flash conditions, and benzene, toluene, and purge products. There are no
+uncertainty entries. A manuscript rendering of the actual JSON is:
+{
+"schema_version": "visual_graph_ir/2",
+"nodes": [
+{"visual_id":"M101", "label_text":"M101",
+"equipment_class_guess":"Mixer", "bbox":[0.18,0.4,0.3,0.6],
+"confidence_0_1":1.0,
+"evidence_ref":"Triangular mixer icon with label M101"},
+],
+"edges": [
+{"visual_edge_id":"e09", "source_visual_id":"C101",
+"destination_visual_id":"M101", "label_text":"",
+"direction_confidence_0_1":1.0, "is_recycle_guess":true,
+"evidence_ref":"Arrow from C101 back to M101"}
+],
+"uncertainties": []
+}
+The full JSON additionally retains bounding boxes, all feed/product boundary nodes, every evidence reference, and the remaining ten directed edges.
+VisualGraphIR Validator(to Topology Agent):
+Validate schema, unique visual identifiers, normalized bounding boxes, edge endpoints, and evidence boundary. Accept the first Visual Descriptor output with
+zero canonicalizations and no text-only fallback.
+12
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Stage 4: Topology: combine observations with ChE and simulator constraints
+Topology Agent(to Topology Validator / Prebuilder):
+Fuse the typed visual record with HDA ChE constraints and emit seven IDAES unit records, all on BTHM_params: M101 Mixer (toluene feed, hydrogen
+feed, and vapor recycle), H101 Heater (reactor preheater), R101 CSTR (HDA reactor with reaction_params), F101 Flash (noncondensable/liquid
+split), S101 Splitter (purge and recycle), C101 PressureChanger (isothermal recycle compressor), and F102 Flash (benzene-rich product flash). Emit
+the seven exact stream endpoints: s03 M101.outlet->H101.inlet ; s04 H101.outlet->R101.inlet ; s05 R101.outlet->F101.inlet ;
+s06 F101.vap_outlet->S101.inlet ; s08 S101.recycle->C101.inlet ; s09 C101.outlet->M101.vapor_recycle ; and s10
+F101.liq_outlet->F102.inlet. The first typed output passes without fallback.
+Stage 5: Specification: close operating choices and degrees of freedom
+Topology Validator / Prebuilder(to Specification Agent):
+Check unit and package surfaces, endpoints, ports, terminal streams, and construction compatibility. The promoted TopologyIR passes with exactly 7 units, 7
+arcs, and zero errors.
+Specification Agent(to DOF Checker):
+Emit all 16 grounded SpecIR entries one-to-one. The provenance markerChE-agent/DoF-validateddenotes a Specification Agent proposal accepted by the de-
+terministic DoF gate.Unit configuration (5): R101.conversion = 0.75 dimensionless (toluene conversion target; ChE-agent/DoF-validated);R101.heat_
+duty[0] = 0 W (adiabatic reactor duty; ChE-agent/DoF-validated); F101.deltaP[0] = 0 Pa (first flash pressure drop; ChE-agent/DoF-validated); S101.
+split_fraction[0, ’purge’] = 0.2 dimensionless (purge split fraction; ChE-agent/DoF-validated); and F102.deltaP[0] = -200000 Pa (second
+flash pressure drop; ChE-agent/DoF-validated).Stream configuration (11): M101.toluene_feed.flow_mol_phase_comp[0, ’Liq’, ’toluene’]
+= 0.3 mol/s (toluene feed molar flow; ChE-agent/DoF-validated); M101.hydrogen_feed.flow_mol_phase_comp[0, ’Vap’, ’hydrogen’] = 0.3
+mol/s (hydrogen feed molar flow; ChE-agent/DoF-validated); M101.hydrogen_feed.flow_mol_phase_comp[0, ’Vap’, ’methane’] = 0.02 mol/s
+(methane impurity in hydrogen feed; ChE-agent/DoF-validated); M101.toluene_feed.temperature[0] = 303.2 K (toluene feed temperature; ChE-
+agent/DoF-validated); M101.hydrogen_feed.temperature[0] = 303.2 K (hydrogen feed temperature; ChE-agent/DoF-validated); M101.toluene_
+feed.pressure[0] = 350000 Pa (toluene feed pressure; ChE-agent/DoF-validated); M101.hydrogen_feed.pressure[0] = 350000 Pa (hydrogen feed
+pressure; ChE-agent/DoF-validated); H101.outlet.temperature[0] = 600 K (reactor preheat target; ChE-agent/DoF-validated); F101.vap_outlet.
+temperature[0] = 325 K (first flash vapor temperature; ChE-agent/DoF-validated); C101.outlet.pressure[0] = 350000 Pa (recycle compressor
+outlet pressure; ChE-agent/DoF-validated); and F102.vap_outlet.temperature[0] = 375 K (second flash vapor temperature; ChE-agent/DoF-validated).
+No assignment is replaced by a count; the first structured output passes without fallback.
+DOF Checker(to BuildPlan Compiler):
+Pass the deterministic consistency gate with zero errors and zero warnings, 16 specifications, and expected steady-state DoF 0.
+Stage 6: Build and initialize the accepted white-box model
+BuildPlan Compiler(to Initialization / Native Solver):
+Compile the promoted TopologyIR and SpecIR into a hermetic JSON BuildPlan. Retain the seven units, seven arcs, benzene/toluene/hydrogen/methane
+components in liquid and vapor phases, the HDA property/reaction-package surface, terminal feeds M101.toluene_feed and M101.hydrogen_feed,
+and terminal products S101.purge, F102.vap_outlet, and F102.liq_outlet. Declare SequentialDecomposition in the order
+M101,H101,R101,F101,S101,C101,F102, withH101.inletas the recycle tear destination.
+Stage 7: Solve, inspect diagnostics, repair, and optimize only when eligible
+Native Solver(to Failure Router / Report):
+Complete the IDAES HDA solve with pass=true, termination optimal, final DoF 0, no error, and 12 persisted stream records. F102 vapor and liquid
+products are both 375 K and approximately 150 kPa. The liquid product contains 0.06262 mol/s liquid benzene and 0.03226 mol/s liquid toluene; the vapor
+product contains 0.14198 mol/s vapor benzene and 0.03026 mol/s vapor toluene. The purge is 325 K and approximately 350 kPa.
+Debug Supervisor audit (standby)(to Failure Router / Report):
+No fault is routed to Debug, so no diagnosis, repair artifact, or replay is generated. The supervisor remains armed from before Stage 1 through terminal
+acceptance.
+Failure Router(to Optimization Agent / Report):
+Accept the passing TopologyIR, SpecIR, DoF, and native-solve reports, close the bounded repair branch, and pass the accepted simulator state to Optimization
+only when the request makes that role eligible.
+Optimization Agent(to Deterministic runner / Report):
+Optimization is not invoked because the current request is build-and-solve only; persist the not-invoked state and make no design-optimum claim.
+IDAES FV exporter(to Web / manuscript report):
+After solve and any eligible optimization, export the same-run flowsheet visualization with 22 FV cells. Retain the ChE process evidence, accepted TopologyIR
+sketch, FV graph, and terminal numerical evidence for this same LangGraph trajectory.
+13
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Figure 5: HDA flash collaboration audit bundle. The compact flash and recycle boundary is kept separate from HDA
+distillation. Panels show (A) process evidence, (B) accepted TopologyIR, (C) the IDAES flowsheet view, and (D)
+terminal numerical evidence from the same trajectory.
+14
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+HDA Distillation
+HDA distillation—complete interaction trace
+ChE-knowledge-informed LangGraph trajectory
+LangGraph collaboration profile(to Case report):
+Input Understanding, Intent, Visual, Topology, Specification, deterministic validation, execution, and conditional Debug/Optimization roles form one
+artifact-consistent trajectory. Role reasoning is bounded by medium. The visibility gateway records 5 scoped model-agent calls and 15 visibility-audit events
+with zero boundary errors. Structured-output repairs=0; Debug replays=0. The Debug supervisor is armed before Stage 1. The deterministic execution returns
+solvedwith final acceptance at the report boundary.
+Stage 1: Input Understanding: preserve requirements, relations, and negations
+Root User(to Input Understanding): Build an HDA hydrodealkylation flowsheet with feed mixing, heating, reaction, flash separation, purge, compression,
+and vapor recycle. Route the flash liquid through the transfer and preheat section to a distillation column for benzene and toluene recovery.
+Input Understanding(to Intent Router):
+Normalize the request as build_and_solve in HDA hydrodealkylation. Required features: feed_mixing; heater; reactor; flash_separator; purge;
+compressor; vapor_recycle; liquid_preheater; distillation_column. Negated features: none. Directed relations: feed_mixing feeds heater;
+heater feeds reactor; reactor feeds flash_separator; flash_separator vapor_outlet_feeds compressor; compressor recycles_to feed_mixing; flash_separator
+liquid_outlet_feeds liquid_preheater; liquid_preheater feeds distillation_column. Assumptions: Standard HDA topology assumed: reactor effluent goes to
+flash; vapor is compressed and recycled; liquid goes to distillation.; ambiguities: none; clarification required=False; confidence 0.95.
+Stage 2: Intent: recover the ChE process boundary and downstream obligations
+Intent Router(to ChE evidence coordinator / Visual Descriptor):
+Interpret the request as HDA Distillation in the distillation domain. Route the required equipment and process features—feed_mixing; heater; reactor;
+flash_separator; purge; compressor; vapor_recycle; liquid_preheater; distillation_column— and directed ChE relations—feed_mixing
+feeds heater; heater feeds reactor; reactor feeds flash_separator; flash_separator vapor_outlet_feeds compressor; compressor recycles_to feed_mixing;
+flash_separator liquid_outlet_feeds liquid_preheater; liquid_preheater feeds distillation_column—to the downstream roles. Preserve explicit negations and
+bounded assumptions; confidence 1.
+Stage 3: Visual evidence: translate the PFD into an inspectable observation
+ChE evidence coordinator(to Visual Descriptor):
+Provide a role-scoped engineering evidence packet from the process request and authoritative process documentation. It contains equipment functions, visible
+labels, material/energy-flow direction, recycle or branch cues, operating semantics, and an explicit uncertainty boundary. LangGraph exposes this ChE
+evidence to the perception role without adding executable implementation details.
+Visual Descriptor(to VisualGraphIR Validator / Topology Agent):
+Act as the modeling-assistance perception adapter. The validated visual record has 14 nodes and 14 edges. Complete node inventory: M101=Mixer;
+H101=Heater; R101=CSTR; F101=Flash; S101=Splitter; C101=PressureChanger; Translator=Translator; H102=Heater; D101=TrayColumn; Feed_H2_
+CH4=External Feed; Feed_Toluene=External Feed; Purge=External Product; Benzene=External Product; Toluene=External Product. Complete directed-
+edge inventory: s03: Feed_H2_CH4→M101; s04: Feed_Toluene→M101; s05: M101→H101; s06: H101→R101; s07: R101→F101; s08: F101→S101;
+s09: C101→M101 (recycle cue); s10a: F101→Translator; s10b: Translator→H102; s11: H102→D101; s12: S101→Purge; s13: S101→C101;
+s14:D101→Benzene;s15:D101→Toluene. Visible text labels: none. Uncertainties: []. Observation excerpt:
+{
+"schema_version": "visual_graph_ir/2",
+"nodes": [
+{
+"visual_id": "M101",
+"label_text": "M101",
+"equipment_class_guess": "Mixer",
+"bbox": [
+0.12,
+0.35,
+0.24,
+0.5
+],
+"confidence_0_1": 0.95,
+"evidence_ref": "triangle mixer symbol with three inlet arrows"
+}
+],
+"edges": [
+{
+"visual_edge_id": "s03",
+"source_visual_id": "Feed_H2_CH4",
+"destination_visual_id": "M101",
+"label_text": "",
+"direction_confidence_0_1": 0.95,
+"is_recycle_guess": false,
+"evidence_ref": "arrow from feed box to mixer"
+}
+],
+"uncertainties": []
+}
+15
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+The Topology Agent combines this typed observation with routed ChE constraints and simulator capabilities; visual perception alone does not choose the
+executable flowsheet.
+VisualGraphIR Validator(to Topology Agent):
+Validate the visual schema, unique node/edge identifiers, normalized geometry, endpoint closure, evidence references, and uncertainty boundary before
+topology synthesis.
+Stage 4: Topology: combine observations with ChE and simulator constraints
+Topology Agent(to Topology Validator / Prebuilder):
+Combine the typed visual record with routed ChE constraints and simulator capabilities. Emit all 9 typed units: M101 Mixer (ChE role mix toluene
+feed, hydrogen feed, and vapor recycle, package BTHM_params, stage recycle_section); H101 Heater (ChE role reactor preheater, package BTHM_
+params, stage recycle_section); R101 CSTR (ChE role HDA reactor, packageBTHM_params, stage recycle_section); F101 Flash (ChE role separate
+non-condensibles from liquid benzene/toluene, package BTHM_params, stage recycle_section); S101 Splitter (ChE role split F101 vapor into purge and
+recycle, package BTHM_params, stage recycle_section); C101 PressureChanger (ChE role compress vapor recycle before M101, package BTHM_params,
+stage recycle_section); translator Translator (ChE role map HDA liquid to two-component BTX package, package BTHM_params_to_BT_params,
+stage distillation_section); H102 Heater (ChE role condition BTX liquid stream before distillation, package BT_params, stage distillation_
+section); D101 TrayColumn (ChE role benzene/toluene distillation column, package BT_params, stage distillation_section). Property/reaction
+package surface: BTHM_params (components=[benzene, toluene, hydrogen, methane]; phases=[Liq, Vap]; scope=[M101, H101, R101, F101, S101, C101,
+translator.inlet]); BT_params (components=[benzene, toluene]; phases=[Liq, Vap]; scope=[translator.outlet, H102, D101]). Emit all 9 exact stream endpoints:
+s03: M101.outlet→H101.inlet ; s04: H101.outlet→R101.inlet ; s05: R101.outlet→F101.inlet ; s06: F101.vap_outlet→S101.
+inlet; s08: S101.recycle→C101.inlet ; s09: C101.outlet→M101.vapor_recycle ; s10: F101.liq_outlet→translator.inlet ; s11_
+pre_column: translator.outlet→H102.inlet ; s11: H102.outlet→D101.feed . Terminal feeds: M101.toluene_feed; M101.hydrogen_
+feed; terminal products:S101.purge;D101.condenser.distillate;D101.reboiler.bottoms.
+Stage 5: Specification: close operating choices and degrees of freedom
+Topology Validator / Prebuilder(to Specification Agent):
+The typed unit, package, configuration, port, arc, terminal, and construction checks pass for the accepted TopologyIR; only the accepted topology advances.
+Specification Agent(to DOF Checker):
+Emit all 19 persisted SpecIR assignments one-to-one. The provenance markerChE-agent/DoF-validateddenotes a Specification Agent proposal ac-
+cepted by the deterministic DoF gate.Unit configuration (8): R101.conversion = 0.75 dimensionless (toluene conversion target; ChE-agent/DoF-
+validated); R101.heat_duty[0] = 0 W (adiabatic reactor duty; ChE-agent/DoF-validated); F101.deltaP[0] = 0 Pa (flash pressure drop; ChE-agent/DoF-
+validated); S101.split_fraction[0, ’purge’] = 0.2 dimensionless (purge split fraction; ChE-agent/DoF-validated); H102.deltaP[0] = -200000
+Pa (BTX heater pressure drop; ChE-agent/DoF-validated); D101.condenser.reflux_ratio = 0.5 dimensionless (column reflux ratio; ChE-agent/DoF-
+validated); D101.reboiler.boilup_ratio = 0.5 dimensionless (column boilup ratio; ChE-agent/DoF-validated); D101.condenser.condenser_
+pressure = 150000 Pa (column condenser pressure; ChE-agent/DoF-validated).Stream configuration (11): M101.toluene_feed.flow_mol_phase_
+comp[0, ’Liq’, ’toluene’] = 0.3 mol/s (toluene feed molar flow; ChE-agent/DoF-validated); M101.hydrogen_feed.flow_mol_phase_comp[
+0, ’Vap’, ’hydrogen’] = 0.3 mol/s (hydrogen feed molar flow; ChE-agent/DoF-validated); M101.hydrogen_feed.flow_mol_phase_comp[0,
+’Vap’, ’methane’] = 0.02 mol/s (methane impurity in hydrogen feed; ChE-agent/DoF-validated); M101.toluene_feed.temperature[0] = 303.2 K
+(toluene feed temperature; ChE-agent/DoF-validated); M101.hydrogen_feed.temperature[0] = 303.2 K (hydrogen feed temperature; ChE-agent/DoF-
+validated); M101.toluene_feed.pressure[0] = 350000 Pa (toluene feed pressure; ChE-agent/DoF-validated); M101.hydrogen_feed.pressure[
+0] = 350000 Pa (hydrogen feed pressure; ChE-agent/DoF-validated); H101.outlet.temperature[0] = 600 K (reactor preheat target; ChE-agent/DoF-
+validated); F101.vap_outlet.temperature[0] = 325 K (first flash vapor temperature; ChE-agent/DoF-validated); C101.outlet.pressure[0] =
+350000 Pa (recycle compressor outlet pressure; ChE-agent/DoF-validated); H102.outlet.temperature[0] = 375 K (BTX column feed conditioning
+target; ChE-agent/DoF-validated). No assignment is replaced by a count.
+DOF Checker(to BuildPlan Compiler):
+Validate target existence, compatibility, duplicate/conflicting fixes, terminal closure, and expected steady-state DoF. The promoted SpecIR and deterministic
+DoF report pass before compilation.
+Stage 6: Build and initialize the accepted white-box model
+BuildPlan Compiler(to Initialization / Native Solver):
+Compile the hermetic BuildPlan from the accepted TopologyIR and SpecIR. Initialization contract: solve order=[M101, H101, R101, F101, S101, C101,
+translator, H102, D101]; strategy=SequentialDecomposition over recycle section, then add/initialize TrayColumn. Recycle/tear contract: []. Solve contract:
+native_solve_disabled=false; expected_dof=0.
+Stage 7: Solve, inspect diagnostics, repair, and optimize only when eligible
+Native Solver(to Failure Router / Report):
+Persist pass=True, termination optimal, final DoF 0, stage steady_state_solver, and no terminal error. Representative same-run stream/product
+quantities: s11 [flow_mol=0.267119; temperature=375; pressure=150,000; mole_frac_comp: benzene=0.765945, toluene=0.234055]; H102_outlet_to_
+column_feed [flow_mol=0.267119; temperature=375; pressure=150,000; mole_frac_comp: benzene=0.765945, toluene=0.234055]; COL1_condenser_
+distillate [flow_mol=0.161969; temperature=368.929; pressure=150,000; mole_frac_comp: benzene=0.894916, toluene=0.105084]; COL1_reboiler_
+bottoms [flow_mol=0.10515; temperature=377.296; pressure=150,000; mole_frac_comp: benzene=0.566774, toluene=0.433226]. Source evidence is
+reported as the accepted output of the native execution node.
+Debug Supervisor audit (standby)(to Failure Router / Report):
+No fault was routed to Debug; no diagnosis, repair artifact, or replay was generated. The supervisor remained armed from before Stage 1 through terminal
+acceptance.
+Failure Router(to Optimization Agent / Report):
+Read the structured topology, specification, DoF, and accepted execution reports. Close the bounded repair branch, then pass the accepted simulator state to
+Optimization only when the request makes that role eligible.
+16
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Optimization Agent(to Deterministic runner / Report):
+Optimization was not invoked because the normalized intentbuild_and_solvedoes not request a separate design-optimization stage.
+IDAES FV exporter(to Web / manuscript report):
+After solve and any eligible optimization, export the same-run flowsheet visualization with 26 FV cells. Retain the ChE process evidence, accepted topology,
+FV graph, and terminal numerical evidence as one LangGraph trajectory.
+17
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Figure 6: HDA distillation collaboration audit bundle. Panels show (A) process evidence, (B) accepted TopologyIR, (C)
+the IDAES flowsheet view, and (D) terminal numerical evidence from the same trajectory.
+18
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Methanol Recycle
+Methanol recycle—complete interaction trace
+ChE-knowledge-informed LangGraph trajectory
+LangGraph collaboration profile(to Case report):
+Input Understanding, Intent, Visual, Topology, Specification, deterministic validation, execution, and conditional Debug/Optimization roles form one
+artifact-consistent trajectory. Role reasoning is bounded by medium. The visibility gateway records 5 scoped model-agent calls and 15 visibility-audit events
+with zero boundary errors. Structured-output repairs=0; Debug replays=0. The Debug supervisor is armed before Stage 1. The deterministic execution returns
+solvedwith final acceptance at the report boundary.
+Stage 1: Input Understanding: preserve requirements, relations, and negations
+Root User(to Input Understanding): Build a methanol-synthesis flowsheet from hydrogen and carbon monoxide with feed mixing, compression, heating,
+reaction, cooling, flash separation, purge, and vapor recycle to the reactor feed.
+Input Understanding(to Intent Router):
+Normalize the request as build_and_solve in methanol_synthesis. Required features: feed_mixing; compressor; heater; reactor; cooler; flash_
+separator; purge_stream; vapor_recycle_loop. Negated features: none. Directed relations: fresh_feed feeds feed_mixer; feed_mixer feeds compressor;
+compressor feeds heater; heater feeds reactor; reactor feeds cooler; cooler feeds flash_separator; flash_vapor_outlet splits_to purge_stream; flash_vapor_outlet
+splits_to recycle_compressor; recycle_compressor feeds feed_mixer. Assumptions: Standard methanol synthesis topology assumed: fresh feed mixes with
+recycle before compression.; ambiguities: none; clarification required=False; confidence 0.95.
+Stage 2: Intent: recover the ChE process boundary and downstream obligations
+Intent Router(to ChE evidence coordinator / Visual Descriptor):
+Interpret the request as Methanol Recycle in the reaction domain. Route the required equipment and process features—feed_mixing; compressor; heater;
+reactor; cooler; flash_separator; purge_stream; vapor_recycle_loop— and directed ChE relations—fresh_feed feeds feed_mixer; feed_mixer
+feeds compressor; compressor feeds heater; heater feeds reactor; reactor feeds cooler; cooler feeds flash_separator; flash_vapor_outlet splits_to purge_stream;
+flash_vapor_outlet splits_to recycle_compressor; recycle_compressor feeds feed_mixer—to the downstream roles. Preserve explicit negations and bounded
+assumptions; confidence 1.
+Stage 3: Visual evidence: translate the PFD into an inspectable observation
+ChE evidence coordinator(to Visual Descriptor):
+Provide a role-scoped engineering evidence packet from the process request and authoritative process documentation. It contains equipment functions, visible
+labels, material/energy-flow direction, recycle or branch cues, operating semantics, and an explicit uncertainty boundary. LangGraph exposes this ChE
+evidence to the perception role without adding executable implementation details.
+Visual Descriptor(to VisualGraphIR Validator / Topology Agent):
+Act as the modeling-assistance perception adapter. The validated visual record has 13 nodes and 13 edges. Complete node inventory: H2_feed=Feed;
+CO_feed=Feed; M101=Mixer; M102=Mixer; C101=Compressor; H101=Heater; R101=StoichiometricReactor; T101=Turbine; H102=Heater; F101=Flash;
+S101=Splitter; EXHAUST=Product; CH3OH_product=Product. Complete directed-edge inventory: s01: H2_feed→M101; s02: CO_feed→M101; s03:
+M101→M102; s04: M102→C101; s05: C101→H101; s06: H101→R101; s07: R101→T101; s08: T101→H102; s09: H102→F101; s10: F101→S101;
+s11:S101→EXHAUST;s12:S101→M102(recycle cue);s13:F101→CH3OH_product. Visible text labels: none. Uncertainties: []. Observation excerpt:
+{
+"schema_version": "visual_graph_ir/2",
+"nodes": [
+{
+"visual_id": "H2_feed",
+"label_text": "H2, 20 C, 30 bar",
+"equipment_class_guess": "Feed",
+"bbox": [
+0.0,
+0.15,
+0.12,
+0.3
+],
+"confidence_0_1": 0.95,
+"evidence_ref": "Leftmost labeled arrow with H2 specification"
+}
+],
+"edges": [
+{
+"visual_edge_id": "s01",
+"source_visual_id": "H2_feed",
+"destination_visual_id": "M101",
+"label_text": "",
+"direction_confidence_0_1": 0.95,
+"is_recycle_guess": false,
+"evidence_ref": "Arrow from H2_feed to M101"
+}
+],
+"uncertainties": []
+}
+The Topology Agent combines this typed observation with routed ChE constraints and simulator capabilities; visual perception alone does not choose the
+executable flowsheet.
+19
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+VisualGraphIR Validator(to Topology Agent):
+Validate the visual schema, unique node/edge identifiers, normalized geometry, endpoint closure, evidence references, and uncertainty boundary before
+topology synthesis.
+Stage 4: Topology: combine observations with ChE and simulator constraints
+Topology Agent(to Topology Validator / Prebuilder):
+Combine the typed visual record with routed ChE constraints and simulator capabilities. Emit all 13 typed units: H2 Feed (ChE role hydrogen feed, package
+thermo_params_vapor, stage feed_section); CO Feed (ChE role carbon monoxide feed, package thermo_params_vapor, stage feed_section);
+M101 Mixer (ChE role mix H2 and CO feeds, package thermo_params_vapor, stage feed_section); M102 Mixer (ChE role mix fresh syngas with
+recycle vapor, package thermo_params_vapor, stage recycle_section); C101 Compressor (ChE role compress mixed syngas, package thermo_
+params_vapor, stage reaction_section); H101 Heater (ChE role preheat reactor feed, package thermo_params_vapor, stage reaction_section);
+R101 StoichiometricReactor (ChE role methanol synthesis reactor, package thermo_params_vapor, stage reaction_section); T101 Turbine (ChE
+role expand reactor effluent, package thermo_params_vapor, stage recovery_section); H102 Heater (ChE role cool product recovery feed, package
+thermo_params_vapor, stage recovery_section); F101 Flash (ChE role recover liquid methanol from vapor, package thermo_params_VLE, stage
+recovery_section); S101 Splitter (ChE role split flash vapor into purge and recycle, package thermo_params_vapor, stage recycle_section);
+EXHAUST Product (ChE role purge gas product, package thermo_params_vapor, stage product_section); CH3OH Product (ChE role liquid methanol
+product, package thermo_params_VLE, stage product_section). Property/reaction package surface: thermo_params_VLE (components=[H2, CO,
+CH3OH, CH4]; phases=[Liq, Vap]; scope=[F101, CH3OH]); thermo_params_vapor (components=[H2, CO, CH3OH, CH4]; phases=[Vap]; scope=[H2,
+CO, M101, M102, C101, H101, R101, T101, H102, S101, EXHAUST]). Emit all 13 exact stream endpoints: s01: H2.outlet→M101.H2_WGS ; s02: CO.
+outlet→M101.CO_WGS ; s03: M101.outlet→M102.feed ; s04: M102.outlet→C101.inlet ; s05: C101.outlet→H101.inlet ; s06: H101.
+outlet→R101.inlet ; s07: R101.outlet→T101.inlet ; s08: T101.outlet→H102.inlet ; s09: H102.outlet→F101.inlet ; s10: F101.
+vap_outlet→S101.inlet ; s11: S101.recycle→M102.recycle ; s12: S101.purge→EXHAUST.inlet ; s13: F101.liq_outlet→CH3OH.
+inlet. Terminal feeds: none; terminal products: none.
+Stage 5: Specification: close operating choices and degrees of freedom
+Topology Validator / Prebuilder(to Specification Agent):
+The typed unit, package, configuration, port, arc, terminal, and construction checks pass for the accepted TopologyIR; only the accepted topology advances.
+Specification Agent(to DOF Checker):
+Emit all 14 persisted SpecIR assignments one-to-one. The provenance markerChE-agent/DoF-validateddenotes a Specification Agent proposal accepted by the
+deterministic DoF gate.Unit configuration (6): R101.co_conversion = 0.75 dimensionless (CO conversion; ChE-agent/DoF-validated); T101.deltaP[
+0] = -2000000 Pa (turbine pressure drop; ChE-agent/DoF-validated); T101.efficiency_isentropic[0] = 0.9 dimensionless (turbine isentropic
+efficiency; ChE-agent/DoF-validated); F101.deltaP[0] = 0 Pa (flash pressure drop; ChE-agent/DoF-validated); F101.outlet.temperature[0] =
+407.15 K (flash outlet temperature; ChE-agent/DoF-validated); S101.split_fraction[0, ’purge’] = 0.9999 dimensionless (purge split fraction;
+ChE-agent/DoF-validated).Stream configuration (8): H2.outlet.flow_mol[0] = 637.2 mol/s (hydrogen feed flow; ChE-agent/DoF-validated); CO.
+outlet.flow_mol[0] = 316.8 mol/s (carbon monoxide feed flow; ChE-agent/DoF-validated); H2.outlet.pressure[0] = 3000000 Pa (hydrogen
+feed pressure; ChE-agent/DoF-validated); CO.outlet.pressure[0] = 3000000 Pa (carbon monoxide feed pressure; ChE-agent/DoF-validated); C101.
+outlet.pressure[0] = 5100000 Pa (compressor outlet pressure; ChE-agent/DoF-validated); H101.outlet.temperature[0] = 488.15 K (reactor
+feed preheat temperature; ChE-agent/DoF-validated); R101.outlet.temperature[0] = 507.15 K (reactor outlet temperature; ChE-agent/DoF-validated);
+H102.outlet.temperature[0]=407.15K (flash feed cooling temperature; ChE-agent/DoF-validated). No assignment is replaced by a count.
+DOF Checker(to BuildPlan Compiler):
+Validate target existence, compatibility, duplicate/conflicting fixes, terminal closure, and expected steady-state DoF. The promoted SpecIR and deterministic
+DoF report pass before compilation.
+Stage 6: Build and initialize the accepted white-box model
+BuildPlan Compiler(to Initialization / Native Solver):
+Compile the hermetic BuildPlan from the accepted TopologyIR and SpecIR. Initialization contract: solve order=[H2, CO, M101, M102, C101,
+H101, R101, T101, H102, F101, S101]; strategy=SequentialDecomposition over methanol recycle loop. Recycle/tear contract: []. Solve contract: na-
+tive_solve_disabled=false; expected_dof=0.
+Stage 7: Solve, inspect diagnostics, repair, and optimize only when eligible
+Native Solver(to Failure Router / Report):
+Persist pass=True, termination optimal, final DoF 0, stage steady_state_solver, and no terminal error. Representative same-run stream/product
+quantities: s10_flash_vapor [flow_mol=336.239; temperature=not recorded; pressure=3.1e+06; enth_mol=-80217.7; mole_frac_comp: H2=0.481811,
+CO=0.235553, CH3OH=0.282634, CH4=2.83755e-06]; s11_recycle [flow_mol=0.0336239; temperature=not recorded; pressure=3.1e+06; enth_mol=-
+80217.7; mole_frac_comp: H2=0.481811, CO=0.235553, CH3OH=0.282634, CH4=2.83755e-06]; s12_purge [flow_mol=336.206; temperature=not
+recorded; pressure=3.1e+06; enth_mol=-80217.7; mole_frac_comp: H2=0.481811, CO=0.235553, CH3OH=0.282634, CH4=2.83755e-06]; s13_methanol_
+product [flow_mol=142.584; temperature=not recorded; pressure=3.1e+06; enth_mol=-238,130; mole_frac_comp: H2=1e-08, CO=1e-08, CH3OH=1,
+CH4=1e-08]. Source evidence is reported as the accepted output of the native execution node.
+Debug Supervisor audit (standby)(to Failure Router / Report):
+No fault was routed to Debug; no diagnosis, repair artifact, or replay was generated. The supervisor remained armed from before Stage 1 through terminal
+acceptance.
+Failure Router(to Optimization Agent / Report):
+Read the structured topology, specification, DoF, and accepted execution reports. Close the bounded repair branch, then pass the accepted simulator state to
+Optimization only when the request makes that role eligible.
+Optimization Agent(to Deterministic runner / Report):
+Optimization was not invoked because the normalized intentbuild_and_solvedoes not request a separate design-optimization stage.
+20
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+IDAES FV exporter(to Web / manuscript report):
+After solve and any eligible optimization, export the same-run flowsheet visualization with 26 FV cells. Retain the ChE process evidence, accepted topology,
+FV graph, and terminal numerical evidence as one LangGraph trajectory.
+21
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Figure 7: Methanol recycle collaboration audit bundle. Panels show (A) process evidence, (B) accepted TopologyIR,
+(C) the IDAES flowsheet view, and (D) terminal numerical evidence from the same trajectory.
+22
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Membrane Distillation Recirculation
+Membrane distillation recirculation: complete interaction trace
+ChE-knowledge-informed LangGraph trajectory
+LangGraph collaboration profile(to Case report):
+Input Understanding, Intent, Visual, Topology, Specification, deterministic validation, execution, and conditional Debug/Optimization roles form one
+artifact-consistent trajectory. Role reasoning is bounded by medium. The visibility gateway records 6 scoped model-agent calls and 18 visibility-audit events
+with zero boundary errors. Structured-output repairs=0; Debug replays=0. The Debug supervisor is armed before Stage 1. The deterministic execution returns
+optimizedwith final acceptance at the report boundary.
+Stage 1: Input Understanding: preserve requirements, relations, and negations
+Root User(to Input Understanding): Build a WaterTAP direct-contact membrane-distillation flowsheet with feed pumping, heat recovery, brine heating,
+the MD unit, concentrate recycle and reject handling, permeate cooling, and a final permeate product. After the zero-DoF steady-state solve, perform the
+registered deterministic design optimization and retain its objective, decision variables, bounds, constraints, termination, and terminal metrics in this same run.
+Input Understanding(to Intent Router):
+Normalize the request as optimize in WaterTAP membrane distillation. Required features: feed_pump; heat_recovery_exchanger; brine_
+heater; membrane_distillation_unit; concentrate_recycle; reject_handling; permeate_cooler; permeate_product; deterministi
+c_design_optimization. Negated features: none. Directed relations: feed_inlet feeds feed_pump; feed_pump feeds heat_recovery_exchanger_feed_side;
+heat_recovery_exchanger_feed_side feeds brine_heater; brine_heater feeds membrane_distillation_unit_feed; membrane_distillation_unit_concentrate
+splits_to concentrate_recycle_stream; membrane_distillation_unit_concentrate splits_to reject_stream; concentrate_recycle_stream recycles_to
+feed_mixing_point; membrane_distillation_unit_permeate feeds permeate_cooler; permeate_cooler feeds permeate_product. Assumptions: Standard Water-
+TAP DCMD topology assumed for component ordering.; Optimization is performed on the same flowsheet instance after initial solve.; ambiguities: none;
+clarification required=False; confidence 0.95.
+Stage 2: Intent: recover the ChE process boundary and downstream obligations
+Intent Router(to ChE evidence coordinator / Visual Descriptor):
+Interpret the request as Membrane Distillation in the distillation domain. Route the required equipment and process features, namely feed_
+pump; heat_recovery_exchanger; brine_heater; membrane_distillation_unit; concentrate_recycle; reject_handling; permeate_
+cooler; permeate_product; deterministic_design_optimization, and directed ChE relations, namely feed_inlet feeds feed_pump; feed_pump
+feeds heat_recovery_exchanger_feed_side; heat_recovery_exchanger_feed_side feeds brine_heater; brine_heater feeds membrane_distillation_unit_feed;
+membrane_distillation_unit_concentrate splits_to concentrate_recycle_stream; membrane_distillation_unit_concentrate splits_to reject_stream; concen-
+trate_recycle_stream recycles_to feed_mixing_point; membrane_distillation_unit_permeate feeds permeate_cooler; permeate_cooler feeds permeate_product,
+to the downstream roles. Preserve explicit negations and bounded assumptions; confidence 0.98.
+Stage 3: Visual evidence: translate the PFD into an inspectable observation
+ChE evidence coordinator(to Visual Descriptor):
+Provide a role-scoped engineering evidence packet from the process request and authoritative process documentation. It contains equipment functions, visible
+labels, material/energy-flow direction, recycle or branch cues, operating semantics, and an explicit uncertainty boundary. LangGraph exposes this ChE
+evidence to the perception role without adding executable implementation details.
+Visual Descriptor(to VisualGraphIR Validator / Topology Agent):
+Act as the modeling-assistance perception adapter. The validated visual record has 8 nodes and 9 edges. Complete node inventory: Heater=Heater;
+Heat_Exchanger=HeatExchanger; Cooler=Heater; MD_Module=MembraneDistillation0D; Make_up_Feed=Feed; Reject_Concentrate=Product;
+Permeate=Product; Recycle_Stream=Separator. Complete directed-edge inventory: Make_up_Feed_to_MD_hot_inlet: Make_up_Feed→MD_
+Module; MD_hot_outlet_to_Reject_Concentrate: MD_Module→Reject_Concentrate; MD_cold_outlet_to_Heat_Exchanger_hot_
+side: MD_Module→Heat_Exchanger; Heat_Exchanger_cold_side_to_Cooler: Heat_Exchanger→Cooler; Cooler_to_MD_cold_inlet:
+Cooler→MD_Module; Heat_Exchanger_hot_side_to_Heater: Heat_Exchanger→Heater; Heater_to_MD_hot_inlet: Heater→MD_Module;
+MD_cold_outlet_to_Permeate_Separator: MD_Module→Permeate; Recycle_Stream_from_Reject_Concentrate_to_Make_up_Feed:
+Reject_Concentrate→Make_up_Feed (recycle cue). Visible text labels: Make-up Feed; Reject Concentrate; Permeate; Recycle Stream; Coolant; Heater;
+Heat Exchanger; Cooler; Tf; Tfm; Tp; Cf; Cfm; qf; qm; qp; J. Uncertainties: [{’description’: ’Internal stream splits within MD module are not visible;
+permeate and concentrate paths inferred from external outputs.’, ’evidence_ref’: ’No explicit separators shown for permeate/concentrate split within MD
+module.’}, {’description’: ’Exact connection point between Cooler output and MD cold inlet is ambiguous due to overlapping arrows.’, ’evidence_ref’: ’Blue
+arrows converge near MD cold inlet but lack clear junction point.’}]. Observation excerpt:
+23
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+{
+"schema_version": "visual_graph_ir/2",
+"nodes": [
+{
+"visual_id": "Heater",
+"label_text": "Heater",
+"equipment_class_guess": "Heater",
+"bbox": [
+0.38,
+0.12,
+0.54,
+0.26
+],
+"confidence_0_1": 0.95,
+"evidence_ref": "Top circular unit labeled ’Heater’"
+}
+],
+"edges": [
+{
+"visual_edge_id": "Make_up_Feed_to_MD_hot_inlet",
+"source_visual_id": "Make_up_Feed",
+"destination_visual_id": "MD_Module",
+"label_text": "",
+"direction_confidence_0_1": 0.98,
+"is_recycle_guess": false,
+"evidence_ref": "Red arrow from ’Make-up Feed’ to MD hot inlet"
+}
+],
+"uncertainties": [
+"{’description’: ’Internal stream splits within MD module are not visible; permeate and concentrate paths inferred from external
+outputs.’, ’evidence_ref’: ’No explicit separators shown for permeate/concentrate split within MD module.’}",
+"{’description’: ’Exact connection point between Cooler output and MD cold inlet is ambiguous due to overlapping arrows.’,
+’evidence_ref’: ’Blue arrows converge near MD cold inlet but lack clear junction point.’}"
+]
+}
+The Topology Agent combines this typed observation with routed ChE constraints and simulator capabilities; visual perception alone does not choose the
+executable flowsheet.
+VisualGraphIR Validator(to Topology Agent):
+Validate the visual schema, unique node/edge identifiers, normalized geometry, endpoint closure, evidence references, and uncertainty boundary before
+topology synthesis.
+Stage 4: Topology: combine observations with ChE and simulator constraints
+Topology Agent(to Topology Validator / Prebuilder):
+Combine the typed visual record with routed ChE constraints and simulator capabilities. Emit all 13 typed units: feed Feed (ChE role seawater
+makeup feed, package seawater, stage feed); pump_feed Pump (ChE role raise makeup feed pressure before mixing, package seawater, stage
+hot_loop); mixer Mixer (ChE role mix makeup feed with concentrated brine recycle, package seawater, stage hot_loop); hx HeatExchanger
+(ChE role recover heat from cold-loop outlet into hot-loop feed, package seawater, stage heat_recovery); pump_brine Pump (ChE role pressur-
+ize brine loop before heater, package seawater, stage hot_loop); heater Heater (ChE role heat hot-side MD inlet stream, package seawater, stage
+thermal); MD MembraneDistillation0D (ChE role direct-contact membrane distillation module, package seawater, stage separation); separator_
+concentrate Separator (ChE role split MD hot outlet into reject and recycle, package seawater, stage hot_loop); reject Product (ChE role
+concentrated brine reject, package seawater, stage product); chiller Heater (ChE role cool cold-loop stream before MD cold inlet, package
+permeate_water, stage cold_loop); separator_permeate Separator (ChE role split cold-loop outlet into product permeate and recycle loop, pack-
+age permeate_water, stage cold_loop); pump_permeate Pump (ChE role circulate cold-loop stream through chiller, package permeate_water,
+stage cold_loop); permeate Product (ChE role distilled permeate product, package permeate_water, stage product). Property/reaction pack-
+age surface: permeate_water (components=[H2O, TDS]; phases=[Liq]; scope=[chiller, MD.cold_ch, hx.hot, separator_permeate, pump_permeate,
+permeate]); seawater (components=[H2O, TDS]; phases=[Liq]; scope=[feed, pump_feed, mixer, hx.cold, pump_brine, heater, MD.hot_ch, separa-
+tor_concentrate, reject]); water_vapor (components=[H2O]; phases=[Vap]; scope=[]). Emit all 15 exact stream endpoints: feed_to_feed_pump: feed.
+outlet→pump_feed.inlet ; feed_pump_to_mixer: pump_feed.outlet→mixer.feed ; mixer_to_heat_exchanger_cold_side: mixer.
+outlet→hx.cold_inlet ; heat_exchanger_cold_out_to_brine_pump: hx.cold_outlet→pump_brine.inlet ; brine_pump_to_heater:
+pump_brine.outlet→heater.inlet ; heater_to_md_hot_inlet: heater.outlet→MD.hot_ch_inlet ; md_hot_outlet_to_concentrate_
+separator: MD.hot_ch_outlet→separator_concentrate.inlet ; concentrate_separator_to_reject: separator_concentrate.reject
+→reject.inlet ; concentrate_separator_recycle_to_mixer: separator_concentrate.recycle→mixer.recycle ; chiller_to_md_
+cold_inlet: chiller.outlet→MD.cold_ch_inlet ; md_cold_outlet_to_heat_exchanger_hot_side: MD.cold_ch_outlet→hx.hot_
+inlet; heat_exchanger_hot_out_to_permeate_separator: hx.hot_outlet→separator_permeate.inlet ; permeate_separator_to_
+product: separator_permeate.permeate→permeate.inlet ; permeate_separator_cold_loop_to_pump: separator_permeate.cold_
+loop_stream→pump_permeate.inlet ; permeate_pump_to_chiller: pump_permeate.outlet→chiller.inlet . Terminal feeds: none; termi-
+nal products: none.
+Stage 5: Specification: close operating choices and degrees of freedom
+Topology Validator / Prebuilder(to Specification Agent):
+The typed unit, package, configuration, port, arc, terminal, and construction checks pass for the accepted TopologyIR; only the accepted topology advances.
+Specification Agent(to DOF Checker):
+Emit all 10 persisted SpecIR assignments one-to-one. The provenance markerChE-agent/DoF-validateddenotes a Specification Agent proposal accepted
+by the deterministic DoF gate.Unit configuration (8): system.overall_recovery = 0.5 dimensionless (official default overall water recovery; ChE-
+agent/DoF-validated); MD.permeability_coef = 1e-10 kg/m/s/Pa (official membrane permeability coefficient; ChE-agent/DoF-validated);MD.membrane_
+24
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+thickness = 0.0001 m (official membrane thickness; ChE-agent/DoF-validated); MD.membrane_thermal_conductivity = 0.2 W/m/K (official
+membrane thermal conductivity; ChE-agent/DoF-validated); hx.overall_heat_transfer_coefficient = 2000 W/m^2/K (official heat exchanger
+coefficient; ChE-agent/DoF-validated); heater.max_outlet_temperature = 363.15 K (optimization upper bound from official case; ChE-agent/DoF-
+validated); chiller.min_outlet_temperature = 283.15 K (optimization lower bound from official case; ChE-agent/DoF-validated); optimization.
+objective = LCOW $/m^3 (final WaterTAP optimization objective; ChE-agent/DoF-validated).Stream configuration (2): feed.feed_flow_mass = 1
+kg/s (official default total feed mass flow; ChE-agent/DoF-validated); feed.feed_mass_frac_TDS = 0.035 mass fraction (official default feed salinity;
+ChE-agent/DoF-validated). No assignment is replaced by a count.
+DOF Checker(to BuildPlan Compiler):
+Validate target existence, compatibility, duplicate/conflicting fixes, terminal closure, and expected steady-state DoF. The promoted SpecIR and deterministic
+DoF report pass before compilation.
+Stage 6: Build and initialize the accepted white-box model
+BuildPlan Compiler(to Initialization / Native Solver):
+Compile the hermetic BuildPlan from the accepted TopologyIR and SpecIR. Initialization contract: solve order=[feed, MD, concentrate separator, feed
+pump, mixer, heat exchanger, brine pump, heater, permeate separator, permeate pump, chiller, LCOW optimization]; strategy=WaterTAP MD build,
+set_operating_conditions, initialize_system through hot and cold recycle loops, simulation solve, then optimize_set_up and LCOW solve. Recycle/tear
+contract: []. Solve contract: native_solve_disabled=false; expected_dof=0 for simulation, 6 for optimization.
+Stage 7: Solve, inspect diagnostics, repair, and optimize only when eligible
+Native Solver(to Failure Router / Report):
+Persist pass=True, termination optimal, final DoF 0, stage steady_state_simulation, and no terminal error. Representative same-run stream/product
+quantities: heat_exchanger_hot_out_to_permeate_separator [mass_flow=8.04107; flow_kg_s=8.04107; temperature=298.03; pressure=374,271;
+flow_mass_phase_comp: Liq/H2O=8.04107, Liq/TDS=4.47114e-17];permeate_separator_to_product[mass_flow=0.4825; flow_kg_s=0.4825; tem-
+perature=298.03; pressure=374,271; flow_mass_phase_comp: Liq/H2O=0.4825, Liq/TDS=5.91586e-20]; permeate_separator_cold_loop_to_pump
+[mass_flow=7.55857; flow_kg_s=7.55857; temperature=298.03; pressure=374,271; flow_mass_phase_comp: Liq/H2O=7.55857, Liq/TDS=4.47114e-
+17]; permeate_pump_to_chiller [mass_flow=7.55857; flow_kg_s=7.55857; temperature=298.03; pressure=601,325; flow_mass_phase_comp:
+Liq/H2O=7.55857, Liq/TDS=4.47114e-17]. Source evidence is reported as the accepted output of the native execution node.
+Debug Supervisor audit (standby)(to Failure Router / Report):
+No fault was routed to Debug; no diagnosis, repair artifact, or replay was generated. The supervisor remained armed from before Stage 1 through terminal
+acceptance.
+Failure Router(to Optimization Agent / Report):
+Read the structured topology, specification, DoF, and accepted execution reports. Close the bounded repair branch, then pass the accepted simulator state to
+Optimization only when the request makes that role eligible.
+Optimization Agent(to Deterministic runner / Report):
+Optimization was invoked through the collaborating agent plan and deterministic runner. Objective: minimize levelized cost of water. Validated variables:
+fs.MD.area; fs.MD.length; fs.hx.area; fs.heater.control_volume.properties_out[0].temperature; fs.chiller.control_volume.
+properties_out[0].temperature; fs.pump_brine.control_volume.properties_out[0].pressure; target DoF 6; plan constraints: MD
+hot-channel inlet pressure <= 1e6 Pa. Native same-run outcome: pass=true; stage=design_optimization_solver; case_family=watertap_membrane_distillation;
+official_reference_url=https://watertap.readthedocs.io/en/stable/technical_reference/flowsheets/membrane_distillation.html; simula-
+tion_termination_condition=optimal; termination_condition=optimal; final_dof=6; water_recovery=0.5; recycle_ratio=6.1696; lev-
+elized_cost_of_water=15.4446; specific_energy_consumption=182.872; thermal_efficiency=0.678341; effectiveness=0.858913;
+permeate_tds_mass_fraction=-4.0516e-38; md_area_m2=103.182; heat_exchanger_area_m2=291.078; heater_outlet_temperature_k=363.15;
+chiller_outlet_temperature_k=291.629; brine_pump_outlet_pressure_pa=1e+06. Decision-variable values: . Constraint values: . Product/design values: .
+IDAES FV exporter(to Web / manuscript report):
+After solve and any eligible optimization, export the same-run flowsheet visualization with 28 FV cells. Retain the ChE process evidence, accepted topology,
+FV graph, and terminal numerical evidence as one LangGraph trajectory.
+25
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Figure 8: WaterTAP membrane-distillation recirculation collaboration audit bundle. Panels show (A) process evidence,
+(B) accepted TopologyIR, (C) the IDAES flowsheet view, and (D) terminal numerical evidence from the same trajectory.
+26
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Autothermal Reformer
+Autothermal reformer—complete interaction trace
+ChE-knowledge-informed LangGraph trajectory
+LangGraph collaboration profile(to Case report):
+Input Understanding, Intent, Visual, Topology, Specification, deterministic validation, execution, and conditional Debug/Optimization roles form one
+artifact-consistent trajectory. Role reasoning is bounded by medium. The visibility gateway records 6 scoped model-agent calls and 18 visibility-audit events
+with zero boundary errors. Structured-output repairs=0; Debug replays=0. The Debug supervisor is armed before Stage 1. The deterministic execution returns
+optimizedwith final acceptance at the report boundary.
+Stage 1: Input Understanding: preserve requirements, relations, and negations
+Root User(to Input Understanding): Build the NGFC autothermal-reformer subsystem with staged air compression and intercooling, natural-gas expansion,
+recuperative heating, feed and bypass mixing, autothermal reforming, and the downstream bypass rejoin. Include the steady-state design optimization.
+Input Understanding(to Intent Router):
+Normalize the request as optimize in Natural Gas Fuel Cell (NGFC) preprocessing. Required features: staged_air_compression; intercooling
+; natural_gas_expansion; recuperative_heater; feed_bypass_mixer; autothermal_reformer; bypass_rejoin_mixer. Negated features:
+none. Directed relations: air_compressor_stage_1 feeds intercooler; intercooler feeds air_compressor_stage_2; natural_gas_inlet feeds expansion_valve; expan-
+sion_valve feeds recuperative_heater_cold_side; recuperative_heater_hot_side feeds autothermal_reformer; feed_bypass_mixer feeds autothermal_reformer;
+autothermal_reformer feeds bypass_rejoin_mixer. Assumptions: Assume standard NGFC preprocessing topology where air and fuel streams are prepared
+separately before mixing or reacting.; ambiguities: none; clarification required=False; confidence 0.95.
+Stage 2: Intent: recover the ChE process boundary and downstream obligations
+Intent Router(to ChE evidence coordinator / Visual Descriptor):
+Interpret the request as NGFC ATR in the process_system domain. Route the required equipment and process features— staged_air_compression;
+intercooling; natural_gas_expansion; recuperative_heater; feed_bypass_mixer; autothermal_reformer; bypass_rejoin_mixer—
+and directed ChE relations—air_compressor_stage_1 feeds intercooler; intercooler feeds air_compressor_stage_2; natural_gas_inlet feeds expansion_valve;
+expansion_valve feeds recuperative_heater_cold_side; recuperative_heater_hot_side feeds autothermal_reformer; feed_bypass_mixer feeds autother-
+mal_reformer; autothermal_reformer feeds bypass_rejoin_mixer—to the downstream roles. Preserve explicit negations and bounded assumptions; confidence
+1.
+Stage 3: Visual evidence: translate the PFD into an inspectable observation
+ChE evidence coordinator(to Visual Descriptor):
+Provide a role-scoped engineering evidence packet from the process request and authoritative process documentation. It contains equipment functions, visible
+labels, material/energy-flow direction, recycle or branch cues, operating semantics, and an explicit uncertainty boundary. LangGraph exposes this ChE
+evidence to the perception role without adding executable implementation details.
+Visual Descriptor(to VisualGraphIR Validator / Topology Agent):
+Act as the modeling-assistance perception adapter. The persisted VisualGraphIR contains 38 nodes and 14 edges. Its actual observation excerpt is retained
+below:
+{
+"schema_version": "visual_graph_ir/2",
+"nodes": [
+{
+"visual_id": "Fs_air_compressor_s1_inlet",
+"label_text": "Fs.air_compressor_s1.inlet",
+"equipment_class_guess": "PressureChanger",
+"bbox": [
+0.18,
+0.27,
+0.32,
+0.35
+],
+"confidence_0_1": 0.95,
+"evidence_ref": "Top-left labeled inlet arrow for air compressor stage 1"
+}
+],
+"edges": [
+{
+"visual_edge_id": "TO_NG_EXP",
+"source_visual_id": "recuperator_shell_outlet",
+"destination_visual_id": "natural_gas_expander_inlet",
+"label_text": "Preheated Natural Gas",
+"direction_confidence_0_1": 0.95,
+"is_recycle_guess": false,
+"evidence_ref": "Dashed purple arrow from recuperator to expander"
+}
+]
+}
+A one-to-one audit against the same run’s source flowchart found a bounded visible-graph correction: Collapse endpoint-only port placeholders back onto the
+visible equipment to restore a connected equipment graph; Retain the air-compression train, steam and natural-gas feeds, reformer bypass, recuperator, and
+final syngas/bypass rejoin shown in the source. This is an explicit source-verification supplement and is not reattributed to the original Visual Descriptor
+response:
+27
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+{
+"audit_status": "same-source publication correction",
+"mode": "replace",
+"verified_node_count": 14,
+"verified_edge_count": 15,
+"correction_summary": [
+"Collapse endpoint-only port placeholders back onto the visible equipment to restore a connected equipment graph.",
+"Retain the air-compression train, steam and natural-gas feeds, reformer bypass, recuperator, and final syngas/bypass rejoin
+shown in the source."
+]
+}
+The source-verified publication layer contains 14 nodes and 15 edges. Complete node inventory: AirFeed=Feed; air_compressor_s1=PressureChanger;
+intercooler_s1=Heater; air_compressor_s2=PressureChanger; intercooler_s2=Heater; SteamFeed=Feed; NaturalGasFeed=Feed;
+reformer_recuperator=HeatExchanger; natural_gas_expander=PressureChanger; reformer_bypass=Separator; reformer_mix=Mixer;
+reformer=GibbsReactor; bypass_rejoin=Mixer; ToPowerIsland=Product. Complete directed-edge inventory: air_feed_to_c1: AirFeed→air_
+compressor_s1; c1_to_ic1: air_compressor_s1→intercooler_s1; ic1_to_c2: intercooler_s1→air_compressor_s2; c2_to_ic2:
+air_compressor_s2→intercooler_s2; ic2_to_mix: intercooler_s2→reformer_mix; steam_to_mix: SteamFeed→reformer_mix;
+ng_to_recuperator: NaturalGasFeed→reformer_recuperator; recuperator_to_expander: reformer_recuperator→natural_gas_
+expander; expander_to_bypass: natural_gas_expander→reformer_bypass; bypass_to_mix: reformer_bypass→reformer_mix; mix_
+to_reformer: reformer_mix→reformer; reformer_to_recuperator: reformer→reformer_recuperator; recuperator_to_rejoin:
+reformer_recuperator→bypass_rejoin; bypass_to_rejoin: reformer_bypass→bypass_rejoin; rejoin_to_product: bypass_
+rejoin→ToPowerIsland. Visible text labels: none. Uncertainty boundary: The validator represented 23 one-sided visual edge endpoints as endpoint-only
+boundary nodes (11 feed-side and 12 product-side). This representation-only closure added no edge or internal equipment. The Topology Agent consumes the
+persisted promoted artifact together with routed ChE constraints and simulator capabilities; the audit layer documents the flowchart-to-VisualIR correction
+transparently rather than altering the selected run.
+VisualGraphIR Validator(to Topology Agent):
+Validate the visual schema, unique node/edge identifiers, normalized geometry, endpoint closure, evidence references, and uncertainty boundary before
+topology synthesis.
+Stage 4: Topology: combine observations with ChE and simulator constraints
+Topology Agent(to Topology Validator / Prebuilder):
+Combine the typed visual record with routed ChE constraints and simulator capabilities. Emit all 10 typed units: reformer_recuperator HeatExchanger
+(ChE role preheat natural gas using hot reformer outlet, package NG_props, stage atr_reformer); NG_expander PressureChanger (ChE role expand
+preheated natural gas before bypass split, package NG_props, stage atr_reformer); reformer_bypass Separator (ChE role split natural gas between
+reformer and bypass, package NG_props, stage atr_reformer); air_compressor_s1 PressureChanger (ChE role first-stage air compressor, package
+NG_props, stage atr_reformer); intercooler_s1 Heater (ChE role first intercooler, package NG_props, stage atr_reformer); air_compressor_
+s2 PressureChanger (ChE role second-stage air compressor, package NG_props, stage atr_reformer); intercooler_s2 Heater (ChE role second inter-
+cooler, package NG_props, stage atr_reformer); reformer_mix Mixer (ChE role mix natural gas, compressed air, and steam, package NG_props, stage
+atr_reformer); reformer GibbsReactor (ChE role autothermal reforming Gibbs reactor, package NG_props, stage atr_reformer); bypass_rejoin
+Mixer (ChE role mix reformer syngas with natural-gas bypass, package NG_props, stage atr_reformer). Property/reaction package surface: NG_props
+(components=[H2, CO, H2O, CO2, CH4, C2H6, C3H8, C4H10, N2, O2, Ar]; phases=[Vap]; scope=[reformer_recuperator, NG_expander, reformer_bypass,
+air_compressor_s1, intercooler_s1, air_compressor_s2, intercooler_s2, reformer_mix, reformer, bypass_rejoin]). Emit all 11 exact stream endpoints:
+TO_NG_EXP: reformer_recuperator.tube_outlet→NG_expander.inlet ; NG_EXP_OUT: NG_expander.outlet→reformer_bypass.inlet ;
+TO_REF: reformer_bypass.reformer_outlet→reformer_mix.gas_inlet ; STAGE_1_OUT: air_compressor_s1.outlet→intercooler_s1.
+inlet; IC_1_OUT: intercooler_s1.outlet→air_compressor_s2.inlet ; STAGE_2_OUT: air_compressor_s2.outlet→intercooler_s2.
+inlet; IC_2_OUT: intercooler_s2.outlet→reformer_mix.oxygen_inlet ; REF_IN: reformer_mix.outlet→reformer.inlet ; REF_OUT:
+reformer.outlet→reformer_recuperator.shell_inlet ; REF_RECUP_OUT: reformer_recuperator.shell_outlet→bypass_rejoin.
+syngas_inlet; REF_BYPASS: reformer_bypass.bypass_outlet→bypass_rejoin.bypass_inlet . Terminal feeds: reformer_recuperator.
+tube_inlet;air_compressor_s1.inlet;reformer_mix.steam_inlet; terminal products:bypass_rejoin.outlet.
+Stage 5: Specification: close operating choices and degrees of freedom
+Topology Validator / Prebuilder(to Specification Agent):
+The typed unit, package, configuration, port, arc, terminal, and construction checks pass for the accepted TopologyIR; only the accepted topology advances.
+Specification Agent(to DOF Checker):
+Emit all 7 persisted SpecIR assignments one-to-one. The provenance markerChE-agent/DoF-validateddenotes a Specification Agent proposal accepted by the
+deterministic DoF gate.Unit configuration (2): reformer_bypass.split_fraction[0, ’bypass_outlet’] = 0.6 dimensionless (internal reformation
+bypass fraction; ChE-agent/DoF-validated); reformer_mix.steam_to_ng_ratio = 1 dimensionless (official steam flow constraint uses steam = (1 -
+IR) * NG flow; ChE-agent/DoF-validated).Stream configuration (5): reformer_recuperator.tube_inlet.flow_mol[0] = 1161.9 mol/s (natural
+gas feed flow; ChE-agent/DoF-validated); air_compressor_s1.inlet.flow_mol[0] = 1332.9 mol/s (air feed initial flow; ChE-agent/DoF-validated);
+reformer_mix.steam_inlet.flow_mol[0] = 464.77 mol/s (steam feed initial flow; ChE-agent/DoF-validated); reformer.outlet.temperature[
+0] = 1060.93 K (reformer outlet temperature; ChE-agent/DoF-validated); reformer.outlet.pressure[0] = 137895 Pa (reformer outlet pressure;
+ChE-agent/DoF-validated). No assignment is replaced by a count.
+DOF Checker(to BuildPlan Compiler):
+Validate target existence, compatibility, duplicate/conflicting fixes, terminal closure, and expected steady-state DoF. The promoted SpecIR and deterministic
+DoF report pass before compilation.
+Stage 6: Build and initialize the accepted white-box model
+BuildPlan Compiler(to Initialization / Native Solver):
+28
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Compile the hermetic BuildPlan from the accepted TopologyIR and SpecIR. Initialization contract: solve order=[reformer, reformer_recuperator, NG_expander,
+reformer_bypass, air_compressor_s1, intercooler_s1, air_compressor_s2, intercooler_s2, reformer_mix, bypass_rejoin]; strategy=simulator-native NGFC
+initialize_reformer(). Recycle/tear contract: []. Solve contract: native_solve_disabled=false; expected_dof=0.
+Stage 7: Solve, inspect diagnostics, repair, and optimize only when eligible
+Native Solver(to Failure Router / Report):
+Persist pass=True, termination optimal, final DoF 0, stage steady_state_solver, and no terminal error. Representative same-run stream/product
+quantities: steam_feed [flow_mol=464.76; temperature=422; pressure=206,843; mole_frac_comp: H2=1e-11, CO=1e-11, H2O=1, CO2=1e-11];
+reformer_inlet [flow_mol=2262.45; temperature=469.838; pressure=203,396; mole_frac_comp: H2=2.59655e-11, CO=2.59655e-11, H2O=0.21155,
+CO2=0.00223098]; reformer_outlet [flow_mol=2942.07; temperature=1060.93; pressure=137,895; mole_frac_comp: H2=0.34036, CO=0.112478,
+H2O=0.13826, CO2=0.0517876]; atr_syngas_product [flow_mol=3639.21; temperature=621.322; pressure=137,895; mole_frac_comp: H2=0.27516,
+CO=0.0909317, H2O=0.111775, CO2=0.0437826]. Source evidence is reported as the accepted output of the native execution node.
+Debug Supervisor audit (standby)(to Failure Router / Report):
+No fault was routed to Debug; no diagnosis, repair artifact, or replay was generated. The supervisor remained armed from before Stage 1 through terminal
+acceptance.
+Failure Router(to Optimization Agent / Report):
+Read the structured topology, specification, DoF, and accepted execution reports. Close the bounded repair branch, then pass the accepted simulator state to
+Optimization only when the request makes that role eligible.
+Optimization Agent(to Deterministic runner / Report):
+Optimization was invoked through the collaborating agent plan and deterministic runner. Objective: maximize syngas H2 mole fraction. Validated
+variables: fs.reformer_bypass.split_fraction[0, ’bypass_outlet’] ; target DoF 1; plan constraints: syngas N2 mole fraction <= 0.34.
+Native same-run outcome: pass=true; stage=steady_state_optimization; case_family=ngfc_atr; official_reference_url=https://idaes.github.io/examples-
+pse/latest/Examples/Flowsheets/power_generation/ngfc/NGFC_flowsheet_doc.html; optimization_form=rigorous_ngfc_reformer_subsystem_ipopt;
+termination_condition=optimal; steady_state_dof_before_optimization=0; optimization_degrees_of_freedom=1; final_dof=1; objec-
+tive_max_h2_mole_fraction=0.327834. Decision-variable values: bypass_frac=0.194765; steam_to_ng_ratio_effective=1. Constraint val-
+ues: bypass_frac_bounds=[0.1, 0.8]; max_product_n2_mole_fraction=0.34; product_n2_mole_fraction=0.34. Product/design values:
+atr_syngas_h2_mole_fraction=0.327834; atr_syngas_n2_mole_fraction=0.34; atr_syngas_flow_mol=6148.94; atr_syngas_temperature=815.911;
+atr_syngas_pressure=137,895.
+IDAES FV exporter(to Web / manuscript report):
+After solve and any eligible optimization, export the same-run flowsheet visualization with 29 FV cells. Retain the ChE process evidence, accepted topology,
+FV graph, and terminal numerical evidence as one LangGraph trajectory.
+29
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation
+Figure 9: Autothermal reformer collaboration audit bundle. Panels show (A) process evidence, (B) accepted TopologyIR,
+(C) the IDAES flowsheet view, and (D) terminal numerical evidence from the same trajectory.
+30
+
+CRAFTS: Collaborative Role-Adaptive Fine-Tuning of LLM Agents for Chemical Process Simulation

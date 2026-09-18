@@ -1,0 +1,202 @@
+record_id: arxiv:2412.14212
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2412.14212
+fetched_title: Tree-of-Code: A Hybrid Approach for Robust Complex Task Planning and Execution
+fetched_at: 2026-09-18T19:01:09Z
+
+Tree-of-Code: A Hybrid Approach for Robust
+Complex Task Planning and Execution
+Yifan Li∗
+Global Innovation Exchange Institution, Tsinghua University
+Beijing, China, 100084
+yifan-li23@mail.tsinghua.edu.cn
+Ziyi Ni∗
+Institute of Automation, Chinese Academy of Sciences
+Beijing, China, 100190
+niziyi2021@ia.ac.cn
+Daxiang Dong†
+Baidu, Inc.
+Beijing, China, 100193
+dongdaxiang@baidu.com
+Abstract
+The exceptional capabilities of large language models (LLMs) have substantially
+accelerated the rapid rise and widespread adoption of agents. Recent studies have
+demonstrated that generating Python code to consolidate LLM-based agents’ ac-
+tions into a unified action space (CodeAct) is a promising approach for developing
+real-world LLM agents. However, this step-by-step code generation approach often
+lacks consistency and robustness, leading to instability in agent applications, par-
+ticularly for complex reasoning and out-of-domain tasks. In this paper, we propose
+a novel approach called Tree-of-Code (ToC) to tackle the challenges of complex
+problem planning and execution with an end-to-end mechanism. By integrating key
+ideas from both Tree-of-Thought and CodeAct, ToC combines their strengths to
+enhance solution exploration. In our framework, each final code execution result is
+treated as a node in the decision tree, with a breadth-first search strategy employed
+to explore potential solutions. The final outcome is determined through a voting
+mechanism based on the outputs of the nodes. Experimental results on complicated
+task datasets demonstrate that our method provides more stable results compared
+to Tree-of-Thought and achieves higher accuracy than CodeAct.
+1 Introduction
+In recent years, the application of code generation techniques to complex task planning and execution
+has garnered significant attention [ 11, 22, 24], particularly with the emergence of CodeAct [ 20]
+approaches. CodeAct has demonstrated remarkable efficiency in generating executable code for
+complex tasks, improving overall performance in terms of speed and accuracy. However, the lack
+of consistent reasoning in CodeAct leads to frequent interruptions during multi-step generation,
+causing fragmented and stalled thinking. Additionally, this process accumulates significant model
+∗The first two authors contributed equally to this work. † Corresponding author. dongdaxiang@baidu.com
+Preprint. Under review.
+arXiv:2412.14212v1 [cs.SE] 18 Dec 2024
+
+hallucinations [13], with increasing randomness, which ultimately undermines the robustness required
+for reliably solving complex problems.
+To address this challenge, we developed an end-to-end thought-code-execution pipeline that enables
+models to autonomously generate plans and decompositions for complex tasks, with clear reasoning.
+Post planning, the model produces implementation code that references earlier reasoning and leverages
+its innate code processing capabilities, making implicit reasoning explicit through code. Execution
+of this code yields results. Inspired by the Tree-of-Thought paradigm, our approach emphasizes
+structured solution exploration using decision trees and incorporates continuous code reflection. The
+main approach can be summarized into three parts:
+1. End-to-End Code Generation: By producing complete code solutions end-to-end, we mini-
+mize the need for intermediate reflection on execution results, thus enhancing stability, and
+design a long thought-code reasoning process. We introduce ‘llm-function‘ to enable large
+models to generate prompts and summarize corresponding outcomes.
+2. Exploration of Incomplete Nodes: Leveraging the Tree-of-Thought methodology, we explore
+nodes with incomplete execution results by varying prompts, large language models, and
+model temperatures to improve result stability.
+3. Majority V oting for Final Results: large language models perform majority voting on all
+successfully executed nodes to determine the outcome.
+The contribution of this paper: 1) We propose the Tree-of-Code method, enhancing stability in
+complex task execution through efficient model integration. 2) Our approach can integrate various
+large language models without the need to do fine-tuning. 3) empirical validation of improved
+problem-solving performance.
+2 Related Work
+LLM Reasoning: Enhancing reasoning capabilities is a crucial step toward improving general
+LLMs. The current mainstream approaches focus on training techniques—such as pretraining [10],
+SFT [6], prompt-tuning [ 10], model editing [ 18], and reinforcement learning [ 17, 26]—as well
+as the widely used method of prompt engineering to reduce output hallucinations and improve
+reasoning [5]. The latter primarily involves designing various frameworks for structured chains of
+thought. Longer thought chains seem to always yield better results [26, 21]. The recent success of
+GPT-o1 has also highlighted the importance of extended chains of thought (CoT) [ 21]. Notably,
+existing CoT method, even with simple prompts like "let’s think step by step," can achieve over a
+30% improvement. The Tree of Thoughts (ToT) framework [25] further enhances LLM reasoning
+by generating and evaluating intermediate steps, employing search algorithms to systematically
+explore and backtrack thought paths, enabling more effective problem-solving. Other emerging
+frameworks, like Graph-of-Thought [ 4] and Algorithm-of-Thought [ 16], are also contributing to
+this area of research. Code Generation: It is widely accepted that training LLMs with codes can
+significantly enhance their reasoning abilities [6, 1, 7, 9, 27]. Furthermore, research has shown that
+code, as a formal programming language, closely mirrors logical structures, inherently containing
+flow control mechanisms that can stimulate reasoning capabilities. For instance, [20, 9, 19] argue that
+code serves as an effective medium for representing reasoning processes. Recent works combining
+code with agents have mainly focused on task completion in purely programming-related domains,
+such as software development [ 19, 14] and assisting humans in competitive programming tasks
+[23, 12]. However, these models do not use code as a scalable language, such as JSON, for direct
+communication in everyday tasks. CodeAct [20] attempted to use code directly to solve entire tasks,
+but the granularity of each step was too small, leading to error accumulation during function calls.
+3 Tree-of-Code: Code Generation Through Tree-Structured Reflection
+The Tree-of-Code (ToC) method combines the structured exploration of Tree-of-Thought with
+the efficient task planning of CodeAct. ToC introduces a tree-based generation and exploration
+mechanism that utilizes various code generation strategies and models, enhancing the robustness
+of execution results. By treating code as a form of reasoning, ToC capitalizes on the unique
+characteristics of code, such as consistency and determinism, to develop a more effective agent
+2
+
+Figure 1: An Overview of our method ToC and CodAct comparisons. (a) CodeAct receives input
+and performs a cycle of execution and correction, but the process is carried out in an iterative,
+round-by-round manner. (b) ToC applies execution-level reflection in the decision-tree structure.
+At each layer, different nodes are executed in parallel; if executed correctly, they are stored in the
+candidate pool for voting, if a node fails, it requires further reflection. Yellow blocks mean continued
+reflection. Both red and green blocks are done: red blocks are discarded by LLM voting, while green
+blocks are collected and accepted.
+system with improved interpretability and reduced AI hallucinations. This approach acknowledges
+that well-structured planning does not inherently ensure correct code execution. Unlike traditional
+reasoning methods, which rely on pre-organized plans, code necessitates a distinct methodology.
+Therefore, the code-reasoning process is decomposed into a structured framework that emphasizes
+reflection from post-execution feedback to inform iterative improvements. However, this direct
+treatment of code as logical reasoning introduces two significant challenges. 1) Limited diversity:
+Code generation tends to follow a single path, lacking exploration of alternative branches due to
+the inertia of models. 2) Limited strategy: Code generation lacks a systematic approach to evaluate
+various options or apply feedback to refine them.
+To address these shortcomings, we introduce the Tree of Code (ToC), a framework that allows
+models to explore multiple solution paths using a variety of strategies and models, with reflection on
+post-generation execution built into the process.
+3.1 Overview the Tree-of-Code System
+The Tree-of-Code (ToC) framework presents a comprehensive code reasoning process comprising
+four key stages: thought, code generation, execution, and reflection. We represent this reasoning
+process as a tree T = ( N, L) In contrast to the thought chain series, where thought steps are
+organized into nodes (N), our approach emphasizes end-to-end generation. Here, we define nodes as
+the combination of code generation and its corresponding execution. This tight coupling between
+code and execution results ensures logical consistency and correctness while facilitating high-quality
+outcomes for subsequent model training. To enhance post-generation reflection through iterative
+refinement, we model the reflection process as lines ( L), which can encompass various strategies
+for improvement: 1) System-level reflection: Sampling from diverse models to explore multiple
+solutions. 2) Operation-level reflection: Modifying evaluation and reflection strategies to iterative
+enhance output. This structured approach guarantees that the final output is both accurate and diverse,
+striking a balance between correctness and a variety of reasoning pathways to yield robust solutions.
+3
+
+3.2 Thought And Code Generator
+Code generation is a critical component of code-as-reasoning. In our framework, the thought and code
+generation stage integrates interactions between the user, environment, and agent: The user provides
+the task queries. The environment executes the generated code, providing execution feedback. The
+agent synthesizes information from the user, environment, and history, translating this into codes,
+which it then executes. The process of transforming thought into executable codes can be formalized
+as:
+Execution(i) = Code(FC(i), FR(i), Thought(i), Functions) ∀i ∈ {1, . . . , n} (1)
+where T hought(i) represents the agent’s internal reasoning at step i, and Code (F C(i), F R(i) and
+T hought(i), F unctions) converts that reasoning into Python code for execution. F C(i) represents
+the code of father node of the current node. F R(i) represents the code execution result of father node
+of the current node. F unctions represent all the tools that current task can use.
+To generate an end-to-end solution for current task, we add a llm-function tool into Functions set.
+With llm-function, our code generation LLMs will generate prompt from the current context and call
+llm-function to generate final results.
+3.3 Tree Expansion and State Evaluation
+We initialize from a root node and do tree expansion recursively based on termination criteria. Every
+time a node’s code is executed, state evaluation will be executed based on the code execution results.
+The process is as follows: 1) The process starts at the root node, expanding the tree incrementally,
+with each node representing generated thoughts, code, and execution results. 2) Generated codes of
+each leaf node will be executed in a Python environment. When errors are detected, child nodes are
+expanded from the erroneous node to analyze specific issues and explore alternative solutions. 3)
+This expansion continues until all leaf nodes execute successfully or a maximum depth is reached.
+This strategy effectively manages complexity and ensures correct and efficient code execution results.
+3.4 Final Result Generator
+After candidate outputs from all executed nodes are collected, these results undergo a majority vote
+and tragic summarization process to determine the most likely single answer. Explanations of the
+final answer are not included, just the precise answer to the question is shown.
+4 Experiment and Analysis
+Our experiments evaluated the effectiveness of the ToC framework, comparing its performance
+primarily against the CodeAct framework. We used the M 3ToolEval, a newly curated benchmark
+for evaluating performance across complex multi-scene tasks, the same used in CodeAct [ 20], to
+benchmark ToC. We evaluated the input samples from M3ToolEval. The context window was fixed at
+3k tokens, and the generation depth was set at 3 for consistency in computational costs. To highlight
+the superiority of our method, we directly compared it to the best-performing model in CodeAct,
+which is based on GPT-4. In the tests, ToC achieved a 7.2% higher accuracy than CodeAct in tasks,
+and it reduced interaction steps significantly, demonstrating overall effectiveness and robustness in
+task completion, as Table 1 shows.
+To ensure diverse outputs, we applied a multi-level sampling strategy: 1) Model Diversity: A range of
+generative models (e.g., GPT-4 [2], ERNIE-4.0-Turbo [15], DeepSeek Coder [8], and Claude 3.5 [3])
+was utilized to introduce variability at the model level. 2) Temperature Variability: Adjustments
+to generation temperatures were made within specified bounds to encourage content variation. 3)
+Prompt Variation: Different role instructions and adaptive strategies were explored to further enhance
+adaptive diversity.
+Further analysis compared ToC against both the JSON-based and thought-based modes of CodeAct.
+Across all criteria, ToC consistently outperformed other traditional reasoning frameworks, particularly
+in managing complex reasoning tasks.
+5 Conclusion
+In this paper, we introduced the Tree-of-Code (ToC) method, which combines the strengths of
+Tree-of-Thought and CodeAct to enhance model robustness and accuracy. Both thought and code
+4
+
+Table 1: Performance Comparison
+Model Name Action Mode Average Turns Correct %
+ToC1 code_as_reasoning 2.3 81.60%
+CodeAct2
+code_as_reasoning 5.5 74.40%
+json_as_reasoning 7.6 52.40%
+text_as_reasoning 7.7 53.70%
+1 Mix-modal sampling for Toc.
+2 GPT-4, best performance model for CodeAct.
+generation in our approach might intrigue internal processes of reasoning, while the decision-tree
+structured exploration enables reflection based on external execution. With efficient model integration
+and prompt optimization, we achieved results significantly surpassing the baselines on complex task
+datasets. Furthermore, our ongoing, yet unpublished, work suggests that this approach will yield
+similarly promising results in real-world applications and better performance after few-shot SFT.
+These results will be shared in future work—stay tuned.

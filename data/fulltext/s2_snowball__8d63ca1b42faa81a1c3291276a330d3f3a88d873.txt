@@ -1,0 +1,686 @@
+record_id: s2_snowball:8d63ca1b42faa81a1c3291276a330d3f3a88d873
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2606.18902
+fetched_title: SAGE: Stochastic Prompt Optimization via Agent-Guided Exploration
+fetched_at: 2026-09-18T19:00:32Z
+
+SAGE: Stochastic Prompt Optimization via Agent-Guided Exploration
+Ziyi Zhu1, Luka Smyth1, Saki Shinoda1, Jinghong Chen2
+1Slingshot AI 2Department of Engineering, University of Cambridge
+Correspondence:ziyi@slingshotai.com
+Abstract
+Context engineering has emerged as a primary
+lever for improving AI systems without pa-
+rameter updates. Recent work showing that
+textual gradients do not function as real gradi-
+ents motivates treating automatic prompt opti-
+mization (APO) as black-box search. We intro-
+duceSPO(StochasticPromptOptimization),
+a framework for stochastic search over prompt
+space, and compare three strategies of in-
+creasing sophistication: error-informed random
+search, a genetic algorithm with evolutionary
+operators, andSAGE(SPO viaAgent-Guided
+Exploration), a multi-agent pipeline with di-
+agnostic code execution. Across three bench-
+marks, no single strategy dominates; effective-
+ness depends on the interaction of landscape
+structure with error type. We further deploy
+SAGE on a mental-health chatbot under acon-
+tinuous optimizationparadigm, where it com-
+pounds eight cycles of individually-noisy A/B
+tests into a statistically robust gain in next-day
+retention. We argue that coupling qualitative
+diagnosis with quantitative validation is what
+makes agentic optimization effective for open-
+ended task-oriented dialogue.1
+1 Introduction
+Context engineeringis the optimization of the en-
+tire informational context surrounding an LLM
+query (Mei et al., 2025). While automatic prompt
+optimization (APO) has attracted intense research
+effort (Ramnath et al., 2025; Cui et al., 2025), the
+field lacks a unifying theoretical perspective on the
+search problem it addresses. Melcer et al. (2025)
+established that APO is fundamentallyblack-box
+search(Spall, 2003), but the effective search space
+is low-dimensional, semantically smooth, and
+dense with adequate solutions (§2.2). The prompt
+landscape can therefore be understood asnoisy
+1Code is publicly available at https://github.com/
+slingshot-ai/sage.
+black-box optimization with expensive evalua-
+tions and rich local structure.
+This theoretical lens reveals fundamental limita-
+tions of existing approaches:
+1. Myopic search.Per-sample methods process
+one training example at a time, greedily ac-
+cumulating delta edits. This myopic strategy
+is computationally expensive and particularly
+susceptible to local optima.
+2. Shallow analysis.Most APO methods con-
+strain each optimization step to LLM-only
+reasoning. While recent multi-agent ap-
+proach (Ye et al., 2026) equips agents with
+coding tools, its code execution servesproce-
+dural artifact constructionrather than diag-
+nostic analysis of error patterns.
+We introduceSPO(Stochastic Prompt Opti-
+mization), a framework for black-box search over
+prompt space that addresses both limitations. SPO
+is designed as stochastic hill climbing: each iter-
+ation producesQ candidates via a chosen search
+strategy, and the best is adopted only if it strictly
+improves upon the incumbent. We compare three
+strategies of increasing sophistication:
+• SPO-RS(Residual Search): Error-informed
+generation via high-temperature LLM sam-
+pling, seeded from the current prompt (§3.2).
+• SPO-GA(Genetic Algorithm): Evolutionary
+optimization with LLM-mediated crossover
+and error-informed mutation (§3.3).
+• SAGE(Agent-Guided Exploration): A multi-
+agent pipeline where agents write and execute
+diagnostic code to inform prompt edits (§3.4).
+Most consequentially, SAGE extends toopen-
+endeddomains that lack a crisp correctness signal.
+Our contributions are:
+1
+arXiv:2606.18902v2 [cs.CL] 28 Jul 2026
+
+• Black-box optimization framework: We in-
+troduce SPO, formalizing APO as noisy black-
+box search over a structured landscape, and
+present three strategies as a controlled abla-
+tion that isolates the value of analytical depth
+and exploration diversity.
+• Diagnostic code execution: SAGE is the first
+APO framework where code execution serves
+statistical diagnosisas opposed to procedural
+artifact construction or LLM-only reasoning.
+• Production deployment: We introduce acon-
+tinuous optimizationparadigm for open-ended
+dialogue and deploy it on a mental-health
+chatbot serving real users, where SAGE com-
+pounds individually-noisy A/B cycles into a
+selection-adjusted +13% cumulative gain in
+next-day retention, demonstrating applicabil-
+ity beyond benchmark accuracy.
+2 Related Work
+2.1 Automatic Prompt Optimization
+APO methods span LLM-based generation and se-
+lection (Zhou et al., 2023; Yang et al., 2024), evolu-
+tionary approaches (Guo et al., 2024; Agrawal et al.,
+2025), gradient-inspired methods (Pryzant et al.,
+2023; Yuksekgonul et al., 2024), and programmatic
+compilation (Khattab et al., 2024); recent surveys
+provide comprehensive taxonomies (Ramnath et al.,
+2025; Cui et al., 2025). Melcer et al. (2025) showed
+that textual gradients do not behave as real gra-
+dients, with gains attributable to exploration and
+validated selection.
+2.2 The Prompt Landscape
+Empirical evidence increasingly characterizes the
+prompt optimization landscape. Sclar et al. (2024)
+demonstrated large variation in accuracy from for-
+matting changes alone, revealing a deceptively
+rugged surface where semantically similar prompts
+produce wildly different performance. Wan et al.
+(2024) showed that random exemplar search out-
+performs state-of-the-art instruction optimization,
+suggesting a landscape dense with adequate solu-
+tions. Bergstra and Bengio (2012) proved that ran-
+dom search outperforms grid search when effective
+dimensionality is low. These findings collectively
+point to amultimodal landscape with low effec-
+tive dimensionality: many good local optima exist,
+and textual gradient methods fail because formal
+gradient properties do not hold (Melcer et al., 2025).
+However, the landscape is not uniformly rugged,
+as semantic similarity between prompts predicts
+performance similarity at the instruction level. The
+degree of local structure varies across tasks, and we
+quantify this variation empirically in §5.2 using the
+semivariogram from geostatistics (Cressie, 1993),
+extending the fitness landscape analysis tradition
+of Weinberger (1990) to prompt space.
+2.3 Multi-Agent Prompt Optimization
+Several recent methods deploy multiple agents.
+MAPGD(Han et al., 2025) uses specialized agents
+for distinct refinement dimensions with bandit-
+based selection, but operates through LLM-only
+reasoning.MCE(Ye et al., 2026) is the most re-
+lated: a bi-level framework where a meta-agent
+evolves context engineeringproceduresvia skill
+crossover, with base-level agents using coding
+toolkits and file system access. The key distinction
+iswhat code execution serves: MCE’s tools con-
+struct programmatic artifacts (retrieval functions,
+context templates) as the optimization procedure
+itself evolves, whereas SAGE uses code execution
+fordiagnostic analysiswithin a fixed procedure:
+clustering errors, running statistical tests, and iden-
+tifying overrepresented failure patterns.
+2.4 Context Engineering
+ACE (Zhang et al., 2025) introduced the Generator–
+Reflector–Curator architecture with grow-and-
+refine delta edits, establishing context engineer-
+ing as an iterative optimization process. However,
+ACE’s per-example processing is inherentlymy-
+opic: each reflection sees a single error trace, with
+no aggregate view of failure patterns. Dynamic
+Cheatsheet (Suzgun et al., 2026) introduced test-
+time adaptive memory.
+3 Method
+3.1 Problem Formulation
+LetP denote the space of possible system prompts
+andD={x 1,...,x n} a dataset of tasks. Given a
+reward functionR:P×D→[0,1], the goal is:
+p∗ = arg max
+p∈P
+Ex∼D[R(p,x)](1)
+P is a discrete space of natural-language strings
+andR is noisy due to LLM non-determinism, mak-
+ing this a stochastic optimization problem (Spall,
+2003). Unlike classical combinatorial search (e.g.,
+TSP, SAT), no method operates over the raw
+2
+
+token-level space|V|L; all methods search a com-
+pressed semantic subspace of coherent instructions
+in which semantically similar prompts tend to per-
+form similarly, giving the landscaperich local
+structure. A more productive characterization is
+thereforenoisy black-box optimization with ex-
+pensive evaluations and low effective dimension-
+ality(Snoek et al., 2012): black-box (no access
+to the LLM’s internals), noisy (finite evaluation
+samples), and expensive (each candidate requires a
+full dataset evaluation), with few effective degrees
+of freedom (which instructions to include, how to
+structure them, what examples to provide).
+Notation.We use two distinct subscripts:
+i∈{1,...,n} indexes examples inD, and k∈
+{0,1,...,K}indexes optimization iterations. We
+writepk for the best prompt at iterationk.
+Shared framework.All three SPO strategies
+share the same outer loop:stochastic hill climbing
+with monotonic selection. LetBk denote the top-P
+prompt population at iteration k andpk∈B k its
+best member. Writing ˆR(p) = 1
+|D|
+P
+x∈DR(p,x)
+for the empirical mean reward that estimates the
+objective, each iteration updates
+pk+1 = arg max
+p∈{p k}∪S(B k,D)
+ˆR(p),(2)
+whereS∈{SPO-RS,SPO-GA,SAGE} produces
+Q candidate prompts from the population and the
+arg maxranges over those candidates together with
+the incumbentpk, which ensures the prompt never
+regresses. SPO-RS conditions only on the best
+memberpk, whereas SPO-GA and SAGE draw on
+the full top-Pset.
+3.2 SPO-RS: Residual Search
+At each iteration, SPO-RS generatesQ candidates
+independently by prompting a meta-model at high
+temperature (τ= 0.9 ), conditioned on the cur-
+rent best prompt pk and a summary of its errors.
+This design mirrors error-informed prompt refine-
+ment methods like ProTeGi (Pryzant et al., 2023)
+and OPRO (Yang et al., 2024), but replaces struc-
+tured optimization operators with stochastic pertur-
+bation. SPO-RS incorporates cross-iteration feed-
+back through the error summary while maintaining
+exploration through temperature-driven diversity.
+3.3 SPO-GA: Genetic Algorithm
+SPO-GA applies evolutionary operators to a popu-
+lation of the top-P prompts maintained across iter-
+ations, with a crossover ratioρ controlling the oper-
+ator mix.Crossover( ⌈ρ·Q⌉ candidates) presents
+two parents and their error summaries to the meta-
+model, which generates a child combining their
+strengths while targeting shared failure modes;mu-
+tation(Q−⌈ρ·Q⌉ candidates) applies targeted im-
+provements to a single tournament-selected parent.
+This follows the LLM-as-evolutionary-operator
+paradigm of EvoPrompt (Guo et al., 2024) and
+GEPA (Agrawal et al., 2025); relative to SPO-RS
+it adds structure but lowers temperature (τ=0.7),
+trading diversity for targeting.
+3.4 SAGE: Agent-Guided Exploration
+SAGE addresses the limitations of both SPO-RS
+and SPO-GA through a multi-agent pipeline, where
+each agent has access to a computational toolkit
+(file I/O, shell execution, code search) and operates
+on structured datasets (Figure 1).
+At each iteration, SAGE exports each top- P
+prompt’s evaluation results (per-sample predictions,
+reasoning traces, and error subsets) alongside pre-
+built analysis scripts containing task-agnostic util-
+ities, on top of which agents write their own task-
+specific analyses. Four roles operate in a fixed
+protocol (Figure 1): anAnalyzerruns the scripts
+across all prompts’ results to surfaceH evidence-
+backed hypotheses; theOrchestratortriages them
+toI investigation directions;I Investigatorsdeep-
+dive in parallel, each verifying one hypothesis
+with exact counts and trace analysis and returning
+an implementation-ready fix; and Q Generators
+(Q≤I ) each produce a complete revised prompt
+from one investigation report. Parallel execution
+across agents injects beneficial stochasticity.
+The key advantage of SAGE isanalytical depth:
+agents systematically diagnosewhyerrors occur
+through programmatic analysis of the full dataset,
+transforming the search from stochastic perturba-
+tion to hypothesis-driven optimization.
+4 Experimental Setup
+4.1 Tasks
+We evaluate on three open-source benchmarks
+spanning different task types, plus a production
+deployment.XBRL Formula(Zhang et al., 2025)
+is a financial reasoning task requiring translation of
+natural-language descriptions of financial formulas
+into executable XBRL expressions (500 train / 300
+val / 200 test).FiNER(Shah et al., 2023) is a finan-
+cial named entity recognition task requiring classifi-
+cation of entities into fine-grained categories (1,000
+3
+
+Figure 1: SAGE architecture: a fixed six-step multi-agent pipeline per iteration, progressing from cross-prompt
+error analysis through parallel hypothesis investigation to prompt generation and hill-climbing selection.
+train / 500 val / 441 test).AppWorld(Trivedi
+et al., 2024) is a suite of autonomous agent tasks
+involving API understanding, code generation, and
+multi-step environment interaction across common
+applications; we evaluate on the test-normal split
+using the original partitioning (90 train / 57 val /
+168 test) and report Task Goal Completion (TGC).
+4.2 Production Deployment
+We apply SAGE to Ash2, a mental health support
+chatbot by Slingshot AI, optimizing the system
+prompt that encodes its conversational strategies
+and safety protocols (see Appendix G for represen-
+tative optimized directives). Several characteris-
+tics make this task well-suited for SAGE: (1) each
+deployment cycle produces thousands of conver-
+sations, requiring both quantitative analysis and
+qualitative diagnosis; (2) the evaluation signal is
+noisy; and (3) errors in this open-ended domain
+tend to be complex and cascading, suggesting a
+rugged optimization landscape where SAGE’s ana-
+lytical depth is advantageous.
+The chatbot operates under acontinuous op-
+timizationparadigm that instantiates the hill-
+climbing loop of Eq. 2: each cycle deploys the
+current best prompt to real users, runs SAGE on
+the collected conversations, and A/B tests all candi-
+dates simultaneously. In production we maintain a
+single incumbent (P=1 ) and a clinically-reviewed
+set ofQ∈{1,2,3} candidate arms per cycle, and
+promote by a two-stage rule: arms that regress on
+our offline safety or sycophancy gates are excluded
+2https://www.talktoash.com/
+first, and among the remainder the arm with the
+largest positive delta over the control is promoted,
+retaining the incumbent if none qualifies (see Ap-
+pendix C). The primary metric is D1 retention; sec-
+ondary metrics include engagement, issue rate (Zhu
+et al., 2026), and user ratings. We optimize for
+retention rather than validated clinical measures
+such as PHQ-9 symptom change (Tieleman et al.,
+2026) or working alliance because it is logged au-
+tomatically without the survey burden and attrition
+bias that make those instruments hard to administer
+at scale (Sagui-Henson et al., 2022), yet on Ash
+itself engagement shows a dose-response associa-
+tion with PHQ-9 improvement (Wolfe et al., 2026),
+consistent with the broader digital mental-health lit-
+erature (Daley et al., 2020), making it an adequate
+proxy. Retention is defensible partly because adop-
+tion is currently the binding constraint, and users
+must return in sufficient numbers before longer-
+horizon clinical impact can even be measured.
+4.3 Baselines and Configuration
+We compare SPO-RS, SPO-GA, and SAGE against
+the base LLM with no optimization, in-context
+learning (ICL) with few-shot demonstrations,
+MIPROv2 (Opsahl-Ong et al., 2024) which jointly
+optimizes instructions and demonstrations via
+Bayesian search, GEPA (Agrawal et al., 2025)
+which evolves prompts through LLM self-critique,
+Dynamic Cheatsheet (DC-CU) (Suzgun et al.,
+2026) which accumulates an adaptive hint memory
+at test time, and ACE offline (Zhang et al., 2025).
+ThetargetLLM (the model whose prompt is be-
+4
+
+Table 1: Test accuracy (%) on benchmarks. AppWorld
+reports TGC on test-normal; all AppWorld methods use
+ReAct (Yao et al., 2023) as the agent framework. SPO
+variants (n=3 runs): test accuracy of the single best-
+validation prompt (§4.3), averaged over runs.
+Method Formula FiNER AppWorld
+Base LLM 67.5 70.7 63.7
+ICL 67.0 72.3 64.3
+MIPROv2 69.5 72.3 –
+GEPA 71.5 73.5 64.9
+DC-CU 69.5 74.1 65.5
+ACE offline 85.0 76.9 76.2
+SPO-RS (ours) 85.577.578.0
+SPO-GA (ours) 85.5 76.279.8
+SAGE(ours)86.576.5 79.2
+ing optimized) is DeepSeek-V3.1 (DeepSeek-AI,
+2024) across all tasks and methods. Themeta-
+model(the model that proposes prompt edits) is
+Claude Sonnet 4.6 for all three SPO variants (SPO-
+RS, SPO-GA, and SAGE), ensuring a fair compar-
+ison that isolates strategy differences from model
+differences. All SPO variants use K= 10 itera-
+tions, population size P= 2 , and Q= 3 candi-
+dates per iteration. SPO-GA uses crossover ratio
+ρ= 0.3 . SAGE generates H= 8 initial hypothe-
+ses, triages toI= 5 investigation directions, and
+selects the topQ for prompt generation. Because
+SPO-RS and SPO-GA share SAGE’s meta-model,
+K,Q, and outer loop and differ only in whether ed-
+its are grounded in diagnostic code execution, the
+benchmark comparison is a controlled ablation of
+code-assisted diagnosis. For Formula and FiNER,
+which lack a native validation split, the validation
+sets above are disjoint carves from each bench-
+mark’s original training pool and overlap neither
+the reported training nor test sets; AppWorld uses
+its native dev split. In all cases we select the single
+best-validation prompt, which is then scored on the
+held-out test set exactly once.
+5 Results
+5.1 Benchmark Results
+The central finding is thatrankings shift across
+tasks(Table 1, Figure 2). SAGE leads on Formula,
+where cascading reasoning errors reward analyti-
+cal depth. On FiNER the ranking inverts: SAGE
+attains the highesttrainingaccuracy but a sim-
+pler strategy generalizes best. On AppWorld all
+three SPO variants beat the strongest baseline, with
+SAGE achieving the highest training accuracy by
+a wide margin, but validation accuracy oscillates
+for all strategies due to the small evaluation set.
+Validation-set curves are reported in Appendix B.
+5.2 Landscape Analysis
+We characterize landscape structure via the
+semivariogram(Cressie, 1993), a geostatisti-
+cal measure of how quickly accuracy decorre-
+lates with embedding distance. We embed all
+unique prompts from the optimization runs with
+text-embedding-3-large, compute pairwise co-
+sine distances, and fit an exponential model to ex-
+tract therange a, the distance at which accuracy
+becomes effectively uncorrelated (see Appendix F
+for full methodology).
+The fitted ranges reveal two regimes (Figure 3):
+Formula and AppWorld decorrelate within a small
+semantic neighborhood (rugged landscapes), while
+FiNER stays correlated over∼4× the distance (a
+smooth landscape, where a disambiguation rule
+that helps one taxonomic family helps others). Cru-
+cially, ruggedness alone does not predict the win-
+ning strategy: Formula and AppWorld are equally
+rugged yet favor different optimizers. The decisive
+factor iserror structure: cascading reasoning er-
+rors (Formula) reward SAGE’s root-cause analysis,
+whereas procedural, per-task errors (AppWorld)
+yield to simpler search.
+5.3 Mental Health Chatbot
+We have run SAGE for eight continuous-
+optimization cycles on Ash. Each cycle ran SAGE
+on the previous deployment’s conversations, A/B
+tested the resulting candidates against the incum-
+bent for∼48 hours, and promoted the best arm.
+Figure 4 shows the cumulative effect on D1 reten-
+tion. Seven of the eight cycles produced a positive
+winning arm; the remaining cycle (cycle 3) found
+no candidate that beat the incumbent and retained
+it unchanged. Naively chaining the measured per-
+cycle A/B deltas of the promoted arms yields a
+cumulative +29.4% relative improvement in D1
+retention over the eight cycles, but this figure is in-
+flated bywinner’s-curseselection bias: each cycle
+reuses the observed lift of the arm it selected pre-
+ciselybecausethat lift was largest. After correcting
+for this bias with empirical-Bayes shrinkage (Ap-
+pendix E), the selection-adjusted cumulative gain
+is+13.2%. Appendix G shows representative di-
+rectives from the resulting prompt.
+Crucially, most individual cycles werenotsig-
+nificant on their own: only two (cycles 5 and 8)
+crossed the 95% chance-to-beat-control threshold,
+5
+
+1 2 3 4 5 6 7 8 9 10
+70
+75
+80
+85
+90
+Iteration
+Training Accuracy (%)
+(a) Formula
+SAGE
+SPO-GA
+SPO-RS
+1 2 3 4 5 6 7 8 9 10
+64
+68
+72
+76
+80
+Iteration
+Training Accuracy (%)
+(b) FiNER
+SAGE
+SPO-GA
+SPO-RS
+1 2 3 4 5 6 7 8 9 10
+60
+70
+80
+90
+Iteration
+Training Accuracy (%)
+(c) AppWorld
+SAGE
+SPO-GA
+SPO-RS
+Figure 2: Best training accuracy overK=10iterations (mean with shaded IQR across runs). Iteration 1 shows the
+initial prompt before optimization.
+0 0.1 0.2 0.3 0.4 0.50
+1
+2
+3
+4
+5
+6
+7
+Cosine Distance
+γ(d)×10 3
+AppWorld
+Formula
+FiNER
+Figure 3: Empirical semivariogramγ(d) vs. cosine dis-
+tance in prompt embedding space. Points: binned empir-
+ical semivariance (95% bootstrap CIs shaded). Dashed
+curves: fitted exponential model.
+while the rest had credible intervals straddling zero
+(see Appendix D). Even after shrinking every pro-
+moted delta toward the across-arm prior mean to
+remove the post-selection bias, the propagated 95%
+band on the selection-adjusted chain clears zero
+from cycle 5 onward, so individually noisy gains
+compound into a statistically robust signal. The
+adjusted estimate is consistent with independent
+evidence: product-level D1 retention averaged over
+7 days, tracked in our product analytics and sepa-
+rate from the experiment platform, improved by an
+equivalent relative +13.7% over the same period,
+during which SAGE was the only continuously-
+running, retention-directed intervention. However,
+we do not treat this as confirmation, since the prod-
+uct metric is population-wide and not experimen-
+tally controlled. The app evolves concurrently
+with these experiments, therefore we rely only on
+within-cycle A/B deltas rather than absolute reten-
+tion across cycles.
+1 2 3 4 5 6 7 8
+0
+10
+20
+30
+Optimization Cycle
+Cumulative∆D1 (%)
+Selection-adjusted
+Naive
+Figure 4: Continuous optimization of D1 retention
+over eight SAGE cycles. The selection-adjusted chain
+reaches +13.2% with a 95% band (shaded) that clears
+zero from cycle 5 onward. The naive chain reaches
++29.4% but is inflated by winner’s-curse selection bias.
+6 Discussion
+Our deployment and benchmarks point to the same
+principle from opposite ends: agentic analytical
+depth helps most precisely when the task signal is
+noisy and groundtruth is underspecified.
+Analytical depth in ill-posed domains.Open-
+ended dialogue lacks the crisp correctness sig-
+nal of benchmark tasks: the objective is a noisy,
+long-horizon behavioral outcome, and the space
+of admissible responses is large and underspec-
+ified. Improving the prompt therefore requires
+inferringwhatconstitutes a better response from
+data: we qualitatively characterize candidate behav-
+iors from conversation traces, then quantify their
+prevalence and association with the downstream
+outcome. This coupling of qualitative pattern dis-
+covery with quantitative validation is precisely the
+analytical capability SAGE’s agents provide and
+that LLM-only variants lack, and it is why SAGE
+is the first method in our deployment to yield con-
+6
+
+sistent, compounding retention gains.
+Match optimizer depth to error structure.
+The benchmarks make the converse point: where
+a crisp signal exists, depth is not always worth
+its cost. Simpler methods win on the smooth
+FiNER landscape, while the two equally-rugged
+tasks split (SAGE on Formula, SPO-GA on App-
+World). The distinguishing factor iserror structure
+rather than ruggedness alone (§5.2), refining the
+No Free Lunch intuition (Wolpert and Macready,
+1997): cascading reasoning errors reward deep root-
+cause diagnosis, while procedural errors yield to
+simpler search. The flip side is overfitting: SAGE
+can push training accuracy well past test accuracy.
+The continuous, on-policy paradigm (§4.2) miti-
+gates this by refreshing data each cycle.
+7 Conclusion
+We presented SPO, a framework that formalizes
+automatic prompt optimization as structured black-
+box search, and SAGE, its agentic instantiation
+that grounds each prompt edit in diagnostic, code-
+driven analysis. Our controlled benchmark com-
+parison establishes one main point: no single
+strategy dominates, because effectiveness depends
+on the interaction of landscape structure with er-
+ror type rather than ruggedness alone. Our de-
+ployment with continuous optimization offers a
+practical recipe for production systems: chain
+individually-underpowered online A/B tests into a
+robust cumulative signal, and pair automated mea-
+surement with agentic qualitative diagnosis to de-
+cide what to change. We see such mixed qualitative–
+quantitative agentic optimization as the key unlock
+for improving open-ended dialogue systems where
+correctness cannot be defined in advance.
+Limitations
+We highlight four limitations of SPO and its
+continuous-optimization deployment.
+Evaluation function:SPO requires an auto-
+mated evaluation function. For tasks without clear
+ground truth, adaptation to LLM judges or human
+ratings would introduce additional noise and cost.
+In the mental-health deployment this is especially
+acute: D1 retention is a convenient proxy, but the
+outcomes we ultimately care about (e.g., symptom
+change or working alliance) are costly to measure
+and mature too slowly to optimize against.
+Experimental controls:The deployment lacks
+two controls that a purely scientific study would in-
+clude. First, there is no persistent original-prompt
+holdout, because our policy forbids keeping live
+users on a prompt we have strong conviction is
+worse; cumulative effects are therefore chained
+from within-cycle deltas rather than read from a
+single long-running A/B test. Second, the propa-
+gated cumulative band assumes cross-cycle inde-
+pendence. Re-randomization between cycles and
+concurrent per-cycle controls make this reasonable,
+but users may recur across cycles and the popula-
+tion co-evolves with the prompt.
+Distribution shift:The continuous optimization
+paradigm (§4.2) assumes that insights from one
+cycle’s data remain relevant in subsequent cycles.
+In practice, the user population and its behavior
+evolve over time, so themagnitudeof gains may
+attenuate as the prompt co-evolves with its user
+base. Whether long-running continuous optimiza-
+tion eventually converges, oscillates, or requires
+periodic re-grounding on fresh population snap-
+shots is an open empirical question.
+Bounded novelty:Because SAGE diagnoses
+patterns in collected conversations, it is structurally
+biased toward refining behaviors already present in
+the data, rather than introducing genuinely novel
+ones. Two consequences follow. First, the objec-
+tive is necessarily a measurable proxy; deeper goals
+such as durable mental-health impact mature too
+slowly to be A/B tested per change, so validating
+them requires aggregate, system-level evaluation
+rather than per-cycle experimental proof. Second,
+thedirectionof qualitatively new behavior cannot
+be discovered from the data alone and must be sup-
+plied externally (e.g., by domain experts); SAGE
+then does the operational work of implementing
+and validating it. Combining agent-driven opti-
+mization with externally-set direction is a promis-
+ing avenue for moving beyond proxy-bounded, in-
+cremental gains.
+Ethical Considerations
+The mental health chatbot application involves vul-
+nerable users. All SAGE-generated candidates are
+reviewed by clinical experts before any user ex-
+posure, and no candidate prompt was hand-edited
+by reviewers during the eight cycles. Beyond re-
+tention, every arm is scored each cycle by an of-
+fline issue-detection pipeline covering assistant-
+side safety violations and sycophancy, and an arm
+that regresses on these gates is barred from pro-
+motion (Appendix D); A/B tests also include real-
+7
+
+time safety monitoring with automatic rollback
+if crisis protocol adherence or issue rates deteri-
+orate. Conversation data is anonymized per data
+protection policies. The study was reviewed by
+the Biomedical Research Alliance of New York
+(BRANY) independent Institutional Review Board
+(IRB) and determined to be exempt under category
+4(ii) (BRANY IRB File #26-081-2393).
+Acknowledgments
+We are grateful to the Slingshot AI team for their
+valuable discussions and infrastructure support. We
+thank the users of Ash who opted in to provide the
+data used for this study.

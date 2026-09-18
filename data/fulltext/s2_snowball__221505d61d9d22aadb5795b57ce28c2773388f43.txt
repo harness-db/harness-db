@@ -1,0 +1,834 @@
+record_id: s2_snowball:221505d61d9d22aadb5795b57ce28c2773388f43
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2405.06691
+fetched_title: Fleet of Agents: Coordinated Problem Solving with Large Language Models
+fetched_at: 2026-09-18T19:00:32Z
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+Lars Klein * 1 Nearchos Potamitis * 2 Roland Aydin 3 Robert West 1 Caglar Gulcehre 1 Akhil Arora 2
+Abstract
+While numerous frameworks have been devel-
+oped to enhance the reasoning abilities of large
+language models (LLMs), there is a scarcity of
+methods that effectively balance the trade-off be-
+tween cost and quality. In this paper, we intro-
+duce FLEET OF AGENTS (FOA), a novel and intu-
+itive yet principled framework utilizing LLMs as
+agents to navigate through dynamic tree searches,
+employing a genetic-type particle filtering ap-
+proach. FOA spawns a multitude of agents, each
+exploring the search space autonomously, fol-
+lowed by a selection phase where resampling
+based on a heuristic value function optimizes
+the balance between exploration and exploita-
+tion. This mechanism enables dynamic branch-
+ing, adapting the exploration strategy based on
+discovered solutions. We conduct extensive ex-
+periments on three benchmark tasks, “Game of
+24”, “Mini-Crosswords”, and “WebShop”, uti-
+lizing four different LLMs, “GPT-3.5”, “GPT-
+4”, “LLaMA3.2-11B”, and “LLaMA3.2-90B”.
+On average across all tasks and LLMs, FOA
+obtains a quality improvement of ≃ 5% while
+requiring only ≃ 40% of the cost of previous
+SOTA methods. Notably, our analyses reveal that
+(1) FOA achieves the best cost-quality trade-off
+among all benchmarked methods and (2) FOA
++ LLaMA3.2-11B surpasses the Llama3.2-90B
+model. FOA is publicly available at https:
+//github.com/au-clan/FoA.
+1. Introduction
+With strong reasoning and problem-solving abilities, large
+language models (LLMs) (Brown et al., 2020) such as GPT-
+4 (Achiam et al., 2024), LLaMA (Touvron et al., 2023a;b;
+Grattafiori et al., 2024), and PaLM (Anil et al., 2023), have
+*Equal contribution. Authors are listed in alphabetical or-
+der. 1EPFL 2Aarhus University 3TUHH. Correspondence to:
+Nearchos Potamitis <nearchos.potamitis@cs.au.dk>, Lars Klein
+<lars.klein@epfl.ch>, Akhil Arora <akhil.arora@cs.au.dk>.
+1 2 3 4 5
+Cost ($)
+0
+10
+20
+30
+40Quality (%)
+FoA
+T oT
+GoT
+RAFA
+Figure 1: Analyzing the trade-off between cost and quality
+of representative SOTA methods with GPT-3.5 on the Game
+of 24 task. FOA achieves the best cost-quality trade-off.
+sparked a new-found interest in building general-purpose
+autonomous agents. LLM-based agents have portrayed ex-
+cellent performance on reasoning (Cobbe et al., 2021) and
+knowledge-intensive tasks (West et al., 2009), often requir-
+ing interactions with complex environments, such as playing
+complex video games (Fan et al., 2022), performing web
+navigation (Yao et al., 2022), or enabling tool-use (Schick
+et al., 2023).
+Naturally, the rise of LLM-based agents has contributed to
+the prosperity of prompt-based reasoning frameworks (Wei
+et al., 2022; Wang et al., 2023; Besta et al., 2024; Sel et al.,
+2024; Yang et al., 2024; Yao et al., 2024; Zhou et al., 2024;
+Shinn et al., 2023; Yao et al., 2023) that further enhance the
+problem-solving and reasoning abilities of LLMs. Broadly,
+the reasoning frameworks can be categorized into two cat-
+egories: (1) single-query reasoning and (2) multi-query
+reasoning. As the name implies, single-query methods (Wei
+et al., 2022; Wang et al., 2023; Sel et al., 2024; Nye et al.,
+2021; Kojima et al., 2022) obtain an answer by querying
+the LLM only once, whereas, multi-query methods (Yao
+et al., 2024; Besta et al., 2024; Zhou et al., 2024; Shinn et al.,
+2023; Yao et al., 2023) perform multiple LLM queries to
+identify different plausible reasoning paths or to plan ahead.
+It is important to note that none of the two aforementioned
+paradigms is perfect.
+On the one hand, despite being cost-effective by design,
+single-query methods require one or more of the following:
+intricate prompt engineering, high-quality demonstrations,
+1
+arXiv:2405.06691v3 [cs.CL] 10 May 2025
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+a0
+a1
+a2
+Output
+Input
+ToT
+...
+Output
+Input
+GoT
+Input
+LATS / RAP
+Output
+...
+a3
+Input
+FoA
+......
+Output
+Positive thought
+Negative thought
+Action
+Merging thoughts
+Reflexion
+Resampling
+Figure 2: Comparison between SOTA tree-search-based reasoning (Yao et al., 2024; Besta et al., 2024; Zhou et al., 2024;
+Hao et al., 2023) and our FOA frameworks. FOA offers precise control over the tree width (n agents) and depth (t steps),
+leading to predictable latency and cost. However, by expanding thec most promising states at each step, tree-search methods
+offer no such control and their search trees might grow exponentially.
+or knowledge distilled from informative historical reasoning
+processes, to achieve competitive quality. More importantly,
+even then, these methods are not well-suited for sequen-
+tial decision-making tasks that require interactions with an
+environment, such as web navigation (Yao et al., 2022).
+On the other hand, multi-query methods decompose a com-
+plex problem into a series of simpler sub-problems and
+search over all plausible reasoning paths. This allows them
+to obtain competitive quality but also renders them ineffi-
+cient. With the objective of devising a reasoning framework
+applicable to both general problem-solving and sequential
+decision-making tasks, our focus in this paper is to improve
+the cost-efficiency of multi-query methods.
+Present work. We introduce FLEET OF AGENTS (FOA),
+a novel and intuitive yet principled framework that brings
+the concept of genetic-type particle filtering (Holland, 1992)
+to dynamic tree searches. Fig. 2 provides an overview of
+our framework, while at the same time highlighting the
+conceptual differences between state-of-the-art (SOTA) tree-
+search-based methods (Yao et al., 2024; Besta et al., 2024;
+Zhou et al., 2024; Hao et al., 2023) and FOA.
+FOA spawns a multitude of agents, each exploring the
+search space autonomously, followed by a selection phase
+where resampling based on a heuristic value function op-
+timizes the balance between exploration and exploitation.
+If one of the agents has discovered a very promising so-
+lution approach indicated by states with a high value, the
+resampling mechanism can decide to create many copies of
+this agent. Conversely, if none of the agents is ahead of the
+others, or in other words, there are multiple promising states,
+the resampling mechanism can decide to keep all of them,
+thereby maintaining a fleet of high diversity. This mecha-
+nism enables dynamic branching, adapting the exploration
+strategy based on discovered solutions.
+Cost-quality trade-off. The biggest advantage of FOA is
+its ability to strike a balance between exploration vs. ex-
+ploitation. We provide early empirical evidence in Fig. 1,
+which compares the performance of tree-based SOTA meth-
+ods with FOA for varying price points. We find that FOA
+substantially outperforms the existing SOTA methods at all
+possible price points, thereby achieving the best cost-quality
+trade-off among the benchmarked methods.
+Contributions.
+• We propose an intuitive yet principled framework FLEET
+OF AGENTS (FOA) for improving the cost-quality trade-off
+of LLM-based reasoning (§ 3).
+• Ours is the first work to explore the concept of genetic
+particle filtering in the context of AI agents (cf. § 2 for a
+detailed literature review).
+• We conduct extensive experiments on three benchmark
+tasks using four LLMs as base models. On average across
+all tasks and LLMs, FOA obtains a quality improvement of
+≃ 5% while requiring only≃ 40% of the cost of previous
+SOTA methods (§ 4 and § 5).
+2. Related Work
+In this section, we review works that overlap closely with
+our study (cf. Appx. A for additional related work).
+Prompt-based reasoning. Recent research focuses on de-
+veloping strategies to enhance the reasoning capabilities
+of LLMs. Few-shot prompting employs demonstrations of
+high-quality input/output samples to exploit the eagerness
+of the LLMs to imitate patterns seen in their context window
+(Brown et al., 2020). Algorithm of thoughts (AoT) (Sel et al.,
+2024), goes a step further by including algorithmic exam-
+ples within the prompt to propel the LLM through algorith-
+mic reasoning pathways. Chain-of-Thought (CoT) prompt-
+2
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+ing (Nye et al., 2021; Wei et al., 2022; Kojima et al., 2022) as
+well as other variants such as Decomposed Prompting (Khot
+et al., 2023) and Least-to-Most (Zhou et al., 2023) guide
+LLMs to decompose a complex question into a sequence
+of thoughts and then synthesize an answer by resolving
+them methodically. It has been shown that Self-Consistency
+(CoT-SC) (Wang et al., 2022) can be used to augment such
+methods by generating multiple thought sequences and then
+selecting the most accurate answer through majority voting.
+Recent meta-prompting techniques (Suzgun & Kalai, 2024)
+employ a uniform, task-independent prompting framework
+across multiple tasks, enabling a single LLM to iteratively
+refine its responses and dynamically adapt to diverse input
+queries. The Buffer of Thoughts (BoT) (Yang et al., 2024)
+framework extracts task-specific information, uses it to re-
+trieve relevant thought templates from its meta-buffer, and
+then instantiates them with more task-specific reasoning
+structures before continuing with the reasoning process.
+Refinement. Closed-loop approaches that allow an LLM
+to interact with an external environment can help in choos-
+ing and potentially revising an action. Notable examples
+are ReAct (Yao et al., 2023), REFINER (Paul et al., 2023)
+and Self-Refine (Madaan et al., 2023). Reflexion (Shinn
+et al., 2023) provides further linguistic feedback based on
+previous attempts while AdaPlanner (Sun et al., 2023) also
+incorporates positive and negative feedback of an individual
+trajectory. Reason for future, act for now (RAFA) (Liu et al.,
+2024) develops further by planning a trajectory, gathering
+feedback for the potential planned actions, and then revising
+the trajectory based on the feedback.
+Tree search. Thoughts are individual ideas or steps in rea-
+soning, and when connected together, they can be modeled
+as a tree data structure. Tree search algorithms can then be
+used to explore the tree of thoughts and optimize the search
+for a final answer. In “Tree of Thoughts” (ToT), the authors
+utilize a value function that compares different branches to
+describe both DFS and BFS flavors of a guided tree-search
+(Yao et al., 2024). The closely related “Graph of Thoughts”
+(GoT) approach relaxes the assumption of a strict tree struc-
+ture (Besta et al., 2024). Reasoning via Planning (RAP)
+(Hao et al., 2023) augments LLMs with a world model and
+employs Monte Carlo Tree Search (MCTS)-based planning
+to reduce the search complexity. Language Agent Tree
+Search (LATS) (Zhou et al., 2024) extends this concept by
+leveraging environment interactions, thereby eliminating
+the need for a world model.
+Particle filtering. Genetic particle filters have been used
+successfully across a large variety of domains, ranging from
+vehicle routing (Marinakis & Marinaki, 2010), to fuzzy cog-
+nitive maps in time series forecasting (Salmeron & Froelich,
+2016), to the positioning of industrial robots (Li et al., 2022).
+Near-universally, the efficacy of a genetic particle optimiza-
+tion approach has, in these contexts, been demonstrated on
+standard artificial neural networks, however, to the best of
+our knowledge, it has not been employed on LLMs.
+Key differences. FOA exhibits fundamental differences
+from all aforementioned methods. First, it does not require
+extensive or intricate prompt engineering, unlike AoT (Sel
+et al., 2024) and meta prompting (Suzgun & Kalai, 2024).
+Additionally, it is well-suited for sequential decision-making
+tasks that require interactions with an environment, such as
+web navigation (Yao et al., 2022; Arora et al., 2022; West
+et al., 2009), which can be challenging for methods such as
+CoT (Wei et al., 2022) and BoT (Yang et al., 2024). Fur-
+thermore, FOA distinguishes itself from approaches like
+Reflexion (Shinn et al., 2023) and RAFA (Liu et al., 2024)
+by utilizing a refinement strategy based on a genetic-type
+particle filter, instead of linguistic feedback. Lastly, unlike
+tree-search-based methods (Yao et al., 2024; Zhou et al.,
+2024; Besta et al., 2024), FOA employs a more principled
+approach to search tree exploration, achieving a better bal-
+ance between exploration and exploitation. This structured
+approach also grants FOA precise control over the tree’s
+width and depth, leading to predictable latency and cost.
+3. FLEET OF AGENTS
+3.1. Overview of FOA
+Fig. 3 provides a pictorial overview of FOA. FOA spawns
+a fleet of n agents that collectively search for a solution.
+The genetic filtering search has a mutation phase during
+which each agent explores the search space autonomously.
+Specifically, it tracks then agent states and allowsk inde-
+pendent mutation steps before evaluating the values of the
+current states. During the selection phase, we resample,
+with replacement, the population of agents. The resampling
+mechanism is based on a heuristic value function and al-
+lows us to optimize the trade-off between exploration and
+exploitation. The FOA algorithm is comprehensively de-
+scribed in Algorithm 1 in the Appendix.
+Preliminaries. The fleet consists of n agents. At time t
+agent i has the state si,t. When choosing an action, the
+agent samples from its policyai,t∼πa(a|si,t). The agent
+then transitions to a new state, following the dynamics of
+the environment si,t+1∼ P[s|ai,t,s i,t]. With each agent
+searching for the solution, the fleet jointly discovers more
+and more of the state space. We describe the current set of
+states at timestept asSt ={si,t},i = 1..n and the set of
+all states visited so far as ˆSt =S
+ˆtSˆt, ˆt = 1..t.
+We assume that we can identify solutions when they are
+found, i.e., we can decide whether a state s is a solution,
+1 solution(s). Depending on the task, we may also be able
+3
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+Figure 3: Fleet-of-Agents (FoA) comprisingn = 5 agents
+that think autonomously fork steps and are then resampled
+to focus the search on promising regions.
+to identify invalid states, failed tasks, and other forms of
+dead-ends; we denote them as terminal states 1 terminal(s).
+For some tasks, we can stop as soon as a solution is found;
+for other tasks, we may instead collect a set of solution
+candidates and stop the search only if we run out of time
+or sampling budget. We assume we are given access to a
+value functionv(s) that can guide the search. For a solu-
+tion states, the value function represents the utility of the
+solution. For other states,s, the value function is a heuristic
+considering the uncertainty of eventually reaching a solution
+and its expected utility. Accordingly, the value of terminal,
+non-solution states is 0.
+3.2. Genetic particle filtering
+Each agent in the fleet of agents acts autonomously and tries
+to choose the best action given its current state. After k
+independent steps, we use the value function to resample
+the set of states and allocate more agents to high-value
+states. Our algorithm implements a genetic-type particle
+filter that captures the dynamics of a population of particles,
+i.e., agents, with a series of mutation and selection steps.
+Mutation phase. During the mutation phase, each agent in
+FOA independently samples state transitions. To simplify
+the notation, we introduce a modelπ which captures both
+the stochasticity of the decision of the agent as well as the
+response of the environment,si,t+1∼π(s|si,t) We use the
+same notation for multi-step state transitions by marginal-
+izing over intermediate states, i.e.,si,t+k∼π(si,t+k|si,t).
+After each mutation step, we can check whether a solution
+has been found and decide to stop the search. Following the
+concept of genetic filtering, we apply two optimizations:
+• Enforced Mutation: The agent must mutate its state; it
+can not remain stationary.
+• Sudden Death: If we notice that an agent i has entered
+an invalid state 1 terminal(si,t), then we resample its state
+immediately from the setsj,t,j ̸=i. This resampling can
+be uniform to avoid expensive calls to the value function.
+Selection phase. The selection phase resamples the popula-
+tion of agents based on an importance sampling mechanism.
+We observe the value estimatesv(si,t) for all current states
+and calculate a resampling weightpi,t. This framework can
+capture many resampling schemes, such as linear, greedy,
+or exponential weighting of values:
+plin(si,t) =αv(si,t) +β,
+pexp(si,t) = exp
+v(si,t)
+β
+
+,
+pgreedy(si,t) =
+
+
+
+1, ifsi,t = arg max
+sj,t,j=1..N
+v(sj,t)
+0, otherwise
+.
+We then resample, with replacement, to select a new set of
+agent states:
+pt(s) =
+NX
+i=1
+pi,tP
+j=1Np j,t
+δsi,t(s), cat. resampling distr.
+ˆsi,t
+iid
+∼ pt(s), resampling with replacement
+si,t = ˆsi,t,i = 1..N
+Backtracking. Additionally, by keeping track of a history
+of states and the associated value function estimates, we ex-
+tend the resampling process with an intuitive backtracking
+mechanism. Backtracking undoes localized mistakes and
+allows our fleet of agents to recover from a catastrophic sce-
+nario in which all agents might have made a wrong decision.
+Instead of resampling states from the set of current statesSt,
+we consider all previously visited states ˆSt. To incentivize
+the fleet of agents to push forward and explore new regions
+of the state space, we introduce a discount factor γ. The
+value of a state that was visitedt timesteps ago is discounted
+byγt. The mutation phase of our genetic particle filter com-
+prisesk steps of individual exploration, before evaluating
+and resampling in the selection phase. Therefore, we may
+not have a value estimate for all previously visited states
+ˆSt. Depending on the task, and the corresponding cost of
+computing the valuev(s), we may limit the backtracking
+mechanism to a subset of ˆSt which only contains states with
+a known value estimate.
+4. Experiments
+We assess the effectiveness of our proposed FOA frame-
+work through comparisons with representative SOTA meth-
+4
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+ods on a judicious mix of tasks that require a variety of
+reasoning, planning, and general problem-solving skills.
+Additional experimental details, e.g., hyperparameter tun-
+ing, additional results, etc. are present in Appx. C. The
+resources for reproducing our experiments are available at
+https://github.com/au-clan/FoA.
+Base model. Following convention in the literature, we use
+GPT-41 as the base model for the main results presented in
+this paper. To showcase the generalizability of our findings,
+we report results with other base models, namely, GPT-3.5,
+Llama3.2-11B, and Llama3.2-90B, in Appx. C.5. We also
+use these models for the model and ablation analyses (§ 5
+and § 6), primarily for practical cost-related reasons.
+Number of runs. For cost reasons, experiments with GPT-4
+were run only once. However, for other base models (results
+in Appx. C.5), we run each experiment 5 times and report
+both the mean and standard error of the evaluation metrics.
+Prompts. Unlike all existing works, we do not craft custom
+prompts for FOA, but instead, we reuse the prompts (cf.
+Appx. C.3 for details) provided by ToT (Yao et al., 2024)
+for the “Game of 24” and “Mini Crosswords” tasks and
+LATS (Zhou et al., 2024) for the “WebShop” task. This en-
+sures a direct and fair comparison of the reasoning abilities
+of the benchmarked frameworks and controls for the impact
+of prompt quality, which is a confounder.
+Baselines. We only compare with methods that have made
+their code available for the tasks benchmarked in this study
+(cf. Appx. C.2 for details). Thus, we do not compare with
+LLMCompiler (Kim et al., 2024), TouT (Mo & Xin, 2024),
+RAP (Hao et al., 2023), and RecMind (Wang et al., 2024).
+Moreover, we exclude BoT (Yang et al., 2024), where al-
+though the code is available, an important resource (the
+meta-buffer) to reproduce their results is unavailable.
+4.1. Game of 24
+Task and data. Game of 24 is a mathematical puzzle,
+where four numbers are given, and the objective is to form
+an arithmetic expression that equals 24 using each number
+exactly once. The benchmark data consists of 1362 puzzles.
+Following ToT (Yao et al., 2024), we use the puzzles indexed
+901-1000 as the test set (cf. Appx. C.1 for details).
+Evaluation metrics. We use success rate, i.e., the per-
+centage of solved puzzles, to evaluate the quality of the
+benchmarked methods. For efficiency, we use cost (in US$).
+1Owing to the exorbitant cost of running GPT-4 (details in
+App. C.3), we use GPT-3.5 instead for WebShop (Yao et al., 2022).
+Table 1: Comparing FOA with previous methods using
+success rate (↑ better) and cost (↓ better) on the Game of 24
+task (base model: GPT-4). The best performance is shown
+in blue whereas the second best is shown in orange .
+Owing to its exorbitant cost (≃ 600 US$), we could not run
+RAFA (Liu et al., 2024).
+Method Success Rate (%) Cost (US$)
+IO 6.0 0.65
+CoT (Wei et al., 2022) 6.0 6.98
+CoT-SC (Wang et al., 2023) 10.0 49.40
+AoT (Sel et al., 2024) 49.0 20.98
+ToT (Yao et al., 2024) 74.0 75.02
+GoT (Besta et al., 2024) 63.0 70
+RAFA (Liu et al., 2024) DNR DNR
+FoA (Present Work) 76.0 62.93
+Baselines. We compare FOA with: (1) Standard IO prompt-
+ing, (2) CoT (Wei et al., 2022), (3) CoT-SC (Wang et al.,
+2023), (4) AoT (Sel et al., 2024), (5) ToT (Yao et al., 2024),
+(6) GoT (Besta et al., 2024), and (7) RAFA (Liu et al., 2024).
+Owing to the unavailability of their code for Game of 24,
+we do not compare with LATS (Zhou et al., 2024).
+Results. Table 1 shows that FOA outperforms all existing
+baselines and achieves the best quality. Taking GPT-4 as a
+baseline, FOA achieves a whopping 70% improvement in
+quality. On the one hand, IO and CoT (Wei et al., 2022)
+are the most cost-effective methods, their success rate is
+extremely low at just 6%. On the other hand, sophisticated
+reasoning frameworks like ToT (Yao et al., 2024) achieve
+a high success rate (74%) but also incur a high cost (75$).
+Striking a good balance between exploration vs. exploita-
+tion, our FOA obtains a 2% improvement in quality over the
+second best method, ToT, simultaneously lowering the cost
+requirement by 25%.
+4.2. Mini Crosswords
+Task and data. Mini Crosswords is a puzzle, where, given
+5 vertical and 5 horizontal clues, the objective is to use the
+clues to identify answers and place them on a 5× 5 cross-
+word board. The benchmark data consists of 156 puzzles.
+Following ToT (Yao et al., 2024), we use the puzzles 0, 5,
+. . . , 90, and 95 as the test set (cf. Appx. C.1 for details).
+Evaluation metrics. For quality, we use overlap, i.e., the
+percentage of correct letters in the proposed solution. For
+efficiency, we compute the cost (in US$).
+Baselines. We compare FOA with: (1) Standard IO prompt-
+ing, (2) CoT (Wei et al., 2022), (3) CoT-SC (Wang et al.,
+2023), (4) ToT (Yao et al., 2024), and (5) GoT (Besta et al.,
+5
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+Table 2: Comparing FOA with previous methods using
+overlap (↑ better) and cost (↓ better) on the Crosswords task
+(base model: GPT-4). The best performance is shown in
+blue whereas the second best is shown in orange .
+Method Overlap (%) Cost (US$)
+IO 36.8 0.51
+CoT (Wei et al., 2022) 39.4 1.06
+CoT-SC (Wang et al., 2023) 39.4 2.82
+ToT (Yao et al., 2024) 39.7 48.99
+GoT (Besta et al., 2024) 41.2 30.28
+FoA (Present Work) 46.0 12.94
+2024). Owing to the unavailability of their code for Mini
+Crosswords, we do not compare with AoT (Sel et al., 2024).
+Results. Table 2 shows that FOA outperforms all existing
+baselines and achieves the best quality. Once again, IO and
+CoT (Wei et al., 2022) are the most cost-effective methods.
+Moreover, they also obtain good performance with their
+quality being comparable to ToT (Yao et al., 2024) and
+GoT (Besta et al., 2024) at just a fraction (2.5%) of the
+cost. Notably, our FOA reports the best cost-quality trade-
+off among all the benchmarked methods. We obtain a 5%
+improvement in quality over the second best method, GoT,
+simultaneously lowering its cost requirement by 60%.
+4.3. WebShop
+Task and data. WebShop (Yao et al., 2022) is a simulated
+e-commerce website environment, where, given a textual
+instruction specifying a product and its properties, the ob-
+jective is to find the product by navigating webpages using
+a variety of actions and purchase it. The benchmark data
+consists of 12,087 subtasks. Following (Yao et al., 2023;
+Zhou et al., 2024; Shinn et al., 2023), we use 50 randomly
+sampled subtasks as the test set (cf. Appx. C.1 for details).
+Evaluation metrics. The quality of a purchase is assessed
+using an environment-generated reward, which measures
+the percent overlap between the purchased product and the
+user-specified attributes. We use average score, i.e., the
+average of subtask rewards, to evaluate the quality of the
+benchmarked methods. For efficiency, we use cost (in US$).
+Baselines. We compare FOA with: (1) Act (Yao et al.,
+2023), (2) ReAct (Yao et al., 2023), (3) Reflexion (Shinn
+et al., 2023), (4) LASER (Ma et al., 2023), (5) LATS (Zhou
+et al., 2024), and (6) multiple fine-tuned models from Yao
+et al. (Yao et al., 2022). We also use the performance of
+human experts as an upper bound for quality. Owing to
+the unavailability of their code for WebShop, we do not
+compare with RAP (Kagaya et al., 2024).
+Table 3: Comparing FOA with previous methods using
+average score (↑ better) and cost (↓ better) on the WebShop
+task (base model: GPT-3.5). The best performance is shown
+in blue whereas the second best is shown in orange .
+Type Method Avg Score Cost (US$)
+Super-
+vised
+IL (Yao et al., 2022) 59.9 NA
+IL+RL (Yao et al., 2022) 62.4 NA
+WebN-T5 (Gur et al., 2023) 61.0 NA
+WebGUM (Furuta et al., 2024) 67.5 NA
+In-
+context
+Act (Yao et al., 2023) 58.1 0.10
+ReAct (Yao et al., 2023) 48.7 0.17
+Reflexion (Shinn et al., 2023) 56.3 0.65
+LASER (Ma et al., 2023) 57.2 0.41
+LATS (Zhou et al., 2024) 66.1 232.27
+FoA (Present Work) 75.6 1.68
+Hum. experts (Yao et al., 2022) 82.1 NA
+Results. Table 3 shows that FOA outperforms all existing
+baselines, even the supervised fine-tuned models (Yao et al.,
+2022; Gur et al., 2023; Furuta et al., 2024), and achieves
+the best quality. While Act (Yao et al., 2023) is by far
+the cheapest method (0.1$), it obtains a moderate average
+score (58.1%). LATS (Zhou et al., 2024), on the other
+hand, obtains a better average score (66.1%), it suffers from
+an exorbitant cost footprint (232 $). Yet again, our FOA
+achieves the best cost-quality trade-off: obtaining a 10%
+improvement in quality over the second-best method, LATS,
+requiring only 1% of its cost.
+5. Model Analysis
+FOA vs. SOTA. To better understand the improvements
+obtained by FOA, we compare it with the second most ef-
+ficacious method (SOTA hereafter) on all three benchmark
+tasks. Specifically, ToT (Yao et al., 2024), GoT (Besta et al.,
+2024), and LATS (Zhou et al., 2024) are the SOTA methods
+for the Game of 24, Crosswords, and WebShop tasks, re-
+spectively. As stated in § 4, we use GPT-4 as the base model
+for Game of 24 and Crosswords, and GPT-3.5 for WebShop.
+Fig. 4 shows that FOA not only achieves the best quality
+but also the lowest cost on all tasks. On average, FOA
+obtains a quality improvement of≃ 5% while requiring
+only≃ 40% of the cost of SOTA methods.
+Trade-off between Cost and Quality. We analyze the
+trade-off between cost and quality for the top four methods,
+namely, ToT (Yao et al., 2024), GoT (Besta et al., 2024),
+RAFA (Liu et al., 2024), and FOA, in the Game of 24
+task. For cost reasons, we use GPT-3.5 as the base model.
+Following RAFA (Liu et al., 2024), we allow each method
+to perform multiple trials (∆) and consider them successful
+if they generate a valid solution in any of the ∆ trials. To
+ensure fairness in the allocated resources, we allocate a fixed
+6
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+Game 24 CrosswordsWebShop
+0
+10
+20
+30
+40
+50
+60
+70Quality (%)
+FoA
+SOTA
+Game 24 Crosswords WebShop
+101
+102
+Cost ($)
+FoA
+SOTA
+Figure 4: Comparing (Left) quality and (Right) cost of FOA
+with the second most efficacious method (labeled SOTA in
+the plot) on each benchmark task.
+budget of 5$ per method, which governs the number ∆ of
+trials for each method (5 each for ToT and GoT, 6 for FOA,
+and 10 for RAFA).
+Fig. 5 (right) shows that FOA substantially outperforms the
+existing SOTA methods at all possible price points. Based
+on the portrayed trends, ToT might be able to close the qual-
+ity gap or even surpass FOA with a higher budget, however,
+FOA is always favorable for resource-constrained settings.
+Overall, FOA achieves the best cost-quality trade-off.
+Trade-off between Model-size and Quality. Fig. 5 (left)
+shows that on their own, both the 11B and 90B Llama3.2
+models (Grattafiori et al., 2024) achieve poor quality on
+the benchmarked tasks. However, FOA boosts the perfor-
+mance of both models by portraying significant (5x–6x)
+quality improvements. What’s more, Llama3.2-11B + FOA
+surpasses the larger Llama3.2-90B model. Overall, FOA
+enables smaller models to obtain comparable or even
+better performance than larger models, thereby bridging
+the gap between their reasoning abilities.
+6. Ablation Analysis
+In this section, we report results on Game of 24 with GPT-
+3.5 and Llama3.2 (11B&90B) as base models. We observed
+similar trends for the other two tasks, results in Appx. C.5.
+Impact of the Selection phase. We remove the selection
+phase by setting the resampling frequency k = 0 . Thus,
+each agent constantly remains in its own mutation phase,
+and independently works towards its goal until a solution
+is found, a terminal state is found, or time runs out. As
+expected, FOA (without selection) obtains an extremely low
+success rate but is also cheaper (Fig. 6a). This is because,
+without the selection phase, the fleet does not evolve into a
+composition of more high-value states with each time step.
+Impact of Resampling. Instead of using a resampling strat-
+egy, we assign each agent to the highest-value state during
+the selection phase. If there are multiple such states, the
+first one is randomly chosen by all agents. When there are
+multiple promising states, a meaningful resampling strategy
+Game 24 Crosswords WebShop
+T ask
+0
+20
+40
+60
+80
+100Quality (%)
+Llama-90B + FoA
+Llama-90B
+Llama-11B + FoA
+Llama-11B
+2 4
+Cost ($)
+0
+10
+20
+30
+40
+FoA
+T oT
+GoT
+RAFA
+Figure 5: Evaluating the trade-off between (Left) model size
+and quality on the benchmarked tasks with Llama3.2-11B
+and 90B as base models, and (Right) cost and quality of
+representative SOTA methods with GPT-3.5 on Game of 24.
+may decide to explore all of them in the next time step, how-
+ever, retaining only the highest-value state reduces the fleet
+diversity. Thus, FOA (no/max resampling) obtains a slightly
+lower success rate but also incurs a lower cost (Fig. 6b).
+Impact of the Backtracking mechanism. We vary the
+discount factorγ to study two aspects of the backtracking
+mechanism: (1)γ = 0 (no backtracking) and (2)γ = 1 (no
+decay). When γ = 0, resampling from a past state is not
+permitted, and thus, FOA cannot undo localized mistakes,
+resulting in a lower success rate but also lower cost (Fig. 6c).
+Withγ = 1, all past states are considered during resampling,
+thereby increasing the spectrum of states to explore but at
+the risk of overwhelming the resampling mechanism with
+noisy value estimates of (relatively older) past states. This
+explains the reduction in success rate and a slight increase
+in cost owing to potentially futile explorations (Fig. 6c).
+Impact of Caching. Similar to ToT (Yao et al., 2024) and
+LATS (Zhou et al., 2024), FOA utilizes a caching mecha-
+nism (details in Appx. C.3) to enhance its cost efficiency,
+which ensures that a given state is evaluated only once by
+an LLM. As expected, disabling the cache leads FOA to
+incur a higher cost, but interestingly, it also leads to a lower
+success rate (Fig. 6d). We hypothesize that frequent re-
+evaluations of the same state while solving a puzzle might
+introduce inconsistencies further disrupting the flow of rea-
+soning structures, thereby leading to a reduction in quality.
+Impact of Batching. Similar to ToT (Yao et al., 2024)
+and LATS (Zhou et al., 2024), FOA utilizes a batching
+mechanism (details in Appx. C.3) to enhance its cost ef-
+ficiency, which groups many individual LLM calls into a
+single combined call (one input prompt leading to many
+output responses). Disabling batching leads FOA to incur a
+higher cost with no noticeable impact on quality (Fig. 6e).
+In sum, Fig. 6 shows that each component of theFOA frame-
+work has an overall positive impact on its performance.
+7
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+0.0
+0.1
+0.2
+0.3Success rate
+0.0
+0.1
+0.2
+0.3
+0.0
+0.1
+0.2
+0.3
+0.0
+0.1
+0.2
+0.3
+0.0
+0.1
+0.2
+0.3
+GPT-3.5Llama-11BLlama-90B
+(a) Selection
+0
+1
+2Cost
+GPT-3.5Llama-11BLlama-90B
+(b) Resampling
+0
+1
+2
+GPT-3.5Llama-11BLlama-90B
+(c) Backtracking
+0
+1
+2
+GPT-3.5Llama-11BLlama-90B
+(d) Caching
+0
+2
+GPT-3.5Llama-11BLlama-90B
+(e) Batching
+0
+2
+4
+FoA No selection No resampling =1 (no decay)
+=0 (no backtrack)
+No caching No batching
+Figure 6: Ablation analysis to study the impact of (a) Selection phase, (b) Resampling, (c) Backtracking, (d) Caching, and
+(e) Batching on the performance of FOA using the Game of 24 task with GPT-3.5, Llama3.2-11B, and 90B as base models.
+7. Discussion and Concluding Insights
+7.1. Summary of Findings
+FOA achieves better quality than all existing methods.
+Based on the results presented in § 4 and Appx. C.5, FOA
+consistently outperforms all existing SOTA methods across
+all benchmarked tasks and base models.
+FOA achieves a better cost-quality trade-off. Our results
+show that FOA is cost-efficient, much more so than other
+SOTA reasoning frameworks. Moreover, our analysis in
+§ 5 reveals that FOA substantially outperforms all SOTA
+methods at all possible price points.
+Other advantages. Beyond better performance, FOA of-
+fers many important practical advantages. First and most
+importantly, FoA is not a prompting scheme but a runtime.
+Unlike existing prompt-based frameworks, e.g. ToT (Yao
+et al., 2024), GoT (Besta et al., 2024), etc., FOA does not
+require custom-crafted prompts, but, instead, can be used in
+combination with any existing agent or prompting strategy.
+Next, FOA offers precise control over the tree’s width (n
+agents) and depth (t steps), leading to predictable latency
+and cost. In particular, it is possible to tune the sizen of the
+fleet to the available resources, such as an optimal batch size
+for a given hardware configuration. Finally, as evidenced
+by a smaller standard error (Appx. C.5), FOA generates
+consistent responses across multiple runs and is relatively
+more stable than other methods.
+7.2. Implications and Broader Impact
+Throughout an LLM’s lifecycle, the majority of costs are in-
+curred during inference rather than training (Fu et al., 2024).
+Thus, it is crucial to benchmark the cost incurred by various
+SOTA reasoning frameworks. Our work is the first to report,
+analyze, and include a discussion on the trade-off between
+cost and quality of a variety of SOTA reasoning frameworks
+for LLMs. We hope that this work will spark further discus-
+sions on the cost-efficiency of reasoning frameworks and
+eventually lead to the development of practically feasible
+and sustainable reasoning frameworks for LLMs.
+7.3. Limitations and Future work
+Constant fleet size. Currently, we assign a fixed numbern
+of agents to each task. However, it may be advantageous
+to allocate more agents to more difficult tasks to enhance
+sample efficiency. In the future, we would like to explore
+the possibility of an adaptive fleet size.
+Resampling mechanisms. One avenue for improvement is
+the design of more intelligent value functions, for example,
+pooling information from neighboring states and smoothing
+predictions. Building on precise value estimates, we can
+investigate different resampling mechanisms, to tune FoA
+towards either more risk-seeking or careful behavior, i.e.,
+different tradeoffs between exploration and exploitation.
+Fleet organization. Currently, we consider a homogenous
+fleet of identical agents. In the future, we would like to
+introduce further coordination between the individual agents
+with a hierarchical organizational structure. For instance,
+what if agents could spawn other agents in a nested particle
+filtering framework? Finally, as a runtime that embraces
+modular compatibility with any agent, FoA will also enable
+research into more complex fleet compositions.
+Overall, we hope that our work will motivate further re-
+search in the combination of (genetic) filtering algorithms
+for the orchestration of AI agents.
+8
+
+Fleet of Agents: Coordinated Problem Solving with Large Language Models
+Acknowledgements
+We thank Bhavyajeet Singh, Laurent Bindschaedler, Kr-
+ishna Gummadi, Chris Schwiegelshohn, and Niket Tan-
+don for insightful discussions. West’s lab is partly sup-
+ported by grants from the Swiss National Science Founda-
+tion (200021 185043 and 211379). Arora’s lab is partly
+supported by grants from the Novo Nordisk Foundation
+(NNF24OC0099109), the Pioneer Centre for AI, and EU
+Horizon 2020 (101168951). We also gratefully acknowl-
+edge generous gifts from Google and Microsoft.

@@ -1,0 +1,725 @@
+record_id: s2_snowball:21b679c199cc9b4dd39b89e2dfd7c15645fd7899
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2601.03509
+fetched_title: Evolving Programmatic Skill Networks
+fetched_at: 2026-09-18T19:00:54Z
+
+Preprint. Under review.
+Evolving Programmatic Skill Networks
+Haochen Shi1,2 Xingdi Yuan3∗ Bang Liu1,2,4∗
+1 DIRO & Institut Courtois, Université de Montréal 2 Mila – Québec AI Institute
+3 Microsoft Research 4 Canada CIFAR AI Chair
+haochen.shi@umontreal.ca eric.yuan@microsoft.com bang.liu@umontreal.ca
+Abstract
+We study continual skill acquisition in open-ended embodied environments
+where an agent must construct, refine, and reuse an expanding library of
+executable skills. We introduce the Programmatic Skill Network (PSN), a
+framework in which skills are executable symbolic programs forming a
+compositional network that evolves through experience. PSN defines three
+core mechanisms instantiated via large language models: (1) REFLECTfor
+structured fault localization over skill compositions, (2) progressive opti-
+mization with maturity-aware update gating that stabilizes reliable skills
+while maintaining plasticity for uncertain ones, and (3) canonical structural
+refactoring under rollback validation that maintains network compactness.
+We further show that PSN’s learning dynamics exhibit structural parallels
+to neural network training. Experiments on MineDojo and Crafter demon-
+strate robust skill reuse, rapid adaptation, and strong generalization across
+open-ended task distributions.1
+1 Introduction
+Embodied agents operating in open-ended environments must continually acquire, refine,
+and reuse a growing repertoire of skills. Existing approaches (Wang et al., 2024a; Yao et al.,
+2023) suffer from two limitations: (1) skills are typically represented as flat libraries or
+static graphs lacking principled mechanisms for continual improvement, and (2) agents
+lack unified frameworks for assigning credit over hierarchical skill compositions, repairing
+symbolic programs, and reorganizing structure as new tasks arise.
+We introduce the Programmatic Skill Network (PSN), a framework for continually evolving
+skill libraries. In a PSN, each skill is a symbolic program (e.g., in JavaScript for Minecraft,
+Python for Crafter) with explicit control flow, parameters, and preconditions that specify
+applicability and effects. Skills invoke each other through dependency links, forming a di-
+rected graph that grows and reorganizes as the agent learns. While recent work has explored
+programmatic skill representations for agents (Wang et al., 2024b; Stengel-Eskin et al., 2024;
+Wang et al., 2025c), PSN uniquely maintains an explicit computational graph of executable
+programs that supports trace-based credit assignment, maturity-aware stabilization, and
+principled structural refactoring.
+The framework structures continual learning through three components: anetwork-aware
+plannerthat prioritizes skill reuse via backward-chaining, afault localization mechanism
+(REFLECT) that assigns credit over skill compositions by analyzing execution traces, and
+arefactor modulethat reorganizes network structure. These components are instantiated
+using LLMs for program synthesis, but the continual learning behavior emerges from the
+architectural scaffolding rather than the LLM itself. Figure 1 provides an overview of the
+PSN framework, illustrating the agent–environment interaction under a curriculum task
+stream (left) and the internal evolution of the programmatic skill network through planning,
+repairing, and structural refactoring (right).
+∗Equal advising
+1Code: github.com/evolving-skill-networks/psn; Webpage: evolving-skill-networks.github.io.
+1
+arXiv:2601.03509v2 [cs.AI] 22 Jun 2026
+
+Preprint. Under review.
+A key insight is that PSN’s learning dynamics exhibit structural parallels to neural network
+training. Fault localization over skill compositions resembles backpropagation through com-
+putational graphs (Rumelhart et al., 1986); maturity-based update gating induces stability-
+plasticity tradeoffs analogous to layer freezing and learning rate scheduling (Howard &
+Ruder, 2018; Yosinski et al., 2014; Rusu et al., 2016); and structural refactoring performs a
+form of symbolic neural architecture search (Zoph & Le, 2017; Han et al., 2016; Tan & Le,
+2019). These parallels suggest that principles of neural network optimization extend to
+programmatic learning systems.
+The contributions of this work are threefold:
+• Programmatic Skill Networks.We introduce a framework for continual skill learning
+in which skills are executable symbolic programs with explicit control flow, parameters,
+and pre/postconditions, forming a compositional network through invocation links and
+yielding an inspectable computational graph that grows and reorganizes as the agent learns.
+• PSN learning mechanisms.We develop three complementary mechanisms for continual
+skill improvement: (1) REFLECTfor fault localization; (2) maturity-aware update gating for
+stabilizing reliable skills while maintaining plasticity for uncertain ones; and (3) canonical
+structural refactoring with rollback validation for eliminating redundancy while preserving
+performance.
+• An optimization perspective.We show that PSN’s architectural design induces learning
+dynamics with structural parallels to neural network training, suggesting general principles
+for continual learning across representational paradigms.
+2 Method
+Problem setup.We consider an embodied agent acting in a partially observable Markov
+decision process (POMDP) (Kaelbling et al., 1998). The agent receives a stream of open-
+ended tasks T={τ 1, τ2, . . .}, each specified in natural language and associated with a
+goal predicate gτ :S→{ 0, 1}, whereS denotes the state space. Tasks arrive sequentially
+and may vary in difficulty, horizon length, and compositional structure. The agent must
+continually acquire, refine, and reorganize reusable skills to solve future tasks by leveraging
+past experience.
+We present an online framework for continually constructing, optimizing, and refactoring
+a Programmatic Skill Network. It evolves through a recurrent loop that couples symbolic
+planning, execution, failure-driven repair, and success-driven structural refactoring. We
+first define the core objects and operators that constitute the network, then describe the
+planning and learning mechanisms.
+2.1 Programmatic Skill Networks (PSN)
+A skill s= (C s,Ps,Es, CHILDREN(s)) is a symbolic program whereCs denotes control flow,
+Ps parameters,Es = (E pre
+s ,E post
+s ) preconditions/postconditions, and CHILDREN(s) invoked
+subskills. This precondition-effect structure is analogous to programmatic laws in symbolic
+world modeling (Khan et al., 2025a). The agent maintains a directed networkNt = (S t,Lt)
+where nodesS t are skills and edgesL t represent invocations.
+Executing skill s yields (f s, δs) where δs∈{ 0, 1} indicates success and fs aggregates feedback
+from the environment. The system records a finite invocation trace T . Given feedback
+fs, REFLECTcomputes repair proposal ˜∇s identifying faulty control flow, preconditions,
+parameters, or subskills. For invoked subskills s′∈Children(s) , responsibility propagates
+as
+˜∇s′ =REFLECT( ˜∇s,s′), (1)
+yielding finite credit assignment over executed subgraphs.
+Each skill maintains scalar value V(s) = ˆps−u s where ˆps is success rate with Laplace
+smoothing and us is an uncertainty term that decreases as more executions are observed.
+This value summarizes long-term skill reliability and serves a dual role: guiding skill
+selection during planning and modulating update frequency during optimization.
+2
+
+Preprint. Under review.
+<latexit sha1_base64="cJgNNm1HOLVeXaDaTsfXwuPdoJw=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqHgqePFY0X5AG8pmO2mXbjZhdyOU0J/gxYMiXv1F3vw3btsctPXBwOO9GWbmBYng2rjut1NYW9/Y3Cpul3Z29/YPyodHLR2nimGTxSJWnYBqFFxi03AjsJMopFEgsB2Mb2d++wmV5rF8NJME/YgOJQ85o8ZKD7rv9csVt+rOQVaJl5MK5Gj0y1+9QczSCKVhgmrd9dzE+BlVhjOB01Iv1ZhQNqZD7FoqaYTaz+anTsmZVQYkjJUtachc/T2R0UjrSRTYzoiakV72ZuJ/Xjc14bWfcZmkBiVbLApTQUxMZn+TAVfIjJhYQpni9lbCRlRRZmw6JRuCt/zyKmldVL3Lau2+Vqnf5HEU4QRO4Rw8uII63EEDmsBgCM/wCm+OcF6cd+dj0Vpw8plj+APn8wcEmI2c</latexit>
+s1
+<latexit sha1_base64="We7IH9x899ANH8XYBcRLgRUf1xk=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0lKUfFU8OKxoq2FNpTNdtIu3WzC7kYooT/BiwdFvPqLvPlv3LY5aOuDgcd7M8zMCxLBtXHdb6ewtr6xuVXcLu3s7u0flA+P2jpOFcMWi0WsOgHVKLjEluFGYCdRSKNA4GMwvpn5j0+oNI/lg5kk6Ed0KHnIGTVWutf9Wr9ccavuHGSVeDmpQI5mv/zVG8QsjVAaJqjWXc9NjJ9RZTgTOC31Uo0JZWM6xK6lkkao/Wx+6pScWWVAwljZkobM1d8TGY20nkSB7YyoGellbyb+53VTE175GZdJalCyxaIwFcTEZPY3GXCFzIiJJZQpbm8lbEQVZcamU7IheMsvr5J2repdVOt39UrjOo+jCCdwCufgwSU04Baa0AIGQ3iGV3hzhPPivDsfi9aCk88cwx84nz8GHI2d</latexit>
+s2
+<latexit sha1_base64="0eYtgSRz2I0fd5V5GzBMsSjfZXo=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0m0qHgqePFY0X5AG8pmu2mXbjZhdyKU0J/gxYMiXv1F3vw3btsctPpg4PHeDDPzgkQKg6775RRWVtfWN4qbpa3tnd298v5By8SpZrzJYhnrTkANl0LxJgqUvJNoTqNA8nYwvpn57UeujYjVA04S7kd0qEQoGEUr3Zv+eb9ccavuHOQv8XJSgRyNfvmzN4hZGnGFTFJjup6boJ9RjYJJPi31UsMTysZ0yLuWKhpx42fzU6fkxCoDEsbalkIyV39OZDQyZhIFtjOiODLL3kz8z+umGF75mVBJilyxxaIwlQRjMvubDITmDOXEEsq0sLcSNqKaMrTplGwI3vLLf0nrrOpdVGt3tUr9Oo+jCEdwDKfgwSXU4RYa0AQGQ3iCF3h1pPPsvDnvi9aCk88cwi84H98HoI2e</latexit>
+s3
+<latexit sha1_base64="b5rzUlh8+CF8vYGx7Ucl56OKko4=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqHgqePFY0X5AG8pmu2mXbjZhdyKU0J/gxYMiXv1F3vw3btsctPXBwOO9GWbmBYkUBl332ymsrW9sbhW3Szu7e/sH5cOjlolTzXiTxTLWnYAaLoXiTRQoeSfRnEaB5O1gfDvz209cGxGrR5wk3I/oUIlQMIpWejD9Wr9ccavuHGSVeDmpQI5Gv/zVG8QsjbhCJqkxXc9N0M+oRsEkn5Z6qeEJZWM65F1LFY248bP5qVNyZpUBCWNtSyGZq78nMhoZM4kC2xlRHJllbyb+53VTDK/9TKgkRa7YYlGYSoIxmf1NBkJzhnJiCWVa2FsJG1FNGdp0SjYEb/nlVdK6qHqX1dp9rVK/yeMowgmcwjl4cAV1uIMGNIHBEJ7hFd4c6bw4787HorXg5DPH8AfO5w8JJI2f</latexit>
+s4
+<latexit sha1_base64="0uNmzMdondqb1OKAxYmpnaR875I=">AAAB6nicbVDLSgNBEOyNrxhfUY9eBoPgKeyKLzwFvHiMaB6QLGF20psMmZ1dZmaFsOQTvHhQxKtf5M2/cZLsQRMLGoqqbrq7gkRwbVz32ymsrK6tbxQ3S1vbO7t75f2Dpo5TxbDBYhGrdkA1Ci6xYbgR2E4U0igQ2ApGt1O/9YRK81g+mnGCfkQHkoecUWOlB9276JUrbtWdgSwTLycVyFHvlb+6/ZilEUrDBNW647mJ8TOqDGcCJ6VuqjGhbEQH2LFU0gi1n81OnZATq/RJGCtb0pCZ+nsio5HW4yiwnRE1Q73oTcX/vE5qwms/4zJJDUo2XxSmgpiYTP8mfa6QGTG2hDLF7a2EDamizNh0SjYEb/HlZdI8q3qX1fP780rtJo+jCEdwDKfgwRXU4A7q0AAGA3iGV3hzhPPivDsf89aCk88cwh84nz8KqI2g</latexit>
+s5
+<latexit sha1_base64="DHiFZV6JVa3l8UhRBalDNG+EEWI=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0lEqngqePFY0X5AG8pmO2mXbjZhdyOU0J/gxYMiXv1F3vw3btsctPXBwOO9GWbmBYng2rjut1NYW9/Y3Cpul3Z29/YPyodHLR2nimGTxSJWnYBqFFxi03AjsJMopFEgsB2Mb2d++wmV5rF8NJME/YgOJQ85o8ZKD7pf65crbtWdg6wSLycVyNHol796g5ilEUrDBNW667mJ8TOqDGcCp6VeqjGhbEyH2LVU0gi1n81PnZIzqwxIGCtb0pC5+nsio5HWkyiwnRE1I73szcT/vG5qwms/4zJJDUq2WBSmgpiYzP4mA66QGTGxhDLF7a2EjaiizNh0SjYEb/nlVdK6qHq16uX9ZaV+k8dRhBM4hXPw4ArqcAcNaAKDITzDK7w5wnlx3p2PRWvByWeO4Q+czx8MLI2h</latexit>
+s6
+<latexit sha1_base64="qo7XB+PzVp3oY9MPdnulibr9b9A=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0lErHgqePFY0X5AG8pmO2mXbjZhdyOU0J/gxYMiXv1F3vw3btsctPXBwOO9GWbmBYng2rjut1NYW9/Y3Cpul3Z29/YPyodHLR2nimGTxSJWnYBqFFxi03AjsJMopFEgsB2Mb2d++wmV5rF8NJME/YgOJQ85o8ZKD7pf65crbtWdg6wSLycVyNHol796g5ilEUrDBNW667mJ8TOqDGcCp6VeqjGhbEyH2LVU0gi1n81PnZIzqwxIGCtb0pC5+nsio5HWkyiwnRE1I73szcT/vG5qwms/4zJJDUq2WBSmgpiYzP4mA66QGTGxhDLF7a2EjaiizNh0SjYEb/nlVdK6qHpX1cv7y0r9Jo+jCCdwCufgQQ3qcAcNaAKDITzDK7w5wnlx3p2PRWvByWeO4Q+czx8NsI2i</latexit>
+s7
+<latexit sha1_base64="zFRkoGC7qXLdWvT/Q22QpI9DHd4=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0lEtHgqePFY0X5AG8pmO2mXbjZhdyOU0J/gxYMiXv1F3vw3btsctPXBwOO9GWbmBYng2rjut1NYW9/Y3Cpul3Z29/YPyodHLR2nimGTxSJWnYBqFFxi03AjsJMopFEgsB2Mb2d++wmV5rF8NJME/YgOJQ85o8ZKD7pf65crbtWdg6wSLycVyNHol796g5ilEUrDBNW667mJ8TOqDGcCp6VeqjGhbEyH2LVU0gi1n81PnZIzqwxIGCtb0pC5+nsio5HWkyiwnRE1I73szcT/vG5qwpqfcZmkBiVbLApTQUxMZn+TAVfIjJhYQpni9lbCRlRRZmw6JRuCt/zyKmldVL2r6uX9ZaV+k8dRhBM4hXPw4BrqcAcNaAKDITzDK7w5wnlx3p2PRWvByWeO4Q+czx8PNI2j</latexit>
+s8
+Programmatic Skill Network
+<latexit sha1_base64="xh0hkyePlReBr7AYhWnrWLDKXLg=">AAACF3icdZBLS8NAEMc3Pmt9RT16WSxCBQmprW0vQsGLB5GK9gFtCJvtpl26ebC7EUrot/DiV/HiQRGvevPbuGljqaIDC//5zQw783dCRoU0zU9tYXFpeWU1s5Zd39jc2tZ3dpsiiDgmDRywgLcdJAijPmlIKhlph5wgz2Gk5QzPk3rrjnBBA/9WjkJieajvU5diJBWydaPrITnAiMVXY1vCM5ifgRsFjuEsvVTpka3nTMOcBJwT5WK1WDmFhZTkQBp1W//o9gIcecSXmCEhOgUzlFaMuKSYkXG2GwkSIjxEfdJR0kceEVY8uWsMDxXpQTfg6vkSTuj8RIw8IUaeozqTLcXvWgL/qnUi6VatmPphJImPpx+5EYMygIlJsEc5wZKNlECYU7UrxAPEEZbKyqwy4ftS+L9onhiFslG6LuVqpdSODNgHByAPCqACauAC1EEDYHAPHsEzeNEetCftVXubti5o6cwe+BHa+xewmZ+c</latexit>
+Nt=(St,Lt)
+<latexit sha1_base64="5gJNlwwEGvYB7V9wLnDoCSrksFw=">AAACIXicbVDLSsNAFJ34rPUVdelmsAh1UxIpKoIgiOCyPmqFJpbJdJoOnWTCzI1aQn7Fjb/ixoUi7sSfcVqz8HVg4HDOvdw5J0gE1+A479bE5NT0zGxprjy/sLi0bK+sXmqZKsqaVAqprgKimeAxawIHwa4SxUgUCNYKBkcjv3XDlOYyvoBhwvyIhDHvcUrASB1777wabuED7GUa72MvItCnRGTHeUdfZx6wO8gSqSHPsXfGwz4QpeQtDr28Y1ecmjMG/kvcglRQgUbHfvO6kqYRi4EKonXbdRLwM6KAU8HyspdqlhA6ICFrGxqTiGk/GyfM8aZRurgnlXkx4LH6fSMjkdbDKDCTowj6tzcS//PaKfT2/IzHSQospl+HeqnAIPGoLtzlilEQQ0MIVdz8FdM+UYSCKbVsSnB/R/5LLrdr7k6tflqvHNaLOkpoHW2gKnLRLjpEJ6iBmoiie/SIntGL9WA9Wa/W29fohFXsrKEfsD4+AT7to6E=</latexit>
+S(g)={s:Epost
+s →g}
+<latexit sha1_base64="OXOkmVdHb+oRxMvzLHHTMGiUeks=">AAACL3icbVDLSgNBEJz1bXxFPXoZDIKChF0J6kUQBPEQJYJRIYlL72Q2Ds7OLjO9Ylj2j7z4K7mIKOLVv3DyOPjqU3VVN11dQSKFQdd9ccbGJyanpmdmC3PzC4tLxeWVSxOnmvE6i2WsrwMwXArF6yhQ8utEc4gCya+Cu6O+fnXPtRGxusBuwlsRdJQIBQO0lF88biJ/wCzWNKc1H2+yYV+tnuY5PaCDzrCsJkHlmx3fypD6mG/TZgR4y0BmZ7mPW36x5JbdQdG/wBuBEhlVzS/2mu2YpRFXyCQY0/DcBFsZaBRM8rzQTA1PgN1BhzcsVBBx08oG/+Z0wzJtGlrTYayQDtjvGxlExnSjwE72XZrfWp/8T2ukGO63MqGSFLliw0NhKinGtB8ebQvNGcquBcC0sF4puwUNDG3EBRuC9/vlv+Byp+ztlivnldJhZRTHDFkj62STeGSPHJITUiN1wsgj6ZFX8uY8Oc/Ou/MxHB1zRjur5Ec5n1/x1aot</latexit>
+orPLLM
+t =Plan(gωt,Nt)
+Hybrid Planner
+<latexit sha1_base64="7zsz130sdPmHEG9Yz/UVrsw+mww=">AAACFnicbZDLSgMxFIYz9VbrrerSTbAIFbTMSFE3guBClxWsFtoyZNLTNjSTGZIzYhn6FG58FTcuFHEr7nwb08tCWw+E/Hz/OSTnD2IpDLrut5OZm19YXMou51ZW19Y38ptbtyZKNIcqj2SkawEzIIWCKgqUUIs1sDCQcBf0Lob+3T1oIyJ1g/0YmiHrKNEWnKFFfv7Q+EjPaAPhAQ1PL6IWXIIaFCs+HoypZWp4D3zc9/MFt+SOis4KbyIKZFIVP//VaEU8CUEhl8yYuufG2EyZRsElDHKNxEDMeI91oG6lYiGYZjpaa0D3LGnRdqTtUUhH9PdEykJj+mFgO0OGXTPtDeF/Xj3B9mkzFSpOEBQfP9ROJMWIDjOiLaGBo+xbwbgW9q+Ud5lmHG2SORuCN73yrLg9KnnHpfJ1uXBensSRJTtklxSJR07IObkiFVIlnDySZ/JK3pwn58V5dz7GrRlnMrNN/pTz+QP8MZ9A</latexit>
+st=CodeGen(Pt,Contextt)
+PSN Manager
+Online Refactor
+Skill Optimizer
+<latexit sha1_base64="ibKjdqgK/JNHoYYfs4BTZV9Wjs4=">AAACI3icbVBNSxxBEO0x8WtjdI1HL02WwAbCMiOLBkNA8JKjAVcXdoahpqdGG3t6hu4ayTLMf8klf8WLB0Vy8eB/Se+6B93Ng4LHe1VU1UtKJS35/qO39Obt8srq2nrr3cb7za329oczW1RG4EAUqjDDBCwqqXFAkhQOS4OQJwrPk6vjiX9+jcbKQp/SuMQohwstMymAnBS3D0OSKsU61JAoaGLLv/OQ8BdZURvMFApqullMX7j9xsMc6FKAqk+bmD7H7Y7f86fgiySYkQ6b4SRuP4RpIaocNQkF1o4Cv6SoBkNSKGxaYWWxBHEFFzhyVEOONqqnPzb8k1NSnhXGlSY+VV9O1JBbO84T1zm50s57E/F/3qii7GtUS11WhFo8L8oqxangk8B4Ko0LQY0dAWGku5WLSzAgyMXaciEE8y8vkrO9XrDf6//sd476szjW2C77yLosYAfsiP1gJ2zABPvNbtgdu/f+eLfeg/f3uXXJm83ssFfwnv4Bjc2kxg==</latexit>
+˜→s=reflect(ft,s;Tt)
+Detect structural
+relationship between
+skills. If yes,
+rewrite skills.
+<latexit sha1_base64="slOzMhPioNLwNRZ15PFu7yDiv4s=">AAACGXicdVDLSgMxFM34rPVVdekmWAQ3lpnO0M5ScOOiQgVbhXYomTRtg5nMkNxRy9DfcOOvuHGhiEtd+TemD0FFDwQO55zLzT1hIrgG2/6w5uYXFpeWcyv51bX1jc3C1nZTx6mirEFjEavLkGgmuGQN4CDYZaIYiULBLsKr47F/cc2U5rE8h2HCgoj0Je9xSsBInYLdBnYLmmYhoVc3RHUP6YBwOcJtxfsDIErFN/grU6udjjqFol2quK7ne9gulauu67uG2Hal7DvYMWSMIpqh3im8tbsxTSMmgQqidcuxEwgyooBTwUb5dqpZYpaTPmsZKknEdJBNLhvhfaN0cS9W5knAE/X7REYirYdRaJIRgYH+7Y3Fv7xWCj0/yLhMUmCSThf1UoEhxuOacJcrRkEMDSFUcfNXbIpRhIIpM29K+LoU/0+a5ZJTKXlnXvHIm9WRQ7toDx0gB1XRETpBddRAFN2hB/SEnq1769F6sV6n0TlrNrODfsB6/wSWcaHk</latexit>
+backward-chain→LLM
+<latexit sha1_base64="5LR/XaSMjWA4kGTtOV2431kJg+M=">AAACCnicdVDLSgNBEJyN7/iKevQyGgRBCLtmTXIUvHiMYh6QhDA76U2GzD6Y6RXDkrMXf8WLB0W8+gXe/BsnMYKKFgwUVd30VHmxFBpt+93KzM0vLC4tr2RX19Y3NnNb23UdJYpDjUcyUk2PaZAihBoKlNCMFbDAk9DwhmcTv3ENSosovMJRDJ2A9UPhC87QSN3cXhvhBjVPL8GXwHFMj+iXVGXIB+NuLm8X3FKlUipSu2BPMSGOUy6eUGem5MkM1W7urd2LeBJAiFwyrVuOHWMnZQoFlzDOthMNMeND1oeWoSELQHfSaZQxPTBKj/qRMi9EOlW/b6Qs0HoUeGYyYDjQv72J+JfXStCvdFIRxglCyD8P+YmkGNFJL7QnlIkvR4YwroT5K+UDphhH017WlPCVlP5P6scFp1RwL9z8qTurY5nskn1ySBxSJqfknFRJjXByS+7JI3my7qwH69l6+RzNWLOdHfID1usHF+CbIg==</latexit>
+Reflect+Patch
+<latexit sha1_base64="WekBm96GSuxSAcMwIxtKOkUa4CQ=">AAACHHicdZBNSwMxEIazflu/qh69BIvgad3qateb4sWLUMGq0JaSTac1NJtdklmxLP0hXvwrXjwo4sWD4L8xWyuo6AuBl2dmmMwbJlIY9Lx3Z2x8YnJqema2MDe/sLhUXF45N3GqOdR4LGN9GTIDUiiooUAJl4kGFoUSLsLeUV6/uAZtRKzOsJ9AM2JdJTqCM7SoVdxpINyg4dkJ6C4M6Bb9AoehQc04fmdVnSoYtIolz/V29oJdn3rudiWoBPu5CfxK4NOy6w1VIiNVW8XXRjvmaQQKuWTG1Mtegs2MaRRcwqDQSA0kjPdYF+rWKhaBaWbD4wZ0w5I27cTaPoV0SL9PZCwyph+FtjNieGV+13L4V62eYidoZkIlKYLin4s6qaQY0zwp2hYaOMq+NYxrYf9K+RXLI7F5FmwIX5fS/835tlvec/1Tv3Tgj+KYIWtknWySMqmQA3JMqqRGOLkl9+SRPDl3zoPz7Lx8to45o5lV8kPO2wd996Lh</latexit>
+Merge/Abstract/Prune
+<latexit sha1_base64="vFR57ndPVKQ5nemnrcLXnBoAGtQ=">AAACDHicdVDLSgMxFM34tr6qLt0EiyAIZUZH6+wEEV0q2Ae0pWTSWw1mMkNyRyxDP8CNv+LGhSJu/QB3/o3pC1T0QOBwzrnc3BMmUhh03U9nYnJqemZ2bj63sLi0vJJfXauYONUcyjyWsa6FzIAUCsooUEIt0cCiUEI1vDnu+9Vb0EbE6hK7CTQjdqVER3CGVmrlCw2EOzQ8O47bcAqqR3foWDq5A54i9GzKLfp+yQ0C6hbdASzx9kpBsE+9kVIgI5y38h+NdszTCBRyyYype26CzYxpFFxCL9dIDSSM37ArqFuqWASmmQ2O6dEtq7RpJ9b2KaQD9ftExiJjulFokxHDa/Pb64t/efUUO4fNTKjE3qT4cFEnlRRj2m+GtoUGjrJrCeNa2L9Sfs0042j7y9kSxpfS/0llt+gdFP0Lv3Dkj+qYIxtkk2wTj5TIETkj56RMOLknj+SZvDgPzpPz6rwNoxPOaGad/IDz/gWc4pv4</latexit>
+CodeGen+Execute
+Environment
+<latexit sha1_base64="AMcEZerjb13P4Iw7hHaGTB3pGdc=">AAAB8nicbVDLSsNAFL3xWeur6tLNYBFclUSKuiyI4LKCfUAbymQ6aYdOJmHmRiihn+HGhSJu/Rp3/o2TNgttPTBwOOde5twTJFIYdN1vZ219Y3Nru7RT3t3bPzisHB23TZxqxlsslrHuBtRwKRRvoUDJu4nmNAok7wST29zvPHFtRKwecZpwP6IjJULBKFqp148ojhmV2d1sUKm6NXcOskq8glShQHNQ+eoPY5ZGXCGT1Jie5yboZ1SjYJLPyv3U8ISyCR3xnqWKRtz42TzyjJxbZUjCWNunkMzV3xsZjYyZRoGdzCOaZS8X//N6KYY3fiZUkiJXbPFRmEqCMcnvJ0OhOUM5tYQyLWxWwsZUU4a2pbItwVs+eZW0L2veVa3+UK826kUdJTiFM7gAD66hAffQhBYwiOEZXuHNQefFeXc+FqNrTrFzAn/gfP4AdRqRVg==</latexit>
+E
+<latexit sha1_base64="A0PH6L1l2nnbJ80c24M4xvIsZso=">AAAB73icbVBNS8NAEN34WetX1aOXxSJ4KokU9Vjw4rGC/YA2lM1m0i7dbOLuRCihf8KLB0W8+ne8+W/ctjlo64OBx3szzMwLUikMuu63s7a+sbm1Xdop7+7tHxxWjo7bJsk0hxZPZKK7ATMghYIWCpTQTTWwOJDQCca3M7/zBNqIRD3gJAU/ZkMlIsEZWqnbD0EiG+CgUnVr7hx0lXgFqZICzUHlqx8mPItBIZfMmJ7npujnTKPgEqblfmYgZXzMhtCzVLEYjJ/P753Sc6uENEq0LYV0rv6eyFlszCQObGfMcGSWvZn4n9fLMLrxc6HSDEHxxaIokxQTOnuehkIDRzmxhHEt7K2Uj5hmHG1EZRuCt/zyKmlf1ryrWv2+Xm3UizhK5JSckQvikWvSIHekSVqEE0meySt5cx6dF+fd+Vi0rjnFzAn5A+fzBx83j/4=</latexit>
+ωt
+<latexit sha1_base64="lcTzGcmvywxIznYwRpwPrr0myNw=">AAAB7nicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48V7Ae0oWy2k3bpZhN2N0IJ/RFePCji1d/jzX/jNs1BWx8MPN6bYWZekAiujet+O6WNza3tnfJuZW//4PCoenzS0XGqGLZZLGLVC6hGwSW2DTcCe4lCGgUCu8H0buF3n1BpHstHM0vQj+hY8pAzaqzU1SljqPWwWnPrbg6yTryC1KBAa1j9GoxilkYoDRNU677nJsbPqDKcCZxXBqnGhLIpHWPfUkkj1H6WnzsnF1YZkTBWtqQhufp7IqOR1rMosJ0RNRO96i3E/7x+asJbP+MySQ1KtlwUpoKYmCx+JyOukBkxs4Qyxe2thE2ooszYhCo2BG/15XXSuap71/XGQ6PWbBRxlOEMzuESPLiBJtxDC9rAYArP8ApvTuK8OO/Ox7K15BQzp/AHzucPlyOPtA==</latexit>
+success
+<latexit sha1_base64="lnyGZy5pq7fjDUu2OQ0qLExX+8Y=">AAAB63icbVDLSgNBEOyNrxhfUY9eBoPgKexKUI8BLx4jmAckS5idzCZD5rHMzAphyS948aCIV3/Im3/jbLIHTSxoKKq66e6KEs6M9f1vr7SxubW9U96t7O0fHB5Vj086RqWa0DZRXOlehA3lTNK2ZZbTXqIpFhGn3Wh6l/vdJ6oNU/LRzhIaCjyWLGYE21yKMePDas2v+wugdRIUpAYFWsPq12CkSCqotIRjY/qBn9gww9oywum8MkgNTTCZ4jHtOyqxoCbMFrfO0YVTRihW2pW0aKH+nsiwMGYmItcpsJ2YVS8X//P6qY1vw4zJJLVUkuWiOOXIKpQ/jkZMU2L5zBFMNHO3IjLBGhPr4qm4EILVl9dJ56oeXNcbD41as1HEUYYzOIdLCOAGmnAPLWgDgQk8wyu8ecJ78d69j2VryStmTuEPvM8fEL2OOQ==</latexit>
+fa i l
+<latexit sha1_base64="HoC2TlevSttKZCfglCpT8lXygJg=">AAAB9HicbVBNSwMxEM3Wr1q/qh69BIsgKGVXinosePFYwX5AuyzZNNuGZpM1mS2Upb/DiwdFvPpjvPlvTNs9aOuDgcd7M8zMCxPBDbjut1NYW9/Y3Cpul3Z29/YPyodHLaNSTVmTKqF0JySGCS5ZEzgI1kk0I3EoWDsc3c389phpw5V8hEnC/JgMJI84JWAlPwrgsodVkMGFNw3KFbfqzoFXiZeTCsrRCMpfvb6iacwkUEGM6XpuAn5GNHAq2LTUSw1LCB2RAetaKknMjJ/Nj57iM6v0caS0LQl4rv6eyEhszCQObWdMYGiWvZn4n9dNIbr1My6TFJiki0VRKjAoPEsA97lmFMTEEkI1t7diOiSaULA5lWwI3vLLq6R1VfWuq7WHWqVey+MoohN0is6Rh25QHd2jBmoiip7QM3pFb87YeXHenY9Fa8HJZ47RHzifP8oOkW4=</latexit>
+ft,ot+1
+<latexit sha1_base64="DjC7TEM15EV7+Pz7YA+ThG69By4=">AAAB7HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48VTFtoQ9lsN+3SzSbsToQS+hu8eFDEqz/Im//GbZuDtj4YeLw3w8y8MJXCoOt+O6WNza3tnfJuZW//4PCoenzSNkmmGfdZIhPdDanhUijuo0DJu6nmNA4l74STu7nfeeLaiEQ94jTlQUxHSkSCUbSSnwxynA2qNbfuLkDWiVeQGhRoDapf/WHCspgrZJIa0/PcFIOcahRM8lmlnxmeUjahI96zVNGYmyBfHDsjF1YZkijRthSShfp7IqexMdM4tJ0xxbFZ9ebif14vw+g2yIVKM+SKLRdFmSSYkPnnZCg0ZyinllCmhb2VsDHVlKHNp2JD8FZfXiftq7p3XW88NGrNRhFHGc7gHC7Bgxtowj20wAcGAp7hFd4c5bw4787HsrXkFDOn8AfO5w8nFI7h</latexit>
+ot
+<latexit sha1_base64="KQcrlU0I6A1mkdgqLCYpgNqrJO8=">AAACB3icbVDLSsNAFJ3UV62vqEtBBovgqiRS1GXBjcuKfUETwmQ6aYdOHszciCV058ZfceNCEbf+gjv/xkmbhbYeGDiccw937vETwRVY1rdRWlldW98ob1a2tnd298z9g46KU0lZm8Yilj2fKCZ4xNrAQbBeIhkJfcG6/vg697v3TCoeRy2YJMwNyTDiAacEtOSZxw6wB8haRI3xHeRJPMVO5gBJPe5MPbNq1awZ8DKxC1JFBZqe+eUMYpqGLAIqiFJ920rAzYgETgWbVpxUsYTQMRmyvqYRCZlys9kdU3yqlQEOYqlfBHim/k5kJFRqEvp6MiQwUoteLv7n9VMIrtyMR0kKLKLzRUEqMMQ4LwUPuGQUxEQTQiXXf8V0RCShoKur6BLsxZOXSee8Zl/U6rf1aqNe1FFGR+gEnSEbXaIGukFN1EYUPaJn9IrejCfjxXg3PuajJaPIHKI/MD5/ABMDmWg=</latexit>
+Task Stream{ωi}
+<latexit sha1_base64="QHUn6D2URWk7SYNaVuyu1B6fYuc=">AAACJXicdVBNSwMxFMzW7/pV9eglWEQFKbtaaw8KghePClaFbinZ9K0NzWaX5K1Ylv0zXvwrXjwoInjyr5jWCio6EBhm5vHyJkikMOi6b05hbHxicmp6pjg7N7+wWFpavjBxqjk0eCxjfRUwA1IoaKBACVeJBhYFEi6D3vHAv7wBbUSszrGfQCti10qEgjO0Urt04KOQHch8xQLJ8nZmNnJ6SH2EWzQ80xBK4Jhv/oqZbWo2ttqlslup1ur12i51K+4QA+J5+7t71BspZTLCabv07HdinkagkEtmTNNzE2xlTKPgEvKinxpIGO+xa2haqlgEppUNr8zpulU6NIy1fQrpUP0+kbHImH4U2GTEsGt+ewPxL6+ZYlhvZUIlKYLin4vCVFKM6aAy2hHadiD7ljCuhf0r5V2mGUdbbNGW8HUp/Z9c7FS8WqV6Vi0fVUd1TJNVskY2iUf2yRE5IaekQTi5Iw/kiTw7986j8+K8fkYLzmhmhfyA8/4ByMil/Q==</latexit>
+˜→s→=reflect(˜→s,s→)
+Backprop Skill
+Optimization
+<latexit sha1_base64="DihtZLsn2ovM82V3zmyZLvmEwMo=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkVI8FLx4r2g9oQ9lsN+3SzSbsToQS+hO8eFDEq7/Im//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNMbud+54lrI2L1iNOE+xEdKREKRtFKD2aAg3LFrboLkHXi5aQCOZqD8ld/GLM04gqZpMb0PDdBP6MaBZN8VuqnhieUTeiI9yxVNOLGzxanzsiFVYYkjLUthWSh/p7IaGTMNApsZ0RxbFa9ufif10sxvPEzoZIUuWLLRWEqCcZk/jcZCs0ZyqkllGlhbyVsTDVlaNMp2RC81ZfXSfuq6tWrtftapVHL4yjCGZzDJXhwDQ24gya0gMEInuEV3hzpvDjvzseyteDkM6fwB87nD2hWjdk=</latexit>
+st
+: Observation at time step
+: Feedback at time step
+<latexit sha1_base64="bSq5Z069jEm2iGC0373mEAYLK8o=">AAAB6nicbVDLSgNBEOz1GeMr6tHLYBA8hV0J6jHgxWNE84BkCbOTSTJkdmaZ6RXCkk/w4kERr36RN//GSbIHTSxoKKq66e6KEiks+v63t7a+sbm1Xdgp7u7tHxyWjo6bVqeG8QbTUpt2RC2XQvEGCpS8nRhO40jyVjS+nfmtJ26s0OoRJwkPYzpUYiAYRSc96B72SmW/4s9BVkmQkzLkqPdKX92+ZmnMFTJJre0EfoJhRg0KJvm02E0tTygb0yHvOKpozG2YzU+dknOn9MlAG1cKyVz9PZHR2NpJHLnOmOLILnsz8T+vk+LgJsyESlLkii0WDVJJUJPZ36QvDGcoJ45QZoS7lbARNZShS6foQgiWX14lzctKcFWp3lfLtWoeRwFO4QwuIIBrqMEd1KEBDIbwDK/w5knvxXv3Phata14+cwJ/4H3+AGI+jdU=</latexit>
+ot
+<latexit sha1_base64="7NZhQtip20dbGkLS0ngy0Q+O9ys=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkVI8FLx4r2g9oQ9lsN+3SzSbsToQS+hO8eFDEq7/Im//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNMbud+54lrI2L1iNOE+xEdKREKRtFKD+EAB+WKW3UXIOvEy0kFcjQH5a/+MGZpxBUySY3peW6CfkY1Cib5rNRPDU8om9AR71mqaMSNny1OnZELqwxJGGtbCslC/T2R0ciYaRTYzoji2Kx6c/E/r5dieONnQiUpcsWWi8JUEozJ/G8yFJozlFNLKNPC3krYmGrK0KZTsiF4qy+vk/ZV1atXa/e1SqOWx1GEMziHS/DgGhpwB01oAYMRPMMrvDnSeXHenY9la8HJZ07hD5zPH1SIjcw=</latexit>
+ft
+: Skill node
+: Task success indicator
+<latexit sha1_base64="QEMIlE3BlVvDoRJ4v22H0scm2gA=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsJ+3azSbsboQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IBFcG9f9dgobm1vbO8Xd0t7+weFR+fikreNUMWyxWMSqG1CNgktsGW4EdhOFNAoEdoLJ3dzvPKHSPJYPZpqgH9GR5CFn1FipqQflilt1FyDrxMtJBXI0BuWv/jBmaYTSMEG17nluYvyMKsOZwFmpn2pMKJvQEfYslTRC7WeLQ2fkwipDEsbKljRkof6eyGik9TQKbGdEzVivenPxP6+XmvDWz7hMUoOSLReFqSAmJvOvyZArZEZMLaFMcXsrYWOqKDM2m5INwVt9eZ20r6redbXWrFXqtTyOIpzBOVyCBzdQh3toQAsYIDzDK7w5j86L8+58LFsLTj5zCn/gfP4A3V2M8g==</latexit>
+s
+<latexit sha1_base64="A0PH6L1l2nnbJ80c24M4xvIsZso=">AAAB73icbVBNS8NAEN34WetX1aOXxSJ4KokU9Vjw4rGC/YA2lM1m0i7dbOLuRCihf8KLB0W8+ne8+W/ctjlo64OBx3szzMwLUikMuu63s7a+sbm1Xdop7+7tHxxWjo7bJsk0hxZPZKK7ATMghYIWCpTQTTWwOJDQCca3M7/zBNqIRD3gJAU/ZkMlIsEZWqnbD0EiG+CgUnVr7hx0lXgFqZICzUHlqx8mPItBIZfMmJ7npujnTKPgEqblfmYgZXzMhtCzVLEYjJ/P753Sc6uENEq0LYV0rv6eyFlszCQObGfMcGSWvZn4n9fLMLrxc6HSDEHxxaIokxQTOnuehkIDRzmxhHEt7K2Uj5hmHG1EZRuCt/zyKmlf1ryrWv2+Xm3UizhK5JSckQvikWvSIHekSVqEE0meySt5cx6dF+fd+Vi0rjnFzAn5A+fzBx83j/4=</latexit>
+ωt
+: Task at time step
+: PSN at time step
+<latexit sha1_base64="VJKPWF8ZVZPgBY5W66U6HfGMcoU=">AAAB7XicbVDLSgNBEOz1GeMr6tHLYBA8hV0J6jHgxWME84BkCbOT2WTM7Mwy0yuEkH/w4kERr/6PN//GSbIHTSxoKKq66e6KUiks+v63t7a+sbm1Xdgp7u7tHxyWjo6bVmeG8QbTUpt2RC2XQvEGCpS8nRpOk0jyVjS6nfmtJ26s0OoBxykPEzpQIhaMopOaXaRZD3ulsl/x5yCrJMhJGXLUe6Wvbl+zLOEKmaTWdgI/xXBCDQom+bTYzSxPKRvRAe84qmjCbTiZXzsl507pk1gbVwrJXP09MaGJteMkcp0JxaFd9mbif14nw/gmnAiVZsgVWyyKM0lQk9nrpC8MZyjHjlBmhLuVsCE1lKELqOhCCJZfXiXNy0pwVaneV8u1ah5HAU7hDC4ggGuowR3UoQEMHuEZXuHN096L9+59LFrXvHzmBP7A+/wBrUGPKg==</latexit>
+ωt
+<latexit sha1_base64="idbGP7XdCrsSOlHeDk1c1rWUTZQ=">AAAB9HicbVDLSgMxFL3js9ZX1aWbYBFclRkp6rLgxpVUsA9oh5JJ0zY0kxmTO4Uy9DvcuFDErR/jzr8x085CWw8EDufcyz05QSyFQdf9dtbWNza3tgs7xd29/YPD0tFx00SJZrzBIhnpdkANl0LxBgqUvB1rTsNA8lYwvs381oRrIyL1iNOY+yEdKjEQjKKV/G5IccSoTO9nPeyVym7FnYOsEi8nZchR75W+uv2IJSFXyCQ1puO5Mfop1SiY5LNiNzE8pmxMh7xjqaIhN346Dz0j51bpk0Gk7VNI5urvjZSGxkzDwE5mIc2yl4n/eZ0EBzd+KlScIFdscWiQSIIRyRogfaE5Qzm1hDItbFbCRlRThranoi3BW/7yKmleVryrSvWhWq5V8zoKcApncAEeXEMN7qAODWDwBM/wCm/OxHlx3p2Pxeiak++cwB84nz8V+pJG</latexit>
+Nt
+<latexit sha1_base64="9LUsfwzvvkwuJ1/2JRI54fOrxPI=">AAAB63icbVBNSwMxEJ2tX7V+VT16CRahXsqulOqx4MVjRfsB7VKyabYNTbJLkhXK0r/gxYMiXv1D3vw3Zts9aOuDgcd7M8zMC2LOtHHdb6ewsbm1vVPcLe3tHxwelY9POjpKFKFtEvFI9QKsKWeStg0znPZiRbEIOO0G09vM7z5RpVkkH80spr7AY8lCRrDJpIfq+HJYrrg1dwG0TrycVCBHa1j+GowikggqDeFY677nxsZPsTKMcDovDRJNY0ymeEz7lkosqPbTxa1zdGGVEQojZUsatFB/T6RYaD0Tge0U2Ez0qpeJ/3n9xIQ3fspknBgqyXJRmHBkIpQ9jkZMUWL4zBJMFLO3IjLBChNj4ynZELzVl9dJ56rmNWr1+3qlWc/jKMIZnEMVPLiGJtxBC9pAYALP8ApvjnBenHfnY9lacPKZU/gD5/MHND2NqA==</latexit>
+S(g): Selected skill based on goal
+<latexit sha1_base64="3gc1e2ei+gBnKZaO0NzshhE5NKo=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsJ+3azSbsboQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IBFcG9f9dgobm1vbO8Xd0t7+weFR+fikreNUMWyxWMSqG1CNgktsGW4EdhOFNAoEdoLJ3dzvPKHSPJYPZpqgH9GR5CFn1FipORqUK27VXYCsEy8nFcjRGJS/+sOYpRFKwwTVuue5ifEzqgxnAmelfqoxoWxCR9izVNIItZ8tDp2RC6sMSRgrW9KQhfp7IqOR1tMosJ0RNWO96s3F/7xeasJbP+MySQ1KtlwUpoKYmMy/JkOukBkxtYQyxe2thI2poszYbEo2BG/15XXSvqp619Vas1ap1/I4inAG53AJHtxAHe6hAS1ggPAMr/DmPDovzrvzsWwtOPnMKfyB8/kDyy2M5g==</latexit>
+g
+<latexit sha1_base64="N6wYfy0ycwO5rFEmQkJTKxmsPyM=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkVI8FLx4r2g9oQ9lsN+3SzSbsToQS+hO8eFDEq7/Im//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNMbud+54lrI2L1iNOE+xEdKREKRtFKD80BDsoVt+ouQNaJl5MK5GgOyl/9YczSiCtkkhrT89wE/YxqFEzyWamfGp5QNqEj3rNU0YgbP1ucOiMXVhmSMNa2FJKF+nsio5Ex0yiwnRHFsVn15uJ/Xi/F8MbPhEpS5IotF4WpJBiT+d9kKDRnKKeWUKaFvZWwMdWUoU2nZEPwVl9eJ+2rqlev1u5rlUYtj6MIZ3AOl+DBNTTgDprQAgYjeIZXeHOk8+K8Ox/L1oKTz5zCHzifPzMEjbY=</latexit>
+Pt: LLM generated plan at time step
+: Repair proposal for skill
+<latexit sha1_base64="N6wYfy0ycwO5rFEmQkJTKxmsPyM=">AAAB6nicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkVI8FLx4r2g9oQ9lsN+3SzSbsToQS+hO8eFDEq7/Im//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNMbud+54lrI2L1iNOE+xEdKREKRtFKD80BDsoVt+ouQNaJl5MK5GgOyl/9YczSiCtkkhrT89wE/YxqFEzyWamfGp5QNqEj3rNU0YgbP1ucOiMXVhmSMNa2FJKF+nsio5Ex0yiwnRHFsVn15uJ/Xi/F8MbPhEpS5IotF4WpJBiT+d9kKDRnKKeWUKaFvZWwMdWUoU2nZEPwVl9eJ+2rqlev1u5rlUYtj6MIZ3AOl+DBNTTgDprQAgYjeIZXeHOk8+K8Ox/L1oKTz5zCHzifPzMEjbY=</latexit>
+Pt: LLM generated plan at time step
+<latexit sha1_base64="wUCC8hE4Cpd8UQmVHjrymJS4MNo=">AAAB+XicbVBNS8NAEN34WetX1KOXYBE8lUSKeix48VjBfkATwmQzbZduNmF3Uyih/8SLB0W8+k+8+W/ctjlo64OBx3szzMyLMs6Udt1va2Nza3tnt7JX3T84PDq2T047Ks0lxTZNeSp7ESjkTGBbM82xl0mEJOLYjcb3c787QalYKp70NMMggaFgA0ZBGym0bV8zHmPhC4g4zEIV2jW37i7grBOvJDVSohXaX36c0jxBoSkHpfqem+mgAKkZ5Tir+rnCDOgYhtg3VECCKigWl8+cS6PEziCVpoR2FurviQISpaZJZDoT0CO16s3F/7x+rgd3QcFElmsUdLlokHNHp848BidmEqnmU0OASmZudegIJFBtwqqaELzVl9dJ57ru3dQbj41as1HGUSHn5IJcEY/ckiZ5IC3SJpRMyDN5JW9WYb1Y79bHsnXDKmfOyB9Ynz/3/5PY</latexit>
+˜→s
+<latexit sha1_base64="QEMIlE3BlVvDoRJ4v22H0scm2gA=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsJ+3azSbsboQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IBFcG9f9dgobm1vbO8Xd0t7+weFR+fikreNUMWyxWMSqG1CNgktsGW4EdhOFNAoEdoLJ3dzvPKHSPJYPZpqgH9GR5CFn1FipqQflilt1FyDrxMtJBXI0BuWv/jBmaYTSMEG17nluYvyMKsOZwFmpn2pMKJvQEfYslTRC7WeLQ2fkwipDEsbKljRkof6eyGik9TQKbGdEzVivenPxP6+XmvDWz7hMUoOSLReFqSAmJvOvyZArZEZMLaFMcXsrYWOqKDM2m5INwVt9eZ20r6redbXWrFXqtTyOIpzBOVyCBzdQh3toQAsYIDzDK7w5j86L8+58LFsLTj5zCn/gfP4A3V2M8g==</latexit>
+s
+<latexit sha1_base64="/d1j9ZrieTZvmfmTolVgwCpcFsM=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsN+3azSbsToQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNM7uZ+54lrI2L1gNOE+xEdKREKRtFKTRyUK27VXYCsEy8nFcjRGJS/+sOYpRFXyCQ1pue5CfoZ1SiY5LNSPzU8oWxCR7xnqaIRN362OHRGLqwyJGGsbSkkC/X3REYjY6ZRYDsjimOz6s3F/7xeiuGtnwmVpMgVWy4KU0kwJvOvyVBozlBOLaFMC3srYWOqKUObTcmG4K2+vE7aV1Xvulpr1ir1Wh5HEc7gHC7Bgxuowz00oAUMODzDK7w5j86L8+58LFsLTj5zCn/gfP4A3uGM8w==</latexit>
+t
+<latexit sha1_base64="/d1j9ZrieTZvmfmTolVgwCpcFsM=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsN+3azSbsToQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNM7uZ+54lrI2L1gNOE+xEdKREKRtFKTRyUK27VXYCsEy8nFcjRGJS/+sOYpRFXyCQ1pue5CfoZ1SiY5LNSPzU8oWxCR7xnqaIRN362OHRGLqwyJGGsbSkkC/X3REYjY6ZRYDsjimOz6s3F/7xeiuGtnwmVpMgVWy4KU0kwJvOvyVBozlBOLaFMC3srYWOqKUObTcmG4K2+vE7aV1Xvulpr1ir1Wh5HEc7gHC7Bgxuowz00oAUMODzDK7w5j86L8+58LFsLTj5zCn/gfP4A3uGM8w==</latexit>
+t
+<latexit sha1_base64="/d1j9ZrieTZvmfmTolVgwCpcFsM=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsN+3azSbsToQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNM7uZ+54lrI2L1gNOE+xEdKREKRtFKTRyUK27VXYCsEy8nFcjRGJS/+sOYpRFXyCQ1pue5CfoZ1SiY5LNSPzU8oWxCR7xnqaIRN362OHRGLqwyJGGsbSkkC/X3REYjY6ZRYDsjimOz6s3F/7xeiuGtnwmVpMgVWy4KU0kwJvOvyVBozlBOLaFMC3srYWOqKUObTcmG4K2+vE7aV1Xvulpr1ir1Wh5HEc7gHC7Bgxuowz00oAUMODzDK7w5j86L8+58LFsLTj5zCn/gfP4A3uGM8w==</latexit>
+t
+<latexit sha1_base64="/d1j9ZrieTZvmfmTolVgwCpcFsM=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsN+3azSbsToQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNM7uZ+54lrI2L1gNOE+xEdKREKRtFKTRyUK27VXYCsEy8nFcjRGJS/+sOYpRFXyCQ1pue5CfoZ1SiY5LNSPzU8oWxCR7xnqaIRN362OHRGLqwyJGGsbSkkC/X3REYjY6ZRYDsjimOz6s3F/7xeiuGtnwmVpMgVWy4KU0kwJvOvyVBozlBOLaFMC3srYWOqKUObTcmG4K2+vE7aV1Xvulpr1ir1Wh5HEc7gHC7Bgxuowz00oAUMODzDK7w5j86L8+58LFsLTj5zCn/gfP4A3uGM8w==</latexit>
+t
+<latexit sha1_base64="/d1j9ZrieTZvmfmTolVgwCpcFsM=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsN+3azSbsToQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNM7uZ+54lrI2L1gNOE+xEdKREKRtFKTRyUK27VXYCsEy8nFcjRGJS/+sOYpRFXyCQ1pue5CfoZ1SiY5LNSPzU8oWxCR7xnqaIRN362OHRGLqwyJGGsbSkkC/X3REYjY6ZRYDsjimOz6s3F/7xeiuGtnwmVpMgVWy4KU0kwJvOvyVBozlBOLaFMC3srYWOqKUObTcmG4K2+vE7aV1Xvulpr1ir1Wh5HEc7gHC7Bgxuowz00oAUMODzDK7w5j86L8+58LFsLTj5zCn/gfP4A3uGM8w==</latexit>
+t
+<latexit sha1_base64="/d1j9ZrieTZvmfmTolVgwCpcFsM=">AAAB6HicbVBNS8NAEJ3Ur1q/qh69LBbBU0mkqMeCF48t2A9oQ9lsN+3azSbsToQS+gu8eFDEqz/Jm//GbZuDtj4YeLw3w8y8IJHCoOt+O4WNza3tneJuaW//4PCofHzSNnGqGW+xWMa6G1DDpVC8hQIl7yaa0yiQvBNM7uZ+54lrI2L1gNOE+xEdKREKRtFKTRyUK27VXYCsEy8nFcjRGJS/+sOYpRFXyCQ1pue5CfoZ1SiY5LNSPzU8oWxCR7xnqaIRN362OHRGLqwyJGGsbSkkC/X3REYjY6ZRYDsjimOz6s3F/7xeiuGtnwmVpMgVWy4KU0kwJvOvyVBozlBOLaFMC3srYWOqKUObTcmG4K2+vE7aV1Xvulpr1ir1Wh5HEc7gHC7Bgxuowz00oAUMODzDK7w5j86L8+58LFsLTj5zCn/gfP4A3uGM8w==</latexit>
+t
+Observation
+Action
+Simulator
+Figure 1: The Programmatic Skill Network (PSN) framework. The agent maintains a skill
+networkNt where thehybrid plannerselects or synthesizes skills; thePSN managerexecutes
+them. On failure, theskill optimizerperforms trace-based credit assignment; on success, the
+online refactorrestructures the network. This induces learning dynamics analogous to neural
+network training: fault localization as backpropagation, maturity gating as learning rate
+scheduling, and refactoring as architecture search.
+Beyond behavioral repair, the PSN evolves through structure-level rewrites such as merging
+redundant skills, abstracting shared routines, pruning irrelevant branches, and rewiring
+invocation links. These operations are treated as discrete architecture updates and are
+validated through rollback-based safety checks (Section 2.5).
+LLM implementation.In our implementation, operators such as REFLECTare instanti-
+ated via prompted LLMs. The framework defines information flowstructure(e.g., what
+information is available, output formats, update timing) while LLMs provide the generative
+capacity to synthesize, diagnose, and repair programs within this structure. Critically,
+the learning dynamics we observe (Section 3) emerge from thearchitectural choicesof PSN
+(e.g., the compositional network structure, the execution trace-based credit assignment,
+the maturity-gated updates, and the canonical refactor operations) rather than from the
+internal mechanisms of the LLM. This separation allows the framework to be instantiated
+with different code generation backends while preserving its continual learning properties.
+2.2 Network-Aware Hybrid Planner
+The planner prioritizes reuse of the existing PSN via symbolic backward-chaining before
+invoking LLM-based forward planning. Each skill s is treated as an operator with precon-
+ditionsE pre
+s and postconditionsE post
+s . Starting from the goal predicate, the planner selects
+skills whose postconditions satisfy current subgoals:
+S(g) ={s:E post
+s ⇒g}, (2)
+and recursively expands unmet preconditions. When multiple skills satisfy a subgoal,
+ties are broken by V(s) , favoring skills with higher empirical reliability. Skill selection
+uses Boltzmann exploration Sutton et al. (1998) over the value function V(s) , balancing
+exploitation of reliable skills with exploration of uncertain ones. If no skill can reduce
+a subgoal, the planner invokes an LLM-based forward planner PLLM
+t =PLAN(g τt,Nt).
+Successful plans are distilled into new skills via the execution pipeline described next.
+2.3 Execution and Trace Construction
+Given a planP t = [s 1, . . . ,sk], the PSN manager synthesizes a candidate skill
+st =CODEGEN(P t, Contextt), (3)
+where Contextt includes the task description, current networkNt, and execution history.
+The synthesized skill defines control flowCst, parametersPst, and pre/postconditionsEst,
+and is inserted into the PSN with invocation links to its children. Executing st produces a
+skill execution trace:
+EXECUTE(s t)→(f t,δ t,T t), (4)
+3
+
+Preprint. Under review.
+where δt∈{ 0, 1} indicates task success, ft aggregates environment feedback and critic
+signals, and the trace Tt records each invoked skill as a tuple ⟨s, σpre, σpost, status⟩ with
+symbolic state snapshots σ. The trace serves as supervision for both optimization and
+refactoring. Preconditions and postconditions are incrementally calibrated from observed
+success/fail states and empirical transitions.
+2.4 Skill Optimization via Trace-Based Credit Assignment
+When execution fails (i.e., δt = 0), the skill optimizer performs localized behavioral repair
+via structured fault localization. Unlike approaches that discover world dynamics in natural
+language (Sun et al., 2024) or learn function libraries offline (Stengel-Eskin et al., 2024), PSN
+performs online, trace-based credit assignment over executable skill compositions. Given
+feedback ft and traceTt, the REFLECToperator computes a repair proposal for each executed
+skill:
+˜∇s =REFLECT(f t,s;T t), (5)
+identifying faulty control flow, violated preconditions, misaligned parameters, or incorrect
+subskill effects. Concretely, PSN separatescredit assignmentfromcode modificationthrough
+a two-phase process: failure signals are first propagatedtop-downalong the executed skill
+invocation trace to decompose responsibility across composite skills and their subskills
+(symbolic differentiation), after which localized symbolic edits are appliedbottom-upto indi-
+vidual skills in a dependency-respecting order (gradient application). Proposals propagate
+in reverse execution order along the invocation trace; skills not in Tt receive no updates.
+Each affected skill is updated via s←PATCH(s , ˜∇s). The complete two-phase optimiza-
+tion procedure of the skill optimizer, including the top-down symbolic differentiation and
+bottom-up gradient application are described in Appendix A.
+To stabilize learning, updates are constrained by a rolling buffer of the 5 most recent repair
+proposals, preventing contradictory edits. Update frequency is further modulated by skill
+maturity:
+P(updates) = (1−ϵ)·σ(γ(0.6−V(s))) +ϵ, (6)
+The constant 0.6 serves as a soft maturity pivot rather than a bound on V(s) : it marks
+the inflection point at which a skill is considered sufficiently reliable to gradually reduce
+update frequency, while still allowing occasional repairs under compositional failures. σ is
+the sigmoid function,γ=5.0 controls threshold sharpness, andϵ=0.1 ensures minimum
+update probability. Mature skills (V(s)≈ 1) stabilize with low update probability, while
+immature skills remain plastic.
+2.5 Online Structural Refactoring
+The online skill refactor controls structural growth via semantics-preserving refactorings,
+applying architecture-level rewrites that increase skill reuse and maintain network compact-
+ness. While code refactoring has been used to discover generalizable abstractions offline
+(Stengel-Eskin et al., 2024), PSN performs online refactoring that adapts to errors and redun-
+dancies emerging during continual learning. While the skill optimizer repairs individual
+skill programs, refactor operates at the network level, targeting redundancy and missed
+abstractions that emerge over continual learning.
+Canonical refactor cases.We restrict refactor to five structural relationships: (i)Parametric
+coverage: one skill is a strict specialization of another admitting parameterized generalization.
+(ii)Behavioral coverage: a composite skill reimplements existing functionality. (iii)Sibling
+specializations: multiple skills suggest a missing abstraction. (iv)Common subskill extraction:
+multiple skills share identical sub-operations. (v)Duplication: two skills are functionally
+equivalent. Each admits a fixed rewrite rule; visual illustrations are provided in Appendix B.
+Candidate discovery and rewrites.Given a successfully executed skill st, refactor operates
+on a restricted candidate set: parents and children ofst, plus top-5 semantically related skills
+by embedding similarity. For each detected relationship, deterministic rewrites are applied
+(wrapper conversion, call substitution, abstract skill synthesis, shared subskill extraction, or
+4
+
+Preprint. Under review.
+Method Wooden Tool Stone Tool Iron Tool Diamond Tool Obsidian
+ReAct N/A (0/3) N/A (0/3) N/A (0/3) N/A (0/3) –
+Reflexion N/A (0/3) N/A (0/3) N/A (0/3) N/A (0/3) –
+AutoGPT 92±72 (3/3) 94±72 (3/3) 135±103 (3/3) N/A (0/3) –
+Voyager 6±2 (3/3) 11±2 (3/3) 21±7 (3/3) 102 (1/3) –
+Voyager* 6±3 (6/6) 13±4 (6/6) 34±10 (6/6) 99±36 (2/6) N/A (0/6)
+ADAM* 21±4 (3/3) 36±5 (3/3) 52±15 (3/3) 74±23 (3/3) N/A (0/3)
+PSN w/o Optimizer 5±2 (3/3)12±2 (3/3) 25±4 (3/3) N/A (0/3) N/A (0/3)
+PSN (Ours) 5±2 (6/6) 10±3 (6/6) 22±5 (6/6) 35±16 (6/6) 77 (1/6)
+Voyager† 9±4 (6/6) 24±23 (6/6) 60±41 (4/6) 94 (1/6) N/A (0/6)
+ADAM† 43±8 (2/3) 65 (1/3) N/A (0/3) N/A (0/3) N/A (0/3)
+PSN† (Ours) 7±3 (6/6) 18±7 (6/6) 38±9 (6/6) 49±18 (6/6)N/A (0/6)
+Table 1: Tech tree mastery on Minecraft. We report the mean/std iterations an agent uses
+to unlock an item. PSN and our Voyager reproductions (* and †) are averaged over six
+runs; the remaining baselines over three runs. For example, PSN successfully unlocks the
+diamond tool in all six runs, on average using 35 iterations; while Voyager Wang et al.
+(2024a) succeeds in one of three runs using 102 iterations. * indicates results obtained using
+the open-sourced code withGPT-5-mini (same as ours). † indicates results obtained using
+Qwen3-Coder-Next (3B active parameters, 80B total open-weight, MoE). N/A represents the
+failure to unlock an item across all runs. – represents unreported previous result.
+canonical merging). Refactor does not introduce new behavioral logic, it only reorganizes
+existing programs and invocation links.
+Safety via rollback validation.All refactor proposals are tentative. Given a refactored
+candidate networkN′
+t , the system evaluates short-horizon performance on a sliding window
+of 3 recent tasks involving affected skills. If the task success rate drops by more than 20%, the
+refactor is reverted using logged inverse operations. Empirical rollback rates and refactoring
+case distributions are reported in Appendix K and Appendix L.
+3 An Optimization Perspective on PSN
+Having presented PSN’s concrete mechanisms (Section 2), we can observe that the system’s
+learning dynamics exhibit structural parallels to neural network training. While other
+neuro-symbolic systems embed symbolic rules inside differentiable models (d’Avila Garcez
+et al., 2019; Manhaeve et al., 2018) or use gradient-free skill-based routing (Chen et al., 2025),
+PSN embeds learning dynamics inside symbolic programs. This interpretive lens clarifies
+how PSN’s architectural choices collectively induce coherent continual learning behavior,
+independent of the LLM backend.
+Implicit structure-behavior trade-off.Let N= (S ,L) denote the current PSN. The
+system’s behavior can be viewed as implicitly optimizing a composite objective:
+J(N) =R task +R reliab +R struct +R cons, (7)
+balancingtasksuccess, skillreliability,structural compactness, and semanticconsistency.
+While never explicitly optimized, each PSN module performs localized improvements to
+different components ofJ(N).
+Operator-objective correspondence.REFLECTacts assymbolic differentiation: when a task
+fails, it identifies which control-flow branches, preconditions, parameters, and subskill
+compositions contributed to the error, producing structured repair proposals that reduce
+Rtask andRcons. Like backpropagation, credit is assigned only along the executed path,
+with non-executed skills receiving no updates. This selective credit assignment avoids the
+noise of updating uninvolved skills, mirroring how gradients flow only through activated
+paths in neural nets. A chain-rule view of this credit assignment makes a falsifiable pre-
+diction: a noisier repair signal must be propagated through more compositional layers
+to localize the same fault, so a weaker LLM should require deeper REFLECT chains. We
+observe exactly this (5.0 vs 2.7 skills per multi-skill repair; Section 4.6). A quantitative
+5
+
+Preprint. Under review.
+analysis of credit assignment patterns, error mode distributions, and attribution coherence
+is provided in Appendix J. Maturity-aware gating functions asadaptive learning rates: mature
+skills with high V(s) receive infrequent updates (analogous to freezing converged layers),
+while immature skills remain plastic, reducingRreliab by preventing catastrophic forgetting.
+Refactor performssymbolic neural architecture search: merging redundant skills, extracting
+reusable abstractions, and pruning unnecessary branches to reduceRstruct. Rollback-based
+validation functions as a symbolic trust region. The depth of this search is model-dependent:
+it converges to a hub-and-spoke graph with reuse ratioRstruct≈0.4 for the stronger model
+but a flatter 0.15± 0.07 for the weaker one (Section 4.6), the structural counterpart of the
+deeper repair chains above.
+Multi-scale learning dynamics.PSN learning unfolds across three coupled timescales:
+(1)Fast: fault localization performs frequent behavioral repair at every execution. (2)Interme-
+diate: maturity-based stabilization progressively freezes reliable skills over 10–50 executions.
+(3)Slow: structural refactor reorganizes stabilized behaviors every 5–10 successful execu-
+tions. This yields a coherent dynamic: optimize behavior locally and rapidly, stabilize
+reliable skills over time, and restructure only after behaviors have converged.
+Scope of the analogy.The neural network analogy ispartial. PSN operates over discrete
+symbolic programs rather than continuous parameters, produces structured edit proposals
+rather than numeric derivatives, and relies on binary success/failure signals rather than
+differentiable losses. Nevertheless, it reveals that stability-plasticity tradeoffs, compositional
+credit assignment, and architecture search emerge as general principles when learning
+structured representations. This suggests that insights from neural network optimization
+may inform symbolic learning systems, and vice versa. An empirical decomposition of
+J(N)into its four components across training is provided in Appendix O.
+4 Experiments and Analysis
+We evaluate Programmatic Skill Networks (PSN) on two complementary embodied bench-
+marks:MineDojo(Fan et al., 2022), which supports long-horizon open-ended Minecraft
+tasks with rich action spaces and diverse goal specifications, andCrafter(Hafner, 2022), a
+lightweight survival environment with a structured technology progression that stresses
+continual learning and compositional reuse. Across both environments, we evaluate (i) end-
+task performance, (ii) continual learning dynamics (learning/forgetting), (iii) compositional
+generalization, and (iv) network structural properties (growth, reuse, redundancy) induced
+by refactor and maturity-aware optimization.
+4.1 Experimental Setup
+We leverage OpenAI’sgpt-5-mini-2025-08-07 for all operators across both environments.
+To assess whether PSN’s learning dynamics are robust across model families, we addition-
+ally run all Minecraft experiments withQwen3-Coder-Next (Cao et al., 2026), an open-weight
+model with 3B active parameters (80B total), representing a fundamentally different model
+family from GPT-5-mini and orders of magnitude smaller in active model size. The Minecraft
+simulator is built on top of MineDojo and leverages Mineflayer JavaScript APIs for motor
+controls (PrismarineJS). For the Crafter environment, we implemented a Mineflayer-like
+Python API system for the control of the Crafter bot. PSN operators (e.g., CODEGENand
+REFLECT) are instantiated by prompted LLMs (see Appendix D for example prompts).
+The continual learning dynamics we measure arise from PSN’s architectural scaffolding:
+trace-based credit assignment, maturity-aware update gating, and canonical refactor opera-
+tions, rather than prompt-level tricks. We verify this attribution directly via a cross-LLM
+ablation of inline knowledge scaffolding (Appendix E), showing that on GPT-5-mini the
+inline knowledge corrigendum contributes only +2pp to diagnostic correctness on Phase 1
+reflection cases, versus+33pp on Qwen3.
+We compare PSN against representative LLM-agent baselines and ablations.ReAct(Yao
+et al., 2023), a prompting-based agent that interleaves reasoning and action without per-
+sistent structured skills.Reflexion(Shinn et al., 2023), an agent self-reflects over failures
+6
+
+Preprint. Under review.
+Wooden
+Tool
+Stone
+Tool
+Iron
+Tool
+Diamond
+Tool
+Figure 2: Tech tree mastery on Minecraft.
+but does not maintain a compositional programmatic skill network.AutoGPT(Significant
+Gravitas, 2023), a planning-centric agent that decomposes tasks into multi-step plans and
+executes generated code or action sequences autonomously. It maintains a short-term
+memory of past actions and observations, but treats generated plans and code fragments as
+ephemeral artifacts rather than persistent, reusable skills.Voyager(Wang et al., 2024a), an
+agent that maintains a flat skill library and retrieves skills via similarity, without trace-based
+symbolic credit assignment and canonical structural refactor as in PSN.ADAM(Yu & Lu,
+2025), an agent that discovers causal precondition-effect mappings for a fixed set of 47 hand-
+authored JavaScript skills via LLM-guided inference and intervention-based verification
+(do-calculus), then uses the learned causal graph to guide LLM planning. Unlike PSN,
+ADAM does not generate or optimize skill code; its learning is restricted to discovering
+input-output relationships of predefined skills. We run ADAM’s original code with the
+same LLMs as PSN for controlled comparison.ODYSSEY(Liu et al., 2025), an agent that
+pre-builds 183 hand-authored JavaScript skills and reduces the LLM’s role to retrieval-
+based skill selection rather than code generation; we compare architecturally in Appendix I.
+Other Minecraft LLM agents (e.g., DEPS (Wang et al., 2023), JARVIS-1 (Wang et al., 2024c),
+Optimus-1 (Li et al., 2024), RL-GPT (Liu et al., 2024)) operate in incompatible paradigms
+that preclude controlled comparison (please refer to Appendix N for discussion).
+4.2 Main Results
+Minecraft Tech Tree Mastery.Figure 2 and Table 1 compare agents in terms of technology
+tree progression, measured by the number of iterations. Progressing along the tech tree
+requires solving increasingly long-horizon and compositional tasks, where later-stage tools
+depend on reliable execution and reuse of earlier skills. PSN exhibits substantially faster
+and more stable progression than all baselines. ReAct and Reflexion fail to unlock any
+tool-level milestones. AutoGPT completes early-stage objectives but struggles to sustain
+progress beyond iron-level tools, exhibiting high variance. Voyager achieves consistent
+progress through iron tools, but slows significantly at the diamond stage. In contrast, PSN
+continues to unlock higher-tier items with fewer attempts and lower variance, indicating
+that persistent programmatic skills, trace-based credit assignment, and structural refactoring
+enable sustained long-horizon competence. For obsidian acquisition, PSN executes a multi-
+step procedure (i.e., bucket crafting, water-lava interaction, and diamond-pickaxe mining)
+encapsulated as a single composed skill that extensively reuses previously learned subskills,
+illustrating PSN’s ability to compress long-horizon behaviors into reusable programmatic
+abstractions. A detailed comparison positioning PSN, ADAM, and ODYSSEY along an
+autonomy–engineering spectrum is provided in Appendix I. Crucially, these results are
+consistent across model families: under Qwen3-Coder-Next (3B active parameters), PSN
+reaches diamond tool in all 6 runs while Voyager† succeeds in only 1/6 (Table 1), confirming
+that the gains arise from PSN’s architectural scaffolding rather than the specific LLM
+7
+
+Preprint. Under review.
+Figure 3: Cumulative Reward on Crafter. Shorter curves indicate earlieragent deathdue to
+Crafter’s survival mechanics (hostile mobs, hunger, hazards).
+backend. By contrast, ADAM†’s causal inference degrades sharply under Qwen3, failing
+beyond stone tools, as its memoryless causal discovery mechanism is sensitive to LLM
+reasoning quality. A direct ablation of the inline knowledge scaffolding (Appendix E)
+further verifies this attribution at the prompt level: on GPT-5-mini, the inline knowledge
+corrigendum (thetool_tier_rules item) contributes only +2pp to diagnostic correctness
+on Phase 1 reflection cases (98% without it vs near-100% with it); on Qwen3, the same
+weak-LLM corrigendum contributes +33pp on synthetic tier-mismatch failures and is
+documented as such in the codebase.
+Crafter.Figure 3 reports cumulative episode reward on Crafter, which reflects the agent’s
+ability to survive, gather resources, and make progress under dense feedback. Shorter
+curves indicate earlier agent death due to Crafter’s survival mechanics (hostile mobs,
+hunger, hazards). Unlike Minecraft benchmarks emphasizing sparse milestone completion,
+Crafter requires sustained stability where early mistakes can compound. PSN consistently
+achieves higher reward. Voyager achieves stabler returns than planning-only baselines,
+but remains limited by its flat skill library. By contrast, PSN maintains steadily increasing
+reward throughout training, showing broader generalization to dense continual learning.
+4.3 Generalization
+Continual Learning over Task Streams (Temporal Generalization).Since the continual
+skill acquisition efficiency of PSN can be observed in Figure 2, we evaluate PSN’s ability
+to acquire increasingly complex skills from a sequential task stream while avoiding catas-
+trophic forgetting. Tasks are presented in a fixed curriculum following the technology tree
+(see Appendix H for full sequences). Each task is trained until its success rate exceeds a
+predefined threshold (marked as mastered), or until a maximum number of attempts is
+reached. To measure forgetting, we introduce theSkill Retention Rate (SRR): once a task
+is mastered, it is periodically re-evaluated after each subsequent task is mastered, and
+SRR is defined as the cumulative success rate across all such re-evaluations. As shown in
+Figure 4, PSN consistently preserves earlier skills as training progresses, whereas Voyager
+exhibits severe backward interference, with retention rapidly degrading as new skills are
+learned. These results demonstrate that structured credit assignment and maturity-aware
+stabilization are critical for continual skill acquisition.
+Compositional Generalization via Network-Aware Skill Reuse.We hypothesize that
+PSN solves unseen compositional tasks by reusing and recombining existing skills rather
+than synthesizing new ones. To test this, we introduce a controlled baseline, PSN (Create
+8
+
+Preprint. Under review.
+Figure 4: Skill Retention Rate under continual learning setting. PSN consistently preserves
+previously mastered skills, while Voyager exhibits severe catastrophic forgetting as training
+progresses.
+New Skills), which bypasses backward chaining and always synthesizes a new skill for each
+task. Figure 6 compares skill repertoire sizes as training progresses. Early in training, both
+variants grow similarly as foundational skills are acquired. However, the gap widens over
+time: PSN’s repertoire plateaus while PSN (Create New Skills) continues to accumulate
+skills. This indicates that PSN increasingly grounds new tasks in its existing skill network
+via backward chaining, achieving compositional generalization through reuse rather than
+proliferation. Notably, PSN’s repertoire even decreases in later iterations, suggesting that
+the refactoring mechanism actively merges redundant helper functions over time.
+4.4 Ablation Study
+End-to-End Optimizer.We ablate the symbolic optimizer to disentangle the effect of
+optimization from that of skill representation. As shown in Table 1, PSN without the
+optimizer achieves performance comparable to Voyager on early- and mid-stage tools
+(wooden, stone, and iron). However, this variant fails to reliably progress to later-stage
+objectives such as diamond tools and obsidian, mirroring Voyager’s degradation under
+increasing task depth. In contrast, the full PSN consistently unlocks higher-tier items with
+substantially fewer iterations. This gap indicates that the optimizer is not required to make
+skills functional, but is critical for repairing brittle behaviors and enabling stable scaling to
+long-horizon, deeply compositional tasks.
+Maturity-aware update gating gradually stabilizes learned skills.Figure 5 compares
+cumulative success rates for PSN with and without maturity-aware update gating. Without
+stabilization, converged skills are repeatedly modified by downstream failures, leading to
+oscillatory behavior. By contrast, maturity-aware gating progressively reduces the update
+frequency of reliable skills while allowing immature skills to remain plastic. As a result, PSN
+with stabilization achieves higher cumulative success rates and stabler learning dynamics.
+Refactor Regulates the Network Growth.Figure 6 shows how the size of the skill library
+evolves as learning progresses. In PSN (Create New Skills), the agent always synthesizes a
+new skill for each task. Without structural refactoring, Voyager’s skill library grows rapidly,
+accumulating redundant or overly specialized skills. This uncontrolled growth increases
+9
+
+Preprint. Under review.
+Task: Craft Wooden Pickaxe
+Skill: ensureWoodenPickaxe(num)
+Task: Smelt Raw Iron
+Skill: ensureIronIngots(num)
+Task: Craft Diamond Pickaxe
+Skill: ensurePickaxe(num, type)
+Task: Mine Obsidian Ore
+Skill: ensureObsidian(num)
+Figure 5: The cumulative task success rate of PSN w/ and w/o maturity gating.
+planning complexity and degrades efficiency. In contrast, PSN maintains a significantly
+more compact skill network by identifying canonical redundancy patterns and applying
+semantics-preserving rewrites. As a result, the effective growth rate is substantially reduced
+even as task complexity increases.
+Offline Refactor vs. Online Refactor.To test whether structural compression alone is
+sufficient, we apply anoffline refactorto Voyager’s learned skill library using a strong LLM
+(Claude Opus 4.5), which refactored its 58 existing skills into 7 generic skills, 20 lightweight
+wrappers, and 38 unchanged skills (65 total), denoted as Voyager-R. While this offline
+refactoring significantly reduces redundancy (in terms of repeating code blocks), it does not
+yield the same behavioral robustness. When evaluated on a fixed sequence of compositional
+tasks (Appendix H), Voyager-R achieves a success rate of 0.6875, compared to 0.8462 for
+PSN with online refactoring. This gap indicates that refactoring is most effective when
+performedonlineand tightly coupled with execution feedback, rather than applied once to a
+static skill library.
+4.5 REFLECT under LLM noise: a three-layer view
+REFLECTis instantiated by a prompted LLM, so its repair signal is noisy by construction.
+The question is not how to make it noise-free, which is impossible, but how the surrounding
+architecture keeps learning stable despite it. We decompose REFLECT noise into three
+layers and locate the source of tolerance in each (Figure 7).
+Knowledge layer (missing/incorrect facts).The model misremembers a domain fact
+needed for diagnosis (e.g. Qwen3 asserting “raw_iron does not exist in vanilla Minecraft”).
+This is the only layer whose mitigation is model-specific: on synthetic tier-mismatch diag-
+noses, one injectedtool_tier_rules corrigendum contributes +33pp on Qwen3 but only
++2pp on GPT-5-mini (Appendix E). Knowledge-layer noise therefore all but vanishes on a
+stronger model: the corrigendum is a pretraining patch, not an architectural mechanism.
+Reasoning layer (mis-attributed causes).With the right facts available, the model can still
+build a plausible but wrong causal story (e.g. blaming lava for an obsidian non-drop that is
+actually a tool-tier mismatch). No per-call fix exists; tolerance is architectural and operates
+at the loop level. Because every diagnosis is applied and re-executed ( si+1 =s i +δs i), a
+wrong fix fails its effect-check and is re-diagnosed against fresh evidence. This env-validated
+10
+
+Preprint. Under review.
+Figure 6: Growth of the skill library over training. In PSN (Create New Skills), the agent
+always synthesizes a new skill for each task. Compared to baselines, PSN reuses and
+optimizes existing skills, maintaining a compact skill repertoire.
+Figure 7: REFLECT inherits LLM noise, but each layer is filtered by a different mech-
+anism.Left (knowledge layer):factual hallucination is mitigated by a model-specific
+tool_tier_rules corrigendum, worth +33pp on Qwen3 but only +2pp on GPT-5-mini.
+Right (interface layer):fabricated or misused APIs are caught before execution by a static
+reference checker plus API contracts, lowering the bug rate across both LLMs. The reasoning
+layer is handled by env-validated iteration (Table 9).
+iteration turns single-shot diagnostic noise into a convergent process: first-attempt task
+success of 67% rises to 100% within three attempts (Table 9).
+Interface layer (fabricated/misused APIs).The model emits code that calls non-existent
+methods or misuses real ones. PSN gates this before execution with a static reference checker
+(Babel parse and symbol resolution) plus explicit API-contract documentation, so fabricated
+calls are rejected rather than cascading into the trace. On a production-prompt replay
+(n=20), this gate lowers the interface-layer bug rate from 65% to 35%, an effect that holds
+across LLMs.
+11
+
+Preprint. Under review.
+(a) REFLECT propagation depth scales with
+model strength: the weaker model propagates
+failure feedback through 5.0 skills per multi-skill
+repair on average, versus 2.7 for the stronger one,
+consistent with the chain-rule view of credit as-
+signment (§3).
+(b) Compositional reuse ratioRstruct over training.
+The stronger model (GPT-5-mini, single hero run)
+climbs toward≈ 0.4; the weaker model (Qwen3-
+Coder-Next, mean±1σ over six runs) plateaus
+markedly lower.
+Figure 8: Two of the three model-dependent signals in §4.6: deeper credit-assignment chains
+(left) and lower compositional reuse (right) on the weaker model.
+Two of the three defenses, the env-validated loop and the static interface gate, are architec-
+tural and work across LLMs; only the knowledge corrigendum is model-specific, and it
+matters mainly for the weaker model.
+4.6 Cross-model robustness and compositional reuse
+PSN reaches the diamond tool on both a strong closed model (GPT-5-mini) and a weaker
+open mixture-of-experts model (Qwen3-Coder-Next, 3B active / 80B total), in 35± 16 and
+49± 18 iterations over six runs each, with no architectural changes (Table 1). The two
+models differ sharply in capability, yet three independent measurements all shift with
+model strength while the same architecture absorbs the difference.
+Three signals scale with the model.(i)REFLECT depth: the weaker model needs deeper
+credit assignment, propagating failure feedback through 5.0 skills per multi-skill repair
+on average, versus 2.7 for the stronger model (Figure 8a). (ii)Knowledge dependence: the
+tool_tier_rules corrigendum contributes +33pp to the weaker model’s diagnostic cor-
+rectness but only +2pp to the stronger one’s (§4.5). (iii)Compositional reuse: the reuse ratio
+Rstruct, the fraction of skills with fan-in > 1, asymptotes near 0.4 for the stronger model but
+only 0.15± 0.07 for the weaker one (Figure 8b). A weaker model thus emits a noisier repair
+signal, leans harder on explicit knowledge, and grows a flatter, less-reused network.
+The architecture absorbs the noise.None of these differences breaks learning: both mod-
+els complete the tech tree under the same loop, gating, and refactor operators. The weaker
+model simply works harder, diagnosing deeper and reusing less, while the surrounding
+training stack converts its noisier signal into the same outcome. Reliability comes from the
+architecture rather than from the model being strong.
+Reuse topology.Compositional reuse is also visible in the shape of the learned graph. PSN
+develops a hub-and-spoke structure in which a few utility skills (e.g.setupCraftingTable
+andensureResource) are invoked by many parents, whereas a flat retrieval library such as
+Voyager’s nearly keeps every skill at fan-in 0 by construction (Figure 9).
+5 Related Work
+Skill Learning and Hierarchical RL.Hierarchical RL studies temporal abstraction via
+options (Sutton et al., 1999; Barto & Mahadevan, 2003; Bacon et al., 2017; Eysenbach et al.,
+2019) and modular routing (Andreas et al., 2016; Xu et al., 2018; Zhang et al., 2018; Shazeer
+et al., 2017; Riquelme et al., 2021). LLM-guided approaches segment trajectories into reusable
+12
+
+Preprint. Under review.
+Figure 9: Library shape under the weaker model (Qwen3-Coder-Next), averaged over six
+runs each. PSN grows reuse hubs (skills with fan-in≥ 1), whereas Voyager’s flat retrieval
+library nearly keeps every skill at fan-in 0.
+skills via variational inference (Fu et al., 2024). Unlike these work, PSN represents skills as
+executable programs with explicit control flow and pre/postconditions.
+LLM-based Agents and Program Synthesis.LLM agents maintain code memories or
+skill repositories (Yao et al., 2023; Schick et al., 2023; Ahn et al., 2022; Wang et al., 2024a;
+Prabhu et al., 2025). CodeAct (Wang et al., 2024b) uses executable code as a unified action
+space; ReGAL (Stengel-Eskin et al., 2024) learns function libraries via refactoring, capturing
+environment dynamics; MINDcraft (White et al., 2025) studies multi-agent task solving;
+ASI (Wang et al., 2025c) induces programmatic skills on-the-fly for web agents; AgentCoder
+(Huang et al., 2023) uses multi-agent code generation; DiVE (Sun et al., 2024) builds natural
+language knowledge libraries. Wang et al. (2025a) show refactoring facilitates coding agents.
+Self-improving agents learn via RL-based skill accumulation (Wang et al., 2025b), reasoning
+memory (Ouyang et al., 2025), or skill disclosure (Anthropic, 2025). ADAM (Yu & Lu,
+2025) learns causal input-output mappings for 47 predefined skills but does not generate
+or optimize code; ODYSSEY (Liu et al., 2025) relies on 183 hand-authored skills with LLM-
+based retrieval. Differently, PSN autonomously generates, composes and optimizes skill
+code within a compositional network, without hand-authored task-specific skills.
+Neuro-Symbolic Learning and Architecture Optimization.Neuro-symbolic systems inte-
+grate symbolic structures with differentiable computation (d’Avila Garcez et al., 2019; Baydin
+et al., 2018; Badreddine et al., 2022; Manhaeve et al., 2018). OneLife (Khan et al., 2025a)
+models dynamics via programmatic laws with precondition-effect structures, analogous
+to PSN’s skill representation. Symbolic-MoE (Chen et al., 2025) routes through skill-based
+experts; EFA (Khan et al., 2025b) infers executable abstractions for math. Neural architecture
+search prunes and restructures networks (Zoph & Le, 2017; Han et al., 2016; Tan & Le, 2019),
+with techniques like learning rate scheduling enabling stability-plasticity tradeoffs (Howard
+& Ruder, 2018; Yosinski et al., 2014; Rusu et al., 2016). PSN draws on both traditions: it
+embeds learning dynamics inside symbolic programs rather than in differentiable models,
+while performing architecture-search-like refactoring under rollback validation.
+6 Conclusion
+We introduced PSN, a framework for continual skill acquisition where executable symbolic
+programs form a compositional network that evolves through experience. PSN’s three mech-
+anisms (i.e., trace-based credit assignment, maturity-aware update gating, and canonical
+structural refactoring) induce learning dynamics with structural parallels to neural network
+training. Experiments on Minecraft and Crafter demonstrated faster skill acquisition, re-
+duced forgetting, and superior compositional generalization, suggesting that principles
+from neural network optimization can inform the design of symbolic learning systems.
+13
+
+Preprint. Under review.
+Ethics Statement
+This work studies autonomous skill acquisition in simulated game environments (Minecraft
+and Crafter). The agents operate in sandboxed simulators with no real-world deployment,
+posing no direct safety risks. Our framework uses prompted LLMs as code generation
+backends; we do not fine-tune models or train on private data. All experiments use publicly
+available game environments and APIs. We acknowledge that autonomous code generation
+systems could, in principle, produce unintended behaviors; PSN mitigates this through
+rollback validation and execution sandboxing.
+Reproducibility Statement
+To ensure reproducibility, we provide: (1) complete algorithmic specifications of all PSN op-
+erators in the main text and appendix, including the two-phase optimization algorithm (Ap-
+pendix A); (2) example prompt templates for all LLM-instantiated operators (Appendix D);
+(3) exact model identifiers (gpt-5-mini-2025-08-07 and Qwen3-Coder-Next with 3B active /
+80B total parameters); (4) all hyperparameters (γ=5.0, ϵ=0.1, maturity pivot 0.6, rollback
+threshold 20%, momentum window 5); (5) task sequences used for evaluation (Appendix H);
+and (6) detailed code diffs for representative optimization cases (Appendix G). All experi-
+ments are conducted on Minecraft 1.19.4 via MineDojo/Mineflayer and Crafter.

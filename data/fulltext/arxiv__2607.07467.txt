@@ -1,0 +1,951 @@
+record_id: arxiv:2607.07467
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2607.07467
+fetched_title: SpaCellAgent: A Self-Evolving LLM-Based Multi-Agent Framework for Trajectory Analysis
+fetched_at: 2026-09-18T19:00:27Z
+
+SpaCellAgent: A Self-Evolving LLM-Based Multi-Agent
+Framework for Trajectory Analysis
+Songhan Wang∗
+243352479@st.usst.edu.cn
+University of Shanghai for Science
+and Technology
+Shanghai, China
+Haoang Chi†
+haoangchi618@gmail.com
+National University of Defense
+Technology
+Changsha, China
+He Li
+lihemaster117@gmail.com
+Hong Kong Baptist University
+Kowloon, Hong Kong
+National University of Defense
+Technology
+Changsha, China
+Zhiheng Zhang
+zhangzhiheng@mail.shufe.edu.cn
+Shanghai University of Finance and
+Economics
+Shanghai, China
+Jiayan Yuan∗
+242482685@st.usst.edu.cn
+University of Shanghai for Science
+and Technology
+Shanghai, China
+Cheems Wang
+cheemswang@mail.tsinghua.edu.cn
+Tsinghua University
+Beijing, China
+Hao Peng
+penghao@buaa.edu.cn
+Beihang University
+Beijing, China
+Xinwang Liu
+xinwangliu@nudt.edu.cn
+National University of Defense
+Technology
+Changsha, China
+Wenjing Yang†
+wenjing.yang@nudt.edu.cn
+National University of Defense
+Technology
+Changsha, China
+Abstract
+Spatial and Single-cell transcriptomics are transformative in deci-
+phering cellular dynamics. As the fundamental paradigm for recon-
+structing cell developmental paths, trajectory inference (TI) is criti-
+cal. However, existing methods require extensive manual interven-
+tion and proficiency in heterogeneous tools, posing a significant bar-
+rier to efficient TI analysis. To bridge this gap, we propose SpaCel-
+lAgent, an autonomous large language model (LLM) multi-agent
+framework that automates end-to-end spatiotemporal analysis and
+narrative generation. SpaCellAgent utilizes a multi-agent architec-
+ture for strategic workflow planning, a dynamic tool-orchestration
+engine for adaptive algorithm selection, and a self-evolution module
+that iteratively refines performance through feedback. We evaluate
+SpaCellAgent on six heterogeneous datasets encompassing complex
+temporal developmental trajectories, diverse sequencing platforms,
+and spatially-resolved tissue architectures. SpaCellAgent consis-
+tently demonstrates over 40% improvement in analytical efficiency
+while maintaining expert-aligned performance. By converting natu-
+ral language specifications into optimized analytical workflows and
+fully automating the pipeline, SpaCellAgent democratizes advanced
+spatiotemporal modeling and establishes a scalable, agent-driven
+∗Equal contribution.
+†Corresponding author.
+This work is licensed under a Creative Commons Attribution 4.0 International License.
+KDD 2026, Jeju Island, Republic of Korea.
+©2026 Copyright held by the owner/author(s).
+ACM ISBN 979-8-4007-2259-2/2026/08
+https://doi.org/10.1145/3770855.3818914
+paradigm for computational biology. The code and materials are
+available at https://github.com/LittleXH-shw/SpaCellAgent.
+CCS Concepts
+•Computing methodologies → Multi-agent systems;•Ap-
+plied computing→Bioinformatics;Transcriptomics.
+Keywords
+Trajectory Inference, Spatial Transcriptomics, scRNA-seq, Large
+Language Models, Multi-Agent Systems
+ACM Reference Format:
+Songhan Wang, Haoang Chi, He Li, Zhiheng Zhang, Jiayan Yuan, Cheems
+Wang, Hao Peng, Xinwang Liu, and Wenjing Yang. 2026. SpaCellAgent: A
+Self-Evolving LLM-Based Multi-Agent Framework for Trajectory Analysis.
+InProceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery
+and Data Mining V.2 (KDD 2026), August 9–13, 2026, Jeju Island, Republic of
+Korea.ACM, New York, NY, USA, 27 pages. https://doi.org/10.1145/3770855.
+3818914
+1 Introduction
+Single-cell RNA sequencing (scRNA-seq) has revolutionized our
+understanding of cellular diversity and developmental processes
+by enabling transcriptome profiling at individual cell resolution
+[36]. This technology captures the heterogeneity within cell popu-
+lations [37], revealing rare cell types [34], transitional states [38],
+and dynamic expression patterns that were previously obscured in
+bulk measurements [22]. Recently, the rapid development of spa-
+tial transcriptomics technologies has enabled the preservation of
+gene expression with spatial coordinates, allowing the mapping of
+cellular states within their native tissue architectures [6, 30]. These
+approaches provide unprecedented insights into how cellular states
+arXiv:2607.07467v1 [cs.AI] 8 Jul 2026
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Songhan Wang et al.
+SpaCellAgent Workflow
+Efficient and
+Insightful
+Analytics
+LLMs
+Intelligent Tool
+Selection &
+Execution
+Automatic
+Standard Plan
+Self-evolving
+and Refinement
+User Input
+Conduct TI analysis
+with this dataset
+Traditional Workflow
+User
+AnalysesHeterogeneous ToolsManual Plan
+Inefficiency
+Expert-driven
+Distinct Platforms
+Learning Costs
+Steep Learning
+Curve
+Inconsistency
+Non-standardized
+Low-barrier
+User-friendly
+Planner Executor
+Evaluator Reporter
+Figure 1: Comparison between SpaCellAgent and the traditional workflow. Our framework utilizes an LLM-driven multi-agent
+system to autonomously translate natural language queries and spatial data into biological insights. By orchestrating code
+generation and execution, it replaces complex, non-standardized traditional workflows with a streamlined, automated pipeline.
+evolve both temporally and spatially [33], offering a comprehensive
+view of developmental trajectories [25], disease mechanisms [24],
+and tissue homeostasis [ 28, 32]. However, systematically uncov-
+ering molecular mechanisms from such high-dimensional cellular
+states necessitates intricate analysis pipelines [ 16]. Within this
+methodological landscape, Trajectory Inference (TI) stands out as a
+pivotal instrument for investigating cellular development and infer-
+ring cell fate, effectively reconstructing the continuous progression
+of biological processes from static snapshots [4].
+To operationalize cellular development trajectory analysis, a
+diverse array of computational approaches has been established,
+including Monocle [27], PAGA [41], Slingshot [35], and Diffusion
+Pseudotime (DPT) [15]. These methods are grounded in distinct
+mathematical frameworks, ranging from graph-based algorithms
+to principal curve fitting and diffusion maps, to infer cellular order-
+ing and branching structures. However, despite their theoretical
+advancements, these methods exhibit inconsistent performance
+across varying data dimensionalities and trajectory topologies [31],
+thereby necessitating manual selection and heuristic tuning by
+domain experts.
+Recent advances in large language models (LLMs) have catalyzed
+a paradigm shift from manual tool-centric analysis to autonomous
+LLMs agent-driven exploration [ 3, 40]. Beyond code generation
+and complex reasoning [1, 14], LLMs can now orchestrate hetero-
+geneous computational tools and democratize scientific interpre-
+tation by bridging raw outputs with meaningful insights [12, 21].
+Despite this transformative potential, the integration of LLMs agent
+workflows into single-cell lineage reconstruction remains nascent,
+lacking an end-to-end closed-loop solution. Crucially, existing ap-
+proaches lack automated mechanisms for self-evolution and itera-
+tive refinement; their static nature often yields suboptimal inference
+results and imposes a prohibitive manual burden. Consequently,
+there is an imperative for a unified framework that leverages the
+biological reasoning abilities of pre-trained LLMs as a cognitive
+core, autonomously orchestrating TI workflows.
+To fill these gaps, we introduce SpaCellAgent, an autonomous
+LLM-driven framework that performs end-to-end spatial analysis
+and biological narrative generation. In contrast to traditional static
+and rigidly defined pipelines [ 2, 39], SpaCellAgent introduces a
+collaborative multi-agent architecture that dynamically assigns
+specialized roles, such as planner, executor, evaluator, and reporter,
+to each LLM. Specifically, the planner analyzes trajectory analysis
+objectives and topological data properties to decompose the lin-
+eage reconstruction process into executable milestones, while the
+executor autonomously identifies optimal algorithmic strategies
+through a dynamic tool orchestration engine to generate robust
+implementation code. The evaluator assesses the quality of the
+reconstructed lineage, diagnosing specific TI anomalies such as
+implausible branching and pseudotime inversion, while synthe-
+sizing corrective feedback for iterative improvement through a
+self-refinement mechanism. Additionally, SpaCellAgent incorpo-
+rates a self-evolution module that persistently accumulates reusable
+error fixes and validated analysis templates across tasks, enabling
+continuous improvement and knowledge accumulation. Extensive
+benchmarking demonstrates that SpaCellAgent outperforms state-
+of-the-art (SOTA) baselines in topological fidelity while reducing
+the analysis time by 41.2%. Crucially, it reconciles scalability with
+robustness, delivering stable, expert-aligned trajectory analysis
+performance.
+In general, the main contributions of this work can be summa-
+rized as follows:
+• We propose SpaCellAgent, an autonomous multi-agent frame-
+work that performs end-to-end TI analysis by integrating
+scRNA-seq and spatial transcriptomics data, and generates
+interpretable biological reports derived from the TI results
+and other downstream analyses.
+• SpaCellAgent couples data-driven strategy selection with a
+self-evolving refinement mechanism, enabling the system
+to autonomously adapt to diverse biological heterogeneities
+while continuously accumulating knowledge to optimize
+analysis robustness.
+• Extensive experiments demonstrate SpaCellAgent’s expert-
+aligned performance, and its 41.2% improvement in ana-
+lytical efficiency compared to manual expert workflows.
+Therefore, our SpaCellAgent drastically shortens the time-
+to-insight for complex trajectory analysis.
+2 Related Work
+2.1 Trajectory Analysis in Single-Cell and
+Spatial Omics
+The computational reconstruction of cellular developmental tra-
+jectories has evolved through distinct methodological paradigms
+[4, 31]. In the realm of scRNA-seq, foundational tools established
+
+SpaCellAgent: A Self-Evolving LLM-Based Multi-Agent Framework for Trajectory Analysis KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+the premise of ordering cells along a latent pseudotime [15]. Mono-
+cle pioneered this approach using minimum spanning trees (MST)
+and reversed graph embedding to resolve branching lineages [27].
+Slingshot introduced principal curves for stable multi-lineage in-
+ference [35], while PAGA utilized graph abstraction to effectively
+reconcile clustering with trajectory topology [41]. The advent of
+spatial transcriptomics has catalyzed a paradigm shift in develop-
+mental modeling, necessitating the integration of physical topology
+into lineage reconstruction. Recent frameworks, such as Space-
+Flow [29] and STORIES [17], have extended TI by incorporating
+spatial neighborhood constraints to model tissue-scale gene expres-
+sion gradients. Despite these methodological strides, the existing
+TI landscape remains fragmented and heavily reliant on manual
+expertise. Researchers are often constrained by heterogeneous com-
+putational ecosystems, necessitating experience-dependent method
+choice and inefficient manual exploration of the hyperparameter
+space. This lack of standardization not only hampers reproducibil-
+ity but also creates a prohibitive barrier for domain scientists. To
+address these challenges, we propose SpaCellAgent, an LLM-driven
+agentic framework that autonomously orchestrates adaptive algo-
+rithm selection and iterative code refinement, ensuring robust and
+reproducible analysis across diverse biological contexts.
+2.2 LLM and Agent Systems for Scientific
+Discovery
+The advent of LLMs, such as Gemini 2.5 [11], has led to a paradigm
+shift in code generation, natural language reasoning, and complex
+task decomposition. Building on these capabilities, general-purpose
+multi-agent architectures, such as ChatDev [26], have demonstrated
+how specialized agents can collaborate to autonomously execute
+intricate software engineering tasks. Recently, this agent-driven
+paradigm has notably extended to physics, where frameworks like
+ChemCrow [21] have successfully demonstrated the efficacy of
+LLMs in automating material property prediction and orchestrating
+chemical synthesis. However, in biomedicine and bioinformatics,
+the adoption of such workflows has been predominantly limited to
+textual tasks, such as literature retrieval and hypothesis formulation
+[23, 43]. The potential for driving closed-loop, empirical data anal-
+ysis, particularly for multi-step computational biology workflows,
+remains largely underexplored. Existing LLM agent frameworks,
+primarily optimized for general-purpose software engineering or
+text processing, lack the domain-specific abilities for biological
+data analysis. Specifically, they do not support the autonomous
+orchestration of heterogeneous TI analysis algorithms, nor do they
+possess the error-recovery mechanisms necessary for processing
+high-dimensional, noisy omics data. To date, a unified framework
+capable of executing end-to-end, closed-loop trajectory analysis
+tasks remains absent. Our SpaCellAgent fills this gap by establishing
+an LLM-driven autonomous framework that dynamically optimizes
+algorithmic selection, delivering end-to-end TI analysis through a
+robust, self-optimizing workflow.
+3 Preliminary
+3.1 Trajectory Inference Analysis in Cellular
+Data
+Formally, let a single-cell dataset be denoted as𝐷={ X, S}. The gene
+expression profile is represented by a matrixX∈R 𝑁×𝐺 , where𝑁
+denotes the number of cells and𝐺 represents the number of genes.
+Each rowx𝑖∈R 𝐺 corresponds to the high-dimensional expression
+vector of cell𝑖. In the context of spatial transcriptomics, each cell
+is additionally associated with a spatial coordinate vectors𝑖∈R 𝐷
+(typically𝐷= 2for tissue sections), forming a spatial coordinate ma-
+trixS ∈R 𝑁×𝐷 . A common and advantageous approach is to model
+cellular relationships as a graph𝐺=(𝑉,𝐸) , with nodes𝑉 represent-
+ing cells. The adjacency matrixA∈0,1 𝑁×𝑁 is constructed based on
+pairwise transcriptomic similarity for scRNA-seq data. For spatial
+transcriptomics, it is built by integrating the expression matrix with
+physical coordinates, enabling the capture of the local manifold
+structure. The primary objective of TI is to reconstruct a dynamic
+developmental process from these static snapshots. Mathematically,
+this can be formulated as learning a mapping 𝑓 : (X, S) → T,
+that projects the high-dimensional data onto a low-dimensional
+latent manifoldT , which represents the continuous space of all
+possible cell states along the process. Crucially, the inference ofT
+is operationally realized by jointly determining:
+(1) Pseudotime Ordering (𝝉):A continuous scalar value 𝜏𝑖∈
+[0, 1] that assigns each cell a coordinate on the manifoldT ,
+representing its progression level. for each cell𝑖, representing
+its progression level along the biological process, where𝜏= 0
+denotes the root state and𝜏=1denotes the terminal state.
+(2) Lineage Structure:A connectivity graph or a set of princi-
+pal curves describing the global topology (e.g., linear, bifur-
+cating, or tree-structured) of cell fate decisions.
+In spatial-aware TI, the inferred pseudotime𝝉 must be smooth with
+respect to both the transcriptomic manifoldXand the spatial graph
+defined byS.
+3.2 LLM-driven Autonomous Agents
+LLM-driven autonomous agents represent a paradigm shift in which
+LLMs serve as the “brain” for planning, reasoning, and action exe-
+cution. While the individual agent demonstrates impressive capa-
+bilities in task decomposition, it is prone to instability in complex
+scenarios. Consequently, recent research focuses on multi-agent
+collaboration, which mimics human group dynamics by assign-
+ing distinct roles to specialized agents. By facilitating inter-agent
+interaction and iterative feedback, this collaborative architecture
+overcomes the limitations of a single agent, offering superior ro-
+bustness and accuracy for handling sophisticated workflows such
+as computational biology tasks.
+4 Method
+4.1 Framework Overview
+In this section, we introduce the overview of the SpaCellAgent. As
+shown in Figure 2, SpaCellAgent is an autonomous, LLM-driven
+framework designed to organize complex trajectory analysis on
+single-cell and spatial transcriptomics data. Distinct from static code
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Songhan Wang et al.
+Verified
+Code
+Registered
+
+Memor
+Tools
+Current
+Plans
+y
+LLM Agent
+User Input
+Conduct TI analysis with
+this mouse midbrain
+spatial transcriptomic
+dataset.
+Midbrain
+data
+Self-refinement
+Self-evolution
+Planner
+Step1: Data loading and structure
+identification
+Step2: Data preprocessing
+Step3: Batch correction
+Step4: Cell Type Annotation
+Step5: DEG Identification
+Step6: Spatially Variable Genes
+Identification
+Step7: TI analysis
+Step8: Plots and report
+Executor ReporterEvaluator
+•Primary objective: TI analysis
+•Data type:
+Spatial transcriptomics
+•Analytical goal:
+Understanding cell
+developmental dynamics
+Initiating automated trajectory
+inference analysis with default
+optimal settings as follows:
+Tool
+Selector
+Data structure:
+1.shape: (26738, 24045)
+2.spatial context: yes
+3.Sparsity:97.5%
+Step: 1
+tool selection: scanpy
+Tool: scanpy
+Step: 1
+Number of attempts:1
+evaluator suggestion:
+...
+
+Coder
+Based on the current steps
+and data, I will generate and
+execute the code.
+# (B) Filtering
+sc.pp.filter_cells(adata, min_genes=200)
+sc.pp.filter_genes(adata, min_cells=3)
+adata = adata[
+adata.obs.pct_counts_mt < 20, :]
+Error_type:
+Workflow Order Error
+Description:
+...
+Suggestion:
+...
+Code
+Evaluator
+Biological evaluation:
+The identification of retinal
+ganglion cells (RGCs) at the
+terminal point of the trajectory
+is biologically implausible.
+Suggestion: ...
+Biological
+Evaluator
+I will evaluate the current
+results and provide recom-
+mendations.
+Summary report
+1.Dataset: Midbrain_data (26738, 24045)
+2. Biological Insight: Trajectory success-
+fully reconstructs the differentiation
+lineage from RGCs → NeuBs or GlioBs.
+3. Key Driver Genes: Sox2, Neurog2, Nfia.
+4. Enrichment:
+NeuB Branch: Axonogenesis, synapse
+assembly, nervous system development.
+…
+Plots
+1. Main plots in subset E16.5:
+Umap TI
+I will summarize the evaluator's
+suggestion, and optimize the
+code.
+Figure 2: The framework of SpaCellAgent. The planner decomposes user queries into executable steps for the executor, while
+the evaluator enforces dual verification for syntactic and biological validity. The reporter then synthesizes the final biological
+insights. Arrows are color-coded: blue (input for planner), orange (input for executor), and green (evaluator’s feedback for
+self-refinement and self-evolution). Validated plans are archived in dual-layer memory to drive self-evolution.
+generation tools, our frameworks implement a dynamic, closed-
+loop workflow powered by multi-agent collaboration. Upon re-
+ceiving a natural language task description, the system initiates
+a collaborative process involving distinct agent roles. This pro-
+cess encompasses data perception, where input characteristics are
+inspected; strategic planning, where optimal TI and downstream
+analysis methods are selected; and autonomous execution, where
+executable Python or R scripts are generated and verified. The
+workflow culminates in the generation of a comprehensive report,
+integrating visual outputs with biological interpretation, thereby
+streamlining the path from raw data to scientific hypothesis formu-
+lation.
+4.2 Agent Roles and Functionalities
+Planner agent. The planner agent acts as the system’s reasoning
+engine, decomposing high-level user intents into executable logics.
+It accepts a dual input: the natural language query and a struc-
+tured metadata profile of the target dataset, encompassing gene
+expression counts, sparsity patterns, and spatial modalities. Lever-
+aging an LLM with specialized planning instructions, the agent
+synthesizes a directed action sequence encoded in a JSON file. Each
+node in this sequence is assigned a unique ID and a descriptive
+label, establishing a machine-readable backbone that facilitates ro-
+bust downstream execution and human-in-the-loop verification.
+Executor agent. The executor agent bridges the gap between ab-
+stract planning and concrete execution. It consists of two tightly
+coupled components responsible for dynamic tool retrieval and
+context-aware code generation.
+Tool selector. This component functions as a semantic router, map-
+ping high-level task descriptions to specific computational tools.
+It queries a curated registry containing both standard single-cell
+methods and spatial-aware algorithms. By utilizing an LLM con-
+ditioned on the dataset characteristics and user requirements, the
+tool selector dynamically configures the analysis pipeline, avoiding
+the drawbacks of static default settings and ensuring compatibility
+with the data’s intrinsic spatiotemporal structure.
+Coder. The Coder functions as a specialized implementer, syn-
+thesizing executable scripts to instantiate abstract TI methods into
+runnable workflows. Leveraging a polyglot architecture, it flexibly
+interfaces with optimal tools across the Python and R ecosystems to
+resolve complex lineage topologies. The generation process adheres
+to rigorous constraints, managing the serialization of single-cell ob-
+jects and ensuring the seamless flow of pseudotime and trajectory
+coordinates between heterogeneous analysis environments.
+Evaluator agent. The evaluator agent enforces a rigorous qual-
+ity control protocol through a dual-layer validation mechanism
+comprising acode evaluatorfor execution integrity and abiological
+evaluatorfor scientific plausibility.
+Code evaluator. This component constitutes the foundational
+verification stage, specifically tasked with guaranteeing the in-
+tegrity of TI workflows. It systematically inspects execution logs
+for algorithm-specific failures and verifies the existence of output
+files. If runtime exceptions are detected, the component extracts
+the error context and routes it as actionable debugging feedback
+to the executor. This enables the system to autonomously attempt
+code correction, explicitly skipping the biological validation phase
+to optimize token usage.
+Biological evaluator. The biological evaluator moves beyond syn-
+tax to assess the biological fidelity of the inferred trajectories. In-
+gesting the generated plots and statistical summaries, the agent
+utilizes LLMs to cross-reference the findings with established bio-
+logical priors. It specifically targets common TI artifacts, such as
+biologically impossible lineage transitions or inverted developmen-
+tal paths. For example, it checks alignment with the known cellular
+hierarchy, allowing it to flag biologically impossible transitions,
+such as erroneously assigning a terminally differentiated cell as
+the trajectory root. If such a discrepancy is detected, the biological
+
+SpaCellAgent: A Self-Evolving LLM-Based Multi-Agent Framework for Trajectory Analysis KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+evaluator flags the result as biologically incoherent and provides a
+targeted diagnostic hypothesis, guiding the planner to refine the
+upstream configuration.
+Knowledge-augmented fallback mechanism. To enhance
+generalization to trajectory inference tasks outside the model’s ex-
+perience distribution, we design a knowledge-augmented fallback
+mechanism integrated into the biological evaluator agent. Specif-
+ically, when SpaCellAgent encounters a trajectory inference task
+that falls outside its internal experience memory, the biological eval-
+uator initiates an automated search through PubMed to retrieve the
+latest biological reference, including tissue-specific markers and
+similar case studies. This allows the agent to evaluate its TI results
+in peer-reviewed scientific evidence rather than heuristic guessing.
+Dynamic tool discovery and registration mechanism. To
+break through the boundaries of a predefined registry, SpaCel-
+lAgent is designed with a dynamic tool discovery and registra-
+tion mechanism, enabling adaptive bioinformatics problem-solving.
+Specifically, if the agent determines that the existing tool registry
+is insufficient to execute the formulated plan, it will dynamically
+introduce and invoke new tools (e.g., importing a novel Python/R
+package for a specific spatial transcriptomics algorithm). Once the
+analysis incorporating the new tool successfully passes biologi-
+cal validation, SpaCellAgent will archive the successful analysis
+pipeline into the global memory and extract and register the newly
+utilized tool into the tool registry. Through this strategy, the tool
+registry autonomously expands and evolves by integrating novel
+tools and registering validated workflows.
+Dual-layer memory architecture. To ensure coherent reason-
+ing across varying temporal scales, SpaCellAgent implements a
+hierarchical memory system comprising local and global modules.
+Local memory serves as an ephemeral, intra-task context buffer. It
+logs the full trajectory of the current analysis step, including itera-
+tive code drafts, execution traces, and diagnostic evaluations. This
+comprehensive history allows the coder to engage in context-aware
+debugging, preventing recursive errors during self-correction. In
+contrast, global memory serves as a persistent inter-task knowl-
+edge base. It consolidates successfully verified code snippets and
+reasoning patterns from historical runs. By retrieving relevant ex-
+emplars from this global repository, the agent enables knowledge
+transfer across different datasets, effectively bootstrapping new
+tasks with proven analytical templates. This dual capability equips
+it with greater adaptability and scalability when confronting the
+high heterogeneity and complex dependencies inherent in spatial
+and single-cell data.
+4.3 Self-refinement and Self-evolution
+Self-refinement mechanism. To ensure robustness in TI analysis,
+SpaCellAgent incorporates an autonomous self-refinement mecha-
+nism. For each step, the system initiates a bounded iterative process
+in which the evaluator assesses the execution output. Successful
+iterations commit to the intermediate dataset state and advance the
+workflow. In contrast, failures trigger a refinement cycle: the coder
+receives an augmented context containing the full interaction his-
+tory, truncated error logs, and semantic feedback from the evaluator.
+Guided by prompts that enforce strategy divergence to avoid repet-
+itive errors, the agent synthesizes revised code for re-execution.
+This loop persists until success is achieved or the maximum at-
+tempt limit is reached. By integrating rule-based error detection
+with LLM-driven diagnosis, this mechanism autonomously resolved
+syntax errors and API discrepancies encountered during trajectory
+analysis, enabling the seamless modeling of cellular dynamics.
+Cross-task self-evolution. Beyond within-task self-refinement,
+SpaCellAgent integrates a self-evolution mechanism for continual
+learning in TI analysis. This module treats successful TI workflows
+as reusable knowledge, archiving verified code snippets alongside
+biological contextual metadata into a global memory repository.
+Upon encountering new datasets, the coder queries this reposi-
+tory to retrieve relevant analysis templates, effectively utilizing a
+retrieval-augmented generation strategy to bias the model toward
+proven architectural patterns. Furthermore, the system accumulates
+error-fix pairs from historical failures, allowing it to proactively
+apply discovered remedies, such as parameter adjustments or alter-
+native method selection, to recurrent issues. Over time, this cumu-
+lative knowledge base transforms SpaCellAgent into an adaptive
+system, progressively enhancing convergence speed, stability, and
+trajectory analysis consistency across diverse biological scenarios.
+Together, the self-refinement and self-evolution mechanisms
+transform SpaCellAgent from a static pipeline into a continuously
+improving system. As it is applied to more datasets and use cases,
+its internal knowledge base becomes richer, enabling superior gen-
+eralization to unseen biological contexts and robust handling of
+complex lineage topologies over time.
+5 Experiment
+5.1 Setup
+Model configuration. In all reported experiments, the agents were
+instantiated using the DeepSeek-V3 model [14]. We accessed the
+model through API with the temperature set to 0.0 and the𝑇𝑜𝑝-𝑝
+set to 1 to prioritize precise and deterministic outputs. For the
+self-reflection task, we employed a slightly higher temperature of
+0.4 (with 𝑇𝑜𝑝-𝑝 to 1), allowing the agent to explore alternative
+biological hypotheses when the initial path failed. Additionally, the
+maximum output token limit was set to 128,000 to accommodate
+long-sequence biological reasoning.
+Datasets. In this study, we employed a diverse set of six datasets
+comprising both synthetic and curated benchmarks (REAL-GOLD,
+REAL-SILVER,SYNTHETIC) [ 31], and real-world spatial tissues,
+such asthe Mouse Dorsal Midbrain,Axolotl Neuron Regener-
+ation[ 6], and an unpublishedMouse Spinal Cord Injury (SCI)
+Dataset. The details of the datasets are in Appendix B.1. These
+datasets provide comprehensive coverage of contexts essential for
+robust TI evaluation: maturation, cellular states, germline specifi-
+cation, technical variability, and spatial organization.
+Baselines.We compared SpaCellAgent with five established
+methods representing diverse algorithmic paradigms:
+• DPT[ 15]: Adiffusion-basedmethod that estimates pseudo-
+time by simulating random walks on a transition matrix to
+resolve branching lineages.
+• RaceID/StemID[ 13]: Aclustering-basedframework that
+combines outlier-sensitive clustering with minimum span-
+ning trees to identify lineage connectivity.
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Songhan Wang et al.
+Table 1: Performance comparison with baseline methods on real and synthetic datasets. Bold indicates the best result, and
+underline indicates the second-best result.
+Method Real-Gold Real-Silver Synthetic
+Corr HIM WCor F1 Corr HIM WCor F1 Corr HIM WCor F1
+DPT 0.213 0.515 0.385 0.262 0.259 0.387 0.413 0.279 0.308 0.483 0.323 0.345
+RaceID/StemID 0.220 0.334 0.501 0.206 0.288 0.389 0.501 0.206 0.361 0.381 0.562 0.128
+Scorpius 0.295 0.576 0.551 0.139 0.602 0.569 0.719 0.574 0.455 0.431 0.525 0.436
+PAGA 0.256 0.469 0.735 0.402 0.431 0.497 0.680 0.381 0.470 0.539 0.649 0.358
+PAGA Tree 0.319 0.523 0.478 0.440 0.4420.6140.670 0.519 0.501 0.6050.664 0.439
+Slingshot 0.347 0.651 0.7490.483 0.469 0.551 0.639 0.541 0.448 0.431 0.445 0.421
+SpacellAgent 0.480 0.710 0.711 0.608 0.774 0.322 0.719 0.645 0.564 0.560 0.660 0.509
+UMAP_E16.5 Trajectory_E16.5 Spatial_E12.5 Spatial_E14.5 Spatial_E16.5
+Figure 3: UMAP visualization and spatial distributions of cell types in the mouse embryonic dorsal midbrain at developmental
+stages E12.5, E14.5, and E16.5.
+• Scorpius[ 5]: Alinear inferencemethod that orders cells by
+projecting them onto a shortest-path curve derived from
+k-nearest neighbor distances.
+• PAGA[ 41]: Agraph abstractiontechnique that preserves
+global topology by constructing a coarse-grained connectiv-
+ity map between cell clusters, capable of capturing complex
+cyclic structures.
+• PAGA Tree[41]: A variant of PAGA optimized forhierarchi-
+cal lineages, which directs the abstracted graph to generate
+a rooted, tree-like trajectory structure.
+• Slingshot[ 35]: Acurve-fittingapproach that employs semi-
+supervised principal curves to model smooth, branching
+trajectories across pre-defined cluster centers.
+For all baselines, we adopt the default parameter settings as pro-
+vided in their original implementations.
+5.2 Evaluation Metrics
+We employed four complementary metrics to assess SpaCellAgent
+from the perspectives of cellular ordering, branch assignment, bio-
+logical feature relevance, and global network topology.
+Correlation. We calculated the Spearman rank correlation coef-
+ficient𝜌 between the geodesic distance matrices of reference and
+predicted trajectories:
+Corr=𝜌(𝐷 𝑟𝑒𝑓 ,𝐷𝑝𝑟𝑒𝑑).(1)
+This metric quantifies the preservation of global cellular relation-
+ships along the inferred milestone network.
+F1 Branches (F1). We used the Jaccard-based F1 score to evalu-
+ate structural correspondence:
+𝐹1𝑏𝑟𝑎𝑛𝑐ℎ =2· 𝑅𝑒𝑐𝑜𝑣𝑒𝑟𝑦·𝑅𝑒𝑙𝑒𝑣𝑎𝑛𝑐𝑒
+𝑅𝑒𝑐𝑜𝑣𝑒𝑟𝑦+𝑅𝑒𝑙𝑒𝑣𝑎𝑛𝑐𝑒 .(2)
+It assesses the model’s accuracy in capturing milestone branches
+and ensuring the purity of cell assignments to those branches.
+Feature importance weighted correlation (wCor). This met-
+ric evaluates the agent’s ability to identify key trajectory-driving
+genes. We performed Random Forest (RF) regression to extract gene
+importance vectors from the predicted coordinates:
+𝑤𝐶𝑜𝑟=corr 𝑤(FI𝑟𝑒𝑓 ,FI𝑝𝑟𝑒𝑑).(3)
+The Pearson correlation is weighted by reference importance to
+emphasize biologically significant drivers.
+Hamming-Ipsen-Mikhailov score (HIM). To compare the
+inferred milestone networkG𝑝𝑟𝑒𝑑 with the ground truthG𝑟𝑒𝑓 , we
+employed the HIM distance:
+𝐻𝐼𝑀=1− 1√
+2
+√︃
+𝑑2
+𝐻+𝑑 2
+𝐼𝑀,(4)
+where𝑑𝐻 represents normalized Hamming distance and𝑑𝐼𝑀 repre-
+sents Ipsen-Mikhailov distances.
+For all metrics defined above, higher values consistently indicate
+superior performance.
+
+SpaCellAgent: A Self-Evolving LLM-Based Multi-Agent Framework for Trajectory Analysis KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+5.3 Results
+To evaluate the trajectory analysis capabilities of SpaCellAgent, we
+first evaluated both baselines and SpaCellAgent across three diverse
+benchmarks:REAL-GOLD,REAL-SILVER, andSYNTHETIC.
+The general results shown in Table 1 present a comprehensive
+performance comparison. Then, we conducted a comparison with
+LLM-based baselines. The details are provided in Appendix B.3.
+As shown in Table 1, SpaCellAgent achieves SOTA performance,
+ranking first in the majority of metrics across all datasets. Notably,
+on the REAL-GOLD dataset, SpaCellAgent outperforms the second-
+best method, Slingshot, with an average Correlation of 0.480 and
+an F1 score of 0.608. This substantial improvement is attributed to
+the self-refinement and self-evolution mechanisms within SpaCel-
+lAgent, which autonomously mitigate errors arising from manual
+parameter tuning. In contrast to baseline methods constrained by
+static algorithmic assumptions, SpaCellAgent employs its LLM-
+driven planner and tool selector to perform dynamic data profiling.
+This mechanism empowers the agent to autonomously orchestrate
+the optimal configuration of analytical tools tailored to each specific
+dataset, thereby circumventing the drawbacks of human bias and
+manual optimization errors.
+Spatial trajectory analysis and biological insights.To fur-
+ther investigate the capability of SpaCellAgent in analyzing high-
+dimensional data with spatial coordination, we applied SpaCellA-
+gent to the Mouse Embryonic Dorsal Midbrain dataset. This dataset
+contains 26,738 spatially resolved cells from the mouse embry-
+onic dorsal midbrain, with expression profiles for 24,045 genes and
+temporal information from stages E12.5, E14.5, and E16.5. Unlike
+dissociated single-cell data, this task requires the agent to reconcile
+gene expression similarity with physical proximity.
+As shown in Figure 4, SpaCellAgent autonomously orchestrated
+the data preprocessing and visualized the clustering landscape
+through UMAP. Critically, SpaCellAgent proactively inferred the
+latent developmental pathways and automatically generated tra-
+jectory plots based on its reasoning. These visualizations reveal
+that SpaCellAgent accurately reconstructed the bifurcation trajec-
+tory from Radial Glia-like (RGL) progenitors into distinct neuronal
+(NeuB) and glial (GlioB) lineages. This trajectory aligns with the
+temporal progression from E12.5 to E16.5, as illustrated in Figure 5,
+and is driven by a distinct shift in marker expression, transitioning
+fromSox2-positive progenitors toNurr1- andTh-positive neurons.
+These results are consistent with prior studies [6, 18]. Subsequently,
+we conducted functional enrichment analysis, validating the biolog-
+ical plausibility of the identified lineage, highlighting key pathways
+such as axonogenesis and dopamine metabolic processes, which
+are intrinsic to midbrain development. Next, we applied SpaCellA-
+gent to the Axolotl Neuron Regeneration dataset, another spatially
+resolved dataset capturing complex tissue reconstruction.
+5.4 Case Study
+To evaluate the generalization capability and real-world utility of
+SpaCellAgent, we deployed the framework on a private scRNA-seq
+dataset of Mouse SCI provided by our collaborating hospital. This
+dataset captures the impact of high-salt (HS) versus normal-salt
+(NS) intake across three specific time points: Day 0, Day 7, and Day
+28. Specifically, time point day 0 denotes the Sham-operated (SAM)
+group, serving as the uninjured baseline control where the surgical
+procedure was performed without inducing spinal cord damage.
+SpaCellAgent first devised a TI analysis plan based on the struc-
+tural characteristics of the data and user requirements, and des-
+ignated the optimal analytical tool for each step of the workflow.
+Subsequently, SpaCellAgent executed the workflow according to
+the specified plan. Following the cell annotation step, it analyzed po-
+tential cell developmental trajectories within the SCI context based
+on the annotation results. Subsequently, SpaCellAgent executed
+the TI step, modeling the lineage progression from precursors to
+mature cells by constructing a pseudo-temporal ordering, as shown
+in Figure 4. SpaCellAgent further conducted temporal expression
+profiling, revealing that HS-OPCs persistently upregulated the in-
+hibitor Sox17 even at late stages while failing to sustain Plp1.
+To quantify this developmental perturbation, SpaCellAgent fur-
+ther employed pseudotime analysis to dissect the underlying lineage
+dynamics. As shown in Figure 6, solid lines representing fitted ex-
+pression trends along the differentiation pseudotime clearly reveal
+a premature termination of the HS trajectory and a significant ex-
+pression gap inPlp1compared to the NS lineage. The results reveal
+that, by integrating velocity-derived streamlines with fate prob-
+ability calculations, the agent autonomously identified a marked
+differentiation blockade in the HS group. Unlike the continuous NS
+trajectory, the HS lineage exhibited fragmented streamlines and
+early-stage cell arrest, indicating impaired endogenous remyelina-
+tion. These findings are consistent with prior studies highlighting
+the detrimental impact of high-salt diets on post-injury neural
+recovery [19, 42]. These results substantiate SpaCellAgent’s capac-
+ity for autonomous hypothesis formulation in unseen biological
+contexts, proving its practical utility as a powerful assistant for
+accelerating novel scientific discoveries. Then, we conducted an
+enrichment analysis to quantitatively validate the biological fidelity.
+The details are provided in Appendix B.3.
+6 Ablation Studies
+To verify the effectiveness of SpaCellAgent’s components, we con-
+ducted ablation studies with the following variants: (1) SpaCellA-
+gent w/o planner; (2) SpaCellAgent w/o evaluator; (3) SpaCellAgent
+w/o self-evolution (w/o Evol.); (4) GPT-4 (w/o agent); (5) w/o expe-
+rience memory.
+Effectiveness analysis. We first conducted ablation experi-
+ments on the REAL-GOLD benchmark, alongside the Mouse Embry-
+onic Dorsal Midbrain and Axolotl Neuron Regeneration Datasets.
+For this analysis, we defined a standardized TI workflow compris-
+ing six tasks and measured the Task Success Rate (TSR) to compare
+different variants. The results given in Figure 7 show the necessity
+of the full multi-agent architecture. Specifically, GPT-4 exhibits the
+poorest performance, primarily due to its inability to manage the
+intricate context of long-horizon TI workflows, which often results
+in code generation failures. Regarding the architectural variants,
+the w/o planner variant suffers from a lack of strategic direction,
+leading to failures in decomposing complex biological goals into
+actionable sub-tasks. Similarly, the w/o evaluator variant operates
+without the critical self-correction mechanism, rendering it inca-
+pable of resolving runtime errors or refining suboptimal outputs,
+
+KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea. Songhan Wang et al.
+Cell tpye
+UMAP2
+UMAP1
+Trajectory_HS
+Trajectory_NS
+1.0
+0.6
+0.3
+0.0
+Figure 4: UMAP projection of cell type clusters identified by SpaCellAgent and comparison of inferred developmental trajectories
+between Homeostatic (HS) and Nerve Injury (NS) conditions.
+82.47%
+15.46%
+2.06%
+30.51%
+32.98%
+18.96%
+E12.5
+E14.5 E16.5
+RGC
+NeuB
+GlioB
+RGC
+GlioB
+NeuB
+Figure 5: Sankey diagram illustrating the temporal lineage
+transitions and cell fate proportions across the three embry-
+onic stages.
+which significantly undermines overall robustness compared to the
+SpaCellAgent framework.
+Efficiency analysis. To evaluate efficiency, we recruited five do-
+main experts actively engaged in bioinformatics research (spanning
+Master’s and Ph.D. levels) to establish an averaged human baseline.
+The details of experts team are provided in Appendix B.7. Then,
+we benchmarked SpaCellAgent against the human baseline and
+the variant w/o self-evolution. As shown in Table 2, SpaCellAgent
+recorded the lowest total execution time of 38.0 minutes, outper-
+forming the human average by 41.2% and the non-evolutionary
+baseline by 32.7%. Gains were most significant in complex down-
+stream tasks, with SpaCellAgent surpassing human experts by 53.6%
+in Step 4 and 63.9% in Step 5. While humans slightly lead in ini-
+tial preprocessing, the self-evolution mechanism minimizes redun-
+dant debugging in later stages, ensuring superior scalability for
+end-to-end analysis. Collectively, these results demonstrate that
+SpaCellAgent significantly alleviates the manual burden of complex
+trajectory inference, offering a scalable and time-efficient paradigm
+for high-throughput biological hypothesis formulation.
+0.0 0.2 0.4 0.6 0.8 1.0
+Pseudotime (Differentiation)
+2
+1
+0
+1
+2
+3
+Expression Level
+NS
+HS
+Figure 6: Pseudotime expression kinetics of the marker gene
+Plp1, showing differential differentiation trends between HS
+and NS groups. Solid lines represent the fitted expression
+trends along the differentiation pseudotime.
+Figure 7: The results of operational effectiveness analysis.
+Cross-Model sensitivity analysis. To demonstrate our frame-
+work’s robustness, we conducted additional sensitivity experiments
+using GPT-5.2 and claude-sonnet-4-6 as alternative foundational
+
+SpaCellAgent: A Self-Evolving LLM-Based Multi-Agent Framework for Trajectory Analysis KDD 2026, August 9–13, 2026, Jeju Island, Republic of Korea.
+Table 2: Efficiency comparison, time cost in minutes.
+Task Human Expert w/o Evol. SpaCellAgent
+Step110.0±1.615.4±1.2 12.4±0.8
+Step2 8.4±1.2 6.8±2.06.5±1.4
+Step3 11.2±2.0 8.8±0.85.6±0.6
+Step4 8.4±1.2 11.0±1.23.9±0.7
+Step5 26.6±3.8 14.5±1.59.6±0.9
+Total Time64.6 56.538.0
+Table 3: Sensitivity comparison with different LLMs.
+Dataset Deepseek-V3 GPT-5.2 claude-sonnet-4-6
+S1 0.526 0.538 0.518
+S2 0.615 0.613 0.624
+S3 0.571 0.570 0.582
+S4 0.483 0.494 0.481
+S5 0.755 0.768 0.768
+SR 0.8 0.9 0.9
+models. We experimented with five subsets from the real gold bench-
+mark and calculated Spearman’s rank correlation. Meanwhile, we
+conducted an effectiveness analysis on complex real-world datasets
+for 10 runs and calculated the success rate (SR). The results of these
+cross-model comparisons are shown in Table 3. The results show
+consistent gains in both efficiency and accuracy, confirming that
+the performance is driven by our agentic framework design.
+Tool selection consistency analysis. To evaluate the tool se-
+lection consistency and planning accuracy of SpaCellAgent, we
+conducted systematic experiments of potential issues such as tool
+selection errors and agent planning failures. Specifically, we re-
+peated the same analysis task 5 times independently on each of the
+three real-world datasets: the Mouse Dorsal Midbrain (Midbrain),
+Axolotl Neuron Regeneration (Axolotl), and SCI (with the same
+input and the temperature set to 0). We measured the tool selection
+consistency of each dataset. Meanwhile, we invited a human expert
+team to evaluate the planning accuracy and feasibility (use a quality
+score rated on a scale from 0 to 10). We implemented a standardized
+TI workflow as defined in our effectiveness analysis, measuring the
+consistency rate across all repeated trials. Subsequently, we invited
+the human expert team to independently evaluate the accuracy
+and feasibility of the generated analysis plans and each step of the
+code. The results are shown in Table 4. The result shows that our
+framework achieves consistently high tool selection reliability and
+planning accuracy across all three datasets, confirming that the
+standardized workflow effectively mitigates tool selection errors
+and planning failures.
+To quantitatively verify the effectiveness of the Knowledge-
+augmented fallback mechanism, we conduct an additional ablation
+study with the w/o experience memory variants on the real-gold
+dataset. The details are provided in Appendix B.8.
+Table 4: Tool selection consistency of the three real-world
+datasets.
+Dataset Midbrain Axolotl SCI
+Step1 1.0 1.0 1.0
+Step2 1.0 1.0 1.0
+Step3 1.0 1.0 1.0
+Step4 1.0 1.0 1.0
+Step5 0.9 0.8 1.0
+Quality score8.0±0.7 7.8±0.4 7.2±0.8
+7 Conclusion
+We introduce SpaCellAgent, an autonomous self-evolving LLM-
+based multi-agent framework for trajectory analysis. By integrat-
+ing a collaborative multi-agent architecture with dynamic tool
+orchestration, SpaCellAgent plans workflows, selects methods, ex-
+ecutes analyses, and generates interpretable reports, closing the
+gap between raw data and biological insight. The results of the ex-
+periment confirm that the SpaCellAgent matches the performance
+of the experts while reducing the analysis time by more than 40%
+and lowering the accessibility barrier for the domain researchers.
+Ablation studies validate the critical roles of agent-based decompo-
+sition, iterative self-refinement, and knowledge reuse across tasks
+in achieving robustness and stability. Future work will extend the
+SpaCellAgent to spatial multi-omics integration and tighter cou-
+pling with regulatory network analysis, positioning SpaCellAgent
+as a foundational step toward scalable, intelligent assistants in com-
+putational biology.
+Acknowledgments
+This work was partially supported by the National Natural Science
+Foundation of China (Grant No. 62525213, 62372459, 62325604), the
+Beijing Natural Science Foundation (Grant No. L253021), and the
+Innovative Research Group Project of Hunan Province (Grant No.
+2025JJ10008).
+Limitations and Ethical Considerations
+All authors adhere to all ACM Publications Policies, including
+ACM’s Publications Policy on Research Involving Human Partici-
+pants and Subjects. The regulatory mechanisms inferred by SpaCel-
+lAgent, while computationally robust and consistent with estab-
+lished literature, remain hypotheses that warrant future validation
+through in vivo experimental assays. All datasets utilized in this
+study were acquired and processed in strict adherence to ethical
+guidelines and privacy regulations.
+GenAI Disclosure
+In this work, we mainly employ GenAI to identify and correct
+syntax errors and polish writing.

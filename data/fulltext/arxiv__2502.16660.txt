@@ -1,0 +1,707 @@
+record_id: arxiv:2502.16660
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2502.16660
+fetched_title: BIOMAZE : B ENCHMARKING AND ENHANCING LARGE LANGUAGE MODELS FOR BIOLOGICAL PATHWAY REASONING
+fetched_at: 2026-09-18T19:00:22Z
+
+BIOMAZE : B ENCHMARKING AND ENHANCING LARGE
+LANGUAGE MODELS FOR BIOLOGICAL PATHWAY
+REASONING
+Haiteng Zhao1 Chang Ma2 Fangzhi Xu3 Lingpeng Kong2 Zhi-Hong Deng1
+1 Peking University 2 The University of Hong Kong 3 Xi’an Jiaotong University
+{zhaohaiteng, zhdeng}@pku.edu.cn
+{cma, lpk}@cs.hku.hk fangzhixu98@gmail.com
+ABSTRACT
+The applications of large language models (LLMs) in various biological do-
+mains have been explored recently, but their reasoning ability in complex bio-
+logical systems, such as pathways, remains underexplored, which is crucial for
+predicting biological phenomena, formulating hypotheses, and designing exper-
+iments. This work explores the potential of LLMs in pathway reasoning. We
+introduce BioMaze, a dataset with 5.1K complex pathway problems derived
+from real research, covering various biological contexts including natural dy-
+namic changes, disturbances, additional intervention conditions, and multi-scale
+research targets. Our evaluation of methods such as CoT and graph-augmented
+reasoning, shows that LLMs struggle with pathway reasoning, especially in per-
+turbed systems. To address this, we propose P ATHSEEKER , an LLM agent that
+enhances reasoning through interactive subgraph-based navigation, enabling a
+more effective approach to handling the complexities of biological systems in
+a scientifically aligned manner. The dataset and code are available at https:
+//github.com/zhao-ht/BioMaze.
+1 I NTRODUCTION
+Large Language Models (LLMs) have recently demonstrated remarkable performance across scien-
+tific domains, including mathematics (Yu et al., 2023), chemistry (Liu et al., 2023b; Zhu et al., 2022),
+biology (Hayes et al., 2024; Madani et al., 2020; Ma et al., 2023), and materials science (Zheng
+et al., 2023; Park et al., 2024). In biology, LLMs have shown promise in addressing complex tasks
+such as protein design (Valentini et al., 2023; Hosseini et al., 2024), drug discovery (M. Bran et al.,
+2024; Liu et al., 2023c), clinical trial analysis (Singhal et al., 2023; Jin et al., 2023), and experiment
+design (AI4Science & Quantum, 2023; Roohani et al., 2024).
+Biological systems are composed of complex networks called pathways, involving genes, enzymes,
+substrates, and signaling molecules. Intervention in a single component—such as mutations or in-
+fections—can trigger multi-step cascades affecting other components within the organism. Despite
+the complex mechanisms in biological systems, deductive reasoning about the events within biolog-
+ical pathways can be carried out based on an understanding of the structure and function of these
+pathways. For example, based on pathway reasoning, it can be predicted that blocking muscarinic
+M3 receptors in taste cells will weaken taste responses in sensory fibers (see Figure 1).
+Pathway reasoning is essential for biologists to explain phenomena, form hypotheses, design exper-
+iments, and interpret results, and is a fundamental task in biology with broad applications across
+multiple disciplines, including systems biology, pharmacology, toxicology, cell biology, pathology,
+immunology, and biomedical engineering. The reasoning case in Figure 1 aid in toxicity analysis,
+experimental design, and taste disorders treatments.
+Although LLMs have been explored in various biological applications, little research has focused
+on how LLMs can understand and reason through the intricate, multi-step processes inherent to
+complex biological systems. Considering the fundamental role of biological pathway reasoning, the
+1
+arXiv:2502.16660v5 [cs.LG] 22 Jul 2025
+
+Taste Receptor Cell
+β/γα
+Activated
+G-protein
+Acetylcholine
+Extracellular space
+M3 Receptor
+CALMH1
+Channel
+ATP
+Taste
+Sensory Fiber
+Ca2+
+Ca2+
+Ca2+
+Neurotransmitters
+Taste Transduction
+Pathway
+Question: When muscarinic receptors M3 are blocked in taste cells, what
+is the effect on taste-evoked responses in Receptor cells?
+Benchmark Paradigm 1: Internal Knowledge Pathway Reasoning
+Chain of Thought
+1. When muscarinic receptors, specifically the M3 subtype, are blocked in Type II taste
+cells.
+2. The effect on taste-evoked responses is generally a reduction in the calcium
+mobilization and subsequent signaling pathways that mediate taste perception.
+3. Since ACh acts on these receptors to facilitate calcium influx and other signaling
+events, blocking them would impair the normal excitatory responses to taste stimuli.
+Benchmark Paradigm 2: External Knowledge Pathway Reasoning
+PathSeeker Call APIs to navigate pathway graph
+Pathways 5, 7, and 11 show that acetylcholine activation of CHRM3 increases calcium
+mobilization in Type II taste cells, enhancing CALMH1's role in ATP release and
+activating taste sensory fibers.
+Answer: Blocking muscarinic receptors inhibits M3 receptor activation, leading to
+reduced calcium mobilization in Type II taste cells. This decrease in calcium levels
+results in lower ATP release, ultimately diminishing taste-evoked responses.
+
+Figure 1: Illustration of BioMaze task and reasoning method with or without additional biological
+pathway graph data guidance. The task of BioMaze focuses on reasoning about the effects and
+mechanisms of natural components or synthetic interventions on various downstream targets under
+different conditions through complex intermediate pathway processes.
+potential applications of LLMs in many areas of biology would be questionable if LLMs cannot
+effectively perform this task.
+In this study, we evaluate the reasoning abilities of LLMs in biological tasks through the lens of
+biological pathways. We explore their capabilities in key pathway reasoning paradigms, including
+functional understanding, dynamic changes, regulation, and intervention. To support these studies,
+we introduce a pathway benchmark, BioMaze, which contains 5.1K high-quality, complex biolog-
+ical pathway problems derived from real research literature, such as PubMed (Lu, 2011). These
+problems are carefully curated and reviewed by human experts, covering the context of biological
+pathway research, including natural dynamic changes, disturbances and interventions, additional
+intervention conditions, as well as multi-scale research targets, such as single factors, interaction
+processes, and macro-level functions.
+Based on BioMaze, we compare various methods using LLMs for pathway reasoning, including
+chain-of-thought (CoT) and graph-augmented reasoning approaches (Li et al., 2023a; Sun et al.,
+2023; He et al., 2024). The results demonstrate that LLMs struggle with pathway reasoning, par-
+ticularly in causal inference scenarios where interventions and perturbations are introduced into
+the system. This challenge persists across all LLMs, from LLaMA 8B to GPT-4. The pathway
+knowledge of LLMs comes from the biological pathway corpus during pre-training, which lacks
+a structured organization, making it difficult to plan reasoning paths based on pathway structures.
+This leads to errors such as faulty steps and omissions, and difficulty in simulating the events in the
+pathway during interventions. Additionally, current graph-augmented reasoning methods lack the
+ability to efficiently leverage pathway graphs during reasoning.
+To address these challenges, we propose a novel approach called P ATHSEEKER , an LLM agent
+designed to emulate the way scientists reason using biological pathways. During inference, it in-
+teractively explores biological pathways by efficiently navigating global-local subgraphs based on
+demand. This interactive process establishes a mutually reinforcing relationship between inference
+and pathway browsing, helping LLMs utilize pathway data for reasoning. It addresses challenges
+such as interventions and perturbations, long reasoning chains, and errors.
+2 R ELATED WORK
+Biological Scientific Question Answering Previous studies have explored the potential of language
+models in the biological scientific domain (Lu et al., 2022; Vilares & G ´omez-Rodr´ıguez, 2019; Jin
+et al., 2021; Pal et al., 2022), such as biological scientific reading comprehension (Welbl et al.,
+2018; Jin et al., 2019) and question-answering (Krithara et al., 2023). A few studies have examined
+language models’ ability to complete biological pathways (Li et al., 2023b; Park et al., 2023; Azam
+et al., 2024). Different from previous tasks, this work introduces biological pathway reasoning in
+realistic research scenarios. See Appendix A.12 for a more detailed comparison.
+Graph-augmented Language Model Several studies have explored augmenting LLMs with graph
+data. In particular, some works enhance LLMs by encoding graph data as text (Ye et al., 2023;
+2
+
+Wang et al., 2024; Fatemi et al., 2023), or tuning LLMs specifically for graph-based tasks (Liu et al.,
+2023a; Tang et al., 2024; He et al., 2024; Zhao et al., 2023; He & Hooi, 2024). Augmented LLMs
+have been applied to knowledge-based QA (Sun et al., 2023; He et al., 2024; Li et al., 2023a; Jin
+et al., 2024; Cheng et al., 2024; Edge et al., 2024) and graph tasks like property prediction (Wang
+et al., 2024; He et al., 2023). Some studies leverage graph structures for complex reasoning tasks
+(Jiang et al., 2023; Besta et al., 2024). Most large graph databases use retrieval mechanisms (He
+et al., 2024; Li et al., 2023a), while others employ LLMs as interactive agents for navigation (Sun
+et al., 2023; Jin et al., 2024; Li et al., 2024). This work introduces a more efficient agent-based
+approach using subgraph navigation and reasoning to improve pathway database exploration.
+3 B ENCHMARK : B IOMAZE
+3.1 D ATASET CREATION
+BioMaze is created by generating question-answer pairs from biological pathway research papers,
+which are then checked and filtered through a combination of automated methods and expert human
+review. The dataset creation process involves prompting large language models, with GPT-4 and
+LLaMA3.1-405B (Dubey et al., 2024) being selected for data generation in this study.
+To gather relevant biological pathway questions in realistic scientific research contexts, particularly
+those involving interventions, the data for BioMaze is sourced from over 6,000 biological pathway
+research papers. These studies include carefully designed experimental interventions supported by
+pathway mechanisms to observe biological system responses. After extracting detailed experimental
+observations and their contexts, we convert each one into either a True/False or open-ended question,
+depending on its content. Each question is paired with corresponding labeled answers.
+We then apply multiple data filters and human expert reviews to ensure the accuracy and quality
+of the questions. The accuracy of each question is validated by comparing it with the content of
+the original paper. Question quality is ensured through several filters that remove questions that
+are poorly defined, ask for specific measurement values, query more than one fact, are trivial (with
+answers revealed in the question’s context), or are unrelated to biological pathways.
+Finally, all questions are reviewed by human experts based on quality dimensions and their judgment
+to ensure overall question quality. The passing rate for expert review is approximately 40%. After
+applying all filters, BioMaze contains 5.1k high-quality questions. More details are provided in
+Appendix A.2.
+The questions of BioMaze cover a wide range of biological domains, as illustrated in Figure 2 (left).
+3.2 R EASONING TYPE CATEGORIES
+To study various research scenarios in biological pathways, such as natural dynamic changes, dis-
+turbances and interventions, and additional intervention conditions, as well as a multi-scale under-
+standing of single factors, action processes, and macroscopic functions, we classify BioMaze tasks
+from three dimensions, namely inquiry type, extra condition, and investigation target, as shown in
+Table 1. More full question cases are in Appendix A.1. The distribution of the three dimensions’
+questions is shown in Figure 2 (right). We introduce each category of the dimensions below:
+Dimension 1: Inquiry Type is the independent variable studied, which can be either Normal
+Source, involving the prediction of the effects of natural components in their normal state within a
+biological pathway, or Perturbed Source, which deals with predicting the effects of external inter-
+ventions or treatments—such as mutations, infections, or experimentally introduced elements—on
+downstream targets within pathways. Normal Source tasks focus on understanding the fundamental
+mechanisms and natural dynamics of pathways, while Perturbed Source tasks examine the phe-
+nomenon under perturbation.
+Dimension 2: Extra Condition refers to additional settings besides the independent variable. This
+could be the Natural Condition, where no additional treatments are applied, and the pathway op-
+erates under the organism’s natural conditions, or the Intervened Condition, which assesses the
+impact of the inquiry source when the pathway has already been influenced by other factors, such as
+3
+
+Dimension Category Example (abbreviated) Illustration
+Inquiry Type
+Normal What is the effect of AMPK activation on SIRT1
+activity in mouse skeletal muscle?
+Perturbed
+What is the effect of GogB-deficient Salmonella
+on NFkappaB activation and proinflammatory re-
+sponses in infected mice?
+Extra Condition
+Natural How does apelin affect TNFalpha inhibition on
+brown adipogenesis?
+Intervened What is the role of BID in BAX activation in AIF-
+mediated necroptosis after MNNG treatment?
+Investigation Target
+Single What happens to AQP2 upon ADH stimulation?
+Interaction How does the influenza protein NS1 affect the ac-
+tivation of RIG-I by viral ssRNA?
+Function
+What is the effect of losing 11beta-HSD2 from the
+fetus and fetally derived tissues on cerebellum de-
+velopment?
+Table 1: Task example and causal illustration for each category.
+Human Diseases
+Organism
+al System
+s
+Metabolism
+Environmental Information
+Cellular Processes
+Genetic Information
+Infec
+tious d
+iseas
+e: v
+iral
+Cancer: o
+verview
+Infectious disease: bacterial
+Neurodegenerative disease
+En
+docrine an
+d m
+etab
+olic diseas
+e
+Cancer: specific types
+Car
+diovascular diseas
+e
+Infectious disease: parasitic
+Substance dependence
+Immune disease
+Drug resistance: antineoplastic
+Drug resistance: antimicrobial
+Endocrine system
+Immune system
+Nervous system
+Digestive system
+Environmental ad
+aptation
+Circulatory system
+Sen
+sory system
+Excretory system
+Development and regeneration
+Metabolism of terpenoids and polyketides
+Metabolism
+of cofactors and vitam
+ins
+Biosynthesis of other secondary metabolites
+Lipid m
+etabolism
+Glycan biosynthesis and m
+etabolism
+M
+et
+ab
+olism
+o
+f o
+ther
+am
+ino ac
+ids
+Xenobiotics biodegradation and m
+etabolism
+Carbohydrate m
+etabolism
+Am
+ino ac
+id m
+et
+ab
+olism
+Ener
+gy m
+et
+ab
+olism
+Global and overview m
+aps
+Signal transduction
+Signaling molecules and interaction
+Membrane transport
+Cell growth and death
+Transport and catabolism
+Cellular community - eukaryotes
+Cell motility
+Cellular community - prokaryotes
+Folding, sorting and degradation
+Replication and repair
+Information processing in viruses
+Normal Natur
+al Single
+Normal Natur
+al Inter
+action
+Normal Natur
+al Function
+Normal Interv
+ened Single
+Normal Interv
+ened Inter
+action
+Normal Intervened Function
+Perturbed Natur
+al Single Perturbed Natur
+al Inter
+action
+Perturbed Natur
+al Function
+Perturbed Interv
+ened Single
+Perturbed Interv
+ened Interaction
+Perturbed Intervened Function
+Figure 2: Dataset biological domain and reasoning type distribution. Left: BioMaze covers six
+main domains: metabolism, genetic information processing, environmental information processing,
+cellular processes, organismal systems, and human diseases. Right: BioMaze is categorized along
+three dimensions of reasoning types: inquiry type, extra condition, and investigation target.
+mutations or interventions. The Intervened Condition challenges the model by requiring it to deduce
+the system’s behavior under unnatural conditions, thus increasing the reasoning difficulty.
+Dimension 3: Investigation Target refers to the dependent variable in the question, which could
+be Single Component as Target , focusing on the effect of the source on a specific component
+within the pathway; Components Interaction as Target , examining the effect of the source on
+interactions between components within the pathway; or Function as Target, evaluating the effect
+of the source on broader biological functions or macro-level phenomena. The multi-scale targets
+address the reasoning of single components, downstream processes, or organism-wide outcomes.
+3.3 P ATHWAY GRAPH AUGMENTATED REASONING
+Text-only reasoning methods, such as Chain-of-Thought (CoT), generate reasoning based on the
+inherent knowledge of LLMs. However, biological pathways present unique challenges due to
+their graph-structured nature. Consequently, using graph-augmented LLM reasoning is a natural
+approach for BioMaze. Providing explicit pathway graphs can serve as structural blueprints, en-
+hancing reasoning from both knowledge and planning perspectives. We formalize this problem as
+follows:
+a = G(E, o), (1)
+where G represents the language model,E denotes the task instruction (including the question), o
+refers to the observation from the augment pathway graph database, anda is the model output which
+could be the reasoning and answer.
+4
+
+Pathway Database First Iteration
+Second Iteration
+Third Iteration
+Navigate the graph iteration by iteration.
+0) YopE | RhoA | Inhibition | Yersinia YopE to RhoA
+1) RhoA | ROCK | Activation | Ras signaling pathway
+2) YopE | Cdc42 | Inhibition | Yersinia infection
+...
+6) YopT | Rac1 | Inhibition | Yersinia YopE to ITGA/B-RAC
+7) YopT | Rac | Inhibition | YYersinia YopE to ITGA/B-RAC
+8) ITGA| RhoG | Indirect effect | ITGA-RHOG-RAC signaling
+...
+12) Src | RhoGEF | Activation Phosphorylation |
+ITGA/B-RhoGEF-RhoA signaling
+...
+I should start by searching for the subgraph globally
+using the relevant keywords.
+Search_Subgraph([Yersinia, Rho GTPases…])
+There might be additional content near path 3, so I will
+check its neighboring...
+Search_Neighbor(3, [Yersinia, Rho GTPases…])
+Next, I will search around the neighbors of path 8
+using the new query Cytoskeleton Organization...
+Search_Neighbor(8, [Yersinia, Cytoskeleton
+Organization...])
+Final Answer: I have explored enough pathways and should now conclude the browsing to answer the question. Many Yersinia
+effector proteins, such as YopE and YopT, speciﬁcally target Rho family GTPases (like RhoA, Rac1, and Cdc42)…
+Question:What would be the potential impact on Yersinia infection if the host cell's Rho GTPases contained a mutation?
+Cdc42
+WASP
+Y opE
+RhoA
+ROCK
+Y opT
+RhoG
+Rac1
+Rac DOCK
+180
+ITGA
+Src
+Src
+RhoGEF
+Crk
+Figure 3: P ATHSEEKER allows interactive browsing of the pathway graph database by navigating
+through subgraphs. At each step, P ATHSEEKER can perform either a global subgraph search or a
+local search around a previously explored pathway step. This functionality enables PATHSEEKER to
+fully leverage the augmented pathway graph database during biological pathway reasoning.
+Pathway Graph Database To augment LLMs with reasoning in biological pathways, we created a
+pathway graph database based on KEGG (Kanehisa & Goto, 2000), a collection of pathway maps on
+metabolism and various cellular and organismal functions widely-used resource among biologists.
+We compiled all available pathway networks and maps from KEGG and integrated all of them into
+a single pathway graph database. The statistics for the pathways are in Appendix A.4. Each entry
+in the dataset is provided with a detailed description and function corpus. The graph is structured in
+triples as [Head IDs, Tail IDs, (Relation Type, Biological Process IDs)].
+Pathway Graph Database API: When the language model accesses the pathway database, it may
+need to retrieve relevant triples from the pathway graph using APIs likeSearch Node, Search Edge,
+Search Triple, and Search Subgraph (Sun et al., 2023; Li et al., 2023a). Our pathway database
+supports these core retrieval APIs, which are based on detailed descriptions and functional cor-
+pora. These APIs are essential for enabling various graph-augmented reasoning methods in
+LLMs. When the pathway graph S is to be input to the LLM, they are encoded into text o by
+o = TripleToText(DFSOrder(S)). The details of the API implementations are described in Ap-
+pendix A.5.
+4 M ETHOD : PATHWAY REASONING AGENT PATHSEEKER
+As we evaluated several graph-augmented reasoning methods, we found that current graph-
+augmentation methods’ performance is limited by their ineffective utilization of the pathway graph
+database for reasoning. Inspired by how scientists browse pathway networks during reasoning, we
+propose PATHSEEKER , a reasoning agent method that can interactively conduct reasoning and take
+actions to perceive and navigate pathways using a web-like engine, along with flexible reasoning in
+each step, as shown in Figure 3.
+At each step, t, the language agent G can conduct reasoning by natural language thought, and
+takes an action step at, based on problemE (problem instructions) and previous observation-action
+trajectory ht = [o1, a1, . . . , ot−1, at−1, ot],
+at = G(E, ht) (2)
+Global and Local Subgraph Navigation In addition to the global subgraph retriever
+Search Subgraph, P ATHSEEKER has access to an additional neighbor subgraph retriever,
+Neighbor Subgraph(line id, query, N), which retrieves an optimal connected subgraph of tar-
+5
+
+get size from the multi-hop neighbors of a previously observed pathway step line id.
+Neighbor Subgraph(line id, query, N) =
+argmax
+S⊆Pid,S is connected ,|S|=N
+X
+i∈VS∪ES
+score(i, query) (3)
+Here, Pid represents the multi-hop neighbors of the triple withline id. This allows PATHSEEKER
+to navigate the pathway graph database by either performing a global search or by exploring the
+multi-hop neighbors of an observed subgraph at each step. See Appendix for case A.6.
+Graph Encoding In step t, the action taken by LLM agent get subgraph St from environment, and
+the subgraph is encoded into text observation ot as following:
+ˆSt = DFSOrder (RemoveSeen(St, [S1, . . . , St−1]))
+ot = TripleToOrderedText
+
+ˆSt, TotalNum ([S1, . . . , St−1])
+(4)
+Function RemoveSeen eliminates triples from the t-th turn’s subgraph that have been observed in
+previous turns, ensuring that each triple appears in the LLM’s observations only once when first
+retrieved. This approach enhances content length efficiency and encourages the LLM to understand
+the whole navigation history rather than focusing solely on the most recent turn.
+The function TripleToOrderedTextconvert ordered subgraph ˆSt into text in the following format:
+Line ID) Head| Tail| Relation and Biological Process. These global line IDs indicate the order of
+each triple across all turns, providing a unique reference for the LLM agent during local searches or
+reasoning. For the t-th turn’s subgraph St, the ID starts at the total number of unique triples seen in
+previous history, given by TotalNum([S1, . . . , St−1]).
+Final Reasoning As graph data browsing finishes, the final reasoning is conducted based on all the
+navigation history:
+ar = G(Er, [o1, . . . , oT ])
+Graph Navigation Capacity The combination of global and local subgraph retrieval APIs empow-
+ers LLM agents to explore the entire network flexibly and efficiently. It allows the LLM to guide
+its exploration by adjusting both keywords and the root of the local subgraph, depending on the in-
+termediate reasoning, offering stronger expressiveness than navigation methods like BFS, DFS, and
+various retrieval methods.
+5 E XPERIMENT
+5.1 B ASELINE AND METRIC
+We evaluate the reasoning performance of LLMs on BioMaze in both the unaugmented step-by-step
+reasoning and the pathway graph-augmented methods. We adopt reasoning method without graph
+augmentation Chain-of-Thought (CoT) (Wei et al., 2022; Kojima et al., 2022), and methods with
+pathway graph augmentation: Chain-of-Knowledge (CoK) (Li et al., 2023a), Think-of-Graph (ToG)
+(Sun et al., 2023), and G-Retriever (He et al., 2024). Details of baselines are in Appendix A.7.
+For True/False tasks, we compute accuracy averaged across the True and False labels to account for
+label imbalance in the dataset. For open-ended tasks, the LLM is used to evaluate the accuracy of
+generated answers by comparing them to the ground truth and determining whether they are correct
+or incorrect. In this study, we use the LLaMA3.1-405B model as the evaluator, with five in-context
+examples. The performance of the evaluator is further analyzed in Appendix A.9.
+5.2 M AIN RESULT
+We evaluate PATHSEEKER and baseline methods on BioMaze, presenting results in Tables 2 and 3.
+The comparison covers task dimensions including signal source, additional conditions, and target.
+The results lead to the following conclusions:
+LLMs struggle with biological pathway reasoning. Pathway reasoning tasks in BioMaze are
+tough for LLMs, with True/False accuracy slightly above random. Both CoT and graph-augmented
+reasoning reveal the gap between LLM capabilities and the complexity of biological systems.
+6
+
+Method w. Pathway Graph Inquiry Type Extra Condition Investigation Target
+Normal Perturbed Natural Intervened Single Interaction Function
+GPT-3.5
+Vanilla (0 Shot)
+✗
+57.92 54.60 56.99 54.88 59.91 55.63 56.68
+Vanilla (2 Shot) 60.73 55.59 57.40 59.39 60.30 46.43 58.26
+CoT (0 Shot) 59.92 61.48 62.74 51.00 57.69 56.75 66.25
+CoT (2 Shot) 64.92 56.39 61.46 57.12 60.86 61.01 59.92
+ToG
+✓
+59.60 50.83 53.92 62.50 53.40 60.00 55.21
+CoK 60.70 54.07 57.29 56.49 60.19 50.00 58.04
+G-Retriever 64.14 59.32 61.55 61.88 61.53 59.00 62.60
+PATHSEEKER 63.55 63.93 57.48 62.74 62.85 64.73 68.13
+LLaMA3.1 8B
+Vanilla (0 Shot)
+✗
+55.82 56.64 57.21 53.37 57.87 58.31 55.66
+Vanilla (2 Shot) 55.92 58.88 60.04 59.20 61.88 60.75 54.14
+CoT (0 Shot) 63.01 54.35 59.50 53.90 59.22 62.27 55.68
+CoT (2 Shot) 62.47 57.73 60.45 58.15 60.28 59.97 59.47
+ToG
+✓
+58.99 55.31 56.67 58.35 56.79 57.85 57.10
+CoK 62.01 52.89 59.41 50.23 57.46 62.57 55.43
+G-Retriever 63.43 57.71 56.88 53.90 61.54 60.01 59.10
+PATHSEEKER 63.69 60.25 62.30 62.91 61.27 63.19 63.99
+Table 2: Accuracy (%) on BioMaze True/False tasks (50% corresponds to the random guessing
+baseline). The optimal results are in bold and the suboptimal ones are underlined.
+Method w. Pathway Graph Inquiry Type Extra Condition Investigation Target
+Normal Perturbed Natural Intervened Single Interaction Function
+GPT-3.5
+CoT (0 Shot) ✗ 65.96 61.49 67.15 43.24 61.57 61.90 66.67
+CoT (2 Shot) 65.43 59.08 63.29 56.25 67.76 66.29 53.26
+ToG
+✓
+65.52 59.86 64.71 48.65 66.39 64.00 56.17
+CoK 70.27 54.00 63.87 50.00 62.93 67.00 58.18
+G-Retriever 65.19 61.54 64.18 53.70 68.72 66.01 55.11
+PATHSEEKER 67.51 64.33 66.87 57.59 65.16 67.76 65.79
+LLaMA3.1 8B
+CoT (0 Shot) ✗ 62.79 57.19 61.50 51.16 62.77 62.50 55.31
+CoT (2 Shot) 58.09 49.52 55.31 45.11 60.06 60.32 42.61
+ToG
+✓
+52.14 49.48 52.05 43.60 53.33 55.24 45.68
+CoK 60.55 55.23 59.12 50.63 61.12 62.50 52.15
+G-Retriever 53.83 51.19 53.27 48.10 57.79 55.44 46.52
+PATHSEEKER 61.65 60.78 61.30 60.60 64.14 64.43 55.07
+Table 3: Accuracy (%, evaluated by LLM) on BioMaze open-ended tasks. The optimal results are
+in bold and the suboptimal ones are underlined.
+Perturbation query in BioMaze presents significant challenges. LLMs perform worse with per-
+turbed inquiry settings than normal ones, especially in True/False and open-ended formats. This
+suggests that reasoning about biological pathways is harder in intervention scenarios, where the
+events are less aligned with common biological knowledge. answerable using established biological
+knowledge about how typical pathways work.
+Intervened conditions present greater reasoning challenges. Like perturbations, intervention
+condition complicate reasoning by disrupting the biological system. These scenarios require more
+deductive reasoning, as they rely less on typical biological knowledge.
+Reasoning target brings diverse challenges for reasoning. The Investigation target creates varied
+difficulties, causing inconsistent performance across models and reasoning methods. ”Function as
+target” is the most difficult category.
+Pathway augmentation can enhance reasoning in biological systems, especially for interven-
+tion cases. As shown in Tables 2 and 3, reasoning methods with pathway augmentation, espe-
+cially PATHSEEKER , outperform non-augmented approaches. P ATHSEEKER consistently exceeds
+CoT across most question types and categories, regardless of the backbone model, highlighting the
+value of integrating biological pathways to enhance reasoning in biological systems. Additionally,
+PATHSEEKER outperforms other graph augmentation methods, demonstrating the effectiveness of
+7
+
+LLaMA3.1 8B LLaMA3.1 70B Qwen2.5 7B Qwen2.5 14B Qwen2.5 72B GPT3.5 GPT4
+Models
+40
+50
+60
+70
+80Scores
+Comparison (True/False) of Models across Pathway Reasoning Settings
+Normal
+Perturbed
+Natural
+Intervened
+Single
+Interaction
+Function
+LLaMA3.1 8B LLaMA3.1 70B Qwen2.5 7B Qwen2.5 14B Qwen2.5 72B GPT3.5 GPT4
+Models
+40
+50
+60
+70
+80Scores
+Comparison (Open-ended) of Models across Pathway Reasoning Settings
+Normal
+Perturbed
+Natural
+Intervened
+Single
+Interaction
+Function
+Figure 4: Comparison of the reasoning abilities of different LLMs for biological pathways. While
+overall performance improves with larger and more powerful models, a consistent gap exists be-
+tween normal/perturbed and natural/intervened settings. This highlights the inherent limitations of
+LLMs in reasoning about the causal relationships within biological pathways.
+its subgraph-based navigation approach. Notably, it reduces the performance gap between natural
+and intervened/perturbed groups, helping bridge the gap in pathway causal reasoning.
+5.3 A NALYSIS
+Backbone Ability for Pathway Reasoning We compare the performance of different backbones in
+Figure 4. As the model size and capacity increase, overall performance improves, indicating a strong
+correlation between an LLM’s general reasoning ability and its performance in pathway reasoning.
+However, a consistent gap remains between the normal/perturbed and natural/intervened settings
+across different backbones. This underscores the inherent limitations of LLMs in reasoning about
+causal relationships within biological pathways.
+Reasoning Difficulty with Steps To explore the relationship between task difficulty and reasoning
+steps in BioMaze, we prompted LLaMA3.1-405B to explain its reasoning process based on the
+correct answer and pathway to get the step numbers.
+Figure 5 shows that Chain-of-Thought (CoT) performance declines as reasoning steps increase,
+suggesting that more steps lead to higher reasoning difficulty. This supports our hypothesis that the
+complexity of the pathways is one factor of challenges in biological pathway reasoning.
+Notably, P ATHSEEKER ’s performance remains more consistent across different reasoning step
+counts. This suggests that augmenting LLMs with biological pathway information can mitigate the
+challenges of pathway reasoning, particularly when dealing with intricate intermediate processes.
+Failure Reasons Statistics We analyze failed cases in biological pathway reasoning, covering CoT
+and PATHSEEKER , and classify the failures into: (1) Unresolved Conclusion (UC) For cases where
+the model fails to provide a definitive answer, indicating uncertainty or belief that the answer is
+unknown. (2) Incomplete Answer (IA) When the response lacks essential details, such as missing
+the requested effects or other key elements. (3) Omission in Reasoning (OR) For errors where
+critical pathway steps in the question’s biological process are left out, causing the final answer to be
+incorrect. (4) Faulty in Reasoning (FR)When the reasoning path is correct, but there are significant
+errors in deducing the events within that pathway. We manually classify 200 random samples from
+these error cases to approximate the overall error cases, with a professional biology Ph.D. student.
+The results in Figure 6 show that in both True/False and open-ended tasks, the main error in CoT
+reasoning is faulty reasoning, where LLMs correctly identify the biological pathway but misinterpret
+the events within it. Another key error is omission, where critical steps or branches of the pathway
+8
+
+/uni00000014/uni00000015/uni00000016/uni00000017/uni00000018/uni00000019/uni0000001a
+/uni00000035/uni00000048/uni00000044/uni00000056/uni00000052/uni00000051/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000036/uni00000057/uni00000048/uni00000053
+/uni00000018/uni00000013
+/uni00000018/uni00000018
+/uni00000019/uni00000013
+/uni00000019/uni00000018
+/uni0000001a/uni00000013/uni00000026/uni0000004f/uni00000044/uni00000056/uni00000056/uni00000003/uni00000024/uni00000059/uni0000004a/uni00000011/uni00000003/uni00000024/uni00000046/uni00000046/uni00000058/uni00000055/uni00000044/uni00000046/uni0000005c
+/uni00000037/uni00000055/uni00000058/uni00000048/uni00000012/uni00000029/uni00000044/uni0000004f/uni00000056/uni00000048
+/uni00000032/uni00000058/uni00000055/uni00000056
+/uni00000026/uni00000052/uni00000037
+/uni00000014/uni00000015/uni00000016/uni00000017/uni00000018/uni00000019/uni0000001a/uni0000001b/uni0000001c
+/uni00000035/uni00000048/uni00000044/uni00000056/uni00000052/uni00000051/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000036/uni00000057/uni00000048/uni00000053
+/uni00000015/uni00000013
+/uni00000016/uni00000013
+/uni00000017/uni00000013
+/uni00000018/uni00000013
+/uni00000019/uni00000013
+/uni0000001a/uni00000013/uni00000024/uni00000046/uni00000046/uni00000058/uni00000055/uni00000044/uni00000046/uni0000005c
+/uni00000032/uni00000053/uni00000048/uni00000051/uni00000010/uni00000028/uni00000051/uni00000047/uni00000048/uni00000047
+/uni00000032/uni00000058/uni00000055/uni00000056
+/uni00000026/uni00000052/uni00000037
+Figure 5: Performance versus reasoning steps. LLMs face increasing difficulty in reasoning about
+biological systems as task complexity rises and requires more reasoning steps. In contrast, pathway
+augmentation significantly mitigates the drop of performance for tasks that involve more steps.
+UC IA OR FR
+0
+2
+4
+6
+8
+10
+12
+14
+CoT OursOpen-Ended GPT3.5
+Percentage of Errors Across All Data
+UC OR FR
+0
+2
+4
+6
+8
+10
+12
+14
+16
+18
+CoT OursTrue/False GPT3.5
+Percentage of Errors Across All Data
+Figure 6: Error analysis for CoT reasoning and reasoning with pathway augmentation (our method
+PATHSEEKER ). The primary cause of errors in (CoT) reasoning for biological systems is due to both
+faulty reasoning and omissions in reasoning. When pathway augmentation is applied, omissions in
+reasoning become the predominant issue, but the rate of faulty reasoning is significantly reduced,
+thereby improving the overall reasoning accuracy of LLMs in biological systems.
+are overlooked. This highlights the challenges LLMs face in reasoning about biological pathways,
+due to both knowledge gaps and difficulties in deductive reasoning.
+PATHSEEKER reduces faulty reasoning by providing pathway graphs, improving accuracy. How-
+ever, omissions remain a challenge, often due to limitations in the pathway database and browsing
+issues. With pathways available, LLMs are more confident and less fail in drawing conclusions.
+Agent #Steps 1-4 4-6 6-8 8-10 ≥10
+True / False 0.91 50.14 26.58 12.66 9.70
+Open-Ended 1.45 52.44 25.69 13.97 6.46
+Table 4: Agent steps distribution (%) of P ATH-
+SEEKER during task completion.
+Task Type Global Local
+True / False 1.47 3.62
+Open-Ended 1.57 3.43
+Table 5: Average API usage times of P ATH-
+SEEKER during task completion.
+5.4 M ETHOD ANALYSIS AND ABLATION STUDY
+API Usage and Step Distribution We analyze PATHSEEKER ’s agent behavior by reviewing task
+steps and API usage. Tables 4 and 5 show that most tasks are completed in six or fewer steps,
+though some require over ten due to missing pathway data. On average, the agent performs 1.5
+global searches and over three local navigations per task, indicating frequent subgraph exploration.
+Ablation Study To evaluate PATHSEEKER ’s components, we perform ablation studies, with results
+for LLaMA3-8B in Table 6. The most important component is FinalReaser; without it, the agent’s
+answers degrade due to long task history. The local search API is also crucial for efficient graph nav-
+igation, and the graph encoding method improves performance, highlighting the value of encoding
+graph data for sequential models.
+9
+
+Task Type P ATHSEEKER w.o. RemoveSeen w.o. DFSOrder w.o. TripleToText w.o. Local search w.o. FinalReasoner
+True / False 61.87 57.48 58.60 58.32 57.78 56.97
+Open-Ended 61.21 58.96 55.82 57.06 57.46 58.25
+Table 6: Ablation Study of PATHSEEKER .
+6 C ONCLUSION
+In this study, we introduce BioMaze, a benchmark designed to evaluate LLMs’ ability to under-
+stand and reason about biological pathways. Extensive evaluations using BioMaze, incorporating
+advanced methods like CoT and graph-augmented approaches, show that LLMs struggle with un-
+derstanding pathway mechanisms. We also propose P ATHSEEKER , a novel LLM agent that uses
+interactive subgraph exploration to enhance reasoning in biological pathways.

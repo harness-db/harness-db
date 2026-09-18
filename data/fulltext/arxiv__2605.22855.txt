@@ -1,0 +1,648 @@
+record_id: arxiv:2605.22855
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2605.22855
+fetched_title: PREFBENCH: EVALUATINGZERO-SHOTLLM AGENTS INHIDDEN-PREFERENCEPERSONALIZED PRICINGNEGOTIATIONS
+fetched_at: 2026-09-18T18:59:59Z
+
+PREFBENCH: EVALUATINGZERO-SHOTLLM
+AGENTS INHIDDEN-PREFERENCEPERSONALIZED
+PRICINGNEGOTIATIONS
+A PREPRINT
+Yingjie Lei
+University of Aberdeen
+u19yl22@abdn.ac.uk
+May 2026
+/githubCode:https://github.com/ChaosTheProducer/PrefBench
+ABSTRACT
+Personalized pricing negotiations are a challenging testbed for LLM agents because
+successful interaction does not guarantee profitable decision making. A seller
+may produce valid actions and close many deals while still pricing poorly when
+buyer willingness to pay and bargaining traits remain hidden. This paper presents
+PrefBench, a simulator-based benchmark for hidden-preference personalized pricing
+negotiations. Each episode pairs a simulated buyer with a fixed vehicle-customization
+bundle; the seller observes public persona descriptors, bundle information, and
+negotiation history, while latent buyer variables govern valuation, patience, counter-
+offer behavior, and walkaway decisions. PrefBench evaluates this setting through
+an LLM-facing state-summary protocol that constrains agents to return strict JSON
+actions under a fixed hidden-information boundary. We evaluate zero-shot LLM
+sellers against heuristic references over 7,500 episodes. The tested LLMs follow the
+protocol reliably and achieve deal rates above 0.99, but their seller-profit outcomes
+remain weak: the best LLM average profit is only slightly above the random baseline
+and far below a simple concession heuristic under the same episode stream. These
+results show that structured action compliance and agreement-seeking behavior
+can coexist with weak profit-sensitive bargaining. PrefBench provides a controlled
+benchmark for evaluating pricing-agent behavior under hidden buyer preferences.
+KeywordsPersonalized pricing · LLM agents· Agent evaluation· Hidden buyer preferences·
+Simulator-based benchmark
+arXiv:2605.22855v1 [cs.GT] 19 May 2026
+
+PrefBench A PREPRINT
+1 Introduction
+Personalized pricing is difficult when buyers value the same product differently and the seller
+observes only a partial view of those differences. In configurable-product negotiations, willingness
+to pay can depend on budget, use case, feature priorities, aesthetic taste, and bargaining style. The
+seller must therefore decide how aggressively to price without observing the buyer’s latent valuation.
+This setting creates a useful distinction for evaluating seller agents. A high offer may preserve
+margin but trigger rejection or walkaway; a low offer may close the deal quickly but sacrifice profit.
+The central question is not only whether an agent can reach agreement, but whether it can use a
+short negotiation to turn partial information into profitable agreement.
+This distinction is especially relevant for LLM agents. In pricing negotiations, valid actions and
+completed deals are not sufficient evidence of good decision making: a seller agent can obey a
+JSON schema and close nearly every deal while still pricing too softly. Hidden-preference pricing
+therefore separates structured action compliance from profit-sensitive strategy.
+Existing benchmarks do not directly isolate this combination. Dynamic and personalized pricing
+work studies demand response, revenue optimization, and customer heterogeneity [ 1–4]. Retail
+simulators provide controlled environments for pricing or recommendation policies [5]. Negotiation
+benchmarks study bargaining behavior, preferences, and mental-state reasoning [6–9], while general
+LLM-agent benchmarks study tool use, task completion, and rule following [ 10–12]. What is
+missing is a fixed evaluation setting that combines hidden buyer variables, seller-side profit, multi-
+round pricing actions, and structured LLM outputs under one shared protocol.
+We present PrefBench, a controlled simulator-based benchmark for hidden-preference personalized
+pricing negotiations. PrefBench stress-tests seller-side pricing behavior under a fixed hidden-
+information boundary, using simulator-level outcomes to support reproducible comparison. Each
+episode pairs one simulated buyer with one fixed vehicle-customization bundle. The agent observes
+public persona descriptors, bundle information, and negotiation history, while the simulator retains
+benchmark-defined latent variables such as willingness to pay, price sensitivity, patience, counter
+strength, walkaway threshold, and feature preferences. Agents act through offer, accept, and
+walkaway moves, and outcomes are evaluated by simulator seller profit together with negotiation
+diagnostics.
+Using PrefBench, we evaluate zero-shot LLM agents under a strict structured-action protocol.
+At each decision point, the model receives a prompt rendered from the current observable state
+summary rather than a persistent free-form negotiation transcript. In our experiments, LLMs
+produce zero invalid episodes and deal rates above 0.99, showing that the tested models can follow
+the interface and reach agreements. The profit results tell a different story. The best LLM average
+profit is 6,749.21 USD, only slightly above the random baseline at 6,572.33 USD and far below
+a simple concession heuristic at 14,774.11 USD under the same episode stream. These results do
+not show that LLMs are generally poor at pricing. They show that, in this benchmark, high action
+compliance and high agreement rate can coexist with weak seller-profit behavior.
+The main contributions are:
+• We formulate a hidden-preference personalized-pricing negotiation task for evaluating LLM
+agents as seller-side decision makers.
+2
+
+PrefBench A PREPRINT
+• We introduce a controlled benchmark with public-data-informed persona descriptors,
+benchmark-defined latent buyer variables, a structured product catalog, frozen evaluation
+splits, and shared episode-level metrics.
+• We define an LLM-facing protocol that renders only observable state summaries into prompts
+and constrains agents to return strict JSON actions under the same hidden-information
+boundary.
+• We report zero-shot LLM baselines showing that protocol compliance and agreement rate
+can substantially overstate seller-side pricing performance.
+• We release PrefBench as a controlled evaluation substrate for pricing-agent research, with
+simulator assumptions and scope boundaries documented explicitly.
+2 Related Work
+Dynamic and personalized pricing.Dynamic pricing has been studied through contextual
+pricing, demand estimation, and learning-based price adjustment [1, 2, 13]. Personalized pricing
+additionally raises questions about consumer heterogeneity, fairness perception, and how individual
+or segment-level information should be used [3, 4, 14]. Product attributes and configurable options
+have also been studied as differentiated pricing objects, including automobile variants and config-
+urable products [15, 16]. PrefBench builds on this motivation but isolates a different evaluation
+question: how a seller-side agent prices a fixed configurable bundle when buyer valuation and
+bargaining traits remain hidden.
+Negotiation agents and environments.Automated negotiation has a long history in multi-agent
+systems, including shared platforms and competitions such as ANAC and Genius [6, 7]. NegMAS
+provides another research-oriented framework for constructing negotiation simulations [17]. Re-
+cent LLM-facing negotiation work evaluates bargaining ability and theory-of-mind reasoning in
+negotiation settings [8, 9]. PrefBench focuses this line on a pricing-specific question: whether an
+LLM seller can convert observable buyer and interaction signals into seller-profit outcomes when
+the evaluator retains hidden buyer valuation variables. The unit of evaluation is action-level pricing
+behavior over configurable product features, rather than negotiation reasoning alone.
+LLM agents and structured action evaluation.General LLM-agent benchmarks evaluate
+whether models can act across interactive environments, use tools, follow task rules, or call APIs
+reliably [10–12]. PrefBench shares this structured-interface concern: LLM agents must convert an
+observable state-summary prompt into a valid JSON action. It then evaluates whether a model that
+follows the protocol can also make profit-sensitive pricing decisions when buyer preferences remain
+hidden.
+Simulation benchmarks and persona grounding.Standardized simulator environments are
+useful when real interaction data are costly, sensitive, or difficult to control. Synthetic or simulator-
+based benchmarks are used in retail and pricing simulation settings [5, 18]. PrefBench follows this
+simulator-based tradition while making its assumptions explicit. Its observable buyer descriptors are
+informed by public U.S. demographic, income, and travel-purpose sources [19–21], while hidden
+preference and bargaining variables are benchmark-defined rather than directly observed. This
+3
+
+PrefBench A PREPRINT
+Table 1: Compact PrefBench task specification. The seller receives only visible fields, while hidden
+buyer variables are retained by the simulator.
+Component Fields or definitions
+Customization scope Fixed vehicle-customization bundle sampled from 20 canonical options
+across 11 dimensions; one option is selected per dimension and remains
+fixed throughout the episode. Package dependencies and cross-option
+compatibility constraints are not modeled.
+Visible buyer fields Age band, income band, household stage, ownership stage, and primary
+use case.
+Visible bundle fields Selected option keys and dimensions, bundle MSRP delta, estimated
+implementation cost, and aesthetic proxy score.
+Visible interaction fields Current round, remaining seller turns, latest seller offer, latest buyer re-
+sponse, latest buyer counter-offer if available, and history length.
+Hidden buyer variables Willingness-to-pay process, reservation-price level, price sensitivity, pa-
+tience, counter strength, walkaway threshold, and feature-preference
+weights.
+Seller actionsoffer(price_offer_usd),accept, andwalkaway.
+Core reported metrics Realized seller profit, deal rate, average rounds, and LLM invalid-output
+rate.
+separation positions PrefBench as a controlled evaluation benchmark for hidden-preference pricing
+behavior.
+3 Task Formulation
+PrefBench defines a finite-horizon seller-side pricing task over a bounded vehicle-customization
+scope. As summarized in fig. 1, one episode is one negotiation between a pricing agent and a
+simulated buyer over one fixed customization bundle. The instantiated catalog, described in section 4
+and summarized in section A, contains 20 canonical options across 11 customization dimensions.
+Each episode samples one option per dimension to form the bundle under negotiation.
+The bundle identity is fixed during the episode, so the agent adjusts price and negotiation moves
+while observing buyer responses. This task design focuses the benchmark on pricing under hidden
+preferences, with product recommendation, assortment design, package-dependency logic, and
+vehicle-configuration optimization left outside the episode.
+The seller observes only a partial state. At the start of an episode, the observation contains the
+selected bundle and coarse buyer profile fields. As the episode unfolds, the observation also
+includes the current round, the latest seller offer, the latest buyer response, any buyer counter-offer,
+and a visible history summary. The seller does not observe the buyer’s latent willingness to pay,
+reservation-price level, price sensitivity, patience, counter strength, walkaway threshold, or feature-
+preference weights. These variables remain on the simulator side and shape the buyer’s responses.
+Table 1 summarizes the benchmark-facing information boundary.
+The action space has three move types: offer, accept, and walkaway. An offer proposes a
+price for the fixed bundle. The legal offer domain is any non-negative numeric USD value; offers
+are not rounded to integer dollars, clipped to an MSRP-derived interval, or constrained to exceed
+4
+
+PrefBench A PREPRINT
+One benchmark episode
+fixed bundle, bounded bargaining, terminal return
+Sampled consumer persona
+Observable profile
+age band, income band,
+household stage, use case
+Hidden traits
+reservation level,
+patience, sensitivity,
+bargaining tendency
+Episode
+initialization
+Fixed configuration bundle
+chosen customization features
+bundle MSRP delta
+estimated seller cost
+aesthetic proxy
+Multi-round negotiation loop (max 5 rounds)
+Simulated consumer
+(buyer)
+Responses:
+accept offer
+reject offer
+counter-offer
+walk away
+Pricing agent (seller)
+Action space:
+offer
+accept last counter-offer
+walk away
+Available information:
+observable profile, fixed bundle,
+and interaction history
+1. Agent gets observation
+2. Agent selects an action
+3. Consumer responds
+Repeat until termination
+Hidden-state inference
+The seller never observes hidden buyer traits directly.
+It must infer them from public context and history.
+Terminal
+outcomes
+deal made
+Realized profit
+agreement reached
+within the horizon
+no deal
+Zero profit
+walk-away or timeout
+before agreement
+Figure 1: Structure of one PrefBench episode. A sampled buyer persona and a fixed customization
+bundle define the hidden-preference negotiation problem; the seller observes only public profile,
+bundle, and history information before choosing pricing actions.
+implementation cost. This choice keeps price aggressiveness observable in the outcome: below-cost
+accepted offers are legal but can produce negative deal profit. An accept commits to the buyer’s
+latest counter-offer when such a counter exists. A walkaway ends the negotiation from the seller
+side. The buyer may accept, reject, counter, or walk away in response to seller offers.
+Output validity and action availability are separated. For LLM policies, parser-invalid outputs
+include malformed JSON, non-object responses, unsupported move types, missing offer prices,
+non-numeric offer prices, and negative offer prices. These outputs terminate only the current episode
+and are counted in the reported invalid-output metric. Legal terminal outcomes, including seller
+walkaway, buyer walkaway, and horizon timeout, are not invalid actions. A schema-valid action can
+still be unavailable in the current state: for example,accept requires an existing buyer counter-offer.
+If no counter-offer is available, the simulator records the action as an unsuccessful environment
+step rather than as a parser-invalid output. In the benchmark used here, the maximum negotiation
+horizon isH= 5seller decision rounds.
+The primary seller objective is realized profit,
+profit_usd =p deal−c impl,(1)
+wherepdeal is the final agreed price andcimpl is the estimated implementation cost of the selected
+bundle. This objective makes agreement frequency and economic value distinct: an agent can
+close many deals by pricing softly, while another may preserve margin at the cost of more failed
+negotiations.
+5
+
+PrefBench A PREPRINT
+No-deal outcomes contribute zero realized profit. Deal rate, average rounds, and invalid-output rate
+are therefore reported as diagnostic metrics rather than as replacements for the seller objective. This
+distinction is important for interpreting LLM agents: a policy that maximizes immediate agreement
+can look successful under a completion metric while still performing poorly under seller profit.
+The benchmark profit is terminal realized seller profit, not the auxiliary environment reward used
+internally by the simulator. The environment may assign event-level rewards or penalties to
+intermediate outcomes such as rejected offers, counter-offers, walkaway, timeout, or unavailable
+actions. These values are useful for simulator traces and learned-agent training, but the main tables
+reportprofit_usdfrom eq. (1) for deal outcomes and zero profit for no-deal outcomes.
+The task can be viewed as a finite-horizon partially observable Markov decision process (POMDP).
+The simulator maintains the full latent negotiation state, including buyer valuation and bargaining
+traits, while the seller receives only partial observations and chooses actions that affect both future
+feedback and terminal return. PrefBench uses this formulation to define the information boundary;
+the LLM agents are evaluated as prompt-based policies rather than trained POMDP solvers.
+4 Simulator and Benchmark Assets
+PrefBench instantiates each pricing episode with a fixed vehicle-customization catalog. The catalog
+starts from selected Mercedes-Benz E350 configuration options and MSRP deltas from the official
+build interface [22], then maps them into the benchmark product space summarized in section A.
+Each option carries three benchmark attributes: a consumer-facing MSRP delta, a seller-side
+implementation-cost proxy, and an aesthetic prior. For a selected bundleb, the implementation cost
+is
+cimpl(b) = 0.5
+X
+i∈b
+∆MSRPi,(2)
+where ∆MSRPi is the consumer-facing MSRP delta of optioni. The 0.5 multiplier defines a fixed
+seller-side cost proxy, which makes realized seller profit comparable across policies under the same
+bundle distribution. The bundle is sampled once at the start of an episode and remains fixed, so the
+agent’s decision is price negotiation over a given product configuration.
+The buyer population is represented by a frozen semi-synthetic persona bank. Figure 2 summarizes
+the construction pipeline. Observable fields are coarse profile descriptors, including age band,
+income band, household stage, ownership stage, and primary use case, with U.S. demographic,
+income, and travel-purpose sources used as anchors [19–21]. The observable profile is sampled
+through conditional tables: income band, household stage, and ownership stage depend on age
+band, while primary use case depends on household stage. Hidden traits are then generated from the
+observable profile through benchmark-defined conditional mappings, numeric mixtures, bounded
+shifts, and coupling rules. These hidden traits create controlled partial observability for the pricing
+task. The full conditional tables are provided in section B.
+Each persona record separates seller-visible descriptors from simulator-internal buyer variables.
+Hidden variables include reservation value, price sensitivity, aesthetic sensitivity, patience, counter
+strength, walkaway threshold, brand loyalty, impulsivity, belief obscurity, and feature-preference
+weights. These variables govern how different buyers value the same fixed bundle while remaining
+hidden from the seller. The experiments in this paper use a fixed 7,500-record evaluation split
+6
+
+PrefBench A PREPRINT
+Persona-generation pipeline and offline bank freeze
+observable hidden
+Public buyer
+priors
+public observable
+priors and
+conditional
+sampling tables
+Observable
+sampling
+sample age, income,
+household stage,
+ownership stage,
+and use case
+public side of the persona
+Hidden-trait
+mapping
+map observable
+profile to hidden
+behavioural and
+preference variables
+Persona
+record
+assemble one
+structured persona
+with observable
+and hidden fields
+written once offline
+Frozen
+persona bank
+generate and
+freeze the
+offline bank
+split into train /
+validation / test
+Runtime
+benchmark use
+episodes read personas
+from the fixed bank,
+only observable fields enter
+the agent-facing observation
+read at runtime
+
+Figure 2: Persona-bank construction. Observable descriptors are sampled from public-data-informed
+priors, hidden traits are generated by benchmark-defined mappings, and a fixed evaluation split is
+reused across benchmark runs.
+generated with seed 123 and stratified by age and income; all methods are evaluated on this same
+split.
+The simulator converts each selected bundle into valuation signals through a staged representation.
+Figure 3 illustrates this conversion. The first layer contains seller-visible bundle descriptors:
+selected option keys, dimensions, total MSRP delta, estimated implementation cost, and aesthetic
+proxy. The second layer computes simulator-internal bundle summaries, including a feature-
+channel composition over safety, comfort, performance, technology, and aesthetics. The final
+layer combines those internal bundle summaries with hidden persona preferences to form persona-
+conditioned signals such as feature match and technology value. This representation gives the seller
+an interpretable bundle summary while keeping preference-matched valuation features inside the
+simulator.
+Given a persona and bundle, the simulator computes round-level willingness to pay as
+WTPt = max{1000, Rbase +V custom +V aesthetic +V brand-tech−V fatigue +ϵ t}.(3)
+The baseline termRbase reflects hidden reservation-price level and price sensitivity. The customiza-
+tion term Vcustom uses the bundle’s MSRP anchor and persona-conditioned feature match. The
+aesthetic and brand–technology terms capture hidden taste for appearance, brand, and technology-
+heavy bundles. The fatigue term reduces effective valuation as bargaining progresses, with the
+strength of this effect shaped by hidden patience and impulsivity. The noise termϵt adds round-level
+stochasticity, while the lower bound keeps willingness to pay at a small positive floor.
+Buyer response is generated from buyer-side utility. For a seller offerp t, buyer utility is
+U buyer
+t (pt) = WTPt−p t.(4)
+WhenU buyer
+t (pt)≥0 , the simulated buyer accepts the offer. WhenU buyer
+t (pt)<0 , the simulator
+computes a utility-gap-dependent walkaway probability shaped by hidden price sensitivity and
+7
+
+PrefBench A PREPRINT
+From a fixed customization bundle to value-relevant signals
+agent-visible side simulator-internal side
+Fixed
+configuration
+bundle
+one selected option
+per retained
+customization
+dimension
+the bundle identity
+remains fixed
+throughout the
+negotiation episode
+Bundle descriptors
+selected option keys
+bundle MSRP delta
+implementation-cost proxy
+base aesthetic proxy
+these descriptors can
+enter the observation
+Internal
+summaries
+feature-channel composition
+(safety, comfort,
+performance, technology,
+aesthetics)
+persona-conditioned feature
+match,
+technology signal
+used inside later value
+construction,
+not exposed directly
+Optional
+semantic
+extension
+offline CLIP-derived
+semantic features
+for richer
+observations
+Later value model input
+bundle summaries feed the
+later buyer-side valuation and
+willingness-to-pay stage
+optional
+observation-side
+branch
+Figure 3: Bundle-signal construction. Fixed customization descriptors are visible to the seller, while
+value-relevant summaries are computed inside the simulator and remain hidden from the agent.
+walkaway threshold; if the buyer does not walk away, the session continues through rejection or a
+counter-offer whose level is influenced by counter strength. This mechanism makes buyer behavior
+depend jointly on the fixed bundle, latent persona structure, round context, and current price.
+PrefBench realizes the interaction through a persistent NegMAS bargaining session [ 17]. Each
+episode creates one session for the sampled persona and fixed bundle. Seller offers update the
+continuing session, and the simulated buyer accepts, rejects, counters, or exits according to the
+current buyer utility and hidden bargaining variables. If the episode continues, the latest offer,
+response, counter-offer, and session history carry forward to the next seller decision. This persistent
+session preserves continuity across rounds while keeping price as the only negotiated issue.
+5 LLM Protocol and Baselines
+LLM agents are evaluated as prompt-based seller policies under the same hidden-information
+boundary as the heuristic references. Figure 4 shows the interaction contract. At each seller decision
+point, the agent receives a text rendering of the observable state and returns one structured JSON
+action. The protocol follows the standard OpenAI-compatible chat-completions format [23] and
+maps each returned object to the shared EnvAction schema used by the simulator. This interface
+places LLM and non-LLM policies in the same environment while exposing LLMs only to a
+text-rendered state summary.
+The LLM policy uses decision-level prompting with history encoded in the observable state summary.
+Each seller decision is produced from the current environment observation through a separate model
+call. The prompt includes the current round, remaining seller turns, the last seller offer, the latest
+8
+
+PrefBench A PREPRINT
+PrefBench evaluation loop
+LLM sellers act on observable state summaries while hidden buyer variables remain simulator-private.
+Buyer simulator
+Episode inputs
+persona profile
+fixed customization bundle
+test episode seed
+Hidden buyer variables
+WTP, feature preferences
+price sensitivity, patience
+counter strength, walkaway
+Observable state
+summary
+public buyer descriptors
+bundle MSRP and cost proxy
+round, last offer, counter
+rendered into the LLM prompt
+LLM seller agents
+DeepSeek Kimi
+Structured action
+offer accept walkaway
+observable
+fields only
+fresh prompt
+per decision
+JSON action
+action executed by the simulator
+Episode outcome and metrics
+buyer response, profit, rounds, invalid rate
+aggregate outcome
+hidden-information boundary
+latent buyer variables stay private
+Qwen
+Figure 4: LLM-facing PrefBench evaluation loop. The LLM seller receives an observable state
+summary, returns one structured JSON action, and is evaluated through simulator outcomes while
+hidden buyer variables remain private to the simulator.
+buyer response, the latest buyer counter-offer if one exists, and the negotiation history length. This
+design makes multi-round context explicit and reproducible while avoiding dependence on an
+unbounded chat transcript. The complete prompt template is provided in section C.
+The rendered observation follows the information boundary defined in section 3. It exposes the
+selected customization options, bundle MSRP delta, estimated implementation cost, aesthetic proxy,
+observable buyer profile fields, and the interaction-state summary. Simulator-side variables remain
+hidden, including true willingness to pay, reservation-price level, price sensitivity, feature-preference
+weights, patience, counter strength, and walkaway threshold. The prompt also states the seller
+objective and benchmark profit formula, emphasizing that the objective distinguishes agreement
+from seller profit.
+The output contract defines both the action schema and the evaluation accounting. The prompt
+requests one JSON object with a move, a price_offer_usd, and a brief reason. A valid action
+requires one of three supported moves: offer, accept, or walkaway. An offer additionally
+requires a non-negative numeric price; accept applies only when the buyer has made a counter-
+offer; and reason is recorded for trace inspection rather than scoring. Parser-invalid outputs include
+malformed JSON, non-object responses, unsupported moves, missing offer prices, non-numeric
+offer prices, and negative offer prices. Schema-valid actions whose environmental preconditions
+are unsatisfied, such as accept before a buyer counter-offer exists, are recorded as unavailable
+environment actions. Invalid outputs terminate the current episode without a replacement action, so
+the invalid-output rate directly measures structured-output compliance.
+9
+
+PrefBench A PREPRINT
+Table 2: LLM run configuration. All rows use OpenAI-compatible chat-completions calls; model
+documentation and provider pages were accessed in May 2026.
+Provider Run API model ID Prompt Temp. Max Output / reasoning Episodes
+DeepSeek V4 Flashdeepseek-v4-flashv1 0.0 512 JSON; thinking disabled 7,500
+Moonshot Kimi K2.6kimi-k2.6v1 0.6 512 JSON; thinking disabled 7,500
+Alibaba Qwen3.6 Plusqwen3.6-plusv1 0.0 512 JSON; thinking disabled 7,500
+DeepSeek V4 Flash ablationdeepseek-v4-flashv2 0.0 512 JSON; thinking disabled 7,500
+DeepSeek V4 Pro reasoningdeepseek-v4-prov1 0.0 2048 JSON; thinking enabled 100
+The main prompt version, denoted prompt v1, gives the model the role of seller, states the profit
+objective, describes the hidden-information limit, defines the action meanings, and provides short
+decision guidance such as avoiding below-cost offers and balancing agreement with seller profit.
+A longer prompt v2 adds more field-level explanation and serves as a prompt-clarity ablation in
+section 6. The main experiments use prompt v1 for all reported LLM baselines.
+The comparison includes two non-learned heuristic references and three zero-shot LLM base-
+lines. Here, zero-shot denotes instruction-only prompting: the models receive the task description,
+state summary, objective, and output contract, but no task-specific training, fine-tuning, rein-
+forcement learning, or in-context demonstration episodes. The random and concession heuristics
+consume structured observations and provide non-learned reference policies. The LLM baselines
+are DeepSeek V4 Flash [24], Kimi K2.6 [25], and Qwen3.6 Plus [26], all called through provider-
+specific OpenAI-compatible endpoints. We include a DeepSeek V4 Flash prompt-v2 ablation and a
+100-episode DeepSeek V4 Pro reasoning-enabled run as secondary analyses. Table 2 summarizes
+the model and decoding settings.
+6 Experiments
+The main experiments use a fixed 7,500-episode held-out evaluation split generated with seed 123.
+Across all methods, the environment, hidden-information boundary, action space, and episode
+stream are held constant. Heuristic policies act on structured observations, while LLM policies act
+on prompt-rendered state summaries.
+The two heuristic policies provide transparent reference points for the fixed protocol. The random
+policy samples legal offers and occasionally accepts available buyer counters or walks away. The
+concession heuristic starts from an anchor of approximately 2.2 times the bundle MSRP delta,
+concedes linearly toward a floor of1.1times the bundle MSRP delta, and conditions counter-offer
+acceptance on that floor. Section D gives the full heuristic specification.
+Table 3 summarizes the main comparison. Parenthesized values are changes relative to the random
+policy. The primary metric is average realized seller profit; deal rate, profit per deal, average rounds,
+and invalid rate diagnose how that profit is obtained. Profit per deal is computed from exact deal
+counts and total realized profit before rounding. Invalid rate measures parser-level output validity
+for LLM runs. Section D provides bootstrap confidence intervals for deal rate and average profit.
+The main table separates structured validity, deal rate, and deal quality. All three LLM baselines
+produce valid actions throughout the evaluation split and reach deal rates above 0.99. The concession
+heuristic achieves the highest seller returns, with 14,774.11 USD average profit and 20,327.62 USD
+10
+
+PrefBench A PREPRINT
+Table 3: Main PrefBench results on the 7,500-episode test split.
+Method Deal Rate↑Avg Profit↑Profit / Deal↑Avg Rounds Invalid↓
+Random 0.5769 6,572.33 11,391.84 1.3541 n/a
+Concession 0.7268 (+0.1499)14,774.11(+8,201.78)20,327.621.7123 n/a
+DeepSeek V4 Flash [24] 0.9903 (+0.4133) 6,749.21 (+176.87) 6,815.55 1.0313 0.0000
+Kimi K2.6 [25]1.0000(+0.4231) 4,514.43 (-2,057.90) 4,514.431.00000.0000
+Qwen3.6 Plus [26] 0.9985 (+0.4216) 5,979.55 (-592.79) 5,988.33 1.0036 0.0000
+Table 4: Supporting LLM analyses. Prompt v2 is run on the 7,500-episode split; the reasoning run
+uses 100 episodes.
+Run Deal Rate↑Avg Profit↑Avg Rounds Invalid↓
+DeepSeek V4 Flash prompt v2 [24] 0.9993 4,142.73 1.0008 0.0000
+DeepSeek V4 Pro Reasoning [24] 0.9900 5,231.50 1.0000 0.0100
+profit per deal. The strongest LLM result on average profit is DeepSeek V4 Flash at 6,749.21 USD,
+while Kimi K2.6 and Qwen3.6 Plus fall below the random baseline despite closing more deals.
+The round statistics indicate that LLM agreements are typically immediate. A one-round episode
+denotes termination after the first seller decision. Under this definition, DeepSeek V4 Flash, Kimi
+K2.6, and Qwen3.6 Plus terminate in the first round in 7,408, 7,500, and 7,489 of the 7,500 episodes,
+respectively. Section 7 interprets these result patterns.
+Table 4 reports two supporting LLM analyses. The prompt-v2 run keeps the same action schema as
+prompt v1 but adds explicit scenario, evaluation, interaction-dynamics, and state-description fields;
+section C records the exact prompt difference. Compared with DeepSeek V4 Flash prompt v1,
+prompt v2 increases deal rate from 0.9903 to 0.9993 (+0.0090) but decreases average profit from
+6,749.21 USD to 4,142.73 USD (−2,606.48 USD). The 100-episode DeepSeek V4 Pro reasoning
+run reaches a 0.9900 deal rate and 5,231.50 USD average profit with one parser-invalid output.
+7 Findings and Discussion
+The main finding is that structured action compliance and strategic pricing competence are separable.
+In the main full-test runs, the tested LLMs follow the JSON action interface reliably and produce
+no parser-invalid episodes. This establishes that the task can be exposed through a simple structured
+action contract. At the same time, action validity alone does not indicate profit-sensitive bargaining
+competence.
+The LLM policies are strongly biased toward immediate settlement. DeepSeek V4 Flash, Kimi
+K2.6, and Qwen3.6 Plus terminate in the first round in 7,408, 7,500, and 7,489 of the 7,500 test
+episodes. The prompt exposes the current round, remaining seller turns, the latest offer state,
+and an instruction to avoid optimizing only for immediate acceptance, yet the resulting policies
+still concentrate on first-round agreement. This pattern suggests that, under zero-shot prompting,
+the models prioritize acceptance probability over seller surplus when buyer willingness-to-pay is
+hidden. In effect, they convert the task into a one-shot agreement problem rather than a multi-round
+price-discovery problem.
+11
+
+PrefBench A PREPRINT
+High deal rate consequently does not imply high seller profit. The LLM baselines reach deal rates
+above 0.99, but their average profits remain far below the concession heuristic. The concession
+policy closes fewer deals and accepts more walkaway risk, yet it earns substantially higher average
+profit because it encodes an explicit aggressive-concession prior. The heuristic therefore serves
+as a diagnostic reference: it shows that the simulator rewards strategic anchoring and concession
+behavior, and that the tested zero-shot LLMs do not discover that behavior from the prompt alone.
+The result also clarifies what the benchmark measures. A model can produce valid structured actions
+and maximize apparent buyer agreement while still performing poorly on the seller objective. This
+distinction matters for LLM-agent evaluation because format compliance is often a prerequisite
+for structured agent interaction, but it is not a sufficient proxy for decision quality. PrefBench
+makes this gap observable by separating three quantities that are easily conflated: structured action
+compliance, agreement-seeking behavior, and profit-sensitive decision quality.
+The prompt and reasoning ablations reinforce the same interpretation. A more detailed prompt
+did not improve DeepSeek V4 Flash’s strategy and instead made the model more conservative,
+increasing deal rate while lowering average profit. In this ablation, prompt v2 mainly tests whether
+more explicit scenario and state-field descriptions change the bargaining pattern while the action
+schema remains fixed; the full prompt is provided in section C. The 100-episode reasoning-enabled
+run also does not produce multi-round bargaining behavior. Because these ablations are limited in
+scope, they are best interpreted as diagnostic evidence: hidden-preference pricing appears to require
+more than longer task descriptions or generic reasoning mode. The most direct next directions
+are explicit value estimation, planning over latent buyer types, and policy learning from simulated
+trajectories.
+Overall, the results position PrefBench as a diagnostic benchmark for studying pricing-agent
+behavior under hidden buyer preferences. The tested models can use the action protocol reliably, but
+the benchmark exposes a decision-making failure mode: agreement-oriented behavior when buyer
+valuation remains hidden. This failure mode is difficult to isolate in human-facing or open-domain
+pricing studies, but it becomes measurable in a controlled simulator with fixed hidden variables,
+repeated episode streams, and explicit seller-profit metrics.
+8 Limitations and Future Work
+PrefBench uses a controlled simulator to isolate hidden-preference pricing behavior under a fixed
+protocol. This design supports reproducible comparison while leaving external validity as a
+separate question. The buyer population is public-data-informed but semi-synthetic, and the hidden
+preference and response model is benchmark-defined; real negotiation traces would be needed to
+estimate these mechanisms empirically. The profit values measure simulator-level seller outcomes,
+not real-world revenue. Future work should validate selected parts of the simulator against human
+buyer or seller responses, including acceptance, counter-offer, and walkaway behavior.
+The evaluation covers one product substrate, one main prompt protocol, and a selected set of hosted
+LLMs. LLM behavior may vary with different product domains, prompts, provider settings, and
+model-version changes. The reasoning-enabled evaluation is limited to 100 episodes. A broader
+evaluation should include fine-tuned LLMs, learned pricing policies, tool-augmented agents, session-
+based LLM agents, and reasoning-model families under matched cost budgets. These extensions
+12
+
+PrefBench A PREPRINT
+are important for separating zero-shot prompt behavior under the PrefBench protocol from broader
+pricing-agent capability.
+PrefBench focuses on seller-side decision behavior; welfare, fairness, privacy, and policy analysis
+remain outside its current scope. A broader evaluation would add metrics for consumer surplus,
+fairness across observable groups, robustness to profile shifts, inventory effects, and long-term
+customer value. Such extensions would test whether pricing agents can maintain profitability while
+treating seller profit as one objective among several consumer-facing constraints.
+PrefBench is one focused benchmark instance within a broader pricing-agent evaluation suite. The
+task studies hidden-preference negotiation over a fixed sampled customization bundle. Natural
+extensions include agents that choose or revise bundles, incorporate inventory and implementation-
+cost constraints, and reason across repeated customer interactions. More broadly, pricing-agent
+benchmarks should cover multiple pricing mechanisms and consumer-facing objectives; PrefBench
+provides a reproducible starting point for that broader evaluation direction.
+9 Conclusion
+This paper presents PrefBench, a controlled simulator-based benchmark for evaluating seller-side
+LLM agents in hidden-preference personalized pricing negotiations. The benchmark places agents
+in a fixed hidden-information setting with latent buyer variables, a seller-side profit objective, and a
+structured JSON action protocol. This setting tests whether valid structured interaction translates
+into profit-sensitive pricing behavior.
+The zero-shot LLM results show that the tested models can follow the protocol and reach agreements
+reliably, but high action compliance and high deal rate do not imply profit-sensitive bargaining.
+The models tend to settle immediately and earn substantially lower seller profit than a simple
+concession heuristic under the same episode stream. PrefBench offers a focused evaluation setting
+for separating action-format compliance, agreement-seeking behavior, and strategic pricing quality
+in pricing agents under hidden buyer preferences.

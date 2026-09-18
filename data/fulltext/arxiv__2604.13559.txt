@@ -1,0 +1,1477 @@
+record_id: arxiv:2604.13559
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2604.13559
+fetched_title: WebMAC: A Multi-Agent Collaborative Framework for Scenario Testing of Web Systems Tester Test scenarios Test scripts Scenario testing (with LLM) Test results
+fetched_at: 2026-09-18T19:00:25Z
+
+WebMAC: A Multi-Agent Collaborative Framework for Scenario
+Testing of Web Systems
+Zhenyu Wana,∗, Gong Chena,∗, Qing Huangb and Xiaoyuan Xiea,∗∗
+aSchool of Computer Science, Wuhan University, China
+bSchool of Computer and Information Engineering, Jiangxi Normal University, China
+ARTICLE INFO
+Keywords:
+Multi-Agent Collaborative Framework
+Scenario Testing
+Web System
+ABSTRACT
+Scenario testing is an important technique for detecting errors in web systems. Testers draft test
+scenarios and convert them into test scripts for execution. Early methods relied on testers to convert
+test scenarios into test scripts. Recent LLM-based scenario testing methods can generate test scripts
+from natural language descriptions of test scenarios. However, these methods are not only limited
+by the incompleteness of descriptions but also overlook test adequacy criteria, making it difficult
+to detect potential errors. To address these limitations, this paper proposes WebMAC, a multi-
+agent collaborative framework for scenario testing of web systems. WebMAC can complete natural
+language descriptions of test scenarios through interactive clarification and transform adequate
+instantiated test scenarios via equivalence class partitioning. WebMAC consists of three multi-agent
+modules, responsible respectively for completing natural language descriptions of test scenarios,
+transformingtestscenarios,andconvertingtestscripts.WeevaluatedWebMAConfourwebsystems.
+Compared with the SOTA method, WebMAC improves the execution success rate of generated test
+scripts by 30%–60%, increases testing efficiency by 29%, and reduces token consumption by 47.6%.
+Furthermore, WebMAC can effectively detect more errors in web systems.
+1. Introduction
+Web systems play an important role in modern digital
+services. They support user interactions, business-process
+execution, and data presentation, providing a flexible and
+efficient operating environment for a wide range of appli-
+cations (Amalfitano, Fasolino and Tramontana, 2011; Mir-
+shokraie, Mesbah and Pattabiraman, 2014; Moran, Linares-
+Vásquez,Bernal-Cárdenas,VendomeandPoshyvanyk,2017).
+Scenario testing is an important technique for detecting
+errors in web systems (Dalal and Mallows, 1998; Chan-
+dorkar,Patkar,DiSorboandNierstrasz,2022;Irshad,Britto
+and Petersen, 2021; Zampetti, Di Sorbo, Visaggio, Canfora
+andDiPenta,2020).Testersdrafttestscenariosandconvert
+them into test scripts for execution. Fig. 1 shows the techni-
+cal evolution of scenario testing. Before the advent of large
+language models (LLMs), early methods relied on testers to
+converttestscenariosintotestscripts,whichlimitedthelevel
+of automation in scenario testing.
+In recent years, LLMs have demonstrated remarkable
+capabilities in understanding natural language and gener-
+ating code. Researchers have introduced LLMs into sce-
+nario testing to automatically convert test scenarios into
+executable test scripts. Testers only need to design test sce-
+nariosdescribedinnaturallanguage,andthenprovidethese
+descriptions as prompts to the LLM to generate executable
+testscripts(Chen,Zhang,Nguyen,Zan,Lin,LouandChen,
+2022;Huang,Zhang,Luck,Bu,QingandCui,2023a;Shinn,
+Cassano, Gopinath, Narasimhan and Yao, 2023). Although
+LLM-basedscenariotestingmethodshavefurtherimproved
+∗Co-first authors.
+∗ ∗Corresponding author.
+wan_zy@whu.edu.cn(Z. Wan);chengongcg@whu.edu.cn(G. Chen);
+qh@whu.edu.cn(Q. Huang);xxie@whu.edu.cn(X. Xie)
+Tester
+Tester
+Test
+scenario
+Test script
+Web system
+Test
+scenario
+Test script
+Web system
+Manual
+scenario testing
+Automated
+scenario testing
+(without LLM)
+Automated
+scenario testing
+(with LLM)
+Tester
+Tester
+Test
+scenario
+Web system
+Tester
+Test scenarios
+Test scripts
+Test scenarios
+Test scripts
+Scenario testing
+(without LLM)
+Scenario testing
+(with LLM)
+Tester
+Test results
+Test results
+Figure 1:The technical evolution of scenario testing
+theautomationofscenariotesting,theystillfacetwomajor
+limitations.
+First, incomplete natural language descriptions of
+testscenariosleadLLMstogenerateincorrecttestscripts.
+Testers often focus on key test fields while neglecting other
+necessary ones. For example, as shown in Fig. 2(a), the add
+owner page requires all necessary fields to be filled before
+submission.Whenincompletenaturallanguagedescriptions
+of test scenarios are used as prompts for LLMs, missing
+any of these fields will lead the LLMs to generate incorrect
+test scripts. These test scripts will fail to execute due
+to missing required fields. Existing LLM-based scenario
+testing methods attempt to infer and supplement missing
+informationbasedonthefeedbackfromexecution.However,
+these methods are inefficient, token-intensive, and often
+generate test scripts that do not meet the intended testing
+objectives(Bergsmann,Schmidt,FischerandRamler,2024;
+Liu,Chen,Wang,Che,Huang,HuandWang,2023;Li,Cui,
+Huang, Towey and Ma, 2024; Yu, Ling, Fang, Zhou, Chen,
+Zhu and Chen, 2025).
+Secondly, in the process of converting test scenarios
+into corresponding test scripts, existing methods over-
+look test adequacy criteria (e.g., combinatorial coverage
+First Author et al.:Preprint submitted to ElsevierPage 1 of 13
+arXiv:2604.13559v1 [cs.SE] 15 Apr 2026
+
+criteria).For example, as shown in Figure 2(b), they gen-
+erate asingletest script from an instantiated test scenario,
+which limits their ability to detect potential errors in the
+web system. An intuitive approach is to leverage LLMs to
+modify parameters and corresponding test oracles in initial
+instantiated test scenarios, thereby generating adequate in-
+stantiated scenarios and corresponding test scripts to detect
+more errors in web systems. However, this approach faces
+a key challenge: LLMs struggle to correctly understand the
+semantic relationship between modified parameters and test
+oracles, making it difficult to generate correct test scripts.
+To address the two limitations mentioned above, we
+propose WebMAC, a multi-agent collaborative framework
+for scenario testing of web systems. WebMAC consists of
+three multi-agent modules: a clarification module, a trans-
+formation module, and a testing module. Specifically, the
+clarification module completes natural language descrip-
+tions of test scenarios through interactive clarification, the
+transformation module produces adequate instantiated test
+scenarios through equivalence class partitioning, and the
+testing module automatically generates and executes test
+scripts.
+First, to address the issue of LLMs generating in-
+correct test scripts due to incomplete natural language
+descriptions of test scenarios, we design a clarification
+module.This module completes natural language descrip-
+tionsoftestscenariosthroughcollaborationamongmultiple
+intelligentagentsandinteractiveclarificationwiththetester.
+Specifically, the clarification module retrieves information
+from the system under test (such as forms, components,
+etc.) and analyzes it in conjunction with the test scenario
+description to identify missing information. Then it gener-
+ates clarification questions based on the identified missing
+information and asks the testers to clarify the missing in-
+formation. After receiving the tester’s answers, the module
+automatically integrates the interaction context to complete
+natural language descriptions of test scenarios. We also de-
+signedatestingmodulecapableofconvertingtestscenarios
+into executable test scripts, automatically executing them,
+and outputting test reports.
+Secondly, to address the issue that existing methods
+overlook test adequacy criteria, we added a transforma-
+tion module between the clarification module and the
+testing module.This module generates adequate instanti-
+ated test scenarios through multi-agent collaboration and
+equivalence class partitioning. Specifically, it first extracts
+concrete parameter values from the initial instantiated test
+scenario and replaces them with placeholders to construct
+a parameterized scenario template. For each extracted pa-
+rameter, the module queries an external knowledge base to
+retrieveitscorrespondingequivalenceclasspartitions.Then,
+the module automatically generates different equivalence
+classes based on the retrieved equivalence class partitions.
+These equivalence classes are combined and then used to
+instantiate the scenario template. The module then updates
+the test oracle according to the selected combinations of
+equivalence classes, thereby generating adequate instanti-
+ated test scenarios.
+We conducted experiments on four open-source web
+systems to evaluate the performance of WebMAC. The
+results show that WebMAC consistently outperforms the
+baseline across multiple metrics. WebMAC can efficiently
+and effectively detect errors in web systems. Specifically,
+WebMAC reduces the average testing time by 29% and
+LLM token consumption by 47.6%, while requiring fewer
+interactions. Meanwhile, the generated test scripts achieve
+a higher execution success rate. Furthermore, by generating
+adequateinstantiatedtestscenariosandconvertingtheminto
+test scripts, WebMAC detects more errors in web systems.
+In summary, the contributions of this work are as follows:
+•We complete natural language descriptions of test
+scenarios through multi-agent collaboration and in-
+teractive clarification, addressing incorrect test script
+generation caused by incomplete descriptions of test
+scenarios.
+•We introduce combinatorial coverage criteria into
+the LLM-based scenario testing method, generating
+adequateinstantiatedtestscenariosandcorresponding
+test scripts through multi-agent collaboration and
+equivalence class partitioning.
+•Experimental results show the effectiveness of Web-
+MAC in detecting errors of web systems. We release
+WebMAC including the code and experimental data
+online at Artifact-Link.
+2. Background and Motivation
+Software testing is a crucial practice to ensure the
+correctness, reliability, and security of software systems.
+Among various testing paradigms, scenario testing offers
+unique value in validating systems that involve rich user
+interactions or real-world operational conditions. Scenario
+testingusesscenariosthatdescribetheinteractionsbetween
+users,components,orexternalsystemsinspecificsituations
+to design and execute test cases that reflect actual usage
+patterns.
+In recent years, LLMs, represented by GPT-3.5 and
+its subsequent models, have demonstrated powerful capa-
+bilities, offering unprecedented opportunities to automate
+and enhance software engineering tasks, including software
+testing (Wang, Yang, Wang, Huang, Chu, Song, Zhang,
+Chen and Ma, 2024b; Yuan, Liu, Ding, Wang, Chen, Peng
+and Lou, 2024). In scenario testing, LLMs are regarded
+as natural tools for interpreting and understanding scenario
+descriptions provided by developers, domain experts, or re-
+quirementdocuments,owingtotheirstrongnaturallanguage
+comprehension and generation abilities (Arora, Herda and
+Homm, 2024; Wang, Huang, Chen, Liu, Wang and Wang,
+2024a).ResearchershaveactivelyexploredtheuseofLLMs
+to generate test scripts from test scenarios. By supplying
+LLM with a test scenario described in natural language, the
+model can generate a corresponding executable test script.
+First Author et al.:Preprint submitted to ElsevierPage 2 of 13
+
+Feature: add owner
+Given this is the current URL:
+"http://localhost:8080/owners/new"
+When I add a person with first name "Tom" and last name
+"Smith" as a new pet owner
+Then the owner "Tom Smith" should be created in the system
+Target web system
+(with five required fields)
+Natural language description of test scenario
+(only two required fields)
+Prompt:
+<Natural language description of test scenario>
+Transform the above scenarios into the test scripts.
+```python
+...code...
+page.goto("http://localhost:8080/owners/new")
+# Fill the input field
+page.fill("#firstName", "Tom")
+page.fill("#lastName", "Smith")
+# Click the "Find Owner" button
+page.click("button[type='submit']")
+```
+Execution result:
+Address is null
+City is null
+Telephone is null
+LLM
+Target web System
+Prompt:
+<Completed natural language description of test
+scenario>
+Transform the above scenarios into the test scripts.
+```python
+...code...
+page.fill("#firstName", "Tom")
+page.fill("#lastName", "Smith")
+page.fill("#address", "412 Main Street")
+page.fill("#city", "NewYork")
+page.fill("#telephone", "6095916230")
+```
+Execution result:
+The owner added successfully
+LLM
+Target web System
+Feature: add owner
+Given this is the current URL:
+"http://localhost:8080/owners/new"
+When I add a person with first name "Tom", las
+t name "Smith", address "412 Main Street" with
+city "NewYork" and telephone "6095916230" as a
+new pet owner
+Then the owner "Tom Smith" should be created in
+the system
+```python
+...code...
+page.goto("http://localhost:8080/owners/new")
+# Fill the input field
+page.fill("#firstName", "Tom")
+page.fill("#lastName", "Smith")
+page.fill("#address", "412 Main Street")
+page.fill("#city", "New York")
+page.fill("#telephone", "6095916230")
+```
+LLM
+SOTA method
+(a) The incomplete natural language description of the test scenario leads to
+incorrect test script generation by the LLM (b) The SOTA method overlooks test adequacy criteria
+Initial instantiated test scenario
+Test script
+Transformed instantiated test scenarios
+Test scripts
+...
+When I add a person with
+first name "Jean-Luc",
+last name "O'Connor", ...
+Then the owner "Jean-
+Luc O'Connor" should be
+created in the system
+...
+page.fill("#firstName",
+"Jean-Luc")
+page.fill("#lastName",
+"O'Connor")
+...
+WebMACSOTA method
+firstName
+Valid equivalence class partitioning:
+Including - (hyphen, used in compound names), ...
+Invalid equivalence class partitioning:
+Including special symbols (@, #, $), ...
+lastName
+Valid equivalence class partitioning:
+Including '(apostrophe, commonly seen in Irish
+surnames), ...
+Invalid equivalence class partitioning:
+Including special symbols (@, #, $), ...
+firstName
+Valid equivalence classes:
+Jean-Luc, ...
+Invalid equivalence classes:
+Tom@, ...
+lastName
+Valid equivalence classes:
+O'Connor, ...
+Invalid equivalence classes:
+Smith@, ...
+LLM
+Equivalence classes combination (All valid):
+Jean-Luc, O'Connor; ...
+Equivalence classes combination (with invalid):
+Jean-Luc, Smith@; Tom@ O'Connor; ...
+PICT
+WebMAC
+LLM
+The owner added successfully
+The test result is consistent with the test expectation,
+and no errors is detected
+Execution result
+The owner added successfully
+The test result is not
+consistent with the
+expected outcome, and
+an error is detected
+Execution results
+Test report
+Test reports
+...
+When I add a person with
+first name "Jean-Luc",
+last name "Smith@", ...
+Then the owner "Jean-
+Luc Smith@" should not
+be created in the system
+...
+When I add a person with
+first name "Tom@",
+last name "O'Connor", ...
+Then the owner "Tom@
+O'Connor" should not be
+created in the system
+...
+...
+page.fill("#firstName",
+"Jean-Luc")
+page.fill("#lastName",
+"Smith@")
+...
+...
+page.fill("#firstName",
+"Tom@")
+page.fill("#lastName",
+"O'Connor")
+...
+The test result is
+consistent with the
+test expectation, and
+no errors is detected
+The owner added failed The owner added successfully
+The test result is
+consistent with the
+test expectation, and
+no errors is detected
+...
+...
+...
+Human：Address is "412 Main Street", city is
+"NewYork", and telephone is "6095916230"
+<Natural language description of test scenario>
++
+① ② ③
+LLM LLM LLM
+<Completed natural language description of
+test scenario>
+Figure 2:Motivation Example. (a) Illustrates how the incomplete natural language description of the test scenario leads to
+incorrect test script generation by the LLM. The natural language description of the test scenario is used as input, and the LLM
+converts it into a corresponding test script, which is then used to test the target web system. (b) Demonstrates how the SOTA
+method overlooks test adequacy criteria when converting instantiated test scenarios into test scripts. Although there are five
+different fields in the initial instantiated test scenario, we selected two (fast name and last name) as examples due to image size
+limitations.
+Thisparadigmhasthepotentialtoimprovetestingefficiency
+and reduce the effort required to convert test scenarios into
+executable test scripts.
+A recent study explored the use of LLMs to conduct
+scenario testing on web systems (Bergsmann et al., 2024).
+TheydescribedtestscenariosintheGherkinformat,astruc-
+turednaturallanguageusedtospecifybusinessrequirements
+in behavior-driven development. These scenarios were then
+usedtoconstructpromptsfortheLLM,whichgeneratedcor-
+responding test scripts. This work demonstrates that LLMs
+are capable of automating the conversion from test scenar-
+ios to test scripts. However,when faced with incomplete
+natural language descriptions of test scenarios, their
+method generates incorrect test scripts. For example, as
+shown in Fig. 2(a), the target web system provides a form
+containing five fields, includinglast name,first name,city,
+address, andtelephone, while the test scenario describes
+an “add owner” case but mentions only thelast nameand
+firstname.WhentheSOTAmethodusesincompletenatural
+language descriptions of test scenarios to construct prompts
+for the LLM. Consequently, the generated test script only
+requireslast nameandfirst namefields to be entered into
+the target web system. After executing the test script, the
+target web system provides an execution result indicating
+that the content is missing. Even if they use the execution
+result to repair the test script, it is difficult to generate a
+correct test script, which wastes time and tokens. WebMAC
+uses human answers to complete the description of the test
+scenarioandthenusesthisdescriptiontoconstructaprompt,
+which is subsequently input into the LLM. This enables the
+LLMtocorrectlygenerateatestscriptwiththefiverequired
+fields,therebyensuringthesuccessfulsubmissionofthetest
+script and improving the testing efficiency while reducing
+token consumption. Therefore, completing natural language
+descriptionsoftestscenariosbeforegeneratingthetestscript
+is crucial.
+Furthermore,duringtheconversationoftestscenarios
+intotestscripts,existingmethodsoverlooktestadequacy
+criteria.For example, as shown in Fig. 2(b), the SOTA
+method can convert instantiated test scenarios into corre-
+sponding test scripts. However, this test script can only
+cover one parameter combination (e.g.,first name“Tom”,
+last name“Smith”,address“412 Main Street”,city“New
+York”, andtelephone“6095916230”). It cannot cover other
+equivalence classes, such as empty fields, illegal characters,
+format errors, or boundary values. This makes it difficult to
+detectpotentialerrorsinthewebsystem.WebMACadheres
+to test adequacy criteria, using equivalence class partition-
+ing to modify the parameters in the initial instantiated test
+scenariostotheircorrespondingequivalenceclasses.Forex-
+ample, it transforms “Tom” into the valid equivalence class
+“Jean-Luc”,ortheinvalidequivalenceclass“Tom@”.Then,
+itcombinesequivalenceclasseswithdifferentparametersto
+generateinstantiatedtestscenarios,thuscoveringcasessuch
+as illegal characters. It also updates the test oracle to ensure
+thecorrectnessofscenarios.Forexample,inscenario③de-
+pictedintheFig.2(b),thescenariocontainsthecombination
+“Tom@ O’Connor”, which includes an invalid equivalence
+class. Accordingly, WebMAC modifies the test oracle to
+“Then the owner “Tom@ O’Connor” should not be created
+inthesystem”.WebMACthenconvertsthesescenariosinto
+test scripts and executes them, detecting potential errors by
+comparing the execution results against the test oracle. In
+scenario③,theexecutionresultwas“Theowneraddedsuc-
+cessfully”. However, since “Tom@” constitutes an invalid
+equivalence class for the first name, the addition should not
+First Author et al.:Preprint submitted to ElsevierPage 3 of 13
+
+Tester
+Knowledge
+base
+Equivalence
+class partitions
+Equivalence
+classes
+Combinations of
+equivalence classes
+PICT
+Script for
+getting
+information
+HTML
+information
+Complete
+description
+of scenario
+Incomplete
+description
+of scenario
+Clarification
+question
+Answer
+Complete
+description
+of scenario
+Coder
+Equivalence
+class generator
+Coder
+Executor
+Test oracle
+generator
+Executor
+Analyst
+Clarifier
+Analyst
+Rewriter
+Summarizer
+Test
+script
+Test
+result
+Test
+report
+Clarification Module
+Transformation Module Testing Module
+Instantiated
+test
+scenario
+JSON
+string
+New instantiated
+test scenarios
+Figure 3:Overview of WebMAC
+have succeeded. As the execution result did not align with
+thetestoracle,anerrorwasdetected.Thisdemonstratesthat
+adheringtotestadequacycriteriacandetectpotentialerrors.
+In this paper, we crawl and filter the HTML information
+from the target web system to analyze the completeness of
+the scenario description by examining the parameters they
+specify. When the description of the test scenario is com-
+plete, no clarification is required. For the incomplete sce-
+nario description, we analyze missing information and pose
+targeted clarification questions to the tester. The description
+is then completed by incorporating the tester’s answer. To
+satisfytestadequacycriteriaduringtestscriptgeneration,we
+modifytheparametersintheinstantiatedtestscenariousing
+equivalence class partitioning. Furthermore, we update the
+test oracle based on combinations of equivalence classes,
+thereby generating adequate instantiated test scenarios. Ul-
+timately, the LLM converts them into test scripts to detect
+errors in web systems.
+3. Approach
+To address the limitations of incomplete natural lan-
+guage descriptions of test scenarios and the existing meth-
+ods that overlook test sufficiency criteria, this paper pro-
+poses WebMAC, a multi-agent collaborative framework for
+scenario testing of web systems. WebMAC can complete
+natural language descriptions of test scenarios, generate
+adequate instantiated test scenarios, and convert them into
+corresponding test scripts. The approach consists of three
+modules: the clarification module, the transformation mod-
+ule, and the testing module. The overview of WebMAC is
+shown in Fig. 3.
+First, the tester provides an instantiated test scenario
+described in Gherkin format. In the clarification module,
+the Coder writes a script to crawl web forms based on the
+URLofthetargetwebinthedescriptionofthetestscenario,
+and the Executor runs the script to obtain the HTML infor-
+mation. Then, the Analyst analyzes whether the description
+of the test scenario is complete based on the parameters
+contained in the test scenario and the HTML information
+in the web system. If the description of the test scenario
+is complete, proceed to the next module. If the description
+of the test scenario is incomplete, the Clarifier generates
+clarificationquestionsforthetesterandthenincorporatesthe
+tester’sanswerstocompletethedescription.Finally,aJSON
+string is generated based on the historical records, which
+containscontextualinformationaboutthetestscenario(Sec-
+tion 3.1). We use this JSON string in the transformation
+module. In the transformation module, the system retrieves
+the equivalence class partitions of parameters in the test
+scenario from an external knowledge base. Leveraging the
+retrieved partitions, the module prompts LLMs to generate
+different equivalence classes for the corresponding parame-
+ters. To ensure adequate instantiated test scenarios, we use
+the pairwise independent combinatorial testing tool (PICT)
+to combine equivalence classes of different parameters into
+varied combinations. Then, based on the combinations of
+equivalenceclasses,thetestoracleisadjustedaccordinglyto
+generate adequate instantiated test scenarios (Section 3.2).
+In the testing module, once it receives an instantiated test
+scenario,themodulegeneratesthecorrespondingtestscript,
+executesitagainstthewebsystem,andoutputsthetestreport
+(Section 3.3).
+3.1. Clarification Module
+The clarification module aims to improve the execution
+success rate of generated test scripts by leveraging human-
+computerinteractionandmulti-agentcollaborationtogener-
+atefullyspecifiedtestscenarios.Inthispaper,testscenarios
+are presented in Gherkin form. These scenarios contain a
+wealthoftestinginformation,includingtheURLoftheweb
+system under test, the test behaviors, and the test oracle.
+Using these test scenarios as input prompts, the LLM can
+generate corresponding test scripts.
+If the natural language descriptions of the test scenario
+iscomplete,thentheLLMcanconvertthetestscenariointo
+the corresponding test script and execute it correctly. How-
+ever, if the description of the test scenario lacks necessary
+form information from the target web system, the test script
+generatedbyLLMsmayfailtosatisfythetestoracledefined
+in the scenario. For example, consider a test scenario where
+a user successfully registers. The target webpage contains
+First Author et al.:Preprint submitted to ElsevierPage 4 of 13
+
+Coder
+Tester
+Executor
+Analyst
+Clarify
+Rewriter
+Summarizer
+Tester
+Feature: add owner
+Given this is the current URL: "http://localhost:8080/owners/new"
+When I add a person with first name "Tom" and last name "Smith" as a
+new pet owner
+Then the owner "Tom Smith" should be created in the system
+```python
+...<code>...
+page.goto("http://localhost:8080/owners/new")
+Retrieve the HTML elements of the corresponding URL
+...<code>...
+Code output:
+<html>...HTML elements...</html>
+Exitcode: 0
+Interaction_Elements: - Input Field, - Add Owner Button, ...
+Webpage_Information: This is a web page for adding owner ......
+IsClarify: 1
+What do you need to add for the user's address, city and telephone?
+The address is 412 Main Street, the city is NewYork, and the telephone is
+6095916230.
+Feature: add owner
+Given this is the current URL: "http://localhost:8080/owners/new"
+When I add a person with first name "Tom" and last name "Smith", add
+ress "412 Main Street" with city "NewYork" and telephone "6095916230"
+as a new pet owner
+Then the owner "Tom Smith" should be created in the system
+{"scenario": "Feature: add owner ......",
+"parameter_list": ["first name", "last name", "address", "city",
+"telephone"],
+"is_effective": True,
+"scenario_template": "Feature: add owner ......"}
+Clarification Process
+Figure 4:Clarification Process in WebMAC
+three form fields: a username field, a password field, and
+a telephone field. However, the test scenario only mentions
+the correct username and the correct password, missing the
+crucialtelephonefield.Asaresult,theLLMmaygeneratea
+test script that leads to registration failure, violating the test
+oracle. If the correct telephone information were specified
+in the scenario beforehand, the test script generated by the
+LLM would successfully execute the registration process,
+thus satisfying the test oracle.
+To complete the natural language description of the test
+scenario, the module can analyze the missing information
+in the test scenario by obtaining information from the web
+system, and then raise clarification questions to the testers
+regarding the missing information, thereby refining the test
+scenario. The missing information in the descriptions of the
+testscenariotypicallycorrespondstointeractiveelementson
+the web system. However, the full web system information
+contains substantial noise, which may hinder the LLM’s
+ability to analyze the test scenario and generate accurate
+clarification questions. To address this issue, we use regular
+expressions to filter the full web system information and
+retain only the interactive elements, thereby reducing noise.
+Specifically,wedesignamulti-agentsystemastheclari-
+ficationmodule.Intheclarificationmodule,webreakdown
+the clarification process into a series of collaborative and
+verifiable subtasks, and introduce six agents to assist testers
+in clarifying test scenarios: Coder, Executor, Analyst, Clar-
+ifier, Rewriter, and Summarizer. These agents will collabo-
+rate to obtain information about the web system under test
+and help testers clarify descriptions of test scenarios. The
+functions of each agent are as follows:
+•Coderwrites a script that can crawl the HTML infor-
+mationofthetargetwebsystembasedonthedescrip-
+tion of the test scenario.
+•Executorautomatically executes the script returned
+by Coder and reports the execution results.
+•Analystanalyzes the execution results, especially the
+component information and form information of the
+target web system.
+•Clarifieraskstestersclarifyingquestionsbasedonthe
+analysis results, combined with the description of the
+test scenario.
+•Rewritercompletes the description of the test sce-
+nario based on the tester’s answer.
+•Summarizersummarizesthechathistoryandreturns
+contextual information such as the complete descrip-
+tion of the test scenario, parameters in the scenario,
+scenario template, and other information in JSON
+string format.
+Fig. 4 shows a specific clarification process. First, the
+tester uses the Gherkin language to write the initial instanti-
+ated test scenario and input it into the clarification module.
+TheFeaturein the test scenario can be regarded as the
+scenario overview, theGivenstatement can be regarded as
+the target web system to be tested, theWhenstatement can
+be regarded as the test input, and theThenstatement can be
+regardedasthetestoracle.Accordingtothebuilt-inprocess
+oftheclarificationmodule,theCoderwillbecalledtowrite
+the script to obtain the HTML information of the target
+web system. In this example, the URL of the target web
+system is “http://localhost:8080/owners/new”. Accordingly,
+the script generated by the Coder is designed to retrieve
+the HTML information associated with this URL. Once the
+Coder completes the script, it is passed to the Executor,
+whichexecutesthescripttoobtaintheHTMLinformationof
+thewebsystem.Throughthiscollaboration,themodulecol-
+lects the web system information that supports subsequent
+clarification steps.
+However, the full HTML information often contains a
+lot of noise, which can hinder the agents’ analysis of the
+target web system. To address this issue, we apply regular
+expressions to filter the complete web system information
+and retain only the interactive elements, thereby reducing
+noise. The filtered HTML information is then passed to
+the Analyst for further analysis. The Analyst will analyze
+fouraspects:scriptexecution(whetheritrunssuccessfully),
+web system functional components, web system descrip-
+tion, and whether the test scenario needs to be clarified.
+In Fig. 4, the Analyst gives its analysis results, “Exitcode:
+First Author et al.:Preprint submitted to ElsevierPage 5 of 13
+
+0” indicates that the script is executed successfully, web
+system component information “Interaction_Elements: ...”,
+web system information “Webpage_information: This is a
+webpageforaddingowner......”,and“IsClarify:1”indicates
+that the scenario needs to be clarified. When “IsClarify: 1”
+is reported in the analysis result, the Clarifier will combine
+the chat history to ask clarification questions for the test
+scenario. TheWhenstatement in the initial instantiated
+test scenario only contains the first name and last name
+fields, while the webpage contains five form components,
+namelyfirst name,last name,address,city, andtelephone.
+Therefore, the Clarifier asks a clarification question for the
+components not mentioned in the test scenario, “What do
+youneedtoaddfortheuser’saddress,city,andtelephone?”.
+This clarification question will be sent to the tester and
+awaitstheiranswer.Inresponsetotheclarificationquestion,
+the tester gives the answer “The address is 412 Main Street,
+the city is NewYork, and the telephone is 6095916230.”.
+Finally, the Rewriter completes the initial instantiated test
+scenario in combination with the answer of the tester. In
+addition, in order for the transformation module to work
+smoothly,wealsodesignedanintelligentagentSummarizer
+to summarize the chat history of the clarification module,
+and summarize information such as “scenario”, “parame-
+ter_list”, “is_effective”, and “scenario_template” from the
+chat history. They are collected into a JSON string as the
+input of the transformation module.
+3.2. Transformation Module
+Thepurposeoftransformingtestscenariosistogenerate
+more adequate instantiated test scenarios based on the com-
+plete description of the test scenario output by the clarifica-
+tionmoduletodetectmoreerrorsinwebsystems.Ingeneral,
+theparameterscontainedinatestscenariocorrespondtothe
+formfieldsofthetargetwebsystemundertest.Therefore,we
+first analyze the JSON string produced by the clarification
+module.ThisJSONstringincludestheparametersidentified
+in the test scenario, as well as a scenario template in which
+these parameters are replaced with placeholders.
+For each parameter, we query an external knowledge
+base to retrieve the corresponding equivalence class parti-
+tions.Theparametersandtheirassociatedequivalenceclass
+partitionsarethenprovidedtotheLLMasprompts,enabling
+the LLM to generate a wide range of candidate equivalence
+classes. To further enhance the diversity of the generated
+instantiated test scenarios, we combine these equivalence
+classes across different parameters and fill each resulting
+combination into the scenario template, thereby creating
+adequate instantiated test scenarios. Since a test scenario
+also contains test oracles, inserting a combination of equiv-
+alence classes into the scenario requires that the test oracle
+be updated accordingly. Therefore, we can adjust the test
+oracleaccordinglybasedonthecombinationofequivalence
+classes,therebyachievingthetransformationofinstantiated
+test scenarios.
+Database
+Equivalence
+class generator
+Test oracle
+generator
+PICT
+Clarification
+moudle
+{"scenario": "Feature: add owner
+Given this is the current URL: "http://localhost:8080/owners/new"
+When I add a person with first name "Tom" and last name "Smith", address
+"412 Main Street" with city "NewYork" and telephone "6095916230" as a new
+pet owner
+Then the owner "Tom Smith" should be created in the system",
+"parameter_list": ["first name", "last name", "address", "city", "telephone"],
+"is_effective": True,
+"scenario_template": "Feature: add owner
+Given this is the current URL: "http://localhost:8080/owners/new"
+When I add a person with first name "<first name>" and last name "<last
+name>" as a new pet owner with address "<address>" with city "<city>" and
+telephone "<telephone>"
+Then the owner "<first name> <last name>" should be created in the system"}
+variable: first name
+valid equivalence class: ["Letter + space/hyphen/apostrophe", "For
+characters 1 to 50, try to take boundary values as much as possible", ...]
+invalid equivalence class: ["Including numbers", "null value", ...]
+first name: John12, John@, ...
+last name: Smith34, Smith#, ...
+address: MainStreet, M@in Street, ...
+city: NewYork123, NewYork$, ...
+telephone: 609591623, 60959162301, ...
+first name,last name,address,city,telephone
+John12,Smith#,MainStreet,NewYork$, 609591623
+John@,Smith34,M@in Street,NewYork123,60959162301
+......
+The metamorphic of invalid equivalence classes:
+Feature: add owner
+Given this is the current URL: "...:8080/owners/new"
+When I add a person with first name "John12" and last name "Smith34"
+as a new pet owner with address "MainStreet" with city "NewYork" and
+telephone "609591623"
+Then the owner "John12 Smith#" should be created in the system
+......
+The metamorphic of invalid equivalence classes:
+Feature: add owner
+Given this is the current URL: "...:8080/owners/new"
+When I add a person with first name "John@" and last name "Smith#" as
+a new pet owner with address "MainStreet" with city "NewYork" and
+telephone "609591623"
+Then the owner "John12 Smith#" should not be created in the system
+......
+Transformation Process
+Figure 5:Transformation Process in WebMAC
+To effectively transform test scenarios, we design a
+multi-agentsystemasthetransformationmodule.Thismod-
+ule consists of a retrieval tool, a PICT tool, and two agents:
+the Equivalence Class Generator and the Test Oracle Gen-
+erator. These agents leverage the contextual information
+provided by the clarification module to retrieve equivalence
+classpartitions,generateequivalenceclasses,andtransform
+test scenarios, thereby producing adequate instantiated test
+scenarios. The functions of the two agents are as follows:
+•Equivalence class generatorcan generate equiva-
+lence classes for corresponding parameters according
+to the equivalence class partitions.
+•Test oracle generatorcan adjust the test oracle ac-
+cordingly based on the combination of equivalence
+classes.
+Fig. 5 shows a specific transformation process. The
+JSON string generated by the clarification module is pro-
+vided as input to the transformation module. Based on
+Featureof the instantiated test scenario, the transformation
+module retrieves equivalence class partitions from an ex-
+ternal knowledge base. This knowledge base stores a large
+collectionofscenarios,parameters,andtheircorresponding
+equivalenceclasspartitions.Toobtaintheequivalenceclass
+First Author et al.:Preprint submitted to ElsevierPage 6 of 13
+
+partitions corresponding to parameters, the module first
+retrieves the relevant scenario. For example, ifFeatureof
+the instantiated test scenario is “add owner”, it searches the
+knowledge base for scenarios associated with the keyword
+“add owner”. It then retrieves the equivalence class parti-
+tions of the parameters listed in “parameter_list” from that
+scenario. For instance, the parameterfirst namemay have
+validpartitionssuchas“Letter+space/hyphen/apostrophe”
+and “For characters 1 to 50, try to take boundary values as
+much as possible”, and invalid partitions such as “Including
+numbers” and “null value”.
+After organizing these partitions, the module constructs
+a prompt that pairs each parameter with its corresponding
+equivalence class partitions and sends it to the Equivalence
+Class Generator. This agent then produces concrete equiv-
+alence classes according to the retrieved equivalence class
+partitions. For example, for the parameterfirst name, if one
+partitionspecifies“Includingspecialsymbols(@,#,$)”,the
+generatedequivalenceclassmaybe“John@”.Toexpandthe
+number of generated test scenarios, we use the PICT tool
+to create pairwise combinations of all equivalence classes,
+thereby producing a large set of combinations. However,
+these combinations merely modified the parameters of the
+testinputswithintheinstantiatedtestscenarios,whereasthe
+content of the test oracles remained unchanged. To address
+this issue, we employ the Test oracle generator, which re-
+vises the test oracle accordingly based on the combination
+of equivalence classes. If all equivalence classes filled into
+thescenariotemplatearevalid,theoracleissettoapositive
+outcome.Otherwise,theoracleismodifiedtoreflectanega-
+tiveoutcome.Throughthisprocess,themodulecangenerate
+adequate instantiated test scenarios.
+3.3. Testing Module
+In order to convert test scenarios into corresponding
+test scripts and execute the test scripts, we design a multi-
+agent system as the testing module. This module consists
+of three agents: Coder, Executor, and Analyst, which work
+collaboratively to perform automated testing and return the
+corresponding test reports. The functions of these three
+agents are as follows:
+•Coderconvertsthetestscenariointothetestscriptfor
+the target web system.
+•Executorautomatically runs the test script produced
+by the Coder and returns the execution results.
+•Analystanalyzestheexecutionresults,generatesboth
+the test outcome and the corresponding test report.
+Fig. 6 shows a specific testing process. We iteratively
+feedtheinstantiatedtestscenariosoutputbythetransforma-
+tion module into the testing module. For instance, based on
+the descriptions contained in a test scenario: “When I add
+a person with first name ‘John12’ and last name ‘Smith#’
+as a new pet owner with address ‘MainStreet’ with city
+‘NewYork$’ and telephone ‘609591623”’, the agent Coder
+writes the test script to submit the owner information for
+Coder
+Executor
+Analyst
+Clarification
+moudle
+Feature: add owner
+Given this is the current URL: "http://localhost:8080/owners/new"
+When I add a person with first name "John12" and last name "Smith
+#" as a new pet owner with address "MainStreet" with city "NewYork$
+" and telephone "609591623"
+Then the owner "John12 Smith#" should not be created in the system
+```python
+from playwright.sync_api import sync_playwright
+with sync_playwright() as playwright:
+browser = playwright.chromium.launch(headless=False) # headless=False
+page = browser.new_page()
+page.goto("http://localhost:8080/owners/new")
+# Fill the input field
+page.fill("#firstName", "John12")
+page.fill("#lastName", "Smith#")
+page.fill("#address", "MainStreet")
+page.fill("#city", "NewYork$")
+page.fill("#telephone", "609591623")
+# Click the "Find Owner" button
+page.click("button[type='submit']")
+# Print the current url's html code
+print(page.content())
+# Print the current url itself
+print(page.url)
+```
+Code output:
+<html>...HTML elements...</html>
+Test_Information: After executing the code, the web page was successfully
+submitted and conformed to the description of the test scenario ......
+IsPass: 1
+Testing Process
+Figure 6:Testing Process in WebMAC
+theURL“http://localhost:8080/owners/new”.Thetestscript
+is automatically executed by the Executor and returns the
+executionresults.Finally,theAnalystanalyzestheexecution
+resultsandreportsthetestexecutionstatus,thuscompleting
+thetest.Forinstance,“IsPass:1”meansthetestpassed,and
+“Test_Information”containsthetestreport“Afterexecuting
+the code, the web page was successfully submitted and
+conformed to the description of the test scenario ......”.
+4. Experiments Setup
+This section presents the research design of this study,
+including the research questions, baseline methods, target
+web systems, and experimental environment.
+4.1. Research Questions
+To evaluate WebMAC, we conducted experiments to
+investigate the following three research questions:
+•RQ1: How does WebMAC compare to the SOTA
+method on test script execution success rate?
+•RQ2: How efficient is the testing of WebMAC?
+•RQ3: How effective is WebMAC in detecting errors
+in the web system?
+4.2. Baseline
+To evaluate WebMAC, we adopted the SOTA LLM-
+based scenario testing method proposed by Bergsmann et
+al. (Bergsmann et al., 2024) as our baseline. This method
+First Author et al.:Preprint submitted to ElsevierPage 7 of 13
+
+proposesamulti-agentsystembasedonAutoGenthatusesa
+Collaborator agent to schedule different agents and provide
+high-levelguidanceforthetestingprocess.Thesystemtakes
+thenaturallanguagedescriptionofthetestscenarioasinput.
+Under the coordination of the Collaborator agent, multiple
+intelligent agents collaboratively analyze the scenario, gen-
+erate an executable test script through iterative information
+exchange, and automatically execute the test script to com-
+pletethetest(capableofperformingactionssuchasclicking
+and inputting in the web system).
+In RQ1 and RQ2, since the SOTA method does not in-
+clude the capability to transform instantiated test scenarios,
+we compare them with a version of WebMAC where the
+transformation module is removed. This allowed us to eval-
+uate the execution success rate of the test scripts generated
+by WebMAC, as well as WebMAC’s testing efficiency.
+4.3. Web Systems
+We selected the Petclinic1 web system in (Bergsmann
+et al., 2024) as the system under test. To evaluate the ap-
+plicability of our approach across different web systems,
+we used keywords such as “Java web” and “HTML” to
+search for web systems on GitHub and cloned 14 projects.
+After excluding web systems that could not run properly
+in our experimental environment, we finally selected three
+additionalwebsystemswithdifferentfunctionalities(Blog 2,
+Tour-reservation3, and Tracw4) for our experiments.
+PetClinicisapethospitalsystemthatallowsuserstoadd,
+searchfor,andaccesspetsandtheirowners.Blogisasystem
+for creating and browsing blogs. Tour-reservation is a travel
+ticketing system. Tracw is a wallet system that allows users
+to set up deposit and withdrawal limits.
+4.4. Experiment Environment
+All experiments were conducted on an HP worksta-
+tion (Precision 3660) equipped with a 12th Gen Intel(R)
+Core(TM) i7-12700 processor and 16GB of RAM. The
+Google Chrome version used was 140.0.7339.128 (Official
+Build) (arm64), and the Chrome web driver version was
+140.0.7339.185 (r1496484).
+5. Experiments Results
+5.1. How does WebMAC compare to the SOTA
+method on test script execution success rate?
+The execution success rate of the test scripts generated
+by WebMAC and the SOTA method on four different web
+systems is presented in the form of a bar chart in Fig. 7. It
+canbeseenthattheexecutionsuccessrateofthetestscripts
+generated by our method on the four different web systems
+is stronger than that of the SOTA method. Specifically,
+both WebMAC and the SOTA method perform well when
+descriptions of test scenarios are complete, but WebMAC
+1https://github.com/spring-projects/spring-petclinic
+2https://github.com/mangeshpawar830/spring-boot-blog-master
+3https://github.com/muhammadumarrasheed/tour-reservation
+4https://github.com/NithinBairoju/tracw
+Figure 7:The execution success rate of test scripts generated
+by WebMAC and the SOTA method on four different web
+systems
+performs significantly better than the SOTA method when
+handling incomplete descriptions of test scenarios.
+When handling incomplete descriptions of test scenar-
+ios, the SOTA method often generates incorrect test scripts,
+which leads to test script submission failures. Although
+the SOTA method can regenerate test scripts by incorpo-
+rating system feedback, it typically requires multiple iter-
+ations before a correct script is generated. As the num-
+ber and complexity of form fields in the web system in-
+crease, the number of iterations required for incomplete
+natural language descriptions of test scenarios also grows.
+These repeated iterations accumulate extensive interaction
+history filled with noise, making it more likely for the
+LLM to generate test scripts that deviate from the tester’s
+intent, ultimately causing test failures. For example, con-
+sider the “add owner” test scenario for the web system
+Petclinic: “Feature: Add owner; Given this is the current
+URL: http://localhost:8080/owners/new; When I add a per-
+son with first name ‘John’ and last name ‘Smith’ as a new
+petowner;Thentheowner‘JohnSmith’shouldbecreatedin
+the system”. The scenario lacks concrete values foraddress,
+city, andtelephonefields, causing the LLM to generate a
+test script based solely on the incomplete natural language
+descriptions of test scenarios and then rely on the web sys-
+tem’s feedback to infer which fields are missing. However,
+the web system’s feedback typically provides only general
+error messages, such as “address is null”, without offering
+anyfurtherguidanceonthemissingcontent.Thisoftenleads
+theLLMtogeneratearbitraryplaceholdervalueslike“<ad-
+dress>”.Incontrast,WebMACintroduceshuman-computer
+interaction to provide concrete values at critical moments.
+WebMAC identifies the missing contents in the description
+of the test scenario and asks clarification questions to the
+tester. The tester’s responses supply the specific missing
+content,andtheLLMthenusestheseresponsestocomplete
+the description of the test scenario. This process also avoids
+the accumulation of noisy history during iteration, which
+could affect the completion of the scenario description.
+Additionally, we found that the SOTA method performs
+particularlypoorlywhenthetestscenarioisnegative.When
+First Author et al.:Preprint submitted to ElsevierPage 8 of 13
+
+Table 1
+The effectiveness and efficiency of WebMAC and the SOTA method on four different web systems
+Web System Approach Execution Success Rate Avg. Clar.
+Time (s)
+Avg. Test
+Time (s)
+Avg. Clar.
+Tokens
+Avg. Test
+Tokens
+Avg. Interactions
+During Clarification
+Avg. Interactions
+During Test
+Petclinic Bergsmann et al. 71.43% 0 42.45 0 19867.94 0 14.27
+WebMAC100% 24.26 12.71 7261.82 4592.17 7.23 4
+Blog Bergsmann et al. 69.20% 0 43.05 0 19717.08 0 14.85
+WebMAC100% 23.72 8.44 4677.92 4590.38 7.75 4
+Tour-
+reservation
+Bergsmann et al. 40% 0 36.78 0 18757.67 0 13.47
+WebMAC100% 17.48 8.69 5038.07 5292.53 6.4 4
+Tracw Bergsmann et al. 42.86% 0 52.41 0 25473.48 0 13.38
+WebMAC100% 20.60 8.17 6672.19 5781.71 7.14 4
+the input test scenario describes a case in which submit-
+ting invalid input should cause the web system to reject
+the submission, the SOTA method still initiates automatic
+iterativerefinement.Itrepeatedlyadjuststhetestscriptbased
+on the web system’s feedback and may even insert values
+into the test script that contradict the original test sce-
+nario. This is because the workflow designed by the SOTA
+method focuses on accomplishing actions rather than exe-
+cuting the scenario itself, which weakens the role of test
+oracles embedded in test scenarios. For example, consider
+the “register account” test scenario for the web system
+Tracw, “Feature: Register account; Given this is the cur-
+rentURL:http://localhost:8080/register;WhenIenteredthe
+Username ‘abc’, the Password ‘123456@Mm’, Telephone
+‘123456789’, Initial Balance ‘10’, and then clicked ‘Reg-
+ister’; Then register failed”. In this test scenario, the test
+should fail because the input telephone is invalid. However,
+the SOTA method instructs the LLM to achieve the goal of
+completing account registration. As a result, after receiving
+feedback from the webpage indicating that the telephone is
+invalid, the LLM proactively modifies the illegal telephone
+into a valid one to ensure successful registration. This vio-
+lates the test oracle specified in the test scenario.
+In four different web systems, the execution success rate
+ofthetestscriptsgeneratedbyWebMACissignificantly
+higherthan the SOTA method, which proves that Web-
+MAC can effectively improve the execution success rate
+of the generated test scripts.
+5.2. How efficient is the testing of WebMAC?
+As shown in Table 1, WebMAC achieves shorter test-
+ing time than the SOTA method across four different web
+systems. In terms of token consumption, WebMAC also
+usessignificantlyfewertokens.Atthesametime,WebMAC
+requires fewer interactions with the LLM compared to the
+SOTA method.
+In terms of testing time, the clarified test scenarios
+already have all missing information filled in, allowing the
+system to generate correct test scripts without iterative re-
+finement.Thisenablesthetestingprocesstocompletemuch
+more quickly. Comparing the performance of the two ap-
+proaches across different web systems, WebMAC reduces
+theaveragetesttimeby75%comparedtotheSOTAmethod.
+In Petclinic, because the web system contains relatively few
+formfields,thetestscenariosinvolvefewerparameters.This
+allows the SOTA method to complete automated testing
+more quickly. WebMAC reduces the average test time by
+70% compared to the SOTA method. In contrast, in Tracw,
+the web system contains many more form fields, and the
+corresponding scenarios involve more parameters. As a re-
+sult, the SOTA method requires significantly more time to
+complete automated testing for these descriptions of test
+scenarios,causingWebMACtoreducetheaveragetesttime
+by 84% compared to the SOTA method. This indicates that
+the more complex the forms of the web system are, the
+greater the advantage of WebMAC becomes. Of course,
+WebMAC requires a clarification process. However, even
+afterincludingthetimespentonclarification,WebMACstill
+reduces the average testing time by 29% compared to the
+SOTA method.
+In terms of token consumption, once the test scenario
+has been clarified, all missing information has already been
+completed.Therefore,noiterativerepairisneeded,prevent-
+ing excessive token usage. Across different web systems,
+WebMAC reduces the average number of test tokens by
+76% compared to the SOTA method. In Tour-reservation,
+because the web system is simple and contains less HTML
+information, the Executor produces fewer tokens. As a re-
+sult, the SOTA method consumes fewer tokens in this web
+system.WebMACreducestheaveragenumberoftesttokens
+by 71% compared to the SOTA method. In contrast, in
+Tracw, the web system is more complex and contains a
+larger amount of HTML information, leading the Executor
+to output more tokens. This further amplifies the advantage
+of WebMAC in token consumption, causing WebMAC to
+reduce the average number of test tokens by 77% compared
+to the SOTA method. Similarly, WebMAC also consumes
+sometokensduringtheclarificationprocess.However,even
+after including the tokens used in clarification, WebMAC
+still consumes 47.6% fewer test tokens compared to the
+SOTA method.
+Intermsofinteractioncount,WebMAC,becauseituses
+test scenarios with already completed content, can directly
+generate correct test scripts without a large number of inter-
+actions.Incontrast,theSOTAmethodrequiresiterativegen-
+erationoftestscriptsandisaffectedbynoiseinthehistorical
+First Author et al.:Preprint submitted to ElsevierPage 9 of 13
+
+Table 2
+The errors detected in different web systems
+Web System Approach
+The number of
+transformation
+scenarios
+The number of
+discovered
+errors
+Types of
+errors
+discovered
+Petclinic Bergsmann et al. 1 0 0
+WebMAC119 26 14
+Blog Bergsmann et al. 1 0 0
+WebMAC93 21 13
+Tour-
+reservation
+Bergsmann et al. 1 0 0
+WebMAC84 19 11
+Tracw Bergsmann et al. 1 0 0
+WebMAC78 16 11
+records generated during iteration, requiring more interac-
+tionstogeneratecorrecttestscripts.Intermsofperformance
+across different web systems, the SOTA method requires
+approximately 3.5 times more user interactions on average
+than WebMAC. When generating test scripts, the SOTA
+methodmustfirstproduceaninitialtestscriptandthenrefine
+it based on the feedback of the web system. Depending on
+the complexity of the test scenario, the SOTA method may
+require two to three rounds of iteration before obtaining a
+correct test script. In contrast, WebMAC first clarifies the
+incompletenaturallanguagedescriptionofthetestscenario,
+allowing WebMAC to generate the test script without any
+iteration, resulting in a stable interaction count of four.
+Although WebMAC performs completeness checking and
+clarification, even after including the interactions involved
+in the clarification stage, WebMAC still maintains a clear
+advantage over the SOTA method in terms of interaction
+count.
+WebMACoutperformstheSOTAmethodintestingtime,
+token consumption, and interaction count with the LLM
+across four different web systems, demonstrating that
+WebMAC can effectively reduce testing costs and im-
+prove testing efficiency.
+5.3. How effective is WebMAC in detecting errors
+in the web system?
+In this experiment, we evaluate the ability of WebMAC
+todetecterrorsacrossfourdifferentwebsystems.Asshown
+inTable2,startingfromanincompleteinstantiatedtestsce-
+nario, WebMAC can clarify and transform it into hundreds
+of distinct instantiated test scenarios. These transformed
+scenarios are able to uncover multiple errors, and the types
+of errors detected vary across systems. This demonstrates
+that our approach can effectively detect errors in the web
+systems. In contrast, Bergsmann et al.’s method overlooks
+test adequacy criteria and generates only a single test script
+based on the initial test scenario, which fails to effectively
+expand the test coverage and therefore fails to detect errors
+in all four systems.
+Specifically, in Petclinic, after the description of the test
+scenario is clarified and transformed by WebMAC, a total
+of 119 different instantiated test scenarios are generated.
+For example, in a test scenario describing adding an owner
+successfully, the form of the target web system contains
+first name,last name,address,city, andtelephone. A single
+instantiatedtestscenariocanonlydetectthesituationwhere
+all offirst name,last name,address,city, andtelephoneare
+valid. After transformation, however, the 119 test scenarios
+include cases such as: (1) an invalidfirst namewith valid
+last name,address,city, andtelephone; and (2) an invalid
+lastnamewithvalidfirstname,address,city,andtelephone,
+amongothers.Thesetestscenarioscoveralltheequivalence
+class partitions in the external knowledge base, thereby
+revealing26errors,including14distincttypesoferrors.For
+instance, for the invalid equivalence class “the first name
+must not contain @”, the corresponding equivalence-class
+value “John@” surprisingly passes the test, revealing that
+thetargetwebsystemignorestheillegal-characterrestriction
+onfirstname.Anotherexampleisthevalidequivalenceclass
+fortelephone,“areacodesmaybeconnectedwithhyphens”,
+where the valid value “609-591-6230” fails to successfully
+add an owner and produces an error report, revealing that
+the target web system does not support this correct tele-
+phone format. Experiments on Blog, Tour-reservation, and
+Tracwsimilarlygenerateadequateinstantiatedtestscenarios
+throughthistransformationprocess,coveringvariouspossi-
+ble cases of the target web systems, thereby detecting errors
+in web systems.
+WebMAC was evaluated on four different web systems,
+where it was able to generate adequate instantiated test
+scenarios and detect errors in the target web systems,
+demonstratingtheeffectivenessofWebMACindetecting
+errors.
+6. Discussion
+Therearepotentialthreatstothevalidityofourapproach.
+Additionally,wediscussedtheimpactofcombiningequiva-
+lence classes on scenario coverage.
+6.1. Threats to Internal Validity
+A potential threat to internal validity stems from Web-
+MAC’s reliance on OpenAI’s third-party API services for
+test scenario clarification, transformation, and script gener-
+ation. Network latency or instability during API calls could
+introducevariabilityinexecutiontimeorevencauserequest
+failures, thereby affecting the reproducibility and consis-
+tency of the experimental results. To mitigate this issue,
+weselectedhigher-speednetworkequipmentandconducted
+experimentsduringperiodsofstablenetworkconditions.To
+minimizethisconfoundingfactor,allexperimentswerecon-
+ducted in a controlled network environment with dedicated
+bandwidth and during off-peak hours to ensure stable con-
+nectivity. Nevertheless, residual variability due to external
+API dependencies remains a limitation. Another threat to
+internal validity lies in the assumption that test oracles can
+be systematically derived from equivalence class partitions.
+In practice, for a small subset of test scenarios, especially
+those involving complex state transitions or dependencies
+First Author et al.:Preprint submitted to ElsevierPage 10 of 13
+
+on external services, it is difficult to derive the expected
+behavior based on equivalence classes. This may lead to
+incorrect oracles, potentially compromising the execution
+success rate of the test script.
+6.2. Threats to External Validity
+With respect to external validity, some target web sys-
+tems may trigger behaviors that lead to non-HTML pages,
+fromwhichrelevantpageinformationcannotbedirectlyob-
+tained. This limits the applicability of our approach in such
+scenarios. However, our approach can be readily adapted
+to such systems by updating the example template used by
+the Coder. Moreover, the equivalence class partitions are
+manually defined for each web system, which may hinder
+the portability of our approach across diverse application
+domains.Futureworkshouldinvestigateautomatedmethods
+for deriving equivalence class partitions, thereby reducing
+manual effort and improving cross-domain adaptability.
+6.3. Impact of Combining Equivalence Classes
+Ourapproachgeneratesdiversetestscriptsbycombining
+equivalence classes. Effective combination of equivalence
+classesiscrucialtoimprovebothtestingefficiencyanderror
+detection effectiveness. In this work, we employ the classic
+combinatorial testing tool PICT to generate combinations
+of equivalence classes. However, while PICT produces a
+large number of combinations of equivalence classes, not
+allinstantiatedtestscenarioscorrespondingtocombinations
+cantriggererrors,whichaffectstheefficiencyoferrordetec-
+tiontosomeextent.Consequently,apromisingdirectionfor
+future research is to implement a rigorous filtering process
+forthesecombinationsofequivalenceclassestomitigatethis
+issue.
+7. Related Work
+This section introduces some related work, including
+LLM-based scenario testing, the multi-agent collaborative
+framework, and equivalence class partitioning.
+7.1. LLM-based Scenario Testing
+The application of LLMs in software testing has seen
+significant advancements in recent years, particularly in
+scenario testing (Liu et al., 2023; Li et al., 2024; Yu et al.,
+2025). Current research primarily uses the natural language
+understanding and code generation capabilities of LLMs to
+translate test scenarios into test scripts directly (Li, Xiong,
+Li, Yang and Pan, 2023a; Yang, Yang, Gao, Wang, Wang,
+Zhu, Chu, Zhou, Liang, Wang et al., 2024; Korraprolu,
+Pinninti and Reddy, 2025). For example, TestGPT-Server
+(Wang,Chen,Liu,Deng,Zhang,FuandLiu,2025)employs
+an LLM-enhanced interface analyzer and code analyzer to
+extractAPIsyntaxandsemantics,andthengeneratesdiverse
+test requests through a targeted request generator and a
+guided random tester. An LLM-assisted response analyzer
+further identifies service crashes and detects errors through
+automated assertion mining. In GUI testing, GUIPilot (Liu,
+Teoh, Lin, Chen, Ren, Poshyvanyk and Dong, 2025) lever-
+ages LLMs for automated exploration, but its test oracle
+relies on manually provided mockup designs, hindering the
+automatic construction of accurate verification conditions.
+Similarly, GPTDroid (Liu, Chen, Wang, Chen, Wu, Che,
+Wang and Wang, 2024) formulates mobile GUI testing as
+a question-answering task, using LLMs to generate test
+scripts. Although these approaches improve the level of
+automation in scenario testing, they often lead LLMs to
+generate incorrect test scripts when confronted with incom-
+plete natural language descriptions of test scenarios. The
+WebMAC framework proposed in this paper mitigates this
+limitation by using a multi-agent collaborative framework
+to assist testers in completing natural language descriptions
+of test scenarios and enabling the generation of correct test
+scripts(Huang,Wan,Xing,Wang,Chen,XuandLu,2023b).
+7.2. Multi-Agent Collaborative Framework
+As research on LLMs deepens, single agents are no
+longer sufficient for many tasks. Consequently, research has
+shiftedtothemulti-agentcollaborativeframework(Li,Ham-
+moud, Itani, Khizbullin and Ghanem, 2023b; Wu, Bansal,
+Zhang, Wu, Li, Zhu, Jiang, Zhang, Zhang, Liu et al., 2024).
+These frameworks are being used in various research fields
+and have demonstrated excellent performance (Guo, Chen,
+Wang, Chang, Pei, Chawla, Wiest and Zhang, 2024; Qian,
+Xie, Wang, Liu, Zhu, Xia, Dang, Du, Chen, Yang et al.,
+2024; Yan, Zhou, Zhang, Zhang, Zhou, Miao, Li, Li and
+Zhang, 2025). Through task decomposition and role divi-
+sion, multi-agent systems enable different agents to focus
+onspecificsubtasks(Bo,Zhang,Dai,Feng,Wang,Li,Chen
+and Wen, 2024; Zhu, Dastani and Wang, 2024). Agents can
+share knowledge and context through interaction and col-
+laboration, imbuing the system with collective intelligence,
+achievinggreaterefficiencyandrobustnessincomplextasks.
+In scenario testing, multi-agent collaborative frameworks
+coordinate complex tasks and improve testing efficiency
+through division of labor and collaboration. For example,
+Bergsmannetal.(Bergsmannetal.,2024)useaCollaborator
+agent that coordinates multiple agents and provides high-
+levelguidanceforgeneratingandexecutingGherkintestsce-
+narios. However, scenario testing often involves ambiguous
+or incomplete inputs. In such cases, relying on a centralized
+agenttoorchestratetheentireworkflowispronetoerrors,as
+itmaymisinterprettheseambiguitiesandgenerateincorrect
+test scripts. To address this limitation, WebMAC proposes
+a multi-agent collaboration framework for scenario testing.
+Rather than relying solely on agents to interpret incomplete
+natural language descriptions of test scenarios, WebMAC
+integrates human-computer interaction to resolve ambigu-
+ities, thereby preventing erroneous assumptions that could
+lead to invalid test scripts. This significantly enhances the
+efficiency of scenario testing and the execution success rate
+of the generated test scripts.
+7.3. Equivalence Class Partitioning
+Equivalence class partitioning divides the input domain
+into disjoint subsets that are behaviorally equivalent to the
+First Author et al.:Preprint submitted to ElsevierPage 11 of 13
+
+system under test (Bhat and Quadri, 2015; Hübner, Huang
+andPeleska,2019).Byselectingarepresentativeinputfrom
+each subset, testers can avoid redundant test cases while
+maintaining coverage, thereby improving testing efficiency.
+Inpractice,equivalenceclasspartitioningiscommonlycom-
+binedwithboundaryvalueanalysis,valid/invalidinputclas-
+sification, and combinatorial interaction coverage strategies
+toimproveerrordetectioneffectivenessunderlimitedtesting
+budgets (Radcliffe et al., 1991; Fields and Verhave, 1987;
+Fields, Adams and Verhave, 1993). WebMAC’s transfor-
+mation module extracts parameters from instantiated test
+scenarios and automatically derives equivalence classes for
+each parameter. WebMAC then combines the equivalence
+classesofdifferentparametersusingPICT(Microsoft,2024)
+to generate a large number of combinations of equivalence
+classes.Finally,foreachcombinationofequivalenceclasses,
+WebMAC synthesizes an appropriate test oracle and gener-
+ates a corresponding instantiated test scenario.
+8. Conclusion
+In this paper, we propose WebMAC, a multi-agent col-
+laborative framework for scenario testing of web systems.
+Through interactive clarification and multi-agent collabo-
+ration, WebMAC mitigates the problem of generating in-
+correct test scripts due to incomplete natural language de-
+scriptions of test scenarios in LLM-based scenario testing.
+Furthermore, it adheres to test adequacy criteria, leveraging
+multi-agentcollaborationandequivalenceclasspartitioning
+tocorrectlygenerateadequateinstantiatedtestscenariosand
+corresponding test scripts, thereby detecting more errors
+in web systems. Experiments across multiple web systems
+demonstrate that WebMAC significantly improves both the
+executionsuccessrateandtheefficiencyoftestscriptgener-
+ation,whileeffectivelydetectingerrors.Thisworkadvances
+automated scenario testing and promotes deeper integration
+of LLMs into software engineering practices. Future work
+will further study the scale issues that may arise in the
+processofequivalenceclasscombination,exploremoreeffi-
+cientfilteringandselectionstrategies,andextendWebMAC
+to more complex and diverse software test scenarios.
+9. Declaration of competing interest
+The authors declare that they have no known competing
+financial interests or personal relationships that could have
+appeared to influence the work reported in this paper.
+10. Acknowledgments
+This work was partially supported by the National Key
+R&D Plan of China (Grant No.2024YFF0908003), and the
+Natural Science Foundation of China (No.62472326).

@@ -1,0 +1,674 @@
+record_id: leaderboard:osworld:agent-s3
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2510.02250
+fetched_title: Scaling Agents for Computer Use
+fetched_at: 2026-09-18T19:08:06Z
+
+Scaling Agents for Computer Use
+Gonzalo Gonzalez-Pumariega * Vincent Tu* Chih-Lun Lee Jiachen Yang Ang Li Xin Eric Wang
+Simular Research
+Abstract
+Computer-use agents (CUAs) hold promise for
+automating everyday digital tasks, but their per-
+formance on long-horizon, complex problems
+remains unreliable. Single-rollout execution is
+brittle, with small errors compounding over time
+and leading to high variance in outcomes. While
+prior work has attempted to scale within a sin-
+gle rollout, such approaches have yielded limited
+gains. Scaling over multiple rollouts offers a more
+promising alternative but doing so effectively is
+challenging due to the difficulty of evaluating and
+selecting among long-horizon agent behaviors.
+We introduceBehavior Judge(BJudge), which
+addresses this challenge by representing agent ex-
+ecutions as behavior narratives and comparing
+candidate behaviors at this level, substantially
+improving robustness and success rates. Using
+multiple rollouts, BJudge establishes a new state
+of the art (SoTA) in OSWorld at 72.6%, signifi-
+cantly outperforming prior methods and surpass-
+ing human-level performance at 72.36%, with
+comprehensive ablations validating key design
+choices. We further demonstrate strong general-
+ization results to different operating systems on
+WindowsAgentArena and AndroidWorld. Cru-
+cially, our results highlight the strong effective-
+ness of scaling CUAs, when you do it right: ef-
+fective scaling requires structured trajectory un-
+derstanding and selection, and BJudge provides a
+practical framework to achieve this.
+1. Introduction
+Computer-use agents (CUAs) offer the promise of automat-
+ing everyday digital tasks across operating systems and
+applications (Xie et al., 2024; Song et al., 2025; Guo et al.,
+2025b; Yang et al., 2025b; Xie et al., 2025; Wang et al.,
+2025a;b). Yet despite rapid advances, current CUAs remain
+*Equal contribution . Correspondence to: Gonzalo Gonzalez-
+Pumariega<gg387@cornell.edu>.
+Preprint. February 5, 2026.
+Figure 1.Performance on OSWorld at 100 steps. Our method beats
+the previous SoTA by 9.2% absolute improvement and surpasses
+human level performance on OSWorld.
+unreliable on long-horizon, complex problems. The diffi-
+culty lies not only in solving individual steps but also in
+sustaining correctness across dozens or even hundreds of
+interactions. Small mistakes accumulate, feedback is often
+delayed, solution paths branch in unpredictable ways, and
+environmental noise (UI changes, pop-ups, latency) further
+destabilizes performance (Yang et al., 2025a). Together,
+these factors lead to high variance in outcomes, with the
+same agent often succeeding on one attempt but failing
+catastrophically on another.
+A natural response to this variance is to scale execution.
+Prior work (Yang et al., 2025b) has explored scaling within
+a single rollout to combat variance but single-trajectory
+scaling has led to limited improvements in overall success
+on long-horizon tasks. An alternative approach iswide
+scaling: instead of simply accepting a single rollout from
+one agent, we can scale the number of agents to generate
+multiple rollouts in parallel and select the best. This wide
+scaling perspective leverages the fact that agents, while
+suboptimal individually, often succeed on complementary
+subsets of tasks, as shown in Figure 2.
+In practice, however,wide scaling exposes a fundamen-
+tal bottleneck: evaluation. While generating multiple roll-
+outs is straightforward, reliably determining which long-
+horizon trajectory is correct is not. Agent trajectories are
+information-dense and multimodal, with most details irrel-
+evant to task success, making them difficult to interpret,
+compare, and evaluate. Moreover, many computer-use tasks
+1
+arXiv:2510.02250v2 [cs.AI] 3 Feb 2026
+
+Scaling Agents for Computer Use
+admit multiple valid solutions, and scripted automatic evalu-
+ation struggles to decide whether a trajectory is correct (Xie
+et al., 2024; Rawles et al., 2025; Bonatti et al., 2025).
+To address these challenges, we introduce Behavior Judge
+(BJudge), a novel framework that enables wide scaling of
+CUAs through principled trajectory representation and se-
+lection. Our approach first converts raw trajectories into be-
+havior narratives: concise summaries that capture what the
+agent actually did and how it affected the environment, pre-
+serving task-relevant action–effect summaries while filtering
+away irrelevant detail at individual steps. These narratives
+provide a compact yet faithful representation that makes
+it easier for a judge to compare candidates. BJudge then
+performs selection directly over narratives, enabling reliable
+selection among multiple rollouts. In addition, we build
+upon existing CUAs and introduce an improved computer-
+use agentic framework to generate high quality trajectories
+for BJudge.
+Our method delivers strong performance on computer-use
+benchmarks. On OSWorld (Xie et al., 2024), it achieves a
+new state of the art with a 72.6% success rate (100 steps),
+surpassing the previous best of 63.4% and human-level per-
+formance at 72.36% (Figure 1). Beyond OSWorld, our ap-
+proach also demonstrates strong zero-shot generalizability
+on WindowsAgentArena (Bonatti et al., 2025) and Android-
+World (Rawles et al., 2025).
+Our contributions are four-fold:
+• We introduce the wide scaling paradigm for CUAs,
+showing that carefully selecting from multiple trajecto-
+ries substantially improves robustness and coverage.
+• We propose Behavior Judge (BJudge), a framework
+that enables the evaluation of multiple rollouts by con-
+verting dense trajectories into compact behavior narra-
+tives and using them for principled trajectory selection.
+• Our method, together with an improved CUA base-
+line, achieves a new SoTA of 72.6% on OSWorld, sur-
+passing prior work by a large margin (9.2% absolute
+improvement) and surpassing human performance at
+72.36%.
+• We provide extensive ablations validating our design
+choices and demonstrate strong zero-shot generaliz-
+ability on WindowsAgentArena and AndroidWorld.
+2. Background
+2.1. Computer-Use Agents
+Computer-use agents (CUAs) executing user instructions
+can be framed as a partially observable Markov Decision
+Process (POMDP) defined as M=⟨S,O,A,T,I,R⟩ ,
+whereS is the state space encoding the computer state,
+O is the observation space such as desktop screenshots,A is
+the action space of the agent (e.g. agent.click(...)
+and agent.type(...)), T:S×A →∆(S) is
+a stochastic transition function, I is the space of possi-
+ble user instructions represented in natural language, and
+R: (S×A) ∗×I→[0,1] denotes the instruction reward
+function that assigns a scalar reward to a trajectory of states
+and actionsτ := (s0,a 0,...,a T−1,st) on taskI. We use
+ht := (o0,a 0,...,o t−1,at−1,ot) to denote a time-ordered
+history of all consecutive observations and actions up to and
+includingot.
+A broad spectrum of computer agents has been explored
+including general agentic frameworks (Song et al., 2025;
+Yang et al., 2025b; Agashe et al., 2025b;a), generalist agents
+(Anthropic, 2025; OpenAI, 2024; Guo et al., 2025a) and
+graphical user interface (GUI) agents (Wang et al., 2025a;
+Xu et al., 2025). These prior work consider a single model
+as the policy π(a|ht,I) that, when executed, yields one
+trajectoryτ= (o 0,a 0,...,o T ) whereat∼π(·|h t,I) . In
+contrast, our work is the first, to our knowledge, that focuses
+on scaling the number of candidate solution trajectories by
+using multiple base models and policies, and we propose
+effective methods to select the optimal solution.
+2.2. Test-Time Scaling
+A common strategy for improving large multimodal models
+and their agentic extensions is through test-time scaling
+(Zhu et al., 2025), where multiple solutions are generated
+either in parallel or sequentially, followed by selection of a
+final response using a reward model or iterative generation
+of new solutions (Snell et al., 2025; Lightman et al., 2024;
+Jain et al., 2025). Recent work (Yang et al., 2025b) has
+adapted this idea for CUAs withstep-wise BoN(Zhu et al.,
+2025), where at each step the agentπ generatesK candidate
+actionsCt ={a (k)
+t }K
+k=1∼π(·|h t,I) and then a judge J
+selects the best action ˆa=J(Ct). While this can help with
+local improvements, it commits the rollout to the current
+agent plan. In tasks with multiple valid solutions paths, this
+can lead the agent to over-commit to a harder route, missing
+easier alternatives. In contrast, our work investigates the
+wide scalingapproach where a judge must select the best
+trajectory among a set of candidate trajectories generated
+by multiple base agents or models.
+However, wide scaling is non-trivial because trajectory
+evaluation is still a fundamental challenge. Most exist-
+ing benchmarks such as OSWorld (Xie et al., 2024), Win-
+dowsAgentArena (Bonatti et al., 2025), and AndroidWorld
+(Rawles et al., 2025) use evaluation scripts written by hu-
+mans which cannot be scaled. In contrast, work on web-
+agent benchmarks, a subset of CUA focused on browsers,
+has explored using vision-language models (VLMs) as
+2
+
+Scaling Agents for Computer Use
+Figure 2.Disjoint task success across rollouts by three agent instances. Behavior Judge (BJudge) leverages this complementarity by
+selecting the best trajectory among multiple rollouts.
+judges (He et al., 2024; Deng et al., 2023; Xue et al., 2025).
+However, these judges are typically tuned for the web do-
+main, require human-defined rubrics, and do not generalize
+well to the broader tasks faced by CUAs. In addition, align-
+ing such judges with human judgment requires substantial
+manual effort, such as in Mind2Web 2 (Gou et al., 2025) that
+achieved 99% agreement using code-generated rubrics but
+still relied on extensive human verification. Moreover, all
+these evaluation methods only work with a single trajectory.
+Our work aims to implement a judge to handle trajectory
+evaluation by (1) improving trajectory understanding by con-
+verting trajectories into a behavior narrative that describes
+what an agent did and (2) comparing trajectories using the
+behavior narratives to effectively distinguish the best.
+3. Method
+OurBehavior Judgeframework, shown in Figure 3, is
+designed to enable wide scaling over many agent rollouts.
+We improve upon Agent S2 (Agashe et al., 2025b), a top-
+performing open-source agentic framework, and introduce
+two key components:Behavior Narrative Generatorand
+Comparative Behavior Evaluator. Given a rollout, the Be-
+havior Narrative Generator derives facts from each transi-
+tion, yielding a behavior narrative that describes what the
+agent did (action-effects) while discarding irrelevant de-
+tails. The Comparative Behavior Evaluator then conducts
+a comparative evaluation of the candidate narratives across
+multiple rollouts to determine the best solution.
+3.1. Behavior Narrative Generation
+Long-horizon trajectories are information-dense, with ev-
+ery step producing a new screenshot. We argue that it is
+not necessary or even optimal to judge all of the raw vi-
+sual content directly to understand what actually occurred.
+We propose to extract the task-relevant changes caused by
+the agent’s actions from screenshots in order for a down-
+stream judge to focus on the changes that matter. We
+construct a behavior narrative composed of facts that de-
+scribe what the agent did at each step. Concretely, given
+a generator G (instantiated using a VLM) and an agent
+rollout τ= (s 0,a 1,s 1,...,a T−1,sT ) where s denotes
+a screenshot and a denotes an agent action, we feed in
+transitions (si,ai,si+1) to the generator and derive facts
+ϕi =G(s i,ai,si+1), for eachi∈{0,...,T−1}.
+To generate accurate facts, the Behavior Narrative Generator
+takes in a screenshot before action execution, the action to
+execute, and the screenshot after execution as depicted in
+Figure 3. The generator applies targeted visual augmenta-
+tions for pointer interactions (clicks, taps, moves, and drags),
+as these actions require pixel-level precision and are more
+prone to agent hallucination. For example, a step-level hallu-
+cination where a click on the Save button fails but the agent
+believes otherwise can be the difference between a success
+or failure. On the screenshot before action executionsi, we
+overlay a marker centered at the pointer coordinate (xi,yi)
+whereai will occur. On the screenshot after action execu-
+tionsi+1, we extract a zoomed crop sz
+i+1 of a fixed-size
+square centered at the final pointer coordinate (xi+1,yi+1)
+and outline the crop in si+1 to indicate the region of in-
+terest. The zoom provides the generator with fine-grained
+evidence to verify that the intended change occurred. To
+handle cases where changes are delayed (e.g. clicking a
+hyperlink), screenshotsi+1 is taken 3 seconds after action
+execution.
+Once facts have been derived from each transition, we con-
+struct a behavior narrative ˜τ= (s0,ϕ 0,ϕ 1...,ϕ T−1,sT )
+that retains only task-relevant changes. We include the ini-
+tial and final screenshot to ground where changes begin
+from and what they result in. This allows Behavior Judge
+to focus solely on what the agent did differently between
+trajectories.
+3.2. Comparative Behavior Evaluator
+While generating multiple rollouts increases the chance
+that at least one rollout is successful, the benefits can only
+be realized if we can reliably select the correct trajectory.
+Selection is challenging because an evaluator must both
+interpret long-horizon behavior within each rollout (to verify
+task requirements) and discriminate among candidates. To
+simplify this, we decide to separate these responsibilities
+by generating a concise behavior narrative that describes
+the long-horizon behavior so the bulk of the evaluator’s
+responsibility lies on selecting between candidates.
+Concretely, given a set of base policies{πm}M
+m=1, we gen-
+erate candidatesC= SM
+m=1{τ (n)
+m }Nm
+n=1 where each candi-
+dateτ (n)
+m is sampled via stochastic decoding from a base
+policyπm. This allows us to capture diversity from vari-
+ance within the same model (n= 1...N m) and differing
+3
+
+Scaling Agents for Computer Use
+Figure 3.Behavior Judge generates multiple rollouts consisting of screenshots and actions. These trajectories are converted into behavior
+narratives via the Behavior Narrative Generator, using the executed action and before/after screenshots to describe what was changed.
+Finally, the behavior narratives are provided to the Comparative Behavior Evaluator which selects the best trajectory through comparison.
+capabilities across different models (m= 1...M ). Our
+objective is to select the candidate trajectory that maximizes
+task return ˆτ∈arg maxτ∈C R(τ,I) . The candidate set C
+is converted to a corresponding set of behavior narrative
+candidates ˜C :={˜τ(n)}|C|
+n=1, according to the behavior nar-
+rative generation in Section 3.1. Then a VLM evaluatorE
+is prompted to run comparative evaluation using all narra-
+tives in ˜C and select a single best narrative candidate, which
+corresponds to the final selected trajectory ˆτ∈C . In this
+work, we instantiate comparative evaluation using a single-
+round multiple-choice question (MCQ) format, which en-
+ables a more informed comparison than independent ranking
+while being more token-efficient and faster than multi-round
+tournament-style comparisons of subsets of candidates. The
+system prompt (Section H) emphasizes on citing and con-
+trasting facts to ensure each candidates’ behaviors are care-
+fully observed, which we find gives small improvements
+(Section F). By comparing behavior narratives altogether,
+we enable wide scaling over many agents.
+3.3. An Improved Agentic Framework Baseline
+As Behavior Judge operates on multiple full-length trajecto-
+ries generated by base agents, we can improve the overall
+performance and latency of BJudge by starting with the best
+frameworks for the base agents. Inspired by Agashe et al.
+(2025b) and Song et al. (2025), we created an improved base-
+line agentic framework,Agent S3, which achieves strong per-
+formance even before incorporation into BJudge. It draws
+upon two key ideas: 1) performance gains of programmatic
+edits over direct GUI manipulation when needed (up to the
+agent itself), and 2) speedup by using a flat (worker only)
+policy instead of a manager-worker hierarchy.
+Coding AgentTo encourage diverse solution paths, our
+GUI policyπ(at|I,h t) reasons what approach might be
+best suited for the next step: generate a GUI action at∈
+Agui or invoke thecoding agentfor programmatic edits
+(e.g., bulk operations, file transforms, structured parsing).
+A code call launches a bounded inner loop with budget
+B that iterates on generated code and terminalfeedback.
+At inner step k, the coding agent conditions on ccode
+k =
+(I,ot,F 1:k−1), whereF1:k−1 aggregates execution signals
+(status, return code, stdout/stderr) from prior iterations. It
+either emits Python/Bash to be executed in a sandboxed VM,
+or returns a control token DONE/FAIL. On termination, a
+brief summary of the session—logic, observed effects, and
+a verifiable inspection checklist—is appended to the GUI
+agent’s history to aid on-screen verification and subsequent
+planning by the GUI policy. Different from Song et al.
+(2025), our coding agent implementation does not use the
+AutoGen (Wu et al., 2024) framework nor does it use an
+orchestrator to divide and delegate tasks across the GUI and
+coding agents. Our coding agent implementation is natively
+integrated into our GUI agent’s action space, allowing GUI
+agent to reason when best to delegate the next step to the
+4
+
+Scaling Agents for Computer Use
+coding agent.
+Flat PolicyWe remove hierarchical planning in favor of
+a flat policy that can replan at any time based on (I,ht).
+Contemporary foundation models exhibit strong GUI under-
+standing and can maintain short-horizon plans in context,
+making a separate high-level planner unnecessary and some-
+times counterproductive (e.g., when subgoals become stale).
+We evaluate these design choices in Table 2; implementation
+details appear in Section D.
+4. Experiments and Analysis
+In the following experiments, we systematically investigate
+the effectiveness of Behavior Judge (BJudge) across several
+dimensions of computer-use agents. Specifically, we aim to
+address the following research questions:
+1.Performance.How does BJudge perform compared
+with other CUA baselines? (Section 4.2)
+2.Equal rollout budget.How do judging strategies
+perform under an equal rollout budget? (Section 4.3)
+3.Representation.How do behavior narratives compare
+to other trajectory representations? (Section 4.4)
+4.Failure modes.How accurate is BJudge’s evaluation
+and what are its main failure modes? (Section 4.5)
+5.Resource allocation. How does BJudge perform with
+varying step allocation across workers? (Section 4.6)
+6.Ensembling.How should we select a
+mixture-of-models ensemble for rollouts? (Section 4.7)
+7. Generalizability.How does BJudge generalize to other
+domains and benchmarks? (Section 4.8)
+4.1. Experimental Setup
+BenchmarksWe focus onOSWorld(Xie et al., 2024),
+which comprises 369 real-world Ubuntu tasks across five
+domains (OS, Office, Daily, Professional, Workflow). Fol-
+lowing common practice (Xie & et al., 2024), we use the
+361-task subset that omits eight multi-application tasks
+requiring Google Drive credentials not available in the
+sandbox. We further assess generality beyond Ubuntu on
+two additional benchmarks:WindowsAgentArena(Bonatti
+et al., 2025), a 154-task Windows benchmark, spanning
+LibreOffice Writer/Calc, Edge/Chrome, File Explorer/Win-
+dows Settings, VS Code, VLC, and utilities; andAndroid-
+World(Rawles et al., 2025), a 116-task Android benchmark
+with step budgets specified by the benchmark authors.1
+1Experiments were conducted under the AndroidWorld step
+budget guidelines as of September 20, 2025.
+BaselinesOn OSWorld, we introduce Agent S3 as an im-
+proved baseline for scaling results. We additionally compare
+against other top methods including Jedi (Xie et al., 2025),
+GTA1 (Yang et al., 2025b) and CoACT-1 (Song et al., 2025).
+For AndroidWorld, we compare with 3 top-performing open-
+source frameworks using screen-shot only representations
+including MobileUse (Li et al., 2025), UI-Venus (Gu et al.,
+2025), and Agent S2 (Agashe et al., 2025b). For Win-
+dowsAgentArena, we compare with Navi (Bonatti et al.,
+2025) and Agent S2 (Agashe et al., 2025b). For ablation
+of the judge for scaling, we compare against an adaptation
+of WebJudge (Xue et al., 2025), which has 85% agreement
+with human judgment, for isolating the effect of comparative
+versus independent trajectory selection mechanisms. We
+also implement and compare against three baselines when
+isolating the effect of representation: 1) a naive captioner
+that captions each screenshot individually, 2) a trajectory
+summarizer and 3) using screenshots only.
+Implementation DetailsAgent S3 is an improvement
+over Agent S2 that removes hierarchical planning and adds
+a coding agent (details in Appendix D). We use Agent S3 to
+generate rollouts for BJudge trajectory selection. The cod-
+ing agent is enabled for OSWorld and WindowsAgentArena
+but disabled for AndroidWorld due to emulator constraints
+that preclude program execution and inspection. Our best
+score uses 5 rollouts from GPT-5 and Opus 4.5 each and
+uses Opus to generate facts while GPT-5 selects the best
+rollout. We also adapt WebJudge to do comparative selec-
+tion by individually ranking each trajectory with a score
+1-5 and choosing the highest score, tie-breaking at random,
+and we adapted the system prompt to the OS setting. For
+our Screenshot Only baseline, we pass 50/N screenshots
+per trajectory chosen at uniform intervals across the trajec-
+tory, due to context length limitations. Details on cost and
+runtime can be found in Appendix B.
+4.2. Main Results
+As shown in Table 1, Agent S3 already establishes a strong
+foundation, achieving strong non-scaling performance on
+100-step success rate for OSWorld. Building on this, ap-
+plying our core contribution, Behavior Judge (BJudge), to
+multiple rollouts of Agent S3 further improves performance
+on 100 steps. For example, it achieves 69.9% SR with
+GPT-5 (a 7.3% absolute improvement) and 60.2% SR with
+GPT-5 Mini (a 10.4% absolute improvement). Our best
+result at 72.6% using GPT-5 and Opus 4.5 surpasses human
+performance at 72.36% (Xie et al., 2024), highlighting that
+BJudge can boost existing methods to reach human-level
+capability.
+In addition, Table 2 reports the performance and efficiency
+gains of our improved agentic framework baseline, Agent
+S3, compared to Agent S2 (Agashe et al., 2025b) that it
+5
+
+Scaling Agents for Computer Use
+Method Model 100-step
+Agent S2 (Agashe et al., 2025b) GPT-5 48.8
+Jedi-7B (Xie et al., 2025) o3 51.0
+CoAct-1 (Song et al., 2025) OAI CUA + o3 + o4-mini 59.9
+Ours
+Agent S3 o3 61.1
+Agent S3 GPT-5 Mini 49.8
+Agent S3 GPT-562.6
+Scaling Results
+GTA1 (step-wise scaling) (Yang et al., 2025b) o3 53.1
+GTA1 (step-wise scaling) (Yang et al., 2025b) GPT-5 63.4
+Agent S3 w/ WebJudge (N=10) (Xue et al., 2025) GPT-5 Mini 50.4
+Ours
+Agent S3 w/ BJudge (N=10) GPT-5 Mini 60.2
+Agent S3 w/ BJudge (N=10) GPT-5 69.9
+Agent S3 w/ BJudge (N=10) GPT-5 + Opus 4.572.6
+Table 1.OSWorld success rate (%) on 100-step tasks across 361 tasks. We introduce Agent S3, which achieves strong performance with
+GPT-5 at 62.6% averaged over 10 runs. Our method, Behavior Judge, enables strong scaling results with new SoTA at 72.6% with an
+ensemble of GPT-5 and Opus 4.5, chosen from Table 5.
+Method 100-step SR (%) LLM calls/task Time/task (s)
+Agent S2 (Agashe et al., 2025b) 48.8 73.62 2366.80
+Agent S2 (no hier.) 57.9(+9.1)41.39 (-43.8%) 1132.91 (-52.1%)
+Agent S362.6(+13.8)35.12 (-52.3%) 891.21 (-62.4%)
+Table 2.OSWorld success rate and efficiency statistics using GPT-5. Baseline is Agent S2 with hierarchical planning; values in parentheses
+show∆vs. Agent S2 (for SR and efficiency metrics).
+was built upon. Agent S3 yields a 13.8% improvement in
+success rate, a 52.3% reduction in LLM calls per task, and
+a 62.4% reduction in average task completion time.
+4.3. How does Behavior Judge perform under equal
+rollout budgets?
+Figure 4.Comparison of BJudge against WebJudge on OSWorld
+using GPT-5 Mini’s rollouts.Averagerepresents the average per-
+formance of the rollouts.
+Figure 4 shows a comparison between BJudge and base-
+lines using equal rollout budgets. We modify WebJudge
+to choose over the same number of rollouts as BJudge by
+independently ranking rollouts and selecting the highest
+rank. We find that overall BJudge achieves better perfor-
+mance than baselines when compared equally. We find that
+WebJudge provides limited benefit over the average perfor-
+mance of rollouts and that BJudge shows better scaling as
+we increase the number of rollouts. While WebJudge has
+some slight improvements around N=4, it plateaus quickly
+and drops around N=10. This suggests that it is necessary
+to compare trajectories against each other to make selection
+effective and scalable with any rollout budget.
+4.4. How do behavior narratives compare to other
+trajectory representations?
+Table 3 shows an ablation on our behavior narrative repre-
+sentation. We compare against a screenshot-only baseline,
+a trajectory summary baseline that summarizes the trajec-
+tory in 3-6 sentences, and a naive captioning baseline that
+captions each screenshot individually. We find that behavior
+narratives are an effective representation for BJudge, pro-
+6
+
+Scaling Agents for Computer Use
+Representation Sucess Rate (%)
+Screenshot Only 56.0
+Trajectory Summary 55.0
+Naive Captioning 56.8
+Behavior Narratives60.2
+Table 3.Ablation study on BJudge’s behavior narrative representa-
+tion with 10 GPT-5 Mini rollouts.
+viding a 3.4% improvement over the best baseline. This
+suggests that it is difficult to understand screenshots alone
+and that it is necessary to generate facts over transitions
+rather than individual states.
+4.5. BJudge Accuracy and Failure Analysis
+Table 4 shows the accuracy of BJudge with respect to OS-
+World evaluation scripts and to our human alignment. We
+find that on 159 problems (Judge Subset) where the judge
+can improve performance (i.e. where there is at least one cor-
+rect and one incorrect trajectory), it achieves 78.4% accuracy
+during selection. After manual inspection over the remain-
+ing 35 problems, we found through human evaluation that
+the accuracy is 92.8%, as the OSWorld evaluation scripts
+are imperfect and can only strictly evaluate one pre-defined
+solution. This suggests that BJudge is highly effective at
+selecting the right trajectories from multiple candidates.
+For the remaining 12 failures, we categorize these as behav-
+ior narrative generation hallucinations (8) and Code-GUI
+handoff failures (4). We observe generation hallucination
+occur in instances where the underlying VLM has difficulty
+with visual understanding such as missing fine-grained de-
+tails in text which zooming has little effect on (e.g. the
+negative sign on a number as shown in Appendix G). We
+also observe some cases where the GUI-Agent failed to
+recognize the Coding Agent’s changes, and perform GUI
+actions overwriting Coding Agent’s changes and cause eval-
+uation to fail. These kind of failed rollouts generate rich
+GUI-related behavioral narratives, which are preferred by
+BJudge compared to the rollouts whereas the Coding Agent
+performs everything in one step and completes, outputting
+limited behavioral narratives.
+4.6. How does Behavior Judge perform under varying
+resource budgets?
+Figure 5 analyzes how BJudge performance varies with the
+total resource budget and the number of workers N. The
+x-axis reports the total budget, defined as the number of
+workers multiplied by the per-worker step budget, with each
+curve corresponding to a different allocation of this budget
+across workers. At smaller budgets, a single agent performs
+best, as distributing compute across many workers reduces
+Figure 5.Comparison of BJudge with varying resources calculated
+by the number of workers times step budget using GPT-5.
+the per-worker step budget below what is required to com-
+plete the task. As the total budget increases, larger values of
+N become increasingly effective with BJudge (N=4) achiev-
+ing a 4.25% absolute improvement over a single agent at
+twice the total budget (200), while the largest gain of 6.38%
+is observed with BJudge (N=10) at a budget of 1000. These
+results suggest that moderate values of N offer a favorable
+trade-off under tighter compute budgets, while larger N
+yields the highest performance when sufficient resources
+are available.
+4.7. How should we select a mixture-of-models ensemble
+for rollouts?
+Mixture SR (%) Pass@N (%)
+GPT-5 66.5 74.7
+Claude Opus 4.5 69.9 74.5
+Gemini 3 67.7 74.3
+GPT-5 Mini 57.0 68.2
+GPT-5 + Mini 64.9 74.1
+GPT-5 + Opus71.679.1
+GPT-5 + Gemini 67.3 78.5
+Opus + Gemini 70.6 78.2
+Opus + Mini 66.0 75.6
+Gemini + Mini 65.1 75.3
+All 68.480.5
+Table 5.Success rate and task coverage for BJudge using mixture-
+of-model combinations with GPT-5, GPT-5 Mini, Gemini-3, and
+Claude Opus 4.5. Each mixture’s success rate is on N=4 runs split
+evenly.
+Table 5 shows the success rate and task coverage of BJudge
+using various mixture-of-model combinations. Task cover-
+age is calculated by setting a task successful if at least one
+trajectory is correct, or Pass@N (Chen et al., 2021). We
+observe that from the single model mixtures, Claude Opus
+4.5 performs the strongest at 69.9% followed by Gemini 3 at
+7
+
+Scaling Agents for Computer Use
+Category Judge Subset Accuracy Full Set Accuracy
+Benchmark Alignment 78.4% 69.9%
+Human Alignment 92.8% 76.3%
+Table 4.BJudge accuracies on Judge Subset and Full Set with 10 GPT-5 rollouts on OSWorld. The Judge Subset consists of a subset of
+159 OSWorld problems that could be improved on due to disjoint task success.
+Method Model 50-step 100-step
+UI-TARS-1.5 - 42.1 -
+Agent S3 GPT-5 49.0 50.2
+BJudge (N=3) GPT-554.1 56.6
+Table 6.WindowsAgentArena success rate (%) within 50 steps
+and 100 steps. Behavior Judge (N=3) consistently outperforms the
+baseline Agent S3, with a 6.4% improvement on 100-step SR.
+Method Model SR (%)
+Agent S2 Claude 3.7 Sonnet 54.3
+MobileUse Qwen2.5-VL-72B 62.9
+UI-Venus UI-Venus-Navi-72B 65.9
+Agent S3 GPT-5 68.1
+BJudge (N=3) GPT-571.6
+Table 7.AndroidWorld success rate (%). Behavior Judge (N=3)
+achieves a 3.5% improvement over the baseline Agent S3.
+67.7%, demonstrating that strong model capabilities lead to
+overall higher success with selection. We also observe that
+the most diverse mixture (All) achieves the highest overall
+task coverage at 80.5%, demonstrating that diversity is key
+to increasing the upper bound on success. Finally, we ob-
+serve that the GPT-5 + Claude Opus 4.5 mixture achieves
+the highest success rate of 71.6%, suggesting that selecting
+a mixture-of-models ensemble with highly diverse capable
+models achieves the best performance.
+4.8. Generalization to Other Benchmarks
+Table 6 and 7 demonstrate strong generalizability of BJudge
+to different operating systems. For AndroidWorld, we com-
+pare with top 3 performing open-source, screenshot-only
+methods including AgentS2 (Agashe et al., 2025b), Mo-
+bileUse (Li et al., 2025), and UI-Venus (Gu et al., 2025)
+For WindowsAgentArena, we compare with Agent S2 and
+UI-TARS-1.5 (Seed, 2025). We find that Behavior Judge,
+with N = 3, achieves a performance boost of 3.5% and 6.4%
+respectively, demonstrating that our method can generalize
+well to other domains.
+5. Limitations
+Behavior Judge assumes access to an agent capable of pro-
+ducing multiple independent rollouts from the same ini-
+tial state. This assumption is standard in research bench-
+marks, where controlled and repeatable initializations are
+required for reproducibility and fair comparison across meth-
+ods. It also applies to many practical deployments in which
+computer-use agents are executed in virtualized environ-
+ments (e.g., VMs or containers) that support snapshotting
+and duplication, enabling parallel rollouts with limited ad-
+ditional wall-clock latency. Running agents directly on a
+user’s live desktop without isolation can violate the inde-
+pendence assumption, as concurrent rollouts may interfere
+with each other and isolating side effects becomes challeng-
+ing. Even with separate virtual environments, tasks that
+interact with shared online resources (e.g., email, cloud stor-
+age, or shopping carts) may introduce cross-run interference
+through shared external state. These challenges are not spe-
+cific to Behavior Judge, but reflect broader system-level
+constraints in current CUA deployments and call for future
+work on CUA infrastructure improvements.
+6. Conclusion
+We introduced a novel wide scaling paradigm for computer-
+use agents (CUAs), showing that generating multiple trajec-
+tories in parallel and selecting among them substantially im-
+proves robustness and task success rates. To realize this, we
+proposed Behavior Judge (BJudge), a framework that trans-
+forms dense trajectories into compact behavior narratives
+and leverages them for principled trajectory selection. To-
+gether with an improved CUA baseline, our BJudge method
+establishes a new state-of-the-art on OSWorld (72.6% suc-
+cess at 100 steps), surpassing prior work by a large mar-
+gin (+9.2%) and surpassing 72.36% human-level perfor-
+mance. Through extensive ablations, we validated our de-
+sign choices and demonstrated strong generalizability on
+WindowsAgentArena and AndroidWorld, highlighting the
+promise of BJudge as a scalable and effective approach to
+improving real-world CUAs.
+Impact Statement
+Scaling computer-use agents via Behavior Judge can im-
+prove the automation of complex desktop workflows, reduc-
+ing human effort and increasing task reliability. However,
+as with any automated system operating in real computer
+environments, errors or unintended behaviors may occur
+and have larger effects when the system is used at scale
+without proper safeguards.
+8
+
+Scaling Agents for Computer Use

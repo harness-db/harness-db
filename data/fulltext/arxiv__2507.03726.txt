@@ -1,0 +1,448 @@
+record_id: arxiv:2507.03726
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2507.03726
+fetched_title: AGENT-BASED DETECTION AND RESOLUTION OF INCOMPLETENESS AND AMBIGUITY IN INTERACTIONS WITH LARGE LANGUAGE MODELS
+fetched_at: 2026-09-18T18:59:59Z
+
+arXiv:2507.03726v1 [cs.AI] 4 Jul 2025
+AGENT-BASED DETECTION AND RESOLUTION OF
+INCOMPLETENESS AND AMBIGUITY IN INTERACTIONS WITH
+LARGE LANGUAGE MODELS
+Riya Naik
+BITS Pilani, K K Birla Goa Campus
+p20210056@goa.bits-pilani.ac.in
+Ashwin Srinivasan
+BITS Pilani, K K Birla Goa Campus
+ashwin@goa.bits-pilani.ac.in
+Swati Agarwal
+PandaByte Innovations Pvt Ltd
+agrswati@ieee.org
+Estrid He
+RMIT University
+estrid.he@rmit.edu.au
+ABSTRACT
+Many of us now treat Large Language Models (LLMs) as modern-day oracles, asking it almost
+any kind of question. However, consulting an LLM does not have to be a single-turn activity. But
+long multi-turn interactions can get tedious, if it is simply to clarify contextual information that
+can be arrived at through reasoning. In this paper, we examine the use of agent-based architecture
+to bolster LLM-based Question-Answering (QA) systems with additional reasoning capabilities.
+We examine the automatic resolution of potential incompleteness or ambiguities in questions by
+transducers implemented using LLM-based agents. We focus on several benchmark datasets that are
+known to contain questions with these deficiencies to varying degrees. We equip two different LLMs
+(GPT-3.5-Turbo and Llama-4-Scout) with agents that act as specialists in detecting and resolving–at
+least partially–deficiencies of incompleteness and ambiguity. The agents are implemented as zero-shot
+ReAct agents. Rather than producing an answer in a single step, the language model now decides
+between 3 actions: (a) classify; (b) resolve; and (c) answer. Action (a) decides if the question is
+incomplete, ambiguous, or normal; and action (b) determines if any deficiencies identified can be
+resolved. Action (c) answers the resolved form of the question. We compare the use of LLMs with
+and without the use of agents with these components. Our results show these benefits of agents with
+transducer: (1) A shortening of the length of interactions with human; (2) An improvement in the
+answer quality; and (3) Explainable resolution of deficiencies in the question. On the negative side,
+we find while the approach may result in additional LLM invocations and, in some cases, increased
+latency. But on tested datasets, the benefits outweigh the costs except when questions already have
+sufficient context. Suggesting the agent-based approach could be a useful mechanism to harness the
+power of LLMs to develop more robust QA systems.
+1 Introduction
+Conversational AI systems have long been anticipated, both in fiction and real life. While the focus in fiction has
+inevitably been on the modality of delivery (voice), the content has not been quite as demanding (“Tea. Earl Grey.
+Hot.”), perhaps reflecting the state-of-the-art of natural language processing at the time of conception. However, this
+latter aspect has recently been undergoing rapid re-evaluation with the advent of Large Language Models (LLMs).
+LLM-based technology is increasingly part of the design of systems involving some form of human interaction. These
+systems control how we access information, interact with support services, and use devices [ 64]. It is therefore not
+unexpected that a significant amount of academic and industrial research and development is invested in a better
+understanding of interactions with LLMs.
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+Early applications of LLMs were confined to prompt-response interactions, functioning as static text generators without
+capabilities for planning or external interactions. Techniques such as chains, ReAct, and few-shot prompting introduced
+limited step-by-step processing, enabling LLMs to perform sequential reasoning [63]. However, these methods often
+lack the flexibility required to handle complex, dynamic tasks [34]. The recent emergence of goal-based autonomous
+agents has enhanced the utility of LLMs. These frameworks integrate LLMs within systems capable of multi-step
+reasoning, context maintenance across various functions, and interfacing with external environments like APIs and data
+sources [17]. Consequently, LLMs can now be part of software that can plan, observe, decide, and act, which makes
+them a dynamic component in the design of intelligent systems [60].
+This paper is concerned with the design of intelligent question-answering (QA) systems. It is now evident that modern
+LLMs can store very large amounts of context-information accumulated during the course of an interaction (input
+token-lengths are now millions of tokens, and only expected to increase [1]). Techniques such as in-context learning
+that provide feedback in the form of clarificatory instances and domain knowledge can greatly assist an LLM in
+retrieving relevant answers to queries [16, 8]. The amount of such clarificatory information can often be surprisingly
+small [41]. LLMs have the mechanisms necessary for conducting interactive conversations [14]. But, a question of
+some conceptual importance is this: when do LLMs need interactive feedback, and how should this be provided?
+There are 3 ways to approach such a question. First, from a mathematical point-of-view, by assessing if there is an
+information-theoretic gap in what is known and what is asked. The LLM may then need clarification to reduce this
+uncertainty (used in a mathematical sense). Secondly, is a technological approach. In this, we could attempt to see if
+current LLM technology (software or hardware) make it impossible for the LLM to distinguish between some aspects of
+the problem (for example, positional encoding makes it impossible to see the question is about sets and not sequences).
+Finally, a behavioral approach, in which we try to assess the conditions for feedback by examining the question, and
+possibly the context that preceded it. It is this third category that is of interest to us in this paper. We focus on whether
+augmenting an LLM with agents capable of identifying and resolving problems with the question can improve the QA
+performance of an LLM. Specifically, we focus on agents for identifying 2 kinds of problems with a question: whether
+it is incomplete; and whether it is ambiguous. We motivate the use of agents through a simple conceptual model of QA
+as a form of communication between agents. In this model, incompleteness and ambiguity are defined in an ideal sense
+using the response of an oracle. Practically, such an oracle is usually unavailable, and the agents are intended to act as
+proxies with limited background information (when compared to the oracle).
+2 A Simple Messaging System for Interaction
+In this section, we describe a simple message-based communication mechanism between a pair of agents. It consists of
+messages from a sending agent to a receiving agent.
+Definition 1 (Messages). A message is a 3-tuple of the form (a,m,b ) wherea is the identifier of the sender;b is the
+identifier of the receiver; andm is a finite length message-string.
+We define the following categories of message-strings:
+Termination. The message-stringm =′′ □′′ denotes that sender is terminating the communication with receiver.
+Question. The message-stringm =′′?n(s)′′ denotes that the sender is sending a questions with identifiern to receiver.
+Answer. The message-stringm =′′!n(s)′′ denotes that the sender is sending an answers with identifiern to receiver.
+Statement. The message-stringm =′′⊤(s)′′ denotes that sender is sending a statement to receiver.
+In the rest of the paper, we omit the identifier n as long as the context is clear. In the above definitions, s represents
+a sequence of message strings. However, in this paper, in ?(s)|s| = 1 (that is, only 1 question is allowed at a time).
+There can be multiple answers or even no answers for a question. That is, in !(s),|s|≥ 0. Additionally, in⊤(s), we
+will require|s|≥ 1. If ordering is unimportant, we will sometimes show s as a set instead of a sequence. In all cases, if
+|s| = 1, we will denote the message by the singleton element, dispensing with the sequence (or set) notation.
+The interaction between a pair of agents consists of 1 or more turns.
+Definition 2 (Interaction). A (1-step) turn from agenta to agentb is the pair of messages (M1,M 2), whereM1 =
+(a,m 1,b ),M2 = (b,m 2,a ), andm1̸= □. A k-step turn is the sequence⟨T1,T 2,··· ,Tk⟩, whereTi (1≤i≤k) is a
+1-step turn froma tob. Similarly for 1-step and k-step turns fromb toa. We will call a sequence of 1 or more turns
+betweena andb an interaction betweena andb.
+Example 1 (Interaction). Leth denote a human agent andm denote a machine. Below is an example of a possible
+3-step turn interaction betweenh andm:
+⟨ (h,⊤(Child x has a height is 4 ft.),m ),(m,⊤(ok),h ),
+2
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+(h,⊤(The height of child y is the square root of the height of child x),m ), (m,⊤((ok),h ),
+(h, ?1(What is the height of y),m ), (m, !1(y is + 2 or − 2),h )⟩
+Example 2 (Interaction (contd.)). A 4-step turn interaction betweenh andm is:
+⟨(h,⊤(Child x has a heightis 4 ft.),m ), (m,⊤(ok),h ),
+(h,⊤(The height of child y is the square root of the height of child x),m ),(m,⊤(ok),h ),
+(h, ?1(What is the height of y),m ), (m, !1(y is + 2 or − 2),h ),
+(h,⊤(Your answer is not completely correct since height has to be positive),m ), (m, !1(y is + 2),h )⟩
+We note that each turn consists of a sequence of 2 messages. Thus, with every interaction consisting of k turns
+⟨T1,··· ,Tk⟩, there exists a corresponding sequence ⟨M1,M 2,··· ,M 2k⟩ of messages and ⟨m1,m 2,··· ,m 2k⟩
+message-strings. By construction, the sequence ⟨m1,m 3,...,m 2k−1⟩ will be from agent a to agent b, and
+⟨m2,m 4,...,m 2k⟩ will be from agentb to agenta. We denote these as⟨mab⟩ and⟨mba⟩ for short.
+Interaction sequences allow us to define the context for an agent. We assume any agent has access to a (possibly empty)
+set of prior statements, which we call background knowledge.
+Definition 3 (Interaction Context). Without loss of generality, let (T1,T 2,··· ,Tk) be a k-step interaction from
+agenta to agent b. We denote the interaction context for a, or simply the context for a, on the the ith turn Ti as
+Ca,i = (m1,m 2,...,m 2i−2), and the interaction context for b, , or simply the context for b, on the ith turnCb,i =
+(m1,m 2,...,m 2i−1).
+In this paper, we are interested in k-step interactions between agents a andb, in which the context Ca,k contains a
+question ?α(q) and the contextCb,k terminates with a corresponding answer !α(a). We define a special agent ∆ called
+the oracle. The oracle’s answers are taken to be always correct.
+Remark 1 (Interaction with the Oracle). We note the following special features of the oracle:
+• ∆ knows everything upto the present, including the content of conversations between any non-oracular agents;
+• Only a 1-step interaction is allowed between a non-oracular agenta and ∆. The interaction consists of a turn
+T where:
+→ T = ((a, ?q, ∆), (∆, !(s),a )); or
+→ T = ((a, ?q, ∆), (∆, □,a )).
+• The answer(s) provided by ∆ are always correct.
+Example 3 (Interaction with an Oracle). We consider the example again, this time with the human agent interacting
+with an oracle ∆. A 1-step interaction betweenh and ∆ is:
+⟨ ((h, ?1(What is the height of child y), ∆), (∆, !1((y = +2, □)),h ))⟩
+The oracle allows us to categorise questions and answers.
+Definition 4 (Incomplete Question). Without loss of generality, let(T1,T 2,··· ,Tk) be a k-step interaction froma to
+b. LetCb,i denote the context forb on theith turn. LetTi = ((a, ?(q),b ),·), where agent a sends question q to b. Let
+((b, ?(q), ∆), (∆, !(s),b )) be an interaction betweenb and ∆. If s = □, we conclude thatq is incomplete. In such a
+case, we will also say it is incomplete forb givenCb,i.
+That is, a question is incomplete, if the oracle does not give an answer. This is because if the oracle cannot answer,
+neither canb. Similarly:
+Definition 5 (Ambiguous Question). Without loss of generality, let(T1,T 2,··· ,Tk) be a k-step interaction froma to
+b. LetCb,i denote the context forb on theith turn. LetTi = ((a, ?(q),b ),·), where agent a sends question q to b. Let
+((b, ?(q), ∆), (∆, !(s),b )) be an interaction betweenb and ∆. If|s| > 1 then we will say q is ambiguous. In such a
+case, we will also sayq is ambiguous forb givenCb,i.
+That is, a question is ambiguous if the oracle returns more than one answer. We assume that questions are either
+incomplete or ambiguous, but not both at once.
+We are still left with the requirement of needing to consult the oracle to decide whether a question is one or the other.
+This is impractical for several reasons: (1) Such an agent may not be available; (2) Even if available, it may be extremely
+expensive to consult an oracle; and (3) Even if costs were manageable, the oracle is not an ideal agent for inclusion in
+the design of conversational system. It only engages in single-turn conversations, does not provide any explanations for
+answers, and makes no attempt to provide answers by resolving any incompleteness or ambiguity. To address these
+issues, we introduce the notion of context transducers .
+3
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+Definition 6 (Context-Transducer). LetC denote the set consisting of sequences of message-strings. A context-
+transducer agent is a function Λ :C→C .
+Our interest in this paper is on transducers that operate on contexts that terminate in a question.
+Definition 7 (Context-Transducer for Questions) . Let C denote the set consisting of sequences of message-
+strings. A context-transducer for questions, or simply a question-transducer, is a function that maps any
+(m1,m 2,...,m j, ?α(q))∈C to some (m′
+1,m′
+2,...,m ′
+k, ?α(q′))∈C .
+Note that as defined, a question transducer can not only reformulate the question, but it can also alter and augment
+the context string it received.1 Our focus in this paper will be on context-preserving and context-augmenting
+transducers for questions. In the former j =k andm′
+i =mi in Def. 7 above. In the latter j <K andm′
+i =mi for
+i = 1...j . In both cases,q andq′ may differ.
+Next we describe the implementation of a context-transducer for questions that uses an agent-based architecture to
+identify incomplete or ambiguous questions, and provide a reformulated question and context.
+3 Implementation of a Question-Transducer
+Our implementation of a question-transducer will involve two functions: (1) Classify:C7→C×Y , whereY is a
+set of labels{incomplete,ambiguous,normal}; and (2) Resolve:C×Y7→C . Given an initial contextc∈C , the
+question-transducer computes Resolve(Classify(c)).2 The functions themselves are routine (Procedures 1 and 2).
+Procedure 1 The Classify Function.
+Input:c : a context; Λl: a question-classifier;B: domain-specific information
+Output: (c′,y ), wherec′ is a context, andy′∈{incomplete,ambiguous,normal}
+1: ifc = (m1,m 2,...,m k, ?α(q)) then
+2: (y,e ) := Λl(c,B ) ▷e is an explanation
+3: else
+4: y :=normal
+5: end if
+6: return (c,y )
+Procedure 2 The Resolve Function
+Input:lc: a labeled context; Λr: a question-resolver;B: domain-specific information
+Output:c′: a context
+1: Let lc = (m1,m 2,...,m k, ?α(q),y )
+2: ify = incomplete∨ y = ambiguous then
+3: (?α(q′),e )← Λr(c,B ) ▷e is an explanation
+4: c′← (m1,m 2,...,m k,e, !α(q′))
+5: else
+6: c′←c
+7: end if
+8: returnc′
+In this paper, Λc and Λr are implemented using LLM-based agents. Procedure 3 shows a a simplified form of a
+goal-based agent (in the sense used [4]). Λc and Λr use instances of this generic agent to achieve the goals of question-
+classification and question-resolution (the generic agent includes some additional parameters, which will need to be
+provided by the Classify and Resolve functions).
+The functionality of Procedure 3 is in fact readily available in recent implementations of LLM-based agentic software
+systems. We show by way of example how Λc, the question-classifier can be implemented using a widely used
+LLM-agent software environment.
+Example 4 (Implementing Λc). The question-classifier can be implemented using LangChain [66] as follows.
+Langchain requires as input the following: (a) An LLM model (correctly, an API to the model); (b) A “profile”, which
+is essentially a structured prompt that contains the following: (i) The question; (ii) The context preceding the question;
+1Clearly, a similar definition can be provided for answer-transducers. We will not require it in this paper.
+2If c does not terminate in a question, then Classify(·) simply returns (normal,c ). If Resolve(·) receives an input of
+(normal,c ), it simply returnsc
+4
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+Procedure 3 A Goal-Based LLM Agent
+Input:λ: an LLM model;c: a context;B: prior information;g: a goal
+Output: (r,e ):r is a response ande is an explanation of howr was obtained
+1: C :=c
+2: Done :=False
+3: (r,e ) := (∅,∅)
+4: while¬Done do
+5: P :=AssemblePrompt (C,B )
+6: (r,e ) :=Call_LLM(λ,P )
+7: ifGoalAchieved(g,r )∨ (r =∅) then
+8: Done :=True
+9: else
+10: C :=Update(C, (r,e ))
+11: end if
+12: end while
+13: return (r,e )
+(iii) The goal of classifying the question as incomplete,ambiguous, ornormal; (iv) The kind of agent-behaviour
+required (for example, a “0-shot ReAct agent. ”
+Given these inputs, LangChain implements a (sophisticated) version of the iterative procedure in Procedure 3, and
+returns as output a response and an associated explanation. The output depends on the agent-behaviour specified. For
+example, when configured as a 0-shot ReAct agent, the LLM specified by (a) is invoked with the structured prompt,
+LLM analyses the question in relation to the context and classification goal. The LLM first performs some reasoning
+to achieve the goal and then acts (here, the action is to classify the question). Iteration results from LangChain
+interpreting the result of the action, and adding“observations” by reinvoking the LLM with an updated context. This
+may result in the LLM possibly repeating its reasoning and acts again based on the updated context.
+The question-resolutionλr can similarly be implemented, simply by changing the goal provided (“Resolve incomplete
+or ambiguous questions by rewriting them into clear and complete questions’’).
+We now consider investigating empirically two variants of a basic interactive question-answering system (Fig. 1). We
+note that there is no requirement for the LLM in Fig.1 to be the same as the LLM used by the agent implementing the
+transducer. To avoid confusion, we will call the LLM providing the answers as the “responder-LLM” and the LLM
+used by the transducer as the “transducer-LLM”.
+(a)
+(b)
+Figure 1: Human-LLM question-answering: (a) Without a question-transducer; and (b) With a question-transducer. For
+clarity, we have separated the question from the rest of the context.
+4 Empirical Evaluation
+4.1 Aims
+We intend to test the following conjecture:
+• The inclusion of a question-transducer to detect and resolve incomplete or ambiguous questions improves the
+interactive question-answering performance of an LLM.
+We measure performance by the accuracy of the answer returned by the LLM (using human-labeled ground truth) after
+each turn of interaction. Since the transducer necessarily introduces a delay, we will ideally require accuracy to increase
+5
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+after each turn.3 We test the hypothesis using datasets with varying degrees of incompleteness and ambiguity, and with
+transducers constructed with 2 different LLMs (with varying amounts of pre-training and parameters).
+4.2 Materials
+Datasets
+In our empirical study, we evaluate the QA systems on 6 datasets of QA pairs (some datasets also contain some
+additional background context for each question), with varying amounts of incompleteness and ambiguity in the
+questions. We characterise the datasets into the following categories (Appendix A describes how we arrive at this
+categorisation):
+Category C1 (Low Incompleteness, Low Ambiguity). SQuAD (Stanford Question Answering Dataset): a widely
+used dataset for machine reading comprehension, consisting of over 100,000 questions based on Wikipedia [54].
+Category C2 (Low Incompleteness, Mid-to-High Ambiguity) NQ-open (Natural Questions open): a large-scale
+benchmark, featuring open domain user queries and answers annotated from Wikipedia articles [37]; and AmbigNQ:
+dataset designed to handle ambiguous questions covering 14,042 NQ-open questions[46, 37].
+Category C3 (Mid-to-High Incompleteness, Low Ambiguity) MedDialog: covering 0.26 million conversations
+between patients and doctors curated to understand real-world medical queries [70].
+Category C4 (Mid-to-High Incompleteness, Mid-to-High Ambiguity) MultiWOZ (Multi-domain Wizard-of-Oz): a
+dataset covering multiple domains such as hotels, restaurants, and taxis with 8438 dialogues [6]; and ShARC (Shaping
+Answers with Rules through Conversation): a multi-turn dataset that focuses on 32k task-oriented conversations with
+reasoning covering multiple domains[58].
+As explained in Appendix A, the rules used to obtain these categories can only be used to classify interaction sequences,
+and therefore cannot be used by a question-transducer during the course of an interaction. Using the terminology
+introduced in Sec. 2, each dataset can be seen as a set of interactions, with each interaction being a sequence 1 or
+more turns. SQuAD, MultiWOZ and ShARC include some relevant context along with the question in the first turn.
+MultiWOZ and MedDialog are interactions between human and LLM agents. In all other cases, interactions are between
+human agents.
+Algorithms and Machines
+We use the following Large Language Models and software: (a) GPT3.5-Turbo and Llama-4-Scout: LLMs are
+used to retrieve the answer to the user questions. (b) LangChain: is used to invoke LLMs and initiate agents. All
+implementations are in Python 3.10, with API calls to the respective model engine. Experiments are conducted on
+a workstation based on Linux (Ubuntu 22.04) with 256GB of RAM, an Intel i9 processor, and an NVIDIA A5000
+graphics processor with 24GB of memory.
+4.3 Method
+We first clarify some preliminary details: (a) Recall data-instances are sets of interactions, with each interaction
+being a sequence of 1 or more turns. The first turn containing the question; and the last turn containing the final
+answer. Additionally, some datasets have prior context information relevant to the question. For our purpose, it is
+sufficient to represent each interactionI as (c,r ) pairs, wherec represents a context sequence (m1,m 2,...,m j) where
+m1,...,m j−1 denotes any prior information available and mj =?α(q) is a question. For datasets where no prior
+information is available,j = 1. The response r will be a sequence (!α(a)), containing the final answer inI; (b) We
+assume the functionsQα(c) andAα(c) return the question ?α(q) and answer !α(c) in any sequence of messages if they
+exist, or □ otherwise; (c) We assume a responder-LLMλ that provides a response to a contextc, and denote this by
+λ(c)).
+With these preliminary clarifications aside, our method is straightforward:
+1. For turns k = 1, 2,...,K do:
+(a) For each dataset d:
+3Or–showing some measure of tolerance–at least after the first turn. However, even this may not be sufficient for improved
+performance, since the increase in accuracy may not be substantial enough to tolerate the delay. We comment on these issues in the
+section on Results.
+6
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+i. ObtainCd,k ={(c,r ) : (c,r )∈d,q =Qα(c),a =Aα(r),aλ =Aα(λ(c)), AGREES(a,aλ)} be the
+set of responses where the answer from the LLM agrees with that in the dataset
+ii. CT,d,k ={(c,r ) : (c,r )∈ d,q = Qα(c),a = Aα(r),aT,λ = Aα(λ(T (c))), AGREES(a,aT,λ)} be
+the set of responses where the answer from the LLM using the transduced context agrees with that in
+the dataset
+iii. CalculateAccd,k =|Cd,k|/|d| (the accuracy without the transducer); and AccT,d,k =|CT,d,l|/|d|,
+the accuracy with the transducer
+The following additional details are relevant:
+• For the experiments reported here, K = 3;
+• The responder-LLM in all cases is GPT − 3.5Turbo ;
+• The question-transducer is implemented using LangChain agents for question-classification and resolution. In
+both cases, the agent is configured to be a 0-shot ReAct agent (see Example 4). It is desirable for the transducer-
+LLM to be as lightweight possible (to decrease delays). We report on results withGPT− 3.5−Turbo and
+Llama− 4−Scout as the transducer-LLM;
+• TheAGREES relation used to obtain the sets of correctly answered questions is a manual verification step,
+since we believe this to be most reliable to obtain the statistics we require. It can however entail manual
+verification of upto 1800 responses (there are 600 (c,r ) entries overall; and we are examining responses upto
+K = 3 turns.
+4.4 Results
+The principal results from the experiment is in Table 1. A summary of the main findings from the table is: (1) For 5
+of the 6 datasets, introducing the transducer increases accuracy (even from the first turn); (2) The gain in accuracy
+through the use of the transducer ranges from 3% to 40% by the last turn tabulated; and (3) In 3 datasets the GPT-based
+transducer appears to perform better than the Llama-based transducer; and vice versa. Taken together, we believe these
+results provide strong support for the experimental conjecture of the use of a transducer being beneficial.
+Table 1: Accuracy across datasets comparing QA with and without a transducer. Role of increasing context on the
+proportions of correct answers.
+Dataset Turns Accuracy
+Without With Transducer
+Transducer
+GPT-based LLaMA-based
+SQuAD
+1 0.92 0.71 0.75
+2 0.95 0.94 0.80
+3 0.97 0.97 0.85
+NQ-open
+1 0.81 0.83 0.80
+2 0.87 0.92 0.89
+3 0.89 0.94 0.93
+AmbigNQ
+1 0.63 0.65 0.59
+2 0.69 0.86 0.74
+3 0.78 0.90 0.81
+MedDialog
+1 0.00 0.08 0.15
+2 0.18 0.36 0.41
+3 0.26 0.50 0.66
+MultiWOZ
+1 0.04 0.22 0.24
+2 0.25 0.49 0.52
+3 0.48 0.57 0.69
+ShARC
+1 0.11 0.19 0.12
+2 0.60 0.56 0.60
+3 0.83 0.82 0.85
+We now examine these results in more detail:
+When the Transducer Does Not Help. It is evident that the transducer does not help with the SQuaAD dataset. In
+our categorisation, this is a dataset with low incompleteness and low ambiguity. That is, questions are largely factual
+questions. Additionally, each question has substantial additional context. In other words, almost all questions are
+“normal”. In principle, such questions should pass through the transducer unchanged, but clearly the drop in accuracy
+7
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+suggests that they do not. The problem appears to lie in the Classify function implemented within the transducer. We
+examine is next.
+The Classify and Resolve Functions. The label distributions across datasets obtained from the Classify function
+used by the transducer are in the Table 3 of Appendix B. The tabulation shows that: (a) the two transducer-LLMs behave
+very differently; (b) contrary to expectations, neither transducer-LLMs find many questions to be ambiguous (this is
+even in a dataset like AmbigNQ, which has been curated to include ambiguous questions; and (c) The proportions of
+incomplete and ambiguous questions are quite different to the proportions from the retroactive classification obtained
+using the rules in Appendix A. We observe that without Classify the accuracy drops. These 3 observations make it
+unclear what form of incompleteness of ambiguity is actually being captured by the agent-based implementation. To
+assess the performance of the Resolve function, we need to estimate how often a resolution improved accuracy. This
+information is tabulated in Table 4 of Appendix B, and shows probability of improving the accuracy of an answer is
+substantially greater if Resolve function transforms the question. This suggests that Resolve is being implemented
+substantially more along expected lines than Classify.
+Cost of Using a Transducer. Introduction of the transducer introduces costs in the form of increased calls to the
+transducer-LLM (and associated time-delays). Table 5 in Appendix B contains estimates of these for each dataset. In
+general, the Llama-based transducer appears to make more calls to the transducer-LLM than GPT. This suggests that
+using the Llama-based transducer may be costlier–by way of increased latency. This appears to be more likely for
+datasets in C3 and C4.
+5 Related Work
+Preliminary research in QA systems has focused on simple interactions, while this worked adequately for single-turn
+queries, they lacked context management required for engaging conversations [48]. Deep learning [72] and transformers
+[53, 29] could improve the precision and coherence of interactions. However, maintaining a long context, handling
+deficient queries, and aligning responses with user intent still require attention. These issues underscore the need for a
+detailed study of human-machine interactions. Recent advances in LLM are changing the story with approaches to
+handle human-machine interactions [24, 65]. Researchers are exploring interaction at its crux, focusing on differences
+between single-turn and multi-turn interaction [ 69, 7, 38]. A study by [ 61] introduces intelligible interactions for
+improving answer quality and proposes a structured protocol for human–LLM communication. While these studies
+offer valuable insights, research on understanding and defining interactions at the grassroots in the era of LLM remains
+underexplored.
+Incompleteness and Ambiguity. LLMs are designed to process and generate human-like text, yet they can still
+misinterpret context and provide an inscrutable answer due to deficiencies in the human queries and contextual
+information. Providing clarifying feedback helps keep the dialog accurate and easy to understand. To identify when to
+ask for feedback, we need to detect when a question is incomplete or ambiguous, i.e, when it contains deficiencies.
+To understand incompleteness in questions, [ 2] parse incomplete questions and repair them using human recovery
+strategies. They defined queries with missing entities as incomplete questions. Similarly, a study by [36] considers an
+incomplete question as one that lacks either of the three: topic presentation, adjective expression, or the inquiry. A
+series of techniques are employed to detect ambiguity in the questions [21]. Graphical information is used to define
+the ambiguity of a query as concepts covered and the dissimilarities between the answer and the query [ 3]. A few
+studies frame it as scope ambiguity when a sentence contains multiple operators and overlapping scope [27]. LLMs are
+not predominantly trained to detect and resolve deficiencies, but can be instructed by injecting patterns derived from
+human-annotated data [50]. [44] use LLMs to detect ambiguous queries using taxonomies and rewrite the queries in an
+enterprise setting. [12] focus on estimating LLM (Palm) confidence when answering ambiguous questions and employ
+prompt-based disambiguation, which proves to be sufficiently ineffective. [31] propose leveraging intrinsic knowledge.
+It introduces a measure that suggests whether the model considers input as ambiguous based on a pre-defined threshold.
+Researchers also evaluate few-shot disambiguation using rephrasing and adding context, finding that adding context
+improves the performance [28]. These approaches, though cost-effective, do not guarantee the accuracy and robustness
+as compared to fine-tuning. Moreover, fine-tuning itself comes with substantial training and data curation effort. Our
+paper builds upon similar veins, using agents to bridge the gap, identify and reduce the concept of incompleteness and
+ambiguity in natural language interactions.
+6 Conclusion
+Our interest is in question-answering (QA) systems in natural language. While the use of natural language has long
+been a desirable requirement for interfaces to computers, the possibility of achieving it has proved significantly harder
+8
+
+NAIK , S RINIVASAN , AGARWAL AND HE
+until the advent and development of large language models (LLMs). Even at this early stage of LLM technology, we are
+able to focus on aspects of specific issues that arise with the use of natural language, within the ambit of QA systems. In
+this paper, we have concentrated on two such aspects: incompleteness and ambiguity. Both feature during the course of
+an interaction in natural language, and we have proposed a simple transducer mechanism for detecting and mitigating
+these deficiencies in questions posed to an LLM. The transducer is implemented by LLM-based agents that perform
+the functions of detection and resolution of questions with incompleteness or ambiguity. Our results show that in
+almost all datasets we tested, the inclusion of the transducer can substantially improve accuracy of answers and shorten
+clarificatory interactions. The transducer does not appear to help if the data contains sufficient context information and
+the questions do not contain much by way of incompleteness or ambiguity.
+Limitations
+While our experiments demonstrate the potential of agent-based augmentation to improve question-answering, but
+they also point to some aspects that need improvement. First, our assessment of the responses in all cases is by human
+verifier. Repetition by other diverse human-verifiers would both mitigate bias and reduce variability. Second, the agentic
+pipeline requires multiple API calls per query, which results in increased latency and computational cost. It is helpful to
+therefore only invoke the transducer when it is necessary. As we saw in Sec. 4.4, the agent-based implementation of the
+Classify function seems quite unpredictable, and in some cases counter-intuitive. It would seem better to construct a
+standard discriminative model for Classify. Finally, we have focused on the construction of the transducer: it would
+be useful to see if the benefits observed from the use of the transducer also carry over to other responder-LLMs.

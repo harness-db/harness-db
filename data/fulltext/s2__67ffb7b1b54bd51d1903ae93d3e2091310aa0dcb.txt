@@ -1,0 +1,677 @@
+record_id: s2:67ffb7b1b54bd51d1903ae93d3e2091310aa0dcb
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2603.17626
+fetched_title: Data Sources Multi-Agent Fusion Age Cohorts
+fetched_at: 2026-09-18T18:59:54Z
+
+A Multi-Agent System for Building-Age Cohort
+Mapping to Support Urban Energy Planning
+Kundan Thota
+Institute for Automation
+and Applied Informatics (IAI)
+Karlsruhe Institute of Technology (KIT)
+Karlsruhe, Germany
+kundan.thota@kit.edu
+Thorsten Schlachter
+Institute for Automation
+and Applied Informatics (IAI)
+Karlsruhe Institute of Technology (KIT)
+Karlsruhe, Germany
+thorsten.schlachter@kit.edu
+Veit Hagenmeyer
+Institute for Automation
+and Applied Informatics (IAI)
+Karlsruhe Institute of Technology (KIT)
+Karlsruhe, Germany
+veit.hagenmeyer@kit.edu
+Abstract—Determining the age distribution of the urban build-
+ing stock is crucial for sustainable municipal heat planning and
+upgrade prioritization. However, existing approaches often rely
+on datasets gathered via sensors or remote sensing techniques,
+leaving inconsistencies and gaps in data. We present a multi-
+agent LLM system comprising three key agents, the Zensus
+agent, the OSM agent, and the Monument agent, that fuse data
+from heterogeneous sources. A data orchestrator and harmonizer
+geocodes and deduplicates building imprints. Using this fused
+ground truth, we introduce BuildingAgeCNN, a satellite-only
+classifier based on a ConvNeXt backbone augmented with a
+Feature Pyramid Network (FPN), CoordConv spatial channels,
+and Squeeze-and-Excitation (SE) blocks. Under spatial cross-
+validation, BuildingAgeCNN attains an overall accuracy of
+90.69% but a modest macro-F1 of 67.25%, reflecting strong class
+imbalance and persistent confusions between adjacent historical
+cohorts. To mitigate risk for planning applications, the address-to-
+prediction pipeline includes calibrated confidence estimates and
+flags low-confidence cases for manual review. This multi-agent
+LLM system not only assists in gathering structured data but also
+helps energy demand planners optimize district-heating networks
+and target low-carbon sustainable energy systems.
+Index Terms—Building age estimation, Multi-agent system
+(MAS), Data fusion, Satellite imagery, Convolutional Neural
+Networks (CNNs), Urban energy planning, Large Language
+Models (LLMs)
+I. INTRODUCTION
+The ongoing transition from high-carbon to sustainable
+green energy systems increasingly focuses on municipal heat-
+ing networks as a primary means to decarbonize residential
+and commercial heating [1]. The existing building stock in
+many countries of Europe has legacy construction practices,
+outdated rooftops, and inefficient heating systems [2], thus
+resulting in greenhouse gas emissions. The age distribution of
+building stock is fundamentally an important characteristic for
+an energy planner to forecast future energy demand. The age of
+a building directly correlates with different parameters such as
+insulation levels, rooftop materials, type of heating systems,
+etc. Typically, the older buildings (e.g., pre-1919) consume
+more energy as their insulation levels are not optimized up to
+the mark, thus resulting in higher-per-square-meter heat losses
+[3], [4]. As a result, the energy-demand models require the
+*corresponding author Kundan Thota
+PDFs
+Web pages
+Maps
+Databases
+Data Sources Multi-Agent Fusion Age Cohorts
+Fig. 1. Outline: (1) Multiple data sources (databases, web pages, maps, and
+PDFs) are ingested into (2) LLM-driven agents to produce (3) geocoded age
+cohorts.
+age distribution of building stock to produce insights for low-
+carbon heating systems.
+Traditional methods of gathering building age information
+happen in either of the two approaches: (1) official surveys
+or open-data portals, often providing incomplete coverage
+of construction-year metadata. (2) remote-sensing methods,
+where characteristics are extracted from street-level or satellite
+imagery, and the approximate age categories are inferred [5].
+While both methods produce reasonable signals, neither alone
+offers comprehensive coverage. According to [6], [7], the mon-
+ument registry has publicly available metadata for several fed-
+eral states covering one million monuments, which is 5 - 7%
+of the buildings in Germany. Often, this data is unstructured
+and available in different formats like PDFs, web pages, raw
+XML formats, etc. Gathering structured metadata from such
+heterogeneous sources would consume much manual work.
+Fortunately, LLMs can automatically parse vast, unstructured
+texts and easily generate structured output.
+In this paper, we propose a multi-agent LLM system that
+ingests data from heterogeneous sources. This architecture
+aims to extract the construction year from various sources
+such as the monument registry web source, OpenStreetMap
+(OSM) [8], and German census (Zensus 2011) [9]. This
+extracted data is then synchronized into a geocoded dataset for
+building addresses labeled by age cohorts, as shown in Fig. 1.
+Within this architecture, individual agents are assigned distinct
+arXiv:2603.17626v1 [cs.CV] 18 Mar 2026
+
+responsibilities to facilitate data formatting and synthesis.
+This ground truth provides a comprehensive training set for
+subsequent image-based classification.
+In the second phase, we capture a high-resolution RGB
+satellite image of each building and train a CNN to classify
+the buildings into age cohorts. This model, hereafter referred
+to as BuildingAgeCNN, serves as the core part for building
+age estimation. This network learns from the captured high-
+resolution visual signatures, such as roof geometry, material
+reflectivity, and construction patterns. By deploying the clas-
+sifier within the multi-agent architecture inference pipeline,
+the agent can find discrepancies in the classifier’s confidence
+levels and flag the building for a manual review. This step helps
+the urban planner further evaluate the building from additional
+sources, yielding a fine-grained age cohort of building stock
+that supports accurate municipal energy planning.
+Our main contributions are as follows:
+•We design a multi-agent LLM system that gathers, stan-
+dardizes, and orchestrates the building data from hetero-
+geneous sources to construct a high-coverage, geocoded
+dataset.
+•We propose BuildingAgeCNN, a satellite-only classifier
+that combines a ConvNeXt backbone with a FPN, Coord-
+Conv spatial channels, and SE attention to improve multi-
+scale, spatially-aware features for building-age cohort
+classification.
+•We introduce an AgeCohort Agent within the inference
+pipeline to identify discrepancies in the classifier’s confi-
+dence levels, flagging the building for a manual review.
+The paper is organized as follows: Section II reviews
+related work on MAS for data fusion, CNN-based building-age
+estimation, and building age-focused energy demand models.
+Section III details the proposed architecture. Section IV shows
+the experimental results of three modules and an ablation
+study, while Section V discusses the limitations and practi-
+cal implementation and Section VI concludes the paper and
+outlines the direction of future research.
+II. RELATEDWORK
+Research on the building-age cohorts and their integration
+into municipal energy planning has grown significantly in
+recent years. In this section, we review the literature in three
+main areas: (1) applications of age-classified building inven-
+tories in urban energy planning, (2) building-age estimation
+methods, and (3) LLM-based multi-agent systems.
+A. Metadata for Urban Energy Models
+Often, energy models are calculated based on building-age
+data extracted from structured registers or open-data portals.
+Garbasevschi et al. estimate residential buildings age in North-
+Rhine Westphalia, Germany, using Random Forests on open
+spatial data and urban-morphology metrics, demonstrating the
+impact of spatial autocorrelation on heat-demand models [10].
+Ergan et al. incorporate construction year alongside features
+such as floor count and gross area into an XGBoost model;
+they capture the influence of older buildings, which generally
+exhibit higher energy demand, on energy-demand behaviour
+[11]. Creutzig et al. and Reinhart & Cerezo Davila implement
+workflows for bottom-up energy simulations, where building’s
+age informs envelope U-values and ventilation rates [12],
+[13]. However, these methods either suffer from incomplete
+coverage or require manual schema alignment.
+B. Image-Based Building-Age Inference
+Benz et al. collect a 5307 street-view image dataset in
+Weimar, Germany, and train a convolutional ResNet classifier
+to predict the age cohort of the buildings with near-human
+accuracy [14]. Li et al. train a CNN on 1m RGB satellite
+patches labelled with OSMbuilding:year_builttags,
+achieving 85% accuracy but facing sparse tag coverage [15].
+Garbasevschi et al. also examine SIFT and HOG features
+for style-based inference, noting limited transferability across
+cities [10]. Our approach incorporates MAS-derived ground
+truth to train BuildingAgeCNN on high-resolution satellite
+patches, boosting the coverage and accuracy.
+C. LLM-Driven Multi-Agent systems
+Recent advances demonstrate the capability of LLM agents
+in data ingestion and tool orchestration. Yang et al. proposed
+LaMAS, a protocol for task decomposition and value gener-
+ation in LLM-based multi-agent systems [16]. Huang et al.
+introduced AUTOSCRAPER, a two-stage LLM framework
+that progressively generates and synthesizes web scrapers
+across HTML structures [17]. Zhou et al. develop GMAC,
+using GPT-based semantic extraction to compress inter-agent
+communications by 53% in MARL settings [18]. To our
+knowledge, no prior work has applied LLM-driven agents to
+generate building-age labels from different formatted sources.
+In summary, prior literature has advanced methods for
+age estimation, ranging from survey-based lookups to remote
+sensing. However, a scalable, agent-based data-fusion pipeline
+that consolidates data from multiple sources in monument
+registry documents remains an open challenge.
+III. PROPOSEDMETHOD
+This section presents the pipeline for building-age cohort
+classification. It contains four key components, as shown in
+Fig.2: (1) a multi-agent system for data collection, (2) a Data
+orchestration, fusion and harmonization module for integrating
+and standardizing heterogeneous datasets, (3) a supervised
+learning BuildingAgeCNN, and (4) an inference module for
+real-time predictions.
+A. Multi-Agent System for Data Collection
+To construct a high-quality dataset for building-age cohorts,
+we developed a multi-agent system that collects data from
+heterogeneous public sources. The agents include:
+
+Zensus agent
+Tools
+OSM agent
+Tools
+Monument Agent
+Tools
+Multi-Agent System
+Pre – 1919
+1919 – 1950
+1951 – 1978
+1979 – 2000
+Post – 2000
+C o n t r o l s t h e e x e c u t i o n o f a l l a g e n t s ,
+i n p u t n o r m a l i z a t i o n , a n d d a t a s c h e d u l i n g .
+Multi-source Orchestration Engine
+Data Fusion & Harmonization
+A l i g n s a l l c o l l e c t e d d a t a ( f r o m Z e n s u s , O S M , m o n u m e n t s )
+i n t o a u n i f i e d s c h e m a f o r t r a i n i n g .
+Tr a i n i n g
+B u i l d i n g A g e C N N
+G r i d To B B o x R e s o l v e r
+O S M B u i l d i n g F e t c h e r
+O S M D a t e Ta g E x t r a c t o r
+Te m p o r a l N o r m a l i z e r
+M o n u m e n t S i t e S c r a p e r
+Ye a r A n n o t a t o r
+Fig. 2. Overview of the proposed pipeline for building-age cohort mapping: A multi-agent system for building-age cohort mapping consists of three data-
+collection agents (Zensus, OSM, Monument), then fed into a Data Orchestration, Fusion, and Harmonization that integrates and standardizes records into five
+age cohorts. The BuildingAgeCNN model (ConvNeXt + FPN + CoordConv + SE) is then trained on satellite imagery for supervised learning and inference.
+1) Zensus agent:The Zensus agent is responsible for en-
+riching the building dataset with age cohort labels derived from
+the official German census. Each building is related to a 100-
+meter grid area within the survey, identified by a unique ID. In
+order to fulfil the tasks, the Zensus agent utilizes the following
+tools:
+•GridToBBoxResolver Tool: Parses the grid ID and con-
+verts the coordinates from EPSG:3035 to EPSG:4326.
+This produces the bounding box for a 100m x 100m tile.
+•OSMBuildingFetcher Tool: Queries OSM via overpass
+API [19] to retrieve all building footprints within the
+bounding box.
+2) OSM agent:The OSM agent extracts building-level
+construction year data from OpenStreetMap. The agent works
+over the Overpass API and invokes a set of modular tools as
+follows:
+•OSMDateTagExtractor Tool: Extract all building poly-
+gons that include either thebuilding:start_date
+orbuilding:year_builttag, as these tags provide
+direct or approximate building’s construction year.
+•TemporalNormalizer Tool: An LLM is used to convert
+year descriptions into estimated construction periods in
+cases where the year information is historical. For ex-
+ample, ”early 19C” is mapped to pre-1919, and ”mid-
+20C” is equated to 1951–1978. This process makes the
+dataset’s temporal details more precise without losing its
+interpretability.
+3) Monument agent:The Monument agent extracts build-
+ing information from the historical monuments listed on the
+Monument web portal [20], which includes semi-structured
+data such as building descriptions and addresses that are not
+consistently formatted. The agent uses the following tools:
+•MonumentSiteScraper Tool: Fetches the HTML content
+of each monument entry using HTTP requests. The page
+is parsed with BeautifulSoup to extract content from
+specific DOM regions, such as addresses and building
+descriptions.
+•YearAnnotator Tool: Uses a well-structured prompt
+to interpret construction descriptions and map them to
+age cohorts using a structured prompt. The LLM is
+instructed to return a JSON object with a single field:
+construction_year.
+B. Data orchestration, fusion and harmonization
+The Monument, Zensus, and OSM agents do not exchange
+messages with each other and do not operate in a turn-
+
+based or dialog-style interaction. Instead, all agents execute
+independently and in parallel on their respective data sources.
+All agents operate under a shared LLM input–output contract,
+where raw text or metadata and a fixed, closed cohort set
+are provided as input, and a validatedJSON-only structure
+year_rawis returned.
+A lightweight Orchestrator coordinate these agents and maps
+building records to a standardized geocoded schema.
+lat,lon,year raw,source
+The Data Fusion module forms a combined dataset by con-
+catenating the geocoded outputs from three agents. The Data
+Harmonizer identifies the duplicate records using identical
+(lat,lon). Then it selects a construction year for each
+cluster of duplicates by a deterministic priority rule that prefers
+the most definitive source:
+chosen year=
+
+
+
+from monument registry,if present;
+from census,else if present;
+from openstreetmap,else if present;
+null otherwise.
+If no source provides a construction year, the clustered record
+is dropped. To better understand this entire pipeline, the
+compact procedure is summarized in Algorithm 1.
+Algorithm 1Orchestration, Fusion and Harmonization
+procedureUNIFIEDDATASET
+Orchestration:
+Run concurrently→{MONUMENT, OSM,
+ZENSUS}
+M←MONUMENT AGENT()
+O←OSM AGENT()
+Z←ZENSUS AGENT()
+Data fusion:
+R←M∪O∪Z ▷concatenate results
+Data harmonization:
+G←group by(R,key= (lat, lon))
+for allgroupg∈Gdo
+chosen year←
+first available(g,[Monument,Zensus,OSM])
+ifchosen year̸=nullthen
+append (lat, lon, chosen year,
+chosen source) tofused_table
+end if
+end for
+returnfused_table
+end procedure
+The normalized construction year is then mapped into
+one of five age cohorts pre-1919, 1919–1950, 1951–1978,
+1979–2000, post-2000).
+C. BuildingAgeCNN for Age Cohort Mapping
+The proposed training pipeline utilizes BuildingAgeCNN, a
+hybrid CNN architecture developed to categorize buildings into
+age cohorts using satellite imagery. We adopt five recognized
+age cohorts (pre–1919, 1919–1950, 1951–1978, 1979–2000,
+post–2000) based on significant material and regulatory shifts
+[21], [22]. A pre-trained ConvNeXt [23] model is utilized
+as the feature extractor. To incorporate semantic information
+at different scales, we used FPN [24] that takes input from
+’layer3’ and ’layer4’.
+Then, this FPN feature map is passed through a CoordConv
+layer where the center coordinatesXandY∈R 1×H×W
+are concatenated with the feature vector, allowing each spatial
+location to carry its own normalized position before filtering:
+fcoord = Conv2D
+
+[ffpn;X;Y]
+
+∈R C′×H×W.(1)
+By providing(X,Y)information at every pixel, the network
+easily distinguishes the crucial location-dependent patterns,
+leading to faster convergence and improved performance.
+Subsequently, a SE [25] block is applied to refine feature
+channels based on global context:
+fse =f coord·σ(W 2·ReLU(W 1·GAP(f coord)))(2)
+where GAP(·)denotes global average pooling,W 1 andW 2 are
+learnable weights, andσis the sigmoid activation function.
+Lastly, the feature map is passed through a convolutional
+classifier head that includes a3×3convolution, ReLU activa-
+tion, adaptive average pooling, and fully connected layers to
+classify a building into one of the age cohorts.
+D. Inference module
+During inference, the AgeCohort agent uses four modular
+tools, as shown in Fig. 3, to convert the input address into a
+building-age cohort or flag a building with a low confidence
+level for a manual review.
+Address
+AgeCohort agent
+Tools
+A d d r e s s P a r s e r
+S a t e l l i t e I m a g e F e t c h e r
+A g e C o h o r t P r e d i c t o r
+C o n f i d e n c e V a l i d a t o r
+Age Cohort /
+Review Status
+I n f e r e n c e
+Fig. 3. Inference pipeline of the AgeCohort agent: address parsing, geocod-
+ing, satellite-tile retrieval, BuildingAgeCNN inference, and confidence-based
+flagging for manual review.
+
+•AddressParser Tool:Extracts street name, house num-
+ber, and city from the input text using an LLM system
+with a well-defined system prompt.
+•SatelliteImageFetcher Tool:Geocodes the address to
+geo-coordinates and fetches the fixed-resolution RGB
+satellite tile centered on the building footprint.
+•AgeCohortPredictor Tool:Loads the trained Buildin-
+gAgeCNN model and computes softmax probabilities
+over the five age cohorts.
+•ConfidenceValidator Tool:Compares the top-1 proba-
+bilityp max against a preset thresholdτ. Ifp max ≥τ,
+the predicted cohort is returned; otherwise, the building
+is flagged for manual review:
+Decision=
+(
+arg maxipi,ifp max≥τ,
+FLAGGED,ifp max <τ.
+This workflow allows energy planners to retrieve age es-
+timates using only an address input, streamlining large-scale
+building-age cohorts to support urban energy planning.
+IV. EXPERIMENTALRESULTS
+A. Dataset coverage analysis
+To evaluate the effectiveness of our multi-agent data-fusion
+pipeline, we compare the fused dataset with the full set of
+OSM building footprints for Aachen, Germany, which provides
+a publicly available registry of monuments. Table I reports
+overall coverage: the fused dataset contains 15,336 buildings
+with age-cohort labels, covering 21.17% of the 72,446 OSM
+footprints in Aachen.
+This reduced coverage primarily reflects limitations in data
+availability rather than pipeline failure. For the majority of
+OSM building footprints in Aachen, construction-period in-
+formation is not publicly available in structured or machine-
+readable form and is therefore excluded from the fused dataset.
+In addition, buildings with missing, ambiguous, or conflicting
+age signals are conservatively filtered to ensure label reliability.
+Consequently, the fused dataset represents a high-confidence
+labeled subset of the building stock, rather than a complete
+census of all buildings.
+Table II breaks down the fused set by age cohort. The largest
+share (66.60%) falls in the 1951–1978 cohort, followed by
+pre-1919 (17.76%), 1919–1950 (7.26%), 1979–2000 (5.82%),
+and post-2000 (2.58%). This stretch toward mid-20th-century
+building stock has direct implications for municipal heat
+TABLE I
+COVERAGE OF AGE-LABELED BUILDINGS INAACHEN(SOURCES AND
+FUSED OUTPUT).
+Data Source Coverage Statistics
+Building Count Coverage (%)
+OSM total buildings 72,446 100.00
+Fused dataset 15,336 21.17
+P r e - 1 9 1 9 1 9 1 9 - 1 9 5 0 1 9 5 1 - 1 9 7 8 1 9 7 9 - 2 0 0 0 Po s t - 2 0 0 0
+Fig. 4. Representative roof types across age cohorts (left to right: pre-1919,
+1919–1950, 1951–1978, 1979–2000, post-2000).
+planners to prioritize the 1951–1978 cohort, given its large
+contribution to the stock.
+B. Roof-Type Progression by Age Cohort
+Fig. 4 displays rooftop profiles for each of the five building-
+age cohorts. A clear progression in the roof architecture is
+evident that the pre-1919 building is dominated by steep and
+tile-covered gabled roofs, while the 1919–1950 cohort shows
+a lower-slope roof with metal sheeting. From 1951–1978
+onward, low-slope roofs acquired importance, and by the
+1979–2000 cohort, many buildings shifted toward flat-roof
+designs. In the post-2000 cohort, flat roofs are equipped with
+solar PV panels. The shift from traditional pitched roofs
+to modern flat roofs incorporating energy-efficient features
+gives clear visual indicators that BuildingAgeCNN uses to
+differentiate building-age cohorts.
+C. BuildingAgeCNN experimental setup
+This section outlines the experimental setup for evaluat-
+ing the proposed BuildingAgeCNN with different CNN/ViT
+baselines. The experiments focus on robust spatial validation,
+ablations, and standardized training for fair comparison.
+1) Dataset and Spatial preprocessing:The dataset contains
+building-age cohorts, each linked to an RGB satellite tile of
+size224×224. All images are resized and normalized using
+ImageNet mean and standard deviation. Data augmentation
+includes random horizontal flips, rotations within±10 ◦.
+To ensure spatial independence, we employed:
+Spatial-Cluster cross-validation: KMeans clustering with
+K=6 on standardized coordinates (lat,lon) and performed
+the 6-fold cross-validation, ensuring that no spatially adjacent
+buildings appear in different folds as shown in the Fig. 5.
+TABLE II
+AGE-COHORT DISTRIBUTION IN THE FUSED DATASET.
+Cohort Dataset Statistics
+Count Share (%)
+pre–1919 2,722 17.76
+1919–1950 1,114 7.26
+1951–1978 10,212 66.60
+1979–2000 892 5.82
+post–2000 396 2.58
+Total (fused) 15,336 100.00
+
+Fig. 5. Data combined into six spatially contiguous folds, with each fold
+visualized as a region polygon.
+2) Model Architecture and Training:The BuildingAgeCNN
+architecture builds upon the convolutional backbones, progres-
+sively enhanced with multi-scale and spatially aware channels.
+•Feature Pyramid Networks (FPN):for multi-scale fu-
+sion,
+•CoordConv:for spatial awareness, and
+•Squeeze-and-Excitation (SE):for channel recalibration.
+All models are initialized with ImageNet weights. By
+default, backbone parameters remain frozen while classifier
+heads are trained, with staged unfreezing explored in ablations.
+Training uses cross-entropy loss with label smoothing (0.05),
+AdamW optimizer (LR= 3×10 −4, weight decay= 1×10 −4),
+and cosine annealing scheduling over 30 epochs with weighted
+sampling for class imbalance.
+3) Ablation study:We conduct an ablation study to quantify
+the contribution of different components. Starting with a
+baseline, we incrementally added FPN, CoordConv, and SE
+blocks. We benchmark several backbones such as ResNet-
+50 [26], MobileNetV3 [27], EfficientNet-B0 [28], ConvNeXt,
+a lightweight custom CNN and the results are summarized
+in Table III. Adding CoordConv and SE blocks significantly
+improved performance, while FPN contributed to better feature
+aggregation, indicating that these modules are architecture
+complementary.
+4) Classification performance:While overall accuracy is
+strong, Table IV reveals 1919–1950 and post–2000 exhibit no-
+tably lower accuracy/macro-F1 than other classes. We attribute
+this to (i)class imbalancethat biases the decision boundary
+towards the 1951–1978, (ii)visual similarityin roof materials,
+building footprints, and urban morphology between adjacent-
+era cohorts, and (iii)renovation effectsthat obscure temporal
+indicators in high-resolution satellite imagery.
+Fig. 6 shows that 1951–1978 attains the highest true-positive
+rate (96.4%), with limited leakage to neighboring cohorts. Pre–
+1919 is mostly correct (82.0%) but exhibits spillover to 1951–
+1978 (16.4%), suggesting texture/footprint similarities learned
+at mid-century scales. 1919–1950 is frequently misclassified
+as 1951–1978 (75.8%), and post–2000 is also often predicted
+as 1951–1978 (68.8%). This systematic pull toward 1951–
+1978 aligns with the class-imbalance hypothesis and the visual
+proximity of adjacent-era construction.
+D. Inference Pipeline Demonstration
+We evaluated the AgeCohort agent on approximately 700
+unseen building addresses in Aachen. Using three confidence-
+threshold settings, the agent flags a varying number of predic-
+tions for manual review.
+As shown in Table V, raising the acceptance threshold
+increases the number of low-confidence cases requiring manual
+review from 18.28% atτ= 0.65to 37.00% atτ= 0.75.
+While we do not have access to the records of the flagged
+buildings, a visual inspection of a few examples indicates that
+they have undergone renovations, like new roofing and solar
+panels. These often coincide with misclassified cases since
+they confuse the original architectural features our model relies
+on. Higher thresholds reduce false predictions but increase
+manual review, while lower thresholds maximize automation
+but increase the number of uncertain cases.
+E. Application to Energy Simulation
+To assess the practical relevance of the predicted age co-
+horts, we compare the cohort outputs against the representative
+U-values from the TABULA database (Table VI) [29]. These
+values summarize typical thermal transmittances for roofs,
+upper ceilings, walls, and floors by construction period. The
+results highlight a consistent downward trend in U-values
+across cohorts, confirming that newer buildings generally ex-
+hibit improved thermal performance. This alignment suggests
+that the BuildingAgeCNN classifications could support down-
+stream energy simulations or retrofit planning, where cohort-
+Pre-1919
+1919-1950
+1951-1978
+1979-2000
+Post-2000
+1919-1950
+1951-1978
+1979-2000
+Post-2000
+Actual
+Predicted
+Percentage
+0
+20
+40
+60
+80
+100
+Pre-1919
+Fig. 6. Row-normalized confusion matrix for five cohorts.
+
+TABLE III
+ABLATION RESULTS ON THE BUILDING-AGE BENCHMARK.
+Model Variant Metrics
+Accuracy (%) Macro-F1(%) Params (M)
+ConvNeXt [23] Baseline 82.27±5.55 63.71±5.57 27.82
++ FPN 89.06±5.43 64.36±5.35 30.48
++ FPN + CoordConv 89.27±3.83 66.18±4.72 31.08
++ FPN + CoordConv + SE 90.69±4.22 67.25±5.52 31.09
+ResNet-50 [26] Baseline 76.07±3.98 56.93±3.81 25.60
++ FPN 78.94±3.66 57.23±6.32 28.81
++ FPN + CoordConv 79.28±4.12 57.43±3.87 30.12
++ FPN + CoordConv + SE 80.98±3.22 57.48±4.12 30.13
+MobileNetV3 [27] Baseline 80.84±6.62 59.40±5.25 4.21
++ FPN 82.28±3.95 59.63±5.01 5.78
++ FPN + CoordConv 83.40±7.10 60.41±6.32 6.38
++ FPN + CoordConv + SE 84.51±6.00 62.38±4.97 6.39
+EfficientNet-B0 [28] Baseline 72.21±0.16 51.77±0.05 4.01
++ FPN 79.32±0.42 58.31±0.42 7.07
++ FPN + CoordConv 81.23±0.22 59.01±0.91 7.66
++ FPN + CoordConv + SE 83.28±0.38 62.69±0.41 7.67
+Simple CNN Baseline 68.90±0.15 49.18±0.11 0.42
++ FPN 69.10±0.11 49.31±0.21 2.66
++ FPN + CoordConv 70.92±0.28 50.10±0.32 3.26
++ FPN + CoordConv + SE 73.10±0.43 51.21±0.21 3.26
+TABLE IV
+PER-CLASS PERFORMANCE:ACCURACY ANDF1BY AGE COHORT.
+Cohort Metrics
+Accuracy (%) F1 (%)
+pre–1919 81.96 88.84
+1919–1950 24.22 35.71
+1951–1978 96.38 89.95
+1979–2000 80.64 86.19
+post–2000 31.25 35.31
+TABLE V
+FLAGGED PREDICTIONS AT DIFFERENT CONFIDENCE THRESHOLDS.
+Confidence Threshold Flagged Predictions
+Count Share (%)
+0.65 128 18.28
+0.70 172 24.57
+0.75 259 37.00
+based U-values provide a first-order approximation of building
+envelope efficiency.
+V. DISCUSSION
+Practical implication for planners:Age cohorts enable
+immediate plug-in to building stock simulators for energy
+consumption. Even imperfect cohort labels materially improve
+district-heating sizing and prioritization compared to having no
+TABLE VI
+COHORT-AVERAGEDU-VALUES(W/M 2K)FOR ENVELOPE COMPONENTS
+FROMTABULAREFERENCE DATA.
+Cohort Thermal Transmittance (U-values)
+Roof Upper Ceiling Wall Floor
+pre–1919 1.95 1.00 2.10 2.05
+1919–1950 1.54 1.06 1.41 1.41
+1951–1978 0.75 0.96 1.05 1.29
+1979–2000 0.42 0.39 0.52 0.62
+post–2000 0.24 0.25 0.28 0.33
+age information, where planners can (i) run sensitivity studies
+by cohort, (ii) target manual surveys where the model flags
+uncertainty, and (iii) prioritize measurement campaigns for
+cohorts with high heat-loss potential.Failure causes:The con-
+fusion matrix shows two dominant error patterns: (1) adjacent-
+period confusions (architectural similarity between neighbor-
+ing cohorts) and (2) majority-collapse into the 1951–1978
+class (class imbalance). Both reduce macro-F1 despite high
+accuracy.
+VI. CONCLUSION
+This paper introduces an LLM-driven multi-agent pipeline
+that combines German Census 2011, OpenStreetMap and
+Monument-registry sources into a unified, geocoded dataset
+and uses it to supervise a satellite-only classifier, Buildin-
+gAgeCNN (ConvNeXt backbone + FPN + CoordConv + SE).
+
+Our best model achieves an average accuracy of 90.69%
+on spatial-cluster cross-validation and a macro-F1 score of
+67.25%. Ablation experiments show that FPN, CoordConv
+and SE blocks each add complementary value: FPN improves
+multi-scale aggregation, CoordConv encodes spatial priors, and
+SE improves channel-wise feature selection. The inference
+pipeline converts user addresses to cohort predictions, applies
+a confidence threshold, and flags low-confidence cases for hu-
+man review, making the system practical for planner workflows
+while exposing where automation should be augmented by
+experts.
+Key limitations include prominent class imbalance, con-
+fusion between visually similar neighbouring cohorts, visual
+changes due to renovations (e.g., new roof or solar panels),
+and occlusions that degrade reliability. To address these issues
+in future, we will (1) incorporate active-learning to acquire
+targeted labels for underrepresented cohorts, (2) perform cross-
+city transfer and domain-adaptation experiments to evaluate
+generalization, (3) extend modalities (street-view, 3D imagery)
+to reduce visual ambiguity, and link cohort outputs to energy-
+performance archetypes for direct planner use. We will also
+publish provenance metadata, prompts, and code to improve
+reproducibility.
+Overall, the pipeline demonstrates a scalable path from
+heterogeneous registries to actionable age-cohort maps that
+can support sustainable urban heat planning. With the planned
+improvements, we expect substantial gains in per-class perfor-
+mance and greater utility for energy planners.
+ACKNOWLEDGMENTS
+This work was carried out within the project NEED [1]
+and was supported by BMWE under Grant No. 03EN3077J.
+Portions of the manuscript text (e.g., wording suggestions
+and Grammar) were drafted with ChatGPT’s Assistance. The
+authors reviewed, edited, and take full responsibility for all
+content.

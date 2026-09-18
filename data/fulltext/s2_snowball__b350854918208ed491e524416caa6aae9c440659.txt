@@ -1,0 +1,864 @@
+record_id: s2_snowball:b350854918208ed491e524416caa6aae9c440659
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2607.11818
+fetched_title: MM-ToolSandBox: A Unified Framework forEvaluating Visual Tool-Calling Agents
+fetched_at: 2026-09-18T19:01:00Z
+
+MM-ToolSandBox: A Unified Framework forEvaluating Visual Tool-Calling Agents
+Kaixin Ma∗, Di Feng∗, Alexander Metz, Jiarui Lu, Eshan Verma, Afshin Dehghan
+Apple
+∗Equal Contribution
+We introduceMM-ToolSandBox, a benchmark and evaluation framework for visually grounded tool-calling agents. The
+framework provides a stateful execution environment spanning 500+ tools across 16 application domains, supporting
+multi-image, multi-turn tasks where agents must ground progressively arriving visual inputs into executable tool calls
+while handling realistic conversational phenomena (goal revisions, error corrections, state mutations). An automated
+scenario generation pipeline produces diverse, visually grounded scenarios through information-flow-guided planning
+and multi-stage quality filtering, yielding258human-verified nominal scenarios and50variants targeting interactive UI
+applications. Evaluating12state-of-the-art models, from4B open-weight to frontier proprietary systems, shows that
+current models still lack robust visual tool-calling capability: even the best model achieves below50%success rate.
+Our failure analysis further reveals that visual precision, not only planning, is a primary bottleneck for capable models:
+53%of failures stem from incorrect information extraction from images despite otherwise correct task workflows. A
+planning-to-precision crossover emerges with scale: smaller models fail at decidingwhat to do, while larger models fail
+at perceivingwhat they see, suggesting fundamentally different research directions for improving models at different
+capability levels. The framework and the benchmark are publicly available at https://github.com/apple/ml-mmtoolsandbox.
+Date:August 24, 2026
+1 Introduction
+Evaluating LLM-based agents on tool-augmented tasks has become an active area of research, with benchmarks
+targeting function calling (Li et al., 2023; Patil et al., 2025), stateful environment interaction (Lu et al., 2025;
+Trivedi et al., 2024), and multi-turn conversational dynamics (Froger et al., 2026; Barres et al., 2025; Xiu
+et al., 2026). However, most of these frameworks remain text-centric, and cannot evaluate many realistic
+assistant tasks with visual inputs, for example, a user may share a screenshot to diagnose an issue or provide
+a photo of an event poster to schedule an event.
+Solving visual tool-calling tasks requires more than visual recognition. The agent must extract task-relevant
+information from images, map visual evidence to the correct tool or code action, execute that action against a
+stateful environment, and continue the interaction when the user’s intent evolves. This makes visual tool
+calling a distinct agentic capability: the model must not only understand what is shown, but also decide how
+to act on it through tools.
+Among the few benchmarks that incorporate visual inputs, images are typically provided as a static prefix in
+the initial query (Wang et al., 2024a), or the tasks are limited to single-round user-agent interactions (Xie
+et al., 2024; Rawles et al., 2025). Moreover, many existing benchmarks operate with relatively small tool
+spaces, often containing only15–100tools (Froger et al., 2026; Wang et al., 2024a; Kong et al., 2025; Lu
+et al., 2025). As a result, there is no unified framework and benchmark for systematically studying the visual
+tool-calling capability of multimodal agents under dynamic, multi-turn, and large-tool-space settings.
+To close this gap, we introduceMM-ToolSandBox, a diverse simulation framework for evaluating visual
+tool-calling agents. MM-ToolSandBox extends the stateful tool-use environments from ToolSandBox (Lu
+et al., 2025), with explicit image handling, visual-specific tools, and support for both structured tool-use
+1
+arXiv:2607.11818v2 [cs.CV] 21 Aug 2026
+
+and code-execution interfaces, as summarized in Figure 1. Built on top of this framework, we construct a
+visual tool-calling benchmark designed to capture the key challenges missing from prior work. The benchmark
+spans511tools across16simulated application domains and is organized along three orthogonal axes: seven
+information-flow types, four challenge types that model realistic conversational deviations, and four image-
+arrival patterns that control when visual inputs enter the interaction. The resulting benchmark contains
+258nominal scenarios with1 ,284unique images, requiring agents to perform multi-image, multi-turn tool
+use over a large and diverse tool space. All scenarios are further corrected and verified by human experts
+to ensure reliable visual grounding, executable task specifications, and well-defined completion criteria. We
+also curate50scenarios to explore interactive UI applications. To make benchmark construction scalable
+while maintaining high quality, we develop an automated scenario generation pipeline. The pipeline produces
+visually grounded scenarios through information-flow-guided planning, environment-state instantiation, and
+multi-stage quality filtering, reducing the annotation burden from full manual construction to targeted human
+review. Finally, we conduct a systematic evaluation of state-of-the-art proprietary and open-weight models on
+our benchmark. Our results show that even strong frontier models struggle substantially with visual tool
+calling, revealing persistent gaps in image-grounded reasoning, multi-step interaction, and stateful tool use.
+In-depth analysis further shows that multi-image working memory is a key bottleneck, and that models of
+different scales exhibit distinct failure patterns.
+To summarize, our contributions are the following. 1. A stateful, diverse, multimodal agent simulation
+framework. We substantially extend ToolSandbox (Lu et al., 2025), a text-only environment with34tools, into
+a multimodal runtime with persistent image artifacts that remain addressable across turns, dynamic image
+arrival during the conversation,511tools across16application domains with on-demand tool discovery, both
+code-execution and structured tool-use interfaces, and deterministic entity-diff verification for multimodal
+tasks. 2. An automated scenario-generation pipeline. The pipeline performs information-flow-guided planning,
+expands outlines into realistic multi-image, multi-turn interactions with executable environment states. In
+this way, we reduce benchmark construction from full manual authoring to targeted human review. 3. A
+human-verified benchmark and new empirical findings. Beyond leaderboard results, our analysis reveals
+a planning-to-precision failure crossover with model scale, in which smaller models fail predominantly at
+planning while stronger models increasingly fail at visual precision, and identifies multi-image working memory
+as a major bottleneck, with upfront image arrival roughly20points harder than progressive arrival.
+We release the benchmark and the framework to the public athttps://github.com/apple/ml-mmtoolsandbox.
+2 Related Work
+Tool-use agent benchmarks.A growing body of benchmarks evaluate LLM agents on tool-augmented
+tasks. API-Bank (Li et al., 2023) and BFCL (Patil et al., 2025) target single- and multi-turn function
+calling with large API collections. ToolSandbox (Lu et al., 2025) introduces stateful environments with
+online evaluation and conversational simulation. AppWorld (Trivedi et al., 2024) scales to 457 APIs across
+9 applications with rich relational data, though exclusively in a code-execution paradigm. More recent
+efforts push toward dynamic environments: Gaia2 (Froger et al., 2026) introduces asynchronous, event-driven
+evaluation testing temporal awareness and agent-to-agent collaboration;τ 2-Bench (Barres et al., 2025) models
+agent-supervisor interactions revealing communication as a critical bottleneck; and ASTRA-bench (Xiu et al.,
+2026) grounds evaluation in longitudinal personal context. GTA (Wang et al., 2024a) is among the first
+to incorporate multimodal contexts, but covers only 14 tools in a stateless setting. SO-Bench (Feng et al.,
+2026) evaluates the visual structural output capability of tool-use agents, but only focuses on single-turn
+interactions. Toolathlon (Li et al., 2025a) further scales tool-use evaluation to long-horizon real-software
+workflows, spanning 32 software applications and 604 tools with realistic initial states and execution-based
+task verification. MCP-Atlas (Bandi et al., 2026) evaluates agents on 1,000 multi-step tasks over 36 real
+MCP servers and 220 tools, requiring agents to discover and orchestrate 3–6 tool calls across servers from
+natural-language instructions. Despite this progress, these benchmarks operate predominantly in text-only
+regimes, evaluate under a single execution mode, and rely heavily on manual scenario construction.
+Multimodal tool-use agent benchmarks.A closer line of work evaluates agents that call tools over visual
+inputs. VisualToolBench (Guo et al., 2025), TIR-Bench (Li et al., 2025c), Agent-X (Ashraf et al., 2026)
+and AgentVista (Su et al., 2026) benchmark multimodal tool-using agents over a curated tool suite. These
+2
+
+Environment
+Messages ShoppingNotes FilesMusic
+Application Domains (16)
+…
+Entity Database
+Images
+Documents
+Contacts
+Mails
+Transactions
+Service-providers
+…
+Toolbox Abstraction
+Mini
+(+30)
+Same underlaying functionalities, different
+levels of consolidation.
+Execution Mode
+Item 0: Banana
+Item 1: Milk
+I should check the items
+I should check the
+items
+lookup(domains=“Shopping)
+compute_price([0,1])
+Tool-use Code execution
+Search tools
+UI tools
+Vision tools
+…
+Medium
+(+250)
+Full set
+(+500)
+}
+Pay
+Evaluation
+Agent Judge
+User Judge
+State Verification
+Column Expected Actual Similarity Score
+user_id 2 2 Exact 1.00
+prod_id 201 201 Exact 1.00
+Quantity 1 1 Exact 1.00
+Title Andy’s ListAndy Fuzzy 0.65
+Check Criterion Evidence
+✅ Task completion The agent correctly
+found the items in
+the shopping…
+✅ Tool-use validity …
+✅ Instruction following …
+❌ No-side effects …
+✅ Information correctness …
+Check Criterion Evidence
+✅ Request fidelity …
+✅ Conversational
+naturalness
+The user uses
+natural language …
+✅ Grounded consistency …
+✅ Tool-use validity …
+Multimodal Trajectory
+Agent User
+Hey! Which of these items
+are in my shopping list?
+The first two.
+How much do they sell online?
+BTW, This also looks great!
+Add it to my list.
+I found one banana and milk in the
+shopping app. They cost 14.99$.
+Added!
+I found two types of
+pineapples, which one
+do you prefer?
+Figure 1Overview of the MM-ToolSandBox framework for evaluating visual tool-calling agents. The framework
+supports multi-turn, multi-image interaction between the user and agent, and provides both structured tool-use and
+code-execution interfaces. The framework includes over500native tools across16application domains, covering search,
+UI, vision, and system-level utilities. Evaluation combines rubric-based LLM judges for both agent and user roles with
+static state-verification checks.
+benchmarks establish that visual tool use is a distinct capability worth measuring, but they are predominantly
+single-turn and stateless, formulated as question answering, supply images as a static prefix to the task, and
+operate over a fairly small tool spaces. MM-ToolSandBox complements existing benchmarks with: a stateful
+environment in which tool calls mutate persistent world state, multi-turn interaction with a simulated user
+whose intent can change, dynamic image arrival across turns rather than a fixed visual prefix, a large tool
+space with over500tools dual code-execution and structured tool-use interfaces, and evaluation by entity-level
+state verification rather than answer matching.
+Visual agent benchmarks.A parallel line evaluates agents that perceive and act on GUI inputs, known
+as GUI agents (Wang et al., 2025; Li et al., 2025e; Yang et al., 2025). VisualWebArena (Koh et al., 2024)
+and WebVoyager (He et al., 2024) evaluate web navigation grounded in visual page understanding. At the
+OS level, OSWorld (Xie et al., 2024), AndroidWorld (Rawles et al., 2025) and UINavBench (Agrawal et al.,
+2025) benchmark desktop and mobile tasks, respectively, while MobileWorld (Kong et al., 2025) extends to
+long-horizon cross-application workflows. In multimodal search, MMSearch (Jiang et al., 2024) and MM-
+BrowseComp (Li et al., 2025d) evaluate deep retrieval requiring visual-language reasoning. These benchmarks
+share grounding in visual perception but differ in image types (UI screenshots vs. natural images), action spaces
+(GUI operations vs. API calls), and evaluation (navigation success vs. state verification). Our work occupies a
+complementary position: agents perceive heterogeneous visual inputs (ranging from natural photographs to
+documents, charts, and UI screenshots) shared during conversation and must translate them into high-level
+API tool calls within a stateful, multi-domain environment, testing the perception-to-tool-invocation pipeline
+rather than pixel-level UI manipulation.
+A feature comparison with prior benchmarks is in Table 1.
+3 MM-ToolSandBox
+MM-ToolSandBox aims to measure visual tool-calling capability: whether an agent can understand visual
+context, decide which tools (or code) are needed, use visual artifacts correctly across turns, and complete
+tasks through grounded, multi-step interaction. To this end, MM-ToolSandBox inherits the lightweight,
+interactive, and robust design philosophy of ToolSandbox (Lu et al., 2025), while extending text-based tool-use
+environments to visual settings through explicit visual artifact handling. To support richer and more dynamic
+3
+
+Table 1Comparison of representative tool-use agent benchmarks and environments.Visualindicates whether image or
+UI observations are part of the input.Scenariodistinguishes single-turn tasks, where the user provides a complete
+goal upfront and the agent executes autonomously, from multi-turn tasks, where the agent must interact with the user
+to resolve ambiguity, obtain missing information, or handle user updates.Env.describes the execution substrate,
+whileExec.specifies the agent interface: Tool denotes structured function/tool calling, Code denotes executable
+code generation in a runtime such as a Python environment, and UI+Tool denotes hybrid interaction through both
+graphical interfaces and external tools.
+Benchmark Visual Scenario Environment Execution Apps/Domains T ools
+AppWorld (Trivedi et al., 2024)✗single-turn API sim. Code mobile apps (9) 457
+Toolathlon (Li et al., 2025a)✗single-turn MCP/server Tool software apps (32) 604
+MCP-Atlas (Bandi et al., 2026)✗single-turn MCP/server Tool mixed domains (36) 220
+ToolSandbox (Lu et al., 2025)✗multi-turn API sim. Tool mobile apps (11) 34
+Gaia2 (Froger et al., 2026)✗multi-turn API sim. Tool service apps 101
+ASTRA-bench (Xiu et al., 2026)✗multi-turn API sim. Tool mobile apps 51
+τ 2-Bench (Barres et al., 2025)✗multi-turn API sim. Tool telecom support 30
+GTA (Wang et al., 2024a)✓single-turn tool suite Tool vision/web tasks 14
+VisualToolBench (Guo et al., 2025)✓single+multi tool suite Tool vision tasks 6
+TIR-Bench (Li et al., 2025c)✓single N/A Optional vision tasks N/A
+Agent-X (Ashraf et al., 2026)✓single-turn tool suite Tool vision/web tasks 14
+AgentVista (Su et al., 2026)✓single-turn tool suite Tool vision/web tasks 4
+OSWorld-MCP (Jia et al., 2025)✓single-turn OS/UI UI+Tool desktop apps (7) 158
+MobileWorld (Kong et al., 2025)✓multi-turn OS/UI UI+Tool mobile apps 64
+MM-T oolSandBox✓multi-turn API sim. Tool+Code mobile apps (16)511
+assistant scenarios, we further incorporate domains and tools from AppWorld (Trivedi et al., 2024), resulting
+in16simulated application domains and511native Python tools. Together, these design choices make
+MM-ToolSandBox a generic runtime for prototyping diverse multimodal tool-calling scenarios. Figure 1
+provides an overview of our system design.
+3.1 Architecture
+Each episode is parameterized by ascenario, which specifies the initial and expected world states, available
+tools, user instructions, associated visual assets, and completion criteria. The interaction then unfolds among
+anagent, auser, and anexecution environment. An LLM plays the simulated user, the agent acts as
+the task solver (under evaluation), and the environment maintains the shared world state while executing
+tool calls. The interactions among agent, user and environment operate over two channels. The front-end
+interaction between the agent and user is a natural user-assistant dialogue, while the backend interaction with
+the environment is mediated through typed tool calls.
+Tool Management.Tools are implemented as native Python functions with typed signatures and metadata
+such as role visibility and state dependencies (Lu et al., 2025). Because we provide over500tools in MM-
+ToolSandBox, exposing the full registry in a single prompt is impractical. We therefore provide a tool-discovery
+meta-tool, search_tool, which retrieves relevant tools on demand from a natural-language query over tool
+documentation. Retrieved tools are added to the agent’s active set, while a least-recently-used (LRU) eviction
+policy keeps the working set bounded. To further test tool-use robustness under varying registry sizes, we
+curate three additional variants from the full native toolset: a medium set with276tools, a compact set with
+165tools, and a mini set with30tools.
+3.2 Multimodal Interaction
+Multimodal interaction is the main focus of this work. Building on the message-passing and world-state design
+of ToolSandbox (Lu et al., 2025), we treat images as first-class visual artifacts rather than static prompt
+attachments. Each image is stored in a shared image database, assigned a stable identifier, and referenced by
+tools and messages in the same way that other environment entities are referenced. This design makes visual
+artifacts persistent, reusable, and traceable across turns. Image exchange is mediated through tool calls. For
+4
+
+example, the user can provide images to the agent during the conversation viasend_message_with_image,
+and the agent can similarly return visual artifacts to the user when needed. We further provide visual-specific
+tools and other utilities for resizing, annotating, plotting, transforming images, as well as interactive UI
+generation; the complete list of visual tools is given in Appendix D.5. Note that our benchmark does not
+prescribe the use of any particular visual tool: cropping, resizing, rotation, and enhancement are available,
+but whether to invoke them is left to the agent’s own judgment rather than being mandated in the system
+prompt. As a result, images become part of the structured interaction trajectory rather than untracked
+context-window inputs. An example is shown in Figure 1.
+3.3 Execution Modes
+MM-ToolSandBox implements two execution modes for invoking tools: free-formCode-Executionand
+structuredTool-Use. InCode-Executionmode, the model operates through standard chat completion and
+writes Python code in markdown-fenced blocks, following the code-as-action paradigm (Trivedi et al., 2024;
+Wang et al., 2024b). The framework parses and executes the code in a persistent sandboxed interpreter, where
+registered tools are available as callable Python functions. This interface naturally supports complex workflows
+involving loops, conditionals, intermediate variables, and flexible tool composition, with the drawback of
+reduced structural constraints. InTool-Usemode, the model operates through the provider’s structured
+tool-calling API, as commonly supported by OpenAI, Anthropic, and Gemini (OpenAI, 2025; Anthropic,
+2026; Gemini, 2025). At each step, the model either responds to the user or emits a schema-constrained tool
+call that is executed by the environment. This interface is easy to parse, auditable, and robust to malformed
+outputs, but can be cumbersome for complex control flow or multi-tool composition. To support programmatic
+orchestration in this mode, we provide anexecute_code tool that invokes the same sandboxed interpreter,
+and code execution remains mediated by the structured tool-calling interface.
+Safety Guardrails.Executing agent-generated Python code requires careful protection regardless of how
+the code is invoked. Following the spirit of AppWorld’s sandboxed execution design (Trivedi et al., 2024),
+MM-ToolSandBox protects the interpreter with three layers of guardrails: (1) static checks that reject
+disallowed imports and unsafe primitives before execution; (2) runtime restrictions that limit file access,
+intercept dangerous system calls, and cap memory usage; and (3) execution limits on wall-clock time and
+output size.
+3.4 Evaluation
+MM-ToolSandBox evaluates scenarios through two complementary mechanisms (illustrated on the right of
+Figure 1).State-based verificationcompares initial and final world-state snapshots against a scenario’s
+expected entity changes, providing an objective, reproducible outcome signal.Rubric-based LLM judges
+assess trajectory quality for both roles: an Agent Judge evaluates whether the agent completed the task
+correctly, while a User Judge checks whether the simulated user behaved coherently. Together, these
+mechanisms cover both the outcome and the process of each scenario. Concrete metrics are defined in
+Section 4.3.
+4 Benchmark
+The MM-ToolSandBox benchmark comprises 258 human-verified scenarios spanning diverse visual reasoning
+patterns, conversational challenges, and application domains. Each scenario specifies a multi-turn, multi-image
+task that requires the agent to extract information from visual inputs, navigate a large tool space, and produce
+correct state changes in a simulated device environment. We describe the design dimensions that structure
+the benchmark, followed by its composition and statistics. In addition, we curate50variants for interactive
+UI applications. A scenario example is shown in Figure 2. More examples can be found in Appendix F.
+4.1 Design Dimensions
+We structure the benchmark along three orthogonal axes, namely, information flow type, challenge type,
+and image arrival pattern, that jointly control the reasoning pattern, conversational dynamics, and visual
+5
+
+Figure 2Example scenario illustrating the interplay of benchmark design dimensions. The agent must (1) extract
+numerical information from product images (visual grounding), (2) perform arithmetic to determine quantities (compute
+flow type), (3) adapt when the user changes plans mid-conversation (goal change challenge), and (4) handle images
+arriving across turns (progressive arrival). Evaluation verifies the final cart state against expected entity diffs.
+complexity of each scenario.
+Information flow types.The flow type prescribes the reasoning pattern connecting visual inputs to tool
+actions. We derive seven flow types by systematically decomposing the space of operations that relate multiple
+information sources to action outputs, grounding our taxonomy in data processing primitives:aggregate(cf.
+union): combine information from multiple sources into a single action;compare(cf.argmax): evaluate
+alternatives against criteria to select the best;filter(cf.where): select a subset of items matching a condition;
+compute(cf. derived column): derive a new value from inputs through calculation;validate(cf.check):
+verify information against constraints before acting;lookup chain(cf. correlated subquery): resolve references
+sequentially, each feeding the next; andcross-reference(cf.join): match information across sources and
+act on the correspondence. These flow types impose genuinely different reasoning demands, e.g. lookup
+chains require sequential retrieval from individual images, while filter and aggregate tasks require synthesizing
+information across multiple images simultaneously.
+Challenge types.We control for two dimensions of task difficulty beyond the cooperative baseline. First,
+two conversational challenges test agent robustness to imperfect user behavior:goal change: the user pivots
+mid-conversation, requiring the agent to abandon prior progress and adapt to revised objectives; anderror
+correction: the user provides incorrect details (e.g., misidentifying content in an image), testing whether
+the agent detects discrepancies between visual evidence and user instructions rather than executing blindly.
+Second, state mutation controls operational complexity by requiring the agent to update or delete existing
+entities rather than only creating new ones, demanding entity retrieval and grounded modification instead
+of unconstrained creation. Scenarios without any of these properties form the cooperative baseline with
+create-only operations.
+Image arrival patterns.The arrival pattern determines when images enter the conversation:upfront: all
+images in the first message,progressive: images distributed across turns,late: images arriving toward the
+end, ormixed: a combination of the three. Progressive delivery tests whether agents can integrate new visual
+context as the interaction evolves, while upfront delivery tests simultaneous multi-image working memory,
+which is a fundamentally different cognitive demand.
+6
+
+4.2 Benchmark Composition
+Image sources.We sourced images from the test sets of eight established vision datasets spanning
+complementary visual domains: documents (DocVQA (Mathew et al., 2020), OmniDocBench (Ouyang
+et al., 2025)), natural scene text (HierText (Long et al., 2023)), real-world scenes (WorldVQA (Zhou et al.,
+2026)), charts and plots (ChartQA-Pro (Masry et al., 2025), ChartMuseum (Tang et al., 2025)), infographics
+(InfographicVQA (Mathew et al., 2021)), and software UI screenshots (ScreenSpotPro (Li et al., 2025b)). This
+diversity ensures that benchmark performance reflects general visual perception rather than proficiency on a
+single image type. Given the image set, we leverage our automatic scenario generation pipeline to produce a
+diverse and challenging scenario set (detailed in Section 5). Each scenario requires 3–6 images and 2–5 user
+interaction rounds. In total we cover 1,284 unique images over 258 scenarios, and the distribution of design
+dimensions is shown in Figure 4.
+UI mode subset.We additionally convert a 50-scenario subset to UI mode, where the same underlying tasks
+must be completed through visual interface interaction rather than text. In this mode, the agent acts as a
+dynamic UI designer: it discovers backend tools, gathers information, and renders interactive screens (product
+cards, selection lists, confirmation dialogs) through which the user makes decisions via button clicks and
+selections. The key design principle is that the user’s decision criterion is private, so the agent cannot complete
+the task without presenting options and receiving the user’s choice through the UI. Entity diff specifications
+remain identical, ensuring that the same programmatic evaluation applies regardless of interaction modality.
+A third judge (UI judge) additionally evaluates whether the agent rendered appropriate interactive interfaces
+with correct affordances. A converted UI scenario is shown in Figure 9.
+To support interactive UI scenarios, we implement a set of dedicated UI tools that mediate structured visual
+interactions between the agent, the user, and the environment acting as a UI state server (Figure 3). On the
+frontend, the agent and the user continue to communicate in natural language as in any other scenario. On the
+backend, the agent constructs a declarative UI description and calls a rendering tool; the environment validates,
+renders, and stores the resulting screen, then delivers it to the user together with metadata describing the
+available interactive elements. The user can then perform actions such as clicking a button or filling a form
+field through a dedicated interaction tool, and the environment resolves the action into structured data that
+is forwarded back to the agent as a notification. This design keeps the conversational surface natural and
+readable while making every UI state change auditable through typed tool calls. UI tools are built based on
+the recently published A2UI protocol (Google, 2025a). Figure 3 demonstrates the information flow for UI
+interaction.
+4.3 Evaluation Protocol
+By default, we use GPT-5.4 (OpenAI, 2026) to build the user simulator, as we find that this model achieves
+the highest user fidelity and natural conversation compared to other frontier models. The prompts for both
+user and agent roles are provided in Appendix E.1 and Appendix E.2.
+Agent implementation.To isolate model capability from scaffolding, all models share a single fixed harness
+(Yao et al., 2023; Wang et al., 2024b). Unless otherwise noted, the agent runs in the pure code-execution
+interface (Section 3.3): it operates a persistent sandboxed Python interpreter, discovers tools on demand from
+the full511-tool registry via a discovery tool under an LRU working set, and is capped at100interaction
+steps (across agent and user roles) with a per-scenario wall-clock time limit. Native thinking is enabled
+for models that support it. Every model receives the same agent-role system prompt (Appendix E.1) and
+interacts with the same GPT-5.4 (OpenAI, 2026) user simulator, and all trajectories are scored by a Claude
+4.5 Sonnet (Anthropic, 2025a) rubric judge. We hold this harness fixed on purpose: as agent scaffolding
+increasingly drives end-task performance (Anthropic, 2025; OpenAI, 2026), comparing models under a common,
+well-specified harness is what makes performance differences attributable to the model rather than to the
+surrounding system. We separately study how the interface itself affects performance in Section 6.3.
+Evaluator.Each scenario is scored using the mechanisms described in Section 3.4.Agent Success Rate
+(Agent SR)is the primary metric: the agent judge receives the full conversation trajectory and tool calls with
+results and then evaluates five independent criteria: task completion, instruction following, tool use validity,
+no side effects, and information accuracy, and a scenario passes only if all five pass. The complete agent-judge
+7
+
+Agent Environment User
+Find restaurants like this one (photo attached)
+(1)
+render_ui_screen(restaurant_ui)
+(2)
+<env> Rendered image + interactive elements
+(3)
+show_ui_to_user()
+(4)
+<env> UI screenshot + clickable element info
+(5)
+Here are similar restaurants with ocean views!
+(6)
+ui_user_interact("restaurant_ui", "book-btn")
+(7)
+<env> User clicked "Book" on Ocean Pearl
+(8)
+Booking confirmed for Ocean Pearl!
+(9)
+User-Agent
+Tool call
+Tool result
+Env-User
+User-Env
+Env-Agent
+Agent active
+Agent waiting
+Figure 3An example information flow for an interactive UI scenario. The user simulator and agent interact through
+natural language on the front end, while both interact with the UI server environment through dedicated UI tools on
+the back end. The agent generates a new UI screen by writing Python code following the A2UI protocol, which is
+executed throughrender_ui_screen. The environment renders the resulting UI screen and returns it to the user role as
+an environment message. The user simulator then observes the screen and interacts with it throughui_user_interact,
+emulating common UI actions such as clicking and typing.
+rubric prompt is provided in Appendix E.3.Entity F1provides graded partial credit by programmatically
+comparing actual entity state changes against expected specifications via Hungarian matching with type-aware
+column similarity (exact match for identifiers, ROUGE-L for text, datetime verification for timestamps; full
+details in Appendix A). Note that the two metrics are complementary by construction and can diverge:
+Entity F1 askshow close is the final state?, tolerating a misread name or one wrong field, whereas Agent
+SR is a conjunctive gate askingdid the agent do everything correctly?. We analyze where they disagree
+in Appendix D.2.User SRassesses whether the simulated user behaved coherently, serving as a sanity
+check that user quality does not confound agent evaluation (user-judge rubric in Appendix E.4). We show in
+Section C.1 that User SR correlates strongly with Agent SR and that excluding user-failing scenarios does not
+alter model rankings, confirming that reported performance differences reflect genuine agent capability.
+Judge model selection.We use Claude 4.5 Sonnet (Anthropic, 2025a) as the default judge. Among the
+proprietary candidates we compared during judge development (Claude 4.5 Sonnet, GPT-5.4, Gemini 3.0
+Flash) it attains the highest agreement with human experts while also being the mostconservative, i.e., it has
+the lowest false-positive rate and therefore under- rather than over-estimates Agent SR. See Appendix B for
+8
+
+Figure 4Overview of the scenario generation pipeline (top) and the resulting benchmark distribution (bottom).
+T op:Each candidate image is first associated with relevant application domains and tools (Stage 1), then grouped
+via CLIP-based clustering and screened for viable information-flow types and image-arrival patterns (Stage 2). A
+structured multi-round outline is sampled from the viable patterns and assigned a challenge type (Stage 3), then
+expanded into a full multi-turn dialogue with deictic visual references and tool calls (Stage 4). Stage 5 instantiates
+the initial environment state together with the expected final state for deterministic state-based evaluation. Stage 6
+applies LLM-based quality criteria, followed by an oracle agent solvability check and human expert review.Bottom:
+Distribution of the258final scenarios across the three design dimensions of Section 4.1, flow types, image-arrival
+patterns, and challenge types, together with the originating image-source datasets.
+our human-judge model agreement study.
+Evaluation validity.We validate judging fidelity against human annotation. Three expert annotators
+independently labelled the same100trajectories, reaching substantial inter-annotator agreement (Fleiss’
+κ = 0.782, mean pairwise Cohen’sκ = 0.782), which establishes that the labelling task itself is reliable. Against
+the majority-vote human label, the agent judge achieves86%agreement (Cohen’sκ = 0.709, substantial)
+with only2false positives among56human-negative trajectories (FPR= 0 .036). Importantly, the judge
+is miscalibrated in the conservative direction: it passes34%of the sampled trajectories where the human
+majority passes44%, so reported Agent SR should be read as a lower bound on true performance rather
+than an unbiased estimate. The user judge attains high raw agreement (77%) though a lowerκ driven by the
+rarity of user-simulation failures. We further re-score every trajectory with two additional judges drawn from
+different model families, Gemini 3.0 Flash and the open-weight Qwen 3.5-397B-A17B, and find model rankings
+essentially unchanged (Spearmanρ = 0.95–0.99), with no evidence that the Sonnet judge favors Claude-family
+agents (Appendix C.2). Our conclusions therefore do not hinge on the choice of judge. Repeating the judge on
+fixed trajectories and repeating full agent rollouts both yield standard deviations below1.3%(Appendix C.3),
+well below the gaps between performance tiers. Together with the strong Agent-SR/User-SR correlation
+(r= 0.81, Figure 6a), this indicates that both the user simulator and the judges are reliable.
+5 Scenario Generation Pipeline
+We design an automated pipeline that generates multi-image, multi-turn scenarios at scale while satisfying
+the design dimensions defined in Section 4.1. The pipeline operates in six stages (Figure 4), producing the
+benchmark described in Section 4. All LLM-based stages use Gemini-3.1-Pro (Google, 2026), which we
+selected in early pilot studies for its strong multimodal understanding and, critically, its reliability at emitting
+schema-conformant environment entities, a prerequisite for the complex entity staging required in Stage 5.
+We probe the effect of this choice with a generator ablation in Appendix D.1.
+Stage 1: Image–tool association.Not all images naturally motivate tool use. Given an image sourced
+from the image corpus, an LLM identifies whether it contains genuinely actionable content and maps it to
+relevant application domains and specific tool functions. Strict filtering ensures only images requiring both
+9
+
+visual extraction and tool invocation, where the task cannot be accomplished without the image, pass to
+downstream stages.
+Stage 2: Image clustering and flow type selection.Randomly grouping images produces forced, artificial
+scenarios. We instead first group images by associated domains and then cluster them into groups of 3-6
+using CLIP embedding similarity, ensuring high relevance within each group. For each cluster, we assess the
+feasibility of each information flow type and image arrival pattern (defined in Section 4.1). A lightweight
+viability assessment scores each flow type and each arrival pattern for the cluster (0-3: impossible to ideal);
+only natural fits (score≥ 2) are retained. Without this pre-selection, we observe that the LLM defaults to the
+simplest viable pattern, collapsing reasoning diversity.
+Stage 3: Outline generation.Before generating the full scenario, the pipeline produces a structured
+outline by selecting from the acceptable flow types and image arrival patterns identified in Stage 2, with
+weighted sampling that steers toward a balanced distribution across the benchmark. The outline specifies the
+number of user rounds (2–5), the selected flow type and arrival pattern, required tools, and a challenge type
+(Section 4.1).
+Stage 4: Scenario generation.The outline is expanded into a full scenario using flow-type-specific prompt
+templates that encode the assigned information flow structure, ensuring genuine multi-step reasoning rather
+than independent parallel actions. The output includes per-turn user queries with deictic references to visual
+content, transition conditions governing when new images or corrections are introduced, a goal with all
+references resolved to concrete values for automated evaluation, andpreexisting entity requirements, the data
+that must exist in the environment for the scenario to be valid (e.g., existing calendar events, contacts, or
+email threads). A user profile sampled from a pool of synthetic personas provides realistic social context for
+scenarios involving personalized information.
+Stage 5: Entity generation.Stateful evaluation requires fully specified environment state. Using the
+preexisting entity requirements from Stage 4, an LLM instantiatesinitial entities(concrete data populating
+the env so the scenario is valid) andfinal entities(the expected env state after successful completion, including
+created, modified, and deleted entities), enabling deterministic evaluation by diffing actual post-execution
+state against the expected outcome.
+Stage 6: Automated quality filtering.Each scenario is evaluated by an LLM critic against seven quality
+criteria: multimodal necessity, visual realism, self-containment, conversation step integrity, goal flexibility,
+visual grounding accuracy, and scenario plausibility. Scenarios passing all criteria then undergo balanced
+downsampling to maintain diversity across design dimensions of Section 4.1. The downsampled set is then
+validated for solvability and entity correctness through the verification protocol described in Section 5.1.
+5.1 Quality Verification
+To verify that every released scenario is executable end-to-end, not merely well-formed, we add a final layer
+on top of Stage 6 filtering, combining an oracle rollout check and human expert review.
+Oracle solvability check.For every scenario, we run an oracle agent whose system prompt is augmented
+with ground-truth information: the expected entity state changes, the task completion criteria, and the
+list of expected tools. We default to Claude 4.5 Opus as the oracle backbone; using a strong model with
+full ground-truth access establishes an upper bound on scenario solvability that is unconfounded by model
+capability. A scenario passes only when the oracle achievesbotha near-perfect entity-diff match (Entity F1
+≥0.9) and a passing Agent Judge verdict; failures are routed for correction or removal.
+Human expert review.Because the oracle check cannot detect scenarios that are technically solvable
+yet semantically misaligned with the user’s intent, every scenario passing the oracle is further inspected
+by human expert reviewers. Verification was performed by three expert annotators who partitioned the
+post-downsampling pool, reviewing100scenarios each. For each scenario, the annotator inspected the task
+specification, the attached images, the oracle-agent trajectory, the judge verdict, and the resulting state
+changes, then (i) confirmed that oracle-passing scenarios were true positives rather than accidental passes, and
+(ii) diagnosed oracle-failing scenarios as either problematic specifications or minor mismatches. The reviewers
+verify that the dialogue, expected tools, entity specifications, and challenge type are mutually consistent,
+10
+
+Table 2Main results. Unless otherwise specified, all models are evaluated with thinking mode enabled using the
+Code-Execution interface.
+Model Agent Success Rate↑Entity F1↑A vg. Steps↓
+Qwen 3.5-4B (Qwen, 2026) 0.116 0.641 54.5
+Qwen 3.5-9B (Qwen, 2026) 0.190 0.693 53.8
+Qwen 3.5-27B (Qwen, 2026) 0.349 0.792 46.9
+Qwen 3.5-35B-A3B (Qwen, 2026) 0.260 0.751 48.0
+Qwen 3.5-397B-A17B (Qwen, 2026) 0.353 0.793 50.4
+GLM 4.6V (Hong et al., 2025) 0.190 0.709 46.6
+KIMI 2.6 (KIMI, 2026) 0.415 0.817 48.1
+GPT-5.4 (no thinking) (OpenAI, 2026) 0.291 0.794 27.8
+GPT-5.4 (thinking-medium) (OpenAI, 2026) 0.361 0.81127.6
+GPT-5.4 (thinking-high) (OpenAI, 2026) 0.4150.86536.1
+Gemini 3.0 Flash (Google, 2025b) 0.364 0.619 34.9
+Gemini 3.1 Pro (Google, 2026) 0.481 0.847 42.6
+Claude 4.5 Sonnet (Anthropic, 2025a) 0.337 0.817 50.8
+Claude 4.5 Opus (Anthropic, 2025b)0.4880.848 40.8
+Upfront Mixed Late
+Progressive
+Image arrival
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Agent SR
+Claude 4.5 Opus
+GPT-5.4 (thinking-high)
+KIMI 2.6
+Qwen 3.5-397B-A17B
+(a)
+3 4 5 6
+Number of images
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7Agent SR
+(b)
+Standard
+Goal Change
+Error CorrectionState Mutation
+Challenge type
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6Agent SR (c)
+Lookup chain
+CompareCompute
+Cross-reference
+ValidateAggregate
+Filter
+Information flow
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8Agent SR
+0.739
+0.684
+0.615
+0.491
+0.440 0.437
+0.370 (d)
+Figure 5Scenario analysis. (a) Image arrival study. (b) Number of images within a scenario. (c) Challenge type. (d)
+Information-flow study on the Claude 4.5 Opus model.
+and that visual references resolve unambiguously to the attached images. Scenarios with a localized issue
+were corrected in place, most commonly by adding a missing staging entity, and re-run through the oracle to
+confirm solvability; scenarios that were unsolvable or infeasible to fix were discarded. Of the300scenarios
+entering this stage, approximately50were corrected in place and42were removed, yielding the final258.
+6 Experiments
+We evaluated12strong multimodal foundation models on our MM-ToolSandBox benchmark, spanning
+proprietary models (GPT-5.4 (OpenAI, 2026), Gemini-3.1 (Google, 2025b, 2026), Claude 4.5 (Anthropic,
+2025b,a)) and open-weight models across a wide parameter range (Qwen 3.54B -397B parameters (Qwen,
+2026), GLM 4.6V with106B parameters (Hong et al., 2025), and KIMI 2.6 with over1T parameters (KIMI,
+2026)). Unless mentioned otherwise, all models are evaluated using the Code-Execution interface, with the full
+511toolset and a maximum of100steps (incl. agent and user roles). The metrics are defined in Section 4.3,
+including the Agent Success Rates (SR), Entity F1 for entity verification, and Average Steps.
+6.1 Main Results
+The main experimental results are presented in Table 2. We highlight four observations:1. Visual tool
+calling remains challenging for frontier models.Even the strongest model, Claude 4.5 Opus, achieves
+only48 .8%Agent Success Rate, while GPT-5.4 (thinking-high), which obtains the highest Entity F1, still
+11
+
+reaches only0.865. These results indicate that multi-step visual tool calling remains difficult, requiring
+image-grounded reasoning, state updates, and interaction with dynamic user behavior.2. Agent SR, Entity
+F1, and Avg. Steps capture different aspects of performance.Claude 4.5 Opus outperforms GPT-5.4
+(thinking-medium) by over12%Agent SR, but reaches similar Entity F1 scores with only3%difference,
+reflecting the difference between process-level task completion and final-state consistency. Avg. Steps provides
+a further complementary signal: more steps do not necessarily lead to higher success rates, as shown by the
+Qwen 3.5 model series.3. Reasoning improves task completion significantly.GPT-5.4 shows a clear
+gain when native thinking is enabled: Agent Success Rate improves from29.1%without thinking to36 .1%
+with medium thinking and41.5%with high thinking. Entity F1 also increases from0.794to0 .865, suggesting
+that additional reasoning budget is important for visual tool calling.4. Scaling model size improves
+task completion significantly.The Qwen 3.5 family provides a controlled comparison across model scales.
+Performance improves substantially from4B to27B, with more than a23percentage-point gain in Agent SR
+(from0.116to0.349).
+6.2 Scenario Distribution Analysis
+We further study how models behave under the visual complexity and information-flow patterns designed
+in MM-ToolSandBox (Section 4). Figure 5a shows that scenarios where all images are provided upfront
+in the conversation are substantially harder than those with progressive image delivery, with nearly a20%
+success-rate gap. This is not surprising because for Upfront scenarios, later rounds often require referring
+back to images sent in the beginning of the conversation, when dozens of tool-call exchanges have passed,
+which stress tests models’ long-context visual referring capability. Late and Progressive patterns, on the
+other hand, mostly deliver the image-relevant instructions at the same time the images arrive, making it
+easier for the model to pinpoint the relevant visual cues. This result suggests thatmulti-image working
+memory is a key bottleneck for current models.Figure 5b further examines model performance as
+the number of images increases. The success rates of Qwen 3.5, Claude 4.5 Opus, and GPT-5.4 consistently
+decrease with more images, highlighting the challenge of multi-image interaction. KIMI 2.6, in contrast,
+remains relatively stable, suggesting stronger robustness to increasing visual context. Figure 5c compares
+performance among different challenge types. Interestingly, the goal change category yields the highest SR,
+because completion criteria only capture what needs to happen after the goal change, essentially reducing the
+task length/complexity for the agent. State Mutation, on the other hand, presents a genuine challenge to the
+agent, where it needs to find the necessary entities in the env before acting. Finally, Figure 5d reports Agent
+SR for Claude 4.5 Opus across different information-flow types. Flow types requiring multi-image synthesis,
+such as filtering and aggregation, are nearly twice as difficult as single-image retrieval patterns such as lookup
+chains, again highlighting the need for improvement in models’ visual reasoning ability.
+Image source analysis.We further break performance down by the visual character of the source
+images, grouping the eight source datasets into four categories: Natural (text-rich), Natural (less text),
+Docs/Charts/Tables, and UI. The full per-model table and grouping is shown in Appendix D.4. Documents,
+charts, and tables are the easiest category across all six models evaluated (e.g.,0.554for Claude 4.5 Opus),
+while UI screenshots are consistently the hardest (0.372for Opus, and only0.023for GLM 4.6V), which is
+consistent with the dense, small-text nature of professional UI captures. Models also differ in which visual
+regime suits them: Claude 4.5 Opus is substantially better on text-rich natural images than on natural
+images with little text (0.48vs.0 .338), whereas that gap is much smaller for KIMI 2.6 and Claude 4.5 Sonnet,
+indicating that visual bottlenecks are not uniform across models.
+6.3 Agent Design Analysis
+As motivated in Section 4.3, the harness built around a model increasingly shapes its end-task performance.
+Having held this harness fixed for our main comparison, we now study the agent implementation design
+directly.
+User Simulation Study.As our benchmark focuses on multi-round user-agent interaction, the quality
+of user simulation is highly important. To verify that user simulation quality does not confound our main
+findings, we recompute Agent SR and Entity F1 after excluding all scenarios where the user simulator is
+judged to have failed (See Appendix Table 7). Despite some variations, the overall ranking is fully preserved,
+12
+
+0.1 0.2 0.3 0.4 0.5
+Agent SR
+0.70
+0.75
+0.80
+0.85
+0.90User SR
+r = 0.81
+p < 0.001
+Code execution
+T ool-use
+(a)
+GPT-5.4
+Claude 4.5 SonnetQwen 3.5-397B
+KIMI 2.6
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5Agent SR
+Tool-use
+Code execution (b)
+Mini
+(30)
+Compact
+(165)
+Medium
+(276)
+Full
+(511)
+Toolset
+0.15
+0.20
+0.25
+0.30
+0.35
+0.40
+0.45Agent SR
+Qwen 3.5-397B-A17B
+GPT-5.4 (no thinking) (c)
+Figure 6(a). The correlation between Agent SR and User SR. (b). Comparing Tool-Use and Code-Execution interface
+design. (c). Agent SR with different toolset interface design.
+showing thatthe user simulation quality does not confound results.
+We further plot User SR against Agent SR using18model rollouts in Figure 6a (including both code execution
+and tool-use variants). The strong linear relationship (withr = 0.81) indicates that user simulation quality
+is largely driven by agent behavior: agents that produce incoherent actions, fail to respond to queries, or
+enter retry loops destabilize the user, leading to lower User SR. This confirms that performance differences in
+Table 2 reflect genuine agent capability rather than user simulation artifacts.
+Tool Discovery Analysis.Since agents must locate tools in a511-tool registry throughsearch_tool, we
+ask whether discovery is itself a bottleneck. We measure surfaced recall (the fraction of tools on the scenario’s
+reference solution path that the agent discovers) and invoked recall (the fraction it actually calls), reported in
+Appendix D.3. Although search_tool currently uses simple keyword matching, it suffices as a baseline: the
+three strongest models surface87–88%of expected tools and invoke81–83%. Critically, Claude 4.5 Sonnet and
+Opus achieve nearly identical tool recall yet differ by∼15%in Agent SR, indicating that the tool discovery
+is not the limiting factor for strong models. GLM 4.6V shows a clearer discovery deficit (70.4surfaced),
+suggesting improved tool retrieval would benefit weaker models most..
+Execution Mode AblationsAs mentioned in Section 3, MM-ToolSandBox enables Tool-Use and Code-
+Execution modes. Here we study how models behave across execution interfaces. The results are shown in
+Figure 6b. Comparing Code-Execution vs. Tool-Use modes, we find model-dependent preferences: Claude 4.5
+Sonnet and Qwen 3.5-397B strongly prefer Code-Execution mode (+7.7and+6 .6), GPT-5.4 is mode-agnostic
+(+1.2), and KIMI 2.6 instead shows stronger results in Tool-Use mode compared to Code-Execution. There
+is no conclusive evidence showing one interface is better than the other. The result is model dependent.
+Toolbox Granularity AblationWe ablate the toolbox interface, varying from the full511-tool registry
+down to30mega-tools while keeping the underlying functionality identical, all levels dispatch to the same
+backend APIs and produce the same state changes. The results are shown in Figure 6c. Agent SR across
+toolbox levels oscillate within a small range and no clear pattern emerges. In terms of efficiency, Qwen
+exhibits a U-shaped step curve: Compact (165 tools) is most efficient at 45.5 steps, Full and Medium are
+intermediate at 50.4 and 50.3 respectively, and Mini is slowest at 61.4. GPT-5.4 shows the opposite: steps
+decrease monotonically from Full (27.8), Medium (26.7), Compact (26.5) to Mini (23.3). This divergence
+likely reflects architectural differences in how models handle tool schema complexity versus search cost.
+6.4 Failure Analysis
+Beyond aggregate metrics, we perform a detailed failure analysis on the strong models to understand why agents
+fail and where capability improvements are most needed. Our LLM rubric judge evaluates five independent
+criteria per scenario, namely, task completion, instruction following, tool-use validity, no side-effects, and
+information accuracy. A scenario passes only if all five criteria pass. By examining which criteria fail and
+13
+
+Table 3Failure root-cause taxonomy. Percentages are relative to each model’s total failures.
+Model F actual Error T ask F ailure Incomplete Exec. Uncontrolled Behav.
+Claude 4.5 Opus (Anthropic, 2025b) (132) 70 (53.0%) 31 (23.5%) 19 (14.4%) 12 (9.1%)
+GPT-5.4 (thinking) (OpenAI, 2026) (151) 76 (50.3%) 35 (23.2%) 20 (13.2%) 20 (13.2%)
+KIMI 2.6 (KIMI, 2026) (151) 74 (49.0%) 51 (33.8%) 14 (9.3%) 12 (7.9%)
+Qwen 3.5-397B-A17B (Qwen, 2026) (167) 85 (50.9%) 53 (31.7%) 12 (7.2%) 17 (10.2%)
+Qwen 4B Qwen 9B Qwen 27B Qwen 397B Opus
+0
+20
+40
+60
+80
+100% of failures
+12% 19% 35% 35% 49%SR:
+Factual error
+T ask failure
+Incomplete execution
+Uncontrolled behavior
+Figure 7Failure root-cause distribution across model scale. As models grow, task failures (planning) give way to factual
+errors (visual precision) as the dominant failure mode.
+how they co-occur, we construct a root-cause taxonomy of failures.Factual error: task completion passes
+but information accuracy fails. The agent did the right workflow but extracted wrong information from
+images (e.g. misidentified an object, read wrong value from image),Task failure: the agent couldn’t complete
+the primary action at all - missing entire workflow steps, can’t find resources, or enters unrecoverable loops,
+which is a planning/execution failure.Incomplete execution: Both task completion and information accuracy
+pass, but instruction following fails. The agent completed the task with correct facts but missed specific
+requirements, e.g. omitted one of N items.Uncontrolled behavior: Only no side effects fails. The agent
+performed unintended actions beyond the task scope, e.g. creating extra entities, leaving residual state from
+earlier attempts etc.
+Table 3 reveals that half of failures for all models stem from factual errors, cases where the agent successfully
+completes the task workflow and uses tools correctly, but extracts incorrect information from the visual input.
+For example, sub-categorizing these 70 Claude Opus failures, we find object misidentification dominates (29
+cases), followed by fine-grained text extraction errors (16 cases). In rubric terms these are not planning
+failures: task completion and tool-use validity pass while information accuracy fails, i.e., the agent knows what
+to do but cannot precisely perceive what it sees. We read this as evidence thatvisual precision, rather
+than tool-use competence, is the dominant failure mode for capable models.
+Figure 7 tracks the failure taxonomy in the Qwen-3.5 models scaling curve and Claude 4.5 Opus. We observe
+a cross-over between visual perception and planning errors: at 4B, task failures dominate (51% of failures),
+reflecting an inability to plan and execute multi-step workflows. By 27B, task failures drop to 30% and
+factual errors become the dominant mode (51%). This crossover continues to Opus, where factual errors
+account for 53% of failures and task failures only 23%. The result suggests that for small models (below∼27B
+parameters), the dominant failure mode is agentic planning: models cannot figure out what to do. At and
+above this scale, planning failures become markedly less frequent and the dominant mode shifts to visual
+precision: models cannot accurately perceive what they see. This suggests fundamentally different research
+directions for improving small vs. large models on visual tool-calling tasks, i.e.model scaling reveals a
+planning-to-precision failure pattern crossover.
+We further show an example factual error case by Claude 4.5 Opus agent in Figure 10 and several failure
+error cases in the Appendix.
+14
+
+Table 4UI mode results (50-scenario subset, Tool-Use mode). All models exhibit dramatic performance drops compared
+to text-based interaction on the same underlying tasks.
+Model Agent SR UI SR User SR Entity F1 A vg. Steps
+Claude 4.5 Opus (Anthropic, 2025b) 0.200 0.280 0.680 0.609 74.5
+GPT-5.4 (thinking) (OpenAI, 2026) 0.020 0.360 0.340 0.279 92.5
+KIMI 2.6 (KIMI, 2026) 0.260 0.420 0.514 0.699 81.7
+Qwen 3.5-397B-A17B (Qwen, 2026) 0.100 0.200 0.460 0.619 75.8
+6.5 UI Mode
+As a preliminary exploration, we evaluate four models on a 50-scenario UI subset, where agents must render
+interactive visual interfaces for user decision-making rather than communicating through text in Table 4. Even
+the best model (KIMI 2.6) achieves only 26.0% Agent SR, a sharp drop from its 45.0% on the same underlying
+tasks in text-based Tool-Use mode. The primary bottleneck is UI rendering itself: models frequently fail
+to produce functional interfaces with correct affordances, triggering retry loops that inflate average steps
+to75-93. These results indicate that designing and rendering interactive interfaces on-the-fly represents
+a substantially harder challenge than text-based tool calling, pointing to a promising direction for future
+benchmark expansion. In other words,UI mode reveals a new capability frontier.
+7 Conclusion
+We introduced MM-ToolSandBox, a unified framework and benchmark for evaluating visually grounded
+tool-calling agents. The framework provides a stateful, multi-turn, multi-image simulation environment
+spanning511tools across16application domains, with both code-execution and structured tool-use interfaces.
+The accompanying benchmark contributes258human-verified scenarios, together with50interactive UI
+variants, produced by a scalable, information-flow-guided generation pipeline that reduces the annotation
+burden to targeted human review. Evaluating12frontier and open-weight models, we find that visual tool
+calling is far from solved: even the strongest model completes fewer than half of the tasks.
+Our analysis surfaces several observations that we hope will guide future work. First, visual precision, rather
+than tool-use competence, is the dominant failure mode for capable models: over half of the failures of the
+strongest models stem from misreading visual inputs despite otherwise correct task workflows. Furthermore,
+failure modes shift with scale, as smaller models fail primarily at planning (deciding what to do) whereas
+larger models fail at perception (accurately grounding what they see), implying different research directions
+at different capability levels. Multi-image working memory is a further key limitation, with performance
+degrading as more images accumulate and especially when images must be recalled from early in a long
+conversation. While both reasoning budget and model scale improve task completion, neither closes the
+visual-precision gap. Finally, the agent harness matters and its effect is model-dependent, as no single
+execution interface or toolbox granularity is uniformly best, underscoring the value of comparing models under
+a common, well-specified harness; and interactive UI generation emerges as a substantially harder frontier,
+with sharp performance drops relative to text-based tool use.
+8 Limitations
+Our work has several limitations. First, our primary metric relies on an LLM judge (Claude 4.5 Sonnet),
+which achieves86%agreement (κ = 0.709) with the majority label of three independent expert annotators.
+While this represents substantial agreement with a conservative bias, the judge may systematically miss
+certain failure modes. We also use Claude 4.5 Opus as the oracle solvability filter, which might inflate the
+performance of Claude-family models. Second, our claim that visual precision dominates strong-model failures
+rests on decomposing rubric judgments rather than on a controlled manipulation. Future study should
+have a cleaner decomposition of scenarios with and without visual inputs. On the data selection during
+benchmark construction, even though we draw source images exclusively from the test splits of existing public
+15
+
+datasets, and each scenario recombines several images with newly generated user goals, tool-use workflows,
+and environment states. Nevertheless, image-level contamination might still exist, and future versions of
+our benchmark should incorporate newly captured, previously unpublished images. Finally, to keep model
+comparisons fair, we evaluate every model under a single fixed harness (Section 4.3) rather than tuning the
+scaffolding per model. Since agent performance is sensitive to the harness, our reported numbers reflect model
+capability under this specific, standardized setup rather than each model’s best achievable performance under
+a bespoke, model-specific harness. Systematically exploring the agent harness design space is a promising
+direction for future work.
+9 Acknowledgment
+We thank Andrew Szot for invaluable suggestions and discussions.

@@ -1,0 +1,974 @@
+record_id: s2:bd998002160607cfb8d6fa5c8d6c0932ebb9b79e
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2412.09529
+fetched_title: How Well Can Modern LLMs Act as Agent Cores in Radiology Environments?
+fetched_at: 2026-09-18T19:00:46Z
+
+How Well Can Modern LLMs Act as Agent Cores in Radiology
+Environments?
+Qiaoyu Zheng1,*, Chaoyi Wu1,*, Weike Zhao1,
+Pengcheng Qiu1,Lisong Dai 2,Ya Zhang 1,
+Yanfeng Wang1,†,Weidi Xie 1,†,
+1Shanghai Jiao Tong University, Shanghai, China
+2Department of Radiology, Renmin Hospital of Wuhan University, Wuhan, China
+{three-world,wangyanfeng622,weidi}@sjtu.edu.cn
+https://github.com/MAGIC-AI4Med/RadABench
+*Equal contribution. †Corresponding authors
+Abstract
+Radiology, with its heterogeneous modalities,
+anatomies, and evolving protocols, is a natu-
+ral yet high-stakes testbed for agentic AI. As
+LLMs grow more capable and tool ecosystems
+such as MCP and Agent Skills more complex,
+their capability boundaries in radiology remain
+unclear. We introduceRadA-BenchPlat, a
+two-layer benchmark spanning idealized rea-
+soning and real-world execution: asynthetic
+layerwith 2.2k clinician-verified records, 24.2k
+QA pairs, and 10 tool categories under diverse
+availability settings; and areal-environment
+layerpairing 165 2D/3D cases with executable
+tools for grounding, diagnosis, and report gen-
+eration. We find that high completion rates
+under idealized settings do not carry over to
+real environments, where the best agents trail
+their upper bound by∼15% and drop to 0.327
+on long-chain tasks. Prompting strategies (few-
+shot exemplars, multi-agent coordination) and
+AutoTB (on-the-fly synthesis of missing tools)
+mitigate execution drift and breakdowns in dif-
+ficult scenarios—lifting execution success to
+94.5%—yet remain not fully reliable. Over-
+all, our findings suggest that radiology agents
+are no longer limited to conceptual demonstra-
+tions, but are beginning to show potential for
+real-world applications.
+1 Introduction
+Recent efforts have introduced “radiology gener-
+alist” models designed to handle diverse imaging
+tasks within a unified framework (Wu et al., 2025;
+Li et al., 2023; Liu et al., 2023; Zhang et al., 2023).
+However, these monolithic systems still struggle
+with radiological complexity across heterogeneous
+imaging modalities, anatomical regions, patholo-
+gies, and evolving diagnostic protocols. In parallel,
+LLM-powered agent systems (Tang et al., 2024;
+Figure 1:Overview.Motivation and components of the
+synthetic and real-environment benchmark layers.
+Jin et al., 2024; Qin et al., 2024) reframe complex
+problem solving as tool-mediated planning and ex-
+ecution, where an LLM interprets requests, selects
+specialized tools, and synthesizes intermediate out-
+puts. This paradigm is increasingly relevant as
+agent ecosystems move beyond static tool lists to-
+ward heterogeneous infrastructures, such as Model
+Context Protocol (MCP) servers (Zhu et al., 2026)
+and Agent Skills (Xu et al., 2026), where capabili-
+ties, interfaces, and dependencies vary substantially
+across environments. As modern LLMs become
+more agentic, radiology offers a high-stakes setting
+for examining whether they can reliably coordi-
+nate complex tool chains; however, their capability
+boundaries, robustness, and danger zones on radiol-
+ogy tasks remain insufficiently and systematically
+studied.
+We therefore focus on two questions.First, if
+individual tool quality is abstracted away, how well
+can current LLMs understand radiological contexts,
+translate clinical queries into executable workflows,
+and invoke tools across multi-step tasks?Second,
+arXiv:2412.09529v4 [cs.CV] 7 Sep 2026
+
+in realistic radiology settings with executable tools,
+what level of task completion and clinical utility
+can current agent systems achieve?
+To address these questions, we introduceRadA-
+BenchPlat, a benchmark with two complementary
+layers (Figure 1).First, the synthetic layer inte-
+grates patient records, task-related QA pairs, and
+simulated radiology tool sets: 2,200 records across
+6 anatomical regions and 5 imaging modalities,
+cross-validated by three clinicians on 550 sampled
+cases; 11 task types yielding 24,200 QA pairs; and
+10 tool categories organized into baseline, redun-
+dant, insufficient, and differentiated settings.Sec-
+ond, the real-environment layer uses 165 cases
+from 2D and 3D datasets for three representative
+tasks—organ/anomaly grounding, diagnosis with
+grounding clues, and report generation—and in-
+troduces executable radiology-model tools from
+M3Builder (Feng et al., 2025), nnU-Net (Isensee
+et al., 2021), and RP3D-DM (Zheng et al., 2024).
+Our synthetic evaluation reveals a central insight:
+current LLM agents can often outline plausible ra-
+diology workflows, but their idealized upper bound
+is limited by execution rather than reasoning alone.
+Reliability degrades when tasks require long-chain
+dependency tracking, precise I/O transfer, and
+grounded final synthesis; in high-difficulty settings,
+the best completion remains only 0.327. Neverthe-
+less, few-shot workflow exemplars and multi-agent
+coordination alleviate long-chain control failures,
+while AutoTB, inspired by self-evolving agents that
+create tools on demand (Cai et al., 2023; Wölflein
+et al., 2025), addresses missing-capability cases by
+requesting missing tools in the synthetic layer and
+constructing them in the real-environment layer.
+Together, these results show that workflow-level
+scaffolding can raise the attainable ceiling.
+Real-environment evaluation sharpens this find-
+ing: even the best-performing agentic systems re-
+main about 15% below the idealized setting, reveal-
+ing a persistent gap between reasoning over tools
+and executing with them. AutoTB narrows this gap
+in regular and intermediate missing-tool scenarios
+(94.5% and 86.8% execution success), yet 48% us-
+age errors show that newly built tools still require
+robust integration. Expert review suggests practical
+value in routine and intermediate cases (4.2 and 3.6
+above a 3-point threshold), while complex cases re-
+main clinically fragile. These findings suggest that
+radiology agents are ready for controlled clinical-
+scenario testing, but their real-world effectiveness
+must still be carefully validated.
+2 Methods
+RadA-BenchPlat is organized as two complemen-
+tary layers. The synthetic layer builds an idealized
+environment with perfect simulated tools, which
+decouples failures of the agent core from failures
+of tool execution and stress-tests a broad range of
+scenarios that limited real data cannot cover. The
+real-environment layer instead measures what cur-
+rent agentic systems actually achieve on executable
+radiology tasks and what limits them in practice.
+2.1 Building RadA-BenchPlat
+Patient Records.A “patient record” denotes a
+radiology-centric record containing demographics,
+medical history, annotated imaging data (anatomy
+and pathology), and clinical findings. Records
+are categorized byanatomy, modality, and dis-
+ease, covering 22 anatomy–modality combinations
+across 6 regions and 5 imaging modalities:
+Head & Neck:{X-ray, CT, MRI, US},
+Chest:{X-ray, CT, MRI, US},
+Limb:{X-ray, CT, MRI, US},
+Abd. & Pelv.:{X-ray, CT, MRI, US},
+Spine:{X-ray, CT, MRI},
+Breast:{Mammo., MRI, US}.
+For each of the 22 anatomy–modality combina-
+tions, GPT-4 was used to generate 100 disease-
+centered records, yielding 2,200 patient records in
+total (22× 100). Generation is driven by structured
+templates that constrain the output fields; the con-
+struction pipeline for records, QA pairs, and simu-
+lated tool sets is detailed in Appendix A.2. These
+records were then carefully polished for more than
+one month by a radiologist with over 10 years
+of experience, with 97.32% meeting information-
+validity standards and 96.73% judged clinically
+consistent. To reduce single-annotator bias, three
+additional clinicians independently reviewed 550
+randomly sampled cases across eight quality cri-
+teria. Their average positive percent agreement
+(PPA) ranges from 0.880 to 0.935 (Table 1). De-
+tailed rater backgrounds, criteria, and validation
+procedures are provided in Appendix A.3. Fig-
+ure 2a summarizes the demographic distributions:
+the dataset is generally sex-balanced except for
+female breast-related cases, and age, height, and
+weight follow clinically plausible ranges.
+Task-related QA pairs.To evaluate LLM-based
+radiology agents, we define 11 task types: (a) or-
+gan segmentation, (b) anomaly detection, (c) stan-
+dard end-to-end diagnosis, (d) organ and anomaly
+
+Anatomy Classifier
+Modality Classifier
+Organ Segmentor
+Imaging Diagnoser
+Biomarker Quantifier
+Indicator Calculator
+Report Generator
+Treatment Planner
+Anomaly Detector
+Grounded Diagnoser
+Organ Segmentation
+Anomaly Detection
+Standard End-to-end Diagnosis
+Organ and Anomaly Joint Grounding
+Diagnosis with Gounding Clues
+Organ-wise Biomarker Calculation
+Anomaly-wise Biomarker Calculation
+Standard Report Generation
+Report Generation on Biomarkers
+Report Generation on Bio-Indicators
+Analysis-based Treatment Planning
+Tool Categories
+Radiology Tasks
+Baseline tool set condition
+Redundant tool set condition
+Insufficient tool set condition
+Differentiated tool set condition
+Based on {Tool Category}, {Tool Attributes}
+Tool Set Simulation
+0 1 2 3 4 5 6 7
+tool chain length
+8 9
+maximum scale 169
+Simple
+Moderate
+Complex
+0
+5
+10
+15
+20
+25
+30
+35
+Baseline
+Redundant. Regular
+Redundant. Medium
+Insufficient. Config1
+Insufficient. Config2
+Insufficient. Config3
+Differentiated
+Basic
+Maximal
+Tool
+Number
+Redundant. High
+12 12
+15
+27
+34
+169
+14
+17
+15
+17
+18
+18
+17
+c.
+d.a.
+Head & Neck
+12.6 %
+Chest
+9.4 %
+Breast
+13.5 %
+Abdo & Pelv
+9.7 %
+Limb10.4 %
+Spine
+7.8 %
+Head
+& Neck
+5.6 %
+Chest
+8.7 %
+Breast
+0.2 %
+Abdo & Pelv
+8.5 %
+Limb 7.8%Spine5.8 %
+x 2200
+11 QA pairs per record
+b.
+Patient Record
+Q1：Proceed with organ segmentations ...
+A1：It is Chest X-ray, [Organ Mask] ...
+Q6：Quantify illustrated biomarkers ...
+A6：Mass measures 6.2 cm x 4.8 cm ...
+...
+Q11：Plan detailed treatment based on ...
+A11：Combining all analysis results, ...
+...
+...
+24,200 QA pairs covering 11 task types
+Figure 2:Statistics in RadA-BenchPlat. a.Distribution of patient sex across different anatomical regions.b.
+Ten categories of tools and eleven types of radiology tasks, with checkmarks indicating tools required for task
+completion. Tool sets are simulated through various tool attribute combinations.c.24,200 generated QA-pairs
+based on radiology task types using GPT-4.d.Number of tools across eight simulated tool set conditions.
+Table 1:Clinician validation of the synthetic dataset.Each rater row reports the number of passing items among
+550 randomly sampled cases. Avg PPA denotes the average positive percent agreement across the three raters.
+Rater Clinical Consist. Info. Validity Tool Necessity No Leakage Reasoning Depth Ambiguity Professionalism Bias/Diversity
+1 519 498 514 509 516 492 516 511
+2 514 489 509 501 512 483 506 506
+3 509 483 504 493 506 477 497 501
+Avg PPA 0.935 0.891 0.925 0.911 0.930 0.880 0.921 0.920
+joint grounding, (e) diagnosis with grounding clues,
+(f) organ-wise biomarker calculation, (g) anomaly-
+wise biomarker calculation, (h) standard report gen-
+eration, (i) report generation focused on specific
+biomarkers, (j) report generation focused on both
+biomarkers and indicators1, and (k) detailed treat-
+ment planning. As illustrated in Figure 2b,d, these
+tasks are grouped into ‘Simple’, ‘Moderate’, and
+‘Complex’ levels according to the required reason-
+ing steps (<4 , 4–6, and≥6 ). For example, organ
+segmentation mainly requires anatomy/modality
+classification followed by segmentation, whereas
+treatment planning involves diagnosis, quantifica-
+tion, and report synthesis. Applying the task tem-
+plates to 2,200 patient records yields 24,200 QA
+pairs (2,200× 11), which are balanced across task
+types and manually verified. Per-task definitions,
+required tool chains, and worked examples are
+given in Appendix A.5.
+1An indicator refers to a specific quantification of health
+status or disorder grading, e.g., CURB-65 or tumor grade.
+Radiology Tool Sets.To simulate diverse clinical
+tool environments, we define 10 high-level radi-
+ology tool categories: Anatomy Classifier (AC),
+Modality Classifier (MC), Organ Segmentor (OS),
+Anomaly Detector (AD), Imaging Diagnoser (ID),
+Grounded Diagnoser (GD), Biomarker Quantifier
+(BQ), Indicator Calculator (IC), Report Generator
+(RG), and Treatment Planner (TP). Each tool is rep-
+resented by a “tool card” (Figure 2d) specifying its
+category, properties, capabilities, required/optional
+inputs, and performance sampled from clinically
+plausible ranges, enabling diverse tool variations.
+We further define four evaluation tool-set condi-
+tions:“Baseline”provides a minimal solvable set
+of 12 tools across 10 categories, with BQ and IC
+each containing two tools for organ- and anomaly-
+level assessment;“Redundant”adds irrelevant
+tools at regular (12–15 tools, at most one extra per
+category), medium (27–34 tools, 2–3 extras per
+category), and high (fixed 169 tools) levels to test
+filtering in noisy settings;“Insufficient”creates
+
+unsolvable sets through config1 missing an entire
+category (14–17 tools), config2 modality/anatomy
+mismatches (15–17 tools), or config3 missing re-
+quired capabilities (fixed 18 tools), with increasing
+recognition difficulty; and“Differentiated”offers
+overlapping tools (17–18 tools) with distinct per-
+formance levels, requiring selection of the most
+accurate tool. The full definition of each tool cate-
+gory, together with its input/output schema and an
+example tool card, is provided in Appendix A.4.
+Real Radiology Environments.In addition to
+synthetic QA pairs, we construct a test set of 165
+real-world cases from Chest Imagenome (Wu et al.,
+2021) and RadGenome-BrainMRI datasets (Lei
+et al., 2026), covering three tasks: organ/anomaly
+grounding, diagnosis, and report generation. Each
+case preserves the original dataset components, in-
+cluding the clinical question, image, and ground-
+truth annotation or report. For executable eval-
+uation, we build the real-case tool pool using
+M3Builder (Feng et al., 2025), covering segmen-
+tation, detection, and report-generation tools, and
+further supplement it with nnU-Net (Isensee et al.,
+2021) and RP3D-DM (Zheng et al., 2024) for seg-
+mentation and diagnosis alternatives. We further in-
+stantiate 660 insufficient-tool scenarios from cases
+in these datasets, enabling evaluation of automated
+tool building under real conditions. Case-selection
+criteria and the provenance, modality, and pathol-
+ogy coverage of the two source collections are de-
+tailed in Appendix A.7, and the construction of the
+executable tool pool is described in Appendix A.8.
+2.2 Benchmarking LLMs as Agent Cores
+Main Workflow Formulation.The LLM-based
+agent system consists of three main compo-
+nents (Figure 3a): an LLM agent core ( Φ), a set
+of specialized tools (T={t 1, t2, . . . , tm}), and
+a memory bank (B). Given a clinical query Q
+and patient information, Φ first parses the query,
+decomposes it into sub-tasks according to the avail-
+able tools inT , and initializesB with relevant pa-
+tient data. For each sub-task, the agent selects
+and invokes the appropriate tool, stores intermedi-
+ate outputs inB, and uses these outputs to guide
+subsequent tool calls. Finally, Φ synthesizes the
+accumulated evidence into a response that directly
+addresses the clinical query.
+Prompting and Automated Tool Building.To ad-
+dress the limited performance of LLMs on complex
+tasks, we introduce four prompting enhancement
+strategies (Figure 3b).Prompt Back-propagation
+iteratively refines prompts through three rounds
+of automated feedback and manual adjustment
+based on 220 QA pairs under “Redundant” and
+“Insufficient” tool-set conditions, after which the
+refined prompt is applied across the benchmark.
+Self-reflectionasks the agent to verify input cor-
+rectness before tool invocation, supported by an
+automated verifier to reduce execution errors.Few-
+shot Learningprovides exemplar workflows and
+tool templates to standardize planning and tool use,
+whileMulti-agent Collaborationrestructures the
+agent into a planner, executor, and summarizer for
+task decomposition, I/O management, and final
+response synthesis. AutoTB follows different pro-
+tocols in the two benchmark layers. In the syn-
+thetic layer, the agent receives M 3Builder usage
+instructions and is evaluated on whether it cor-
+rectly triggers AutoTB and submits a build request
+matching the condition-specific missing fields: cat-
+egory for config1, anatomy and modality for con-
+fig2, and category with the missing capability for
+config3. No model is trained in this layer; after
+a request passes verification, the requested tool is
+simulated as available so that subsequent orchestra-
+tion can be evaluated. In the real-environment layer,
+M3Builder (Feng et al., 2025) is actually invoked
+to train and validate the requested tool, register
+successful tools in the executable pool, and record
+construction and usage outcomes in its logs. Ap-
+pendix A.9 gives the verification rules, executable
+pseudo-code, and specific traces for both layers.
+Real-Case Evaluation Protocol.For real-world
+testing, we use the original clinical question, im-
+age, and reference annotation/report from each
+case without converting them into synthetic pa-
+tient records. The agent receives the clinical in-
+put and must complete the task by selecting from
+executable radiology tools rather than relying on
+idealized tool outputs. On the 165-case test set, we
+evaluate organ/anomaly grounding, diagnosis with
+grounding clues, and standard report generation
+using task-specific automatic metrics, including
+Dice/Jaccard for grounding, Accuracy/Jaccard for
+diagnosis, and RadGraph-F1/RaTE for reports. We
+also collect LLM-based ratings and blinded human
+ratings from two expert radiologists to assess clini-
+cal plausibility. To quantify the gap between ideal-
+ized and executable settings, we define a reported
+tool-performance ceiling Um for each automatic
+metric m by substituting the officially reported per-
+formance of the relevant underlying task-specific
+tool (Feng et al., 2025; Isensee et al., 2021; Zheng
+
+Figure 3:Detailed agentic workflow and extended methods. a.Three-phase architecture consisting of: initializa-
+tion phase, circulation phase and conclusion phase.b.Four extended prompt engineering methods for performance
+improvement.c.Layer-specific AutoTB process implemented when no suitable tool is available.
+et al., 2024) into the idealized evaluation proto-
+col. This quantity assumes correct orchestration
+and reported tool performance, so it is a reference
+ceiling rather than a theoretical or clinical upper
+bound. Let Cm be the column-wise best observed
+score across evaluated systems (not a single de-
+ployable system); we compute the relative gap as
+∆m = (Um−C m)/Cm×100% . For AutoTB,
+we construct 660 real insufficient-tool scenarios by
+hiding required tool categories, modality/anatomy-
+specific capabilities, or functional requirements.
+The agent must recognize the missing capability, is-
+sue a grounded build request, and use the resulting
+executable tool to complete the augmented work-
+flow; M3Builder logs are used to distinguish con-
+struction failures from incorrect tool usage. Formal
+definitions of all automatic and agent-level metrics
+are given in Appendix A.6.
+3 Results
+3.1 General Observations
+The evaluated model versions follow their technical
+reports or model cards (Guo et al., 2025; Yang et al.,
+2025; Anthropic, 2025; Google DeepMind, 2026;
+OpenAI, 2025b).
+As shown in Table 2, recent LLMs still show
+a clear decline in task completion as difficulty
+increases; for example, Claude-Sonnet-4.5 drops
+from 0.691 on regular tasks to 0.509 on medium
+Table 2: Task completion rates of recent LLMs across
+task difficulty levels.
+Model Regular Medium High
+DeepSeek-R1 0.6000.5270.273
+Qwen3-235B 0.491 0.382 0.182
+Claude-Sonnet-4.50.6910.5090.327
+Gemini-3.0-Pro 0.572 0.484 0.260
+GPT-5.2-Chat 0.618 0.473 0.309
+tasks and 0.327 on high-difficulty tasks. Because
+large-scale repeated evaluation is costly and model
+versions evolve rapidly, some analyses below use
+earlier representative LLMs to diagnose general
+failure mechanisms rather than rank specific re-
+leases, while newer models are evaluated where
+needed and further tested on real-world clinical
+data. Overall, the main bottleneck lies in translat-
+ing tool-level reasoning into reliable end-to-end
+execution: agents can often form plausible plans,
+select competitive tools, and complete intermediate
+milestones, but errors in execution, I/O passing, tar-
+get alignment, and failure-cause grounding prevent
+these partial successes from consistently becoming
+completed tasks.
+Observation 1: The Main Bottleneck Lies in
+Execution Fidelity Rather than Initial Planning
+To separate initial planning from downstream
+execution, we evaluate tool-chain generation using
+Levenshtein Distance (LD), False Discovery Rate
+
+GPT-4-Turbo
+GPT-4o
+Gemini-1.5-pro
+Claude-3.7-SonnetLlama-3.1-405B
+Mixtral-8x7B
+Qwen-2.5-72B
+ROUGE
+BLEU
+F1
+0.1 0.2 0.3
+Response-level Metrics under
+Differentiated Condition
+GPT-4-Turbo
+GPT-4o
+Gemini-1.5-pro
+Claude-3.7-Sonnet
+Llama-3.1-405B
+Mixtral-8x7B
+Qwen-2.5-72B
+Milestone Hit Rate
+a.
+GPT-4
+Turbo
+GPT-
+4o
+Gemini-
+1.5-pro
+Claude-
+3.7-Sonnet
+Llama-
+3.1-405B
+Mixtral-
+8x7B
+Qwen-
+2.5-72B
+0.0
+0.1 0.2 0.3 0.4 0.5 0.6 0.0 0.1 0.2 0.3 0.4 0.5
+b.
+UAR under Config1
+UAR under Config2
+UAR under Config3
+UGR under Config1
+UGR under Config2
+UGR under Config3
+GPT-4
+Turbo
+GPT-
+4o
+Gemini-
+1.5-pro
+Claude-
+3.7-Sonnet
+Llama-
+3.1-405B
+Mixtral-
+8x7B
+Qwen-
+2.5-72B
+c.Unsolvable Awareness Rate (UAR)
+under Insufficient Conditions
+Unsolvable Grounding Rate (UGR)
+under Insufficient Conditions
+Chain-level Metrics under Differentiated Condition
+Optimal Tool Score
+GPT-4-Turbo
+GPT-4o
+Gemini-1.5-pro
+Claude-3.7-Sonnet
+Llama-3.1-405B
+Mixtral-8x7B
+Qwen-2.5-72B
+Target Hit Rate under (THR)
+Redundant Conditions
+0.0 0.1 0.2 0.3 0.4 0.5
+GPT-4
+Turbo
+GPT-
+4o
+Gemini-
+1.5-pro
+Claude-
+3.7-Sonnet
+Llama-
+3.1-405B
+Mixtral-
+8x7B
+Qwen-
+2.5-72B
+THR in Regular
+THR in Medium
+THR in High
+Figure 4:Bottleneck analysis under differentiated, insufficient, and redundant tool settings. a.Tool- and
+response-level metrics under the “Differentiated” setting, showing tool selection, milestone completion, target
+alignment, and final response synthesis.b.Performance results under “Insufficient” conditions across LLMs.c.
+Performance results under “Redundant” conditions for leading LLMs.
+(FDR), and Tool Matching Accuracy (TMA), and
+compare them with Execution Completion Rate
+(ECR) and Pre-Failure Success Percentage (PFSP).
+As shown in Table 3, Claude-Sonnet-4.5 main-
+tains relatively small chain distances as difficulty
+grows (Exec. Dist.: 0.97 to 1.28; Cons. Dist.:
+0.61 to 0.90), and TMA remains 0.617 even un-
+der high redundancy. However, ECR and PFSP
+fall from 0.856/0.822 to 0.425/0.318, indicating
+that plausible plans increasingly drift during execu-
+tion through incorrect intermediate outputs or mis-
+matched downstream tool inputs. This gap points
+to failures in long-chain execution consistency, es-
+pecially state tracking and intermediate validation.
+Table 3: Claude-Sonnet-4.5 tool-chain metrics under
+redundant tool settings. (↓: lower is better;↑: higher is
+better).
+Metric Regular Medium High
+Exec. Dist.↓0.97 1.10 1.28
+Cons. Dist.↓0.61 0.73 0.90
+FD Rate↓0.094 0.139 0.164
+TM Acc.↑0.815 0.704 0.617
+EC Rate↑0.856 0.766 0.425
+PFS %↑0.822 0.550 0.318
+Observation 2: Tool-Level Competence Does
+Not Reliably Translate into Final Success
+Under the “Differentiated” setting, the Optimal
+Tool Score (OTS, how closely selected tools rank
+relative to available alternatives) and Milestone Hit
+Rate (MHR, success in producing key intermediate
+outputs) show that agents can often choose com-
+petitive tools and complete important intermediate
+steps. Nevertheless, response-level metrics remain
+much lower: Target Hit Rate (THR, whether the
+final tool aligns with the required answer format) is
+limited, and BLEU, ROUGE, and F1 rarely exceed
+0.35 (Figure 4a). This gap indicates that intermedi-
+ate tool success is not sufficient for task completion.
+The downstream bottleneck lies in target ground-
+ing and response synthesis: agents must determine
+which intermediate result should answer the query,
+align the final output with the required response
+format, and integrate tool outputs into a coherent
+radiological response.
+Observation 3: Tool-Set Perturbations Expose
+Dependency and Grounding Bottlenecks
+The “Redundant” and “Insufficient” settings re-
+veal two complementary failure modes. With re-
+dundant tools, the challenge shifts from choosing
+one useful tool to maintaining correct data depen-
+dencies among many similar candidates; the ECR
+
+and PFS declines in Table 3 reveal I/O coupling
+errors and downstream error propagation. With
+insufficient tools, agents show stronger Unsolv-
+ability Awareness Rate (recognizing that a task
+is impossible) than Unsolvability Grounding Rate
+(identifying what is missing): they may detect that
+a task cannot be solved, but struggle to specify
+whether the missing component is a tool category,
+a modality-region capability, or a minimum func-
+tional requirement (Figure 4b). Together, these per-
+turbation tests show that robust radiology agents
+require not only stronger LLMs, but also explicit
+mechanisms for state tracking, dependency valida-
+tion, target grounding, and failure-cause attribution.
+3.2 Performance Enhancement
+Prompting Strategies Mainly Improve Long-
+Chain Coordination
+Prompting strategies improve agent performance
+by targeting the coordination bottlenecks identi-
+fied above rather than simply changing the base
+model. The integrated strategy increases task com-
+pletion by 0.095 and 0.058 on simple and moder-
+ate tasks, and by up to 48.2% on complex tasks
+(Figure 5). Among individual strategies, few-shot
+learning and multi-agent collaboration yield signif-
+icant wins (p <0.05 ), whereas self-reflection and
+back-propagation alone are less stable. Multi-agent
+collaboration provides the most consistent gains by
+improving long-chain monitoring and failure check-
+ing, raising unsolvability awareness/grounding by
+about 5%; back-propagation contributes smaller
+but useful downstream correction gains (about 3%)
+and, together with multi-agent collaboration, yields
+the largest OTS improvements in the “Differenti-
+ated” setting (0.021 and 0.029; Figure 5b).
+Synthetic AutoTB Request Success Declines
+with Task Complexity
+We evaluate the decision-level AutoTB protocol
+under the syntheticInsufficientsetting, where re-
+quired tool categories, modality-specific tools, or
+capabilities are absent. No model is trained in this
+layer. A case is counted as a successful AutoTB
+request only when the agent triggers the mecha-
+nism and correctly grounds the fields required by
+that condition: the missing category in config1, the
+anatomy–modality pair in config2, or the deficient
+category and capability in config3. After verifica-
+tion, the requested tool is simulated as available
+so that the remaining tool-chain orchestration can
+be evaluated. Across 220 QA pairs, the verified
+AutoTB success rates are 65.4% for routine tasks,
+Figure 5:Performance improvement comparison
+among prompt engineering strategies.a. Significance
+comparison between strategy groups, where “W/O” rep-
+resents the baseline without prompt engineering, and
+“Win” indicates that the method before “vs.” outper-
+forms the latter. b. Performance distribution across six
+prompting strategies under “Differentiated” condition.
+44.4% for advanced tasks, and 26.2% for complex
+tasks. The main bottleneck is missing-capability
+grounding: especially underInsufficient config3,
+the agent may request an inappropriate tool despite
+recognizing that the original tool set is inadequate.
+These results therefore characterize build-request
+grounding and subsequent idealized orchestration,
+rather than the performance or safety of a newly
+trained medical tool.
+3.3 Real Case Evaluation
+To evaluate real-world task completion, we bench-
+mark representative proprietary, open-source, medi-
+cal LLM, medical vision-language, and agentic sys-
+tems on 165 cases across organ/anomaly grounding,
+diagnosis with grounding clues, and standard re-
+port generation (55 cases each). Unless otherwise
+specified, agentic experiments use Claude-Sonnet-
+4.5 as the agent core and an executable M3Builder
+tool pool covering segmentation, detection, and re-
+port generation. We report task-specific automatic
+metrics, LLM-based ratings, and human ratings
+from two expert radiologists; AutoTB is separately
+analyzed under insufficient-tool conditions below.
+Real-World Tools Expose a Gap from Reported
+
+Table 4: Real-world evaluation across 165 cases from organ/anomaly grounding, diagnosis with grounding clues,
+and standard report generation. All metrics are higher-is-better. See Appendix A.6 for each metric in detail.
+Method
+Organ and Anomaly Joint Grounding
+(55 cases from Chest Imagenome)
+Diagnosis with Grounding Clues
+(55 cases from RadGenome-MRI)
+Standard Report Generation
+(55 cases from RadGenome-MRI)
+Dice↑ Jaccard
+Index↑
+LLM
+Rating↑
+Human
+Rating↑ Accuracy↑ Jaccard
+Index↑
+LLM
+Rating↑
+Human
+Rating↑
+RadGraph
+F1↑
+RaTE
+Score↑
+LLM
+Rating↑
+Human
+Rating↑
+General Closed-source
+GPT-4o (OpenAI, 2024) 0.467 0.305 2.455 2.127 0.418 0.305 2.727 2.818 0.103 0.328 2.927 2.382
+o3 (OpenAI, 2025a) 0.479 0.315 2.636 2.455 0.436 0.335 2.764 2.873 0.115 0.345 2.964 2.455
+Gemini-3.0-Pro (Google DeepMind, 2026) 0.489 0.324 2.909 2.727 0.455 0.348 2.818 2.909 0.125 0.360 3.000 2.509
+Claude-Sonnet-4.5 (Anthropic, 2025) 0.503 0.3363.218 3.164 0.476 0.3642.855 2.945 0.1370.3853.036 2.564
+General Open-source
+DeepSeek-R1 (Guo et al., 2025) 0.486 0.321 2.582 2.455 0.394 0.313 2.618 2.363 0.100 0.314 2.7272.709
+Llama-3.1-405B (Grattafiori et al., 2024) 0.252 0.144 1.764 1.800 0.307 0.129 1.945 1.836 0.043 0.237 2.109 1.873
+Qwen3-235B (Yang et al., 2025) 0.462 0.300 2.455 2.182 0.364 0.285 2.545 2.273 0.091 0.300 2.636 2.545
+Medical LLM
+Meditron3-70B (Sallinen et al., 2025) 0.392 0.244 2.164 1.927 0.277 0.204 1.964 1.818 0.069 0.248 2.164 2.036
+MedGemma-27B (Sellergren et al., 2025) 0.403 0.252 2.218 2.000 0.291 0.212 2.036 1.909 0.075 0.255 2.218 2.091
+Baichuan-M3-235B (Dou et al., 2026) 0.413 0.260 2.273 2.073 0.309 0.225 2.109 1.964 0.082 0.265 2.291 2.182
+End-to-end Medical Vision-language Model
+Llava-Med (Li et al., 2023) 0.110 0.058 1.636 1.800 0.295 0.089 2.036 1.818 0.007 0.138 1.533 1.845
+RadFM (Wu et al., 2025) 0.122 0.065 1.709 1.855 0.309 0.105 2.091 1.909 0.015 0.150 1.600 1.909
+MedDr (He et al., 2024) 0.140 0.075 1.782 1.909 0.327 0.125 2.145 2.000 0.025 0.165 1.727 2.000
+Medical Agentic Systems
+MAM (Zhou et al., 2025) 0.406 0.255 2.273 2.055 0.351 0.219 2.345 2.218 0.077 0.262 2.800 2.418
+RadCouncil (Zeng et al., 2024) 0.394 0.245 2.182 2.000 0.327 0.205 2.273 2.145 0.070 0.250 2.727 2.327
+AgentClinic (Schmidgall et al., 2024)0.513 0.3453.091 3.091 0.455 0.3552.909 3.000 0.1450.3703.0552.636
+Table 5: Comparison between the current per-metric
+best and the reported tool-performance ceiling. OAG:
+organ/anomaly grounding; DGC: diagnosis with ground-
+ing clues; SRG: standard report generation.
+Task Metric Current Best Ceiling Gap
+OAG Dice 0.513 0.591 15.2%
+OAG Jaccard 0.345 0.397 15.2%
+DGC Accuracy 0.476 0.577 21.2%
+DGC Jaccard 0.364 0.419 15.1%
+SRG RadGraph F1 0.145 0.162 11.7%
+SRG RaTE Score 0.385 0.441 14.6%
+Mean gap 15.5%
+Tool Ceilings.
+Table 5 makes the idealized–executable compar-
+ison explicit. The reported tool-performance ceil-
+ings are 15.5% higher on average than the current
+per-metric best scores. Here,Current Bestis the
+column-wise envelope across evaluated systems
+rather than the output of one deployable agent, and
+the ceiling transfers officially reported task-specific
+tool performance into the idealized protocol. It
+should therefore be interpreted as a computational
+reference point, not as a theoretical or clinically at-
+tainable upper bound. The metric-wise gaps never-
+theless consistently show that executable pipelines
+lose performance beyond idealized tool orchestra-
+tion, with the largest gap appearing in diagnosis
+accuracy (21.2%). This degradation reflects two
+deployment bottlenecks. First, executable tools
+have limited and domain-dependent accuracy, as
+even the strongest grounding and report-generation
+results remain modest (e.g., best Dice/Jaccard of
+0.513/0.345 and best RadGraph-F1 of 0.145). Sec-
+ond, the agent must align tool inputs and outputs,
+select among models trained on different datasets,
+and recover from runtime or format mismatches;
+therefore, a plausible high-level plan does not al-
+ways lead to a valid final response. Even under
+these constraints, the agentic systems remain com-
+parable to representative medical agentic baselines:
+the strongest agentic result reaches 0.455 diagnosis
+accuracy and 0.145 report RadGraph-F1, close to
+or above MAM/RadCouncil (0.351/0.327 accuracy
+and 0.077/0.070 RadGraph-F1), while maintaining
+similar clinical ratings in diagnosis and report gen-
+eration. These results suggest that practical gains
+will depend as much on tool reliability, execution
+alignment, and failure recovery as on improving
+the agent core itself.
+Table 6: Stability analysis on 660 insufficient-tool sce-
+narios.
+Difficulty Trigger
+Rate↑
+Exec. Success
+Rate↑
+Avg. Build
+Time (min)↓
+Regular (N=220) 98.2% 94.5% 12.3
+Intermediate (N=220) 92.7% 86.8% 18.7
+Complex (N=220) 78.6% 65.4% 29.4
+AutoTB Benefits Clear Missing-Capability
+Cases but Remains Execution-Limited.
+
+Table 7: Failure mode analysis (N=100).
+Failure Category Pct.↓Description
+Usage Error 48% Agent correctly identified need but mis-
+configured tool parameters
+Tool Deficiency 27% Available tools lacked required function-
+ality
+Environment Error 16% External dependencies or API failures
+Planning Error 9% Agent failed to identify when tool build-
+ing was necessary
+Table 8: Clinical utility on real-world cases (N=30).
+Difficulty AutoTB
+Trigger Rate
+Report Quality
+(Human 1–5)↑
+Clinical Utility
+(Human 1–5)↑
+Regular (N=10) 100% 3.7 4.2
+Intermediate (N=10) 90% 3.2 3.6
+Complex (N=10) 60% 2.4 2.1
+We evaluate executable AutoTB in a multi-stage
+real-environment setting: stability testing across
+660 insufficient-tool scenarios, failure categoriza-
+tion on 100 cases, and human clinical-utility as-
+sessment on 30 real-world cases. Unlike the syn-
+thetic protocol, M3Builder is actually invoked here:
+it trains and validates the requested model, regis-
+ters a successful tool in the executable pool, and
+records build and downstream usage outcomes in
+its logs. Tables 6–8 show that AutoTB substantially
+improves solvability in regular and intermediate
+scenarios, where trigger rates remain high (98.2%
+and 92.7%), execution success is strong (94.5%
+and 86.8%), and clinical utility is favorable (4.2
+and 3.6). In complex scenarios, however, the trig-
+ger rate falls to 78.6%, execution success drops to
+65.4%, average build time increases to 29.4 min-
+utes, and clinical utility declines to 2.1. Failure
+analysis further shows that the main bottleneck is
+operational precision rather than high-level aware-
+ness: usage errors dominate (48%) while planning
+errors are rare (9%), indicating that agents often
+knowwhento trigger AutoTB but struggle to spec-
+ify precise parameters, interfaces, and configura-
+tions for complex tool generation. Thus, AutoTB
+shifts failures from “missing capability” to “frag-
+ile capability construction”, motivating schema-
+guided tool synthesis, parameter validation, dry-run
+execution checks, and tighter workflow integration.
+4 Related Work
+LLM-based Agents in Medicine.The evolution of
+medical AI has transitioned from static classifiers
+to dynamic LLM-based agents capable of multi-
+step reasoning. Recent frameworks have adopted
+collaborative multi-agent strategies (Tang et al.,
+2024) or integrated clinical calculators, retrieved
+guidelines, and specialized analysis tools (Jin et al.,
+2024; Wang et al., 2025) to support more transpar-
+ent decision making. In the imaging domain, archi-
+tectures such as ChatCAD (Wang et al., 2024) use
+LLMs to synthesize the outputs of specialized vi-
+sion models. MedAgentBench (Jiang et al., 2025),
+meanwhile, evaluates agents primarily through in-
+teractive EHR tasks; it does not cover the multi-
+modal, tool-integrated radiology workflows here.
+Synthetic Data Generation and Validation.Par-
+allel to agent development, the data scarcity–
+privacy tension has motivated methods ranging
+from masking and reconstructing de-identified
+clinical notes (Ren et al., 2025) to prompting
+LLMs to generate synthetic patient–physician con-
+versations (Haider et al., 2025) and large-scale
+medical image–text training data (Yilmaz et al.,
+2025). Validation has accordingly expanded be-
+yond lexical overlap: Sella et al. (2025) intro-
+duced the Quality–Privacy Score (QPS) to combine
+data-quality and privacy measures, while Adams
+et al. (2025) systematically evaluated fidelity, util-
+ity, and re-identification risks. In radiology, Sun
+et al. (2025) generated synthetic chest-radiology
+reports and controlled report errors for training
+and evaluating error detectors. This line of work
+remains largely text-centered, leaving structured
+multimodal synthesis for tool-integrated radiology
+workflows underexplored.
+5 Conclusion
+We introducedRadA-BenchPlat, a two-layer
+benchmark for evaluating radiology agents across
+planning, tool selection, execution, and failure
+awareness under tool conditions. Our results show
+that the main bottleneck lies in execution fidelity
+rather than high-level planning, especially in long-
+chain scenarios. By linking synthetic stress tests
+with real-world execution, RadA-BenchPlat further
+shows that practical progress depends on reliable
+tools, aligned interfaces, and failure recovery in ad-
+dition to stronger LLM cores. Prompting strategies
+and AutoTB help narrow this gap, but persistent
+usage errors suggest that agents often knowwhen
+to act without reliably knowinghowto use the
+required tools. Overall, these results define the ca-
+pability boundaries of radiology agents and expose
+the gap between idealized orchestration and deploy-
+ment, motivating broader real-world validation.
+
+Limitations
+Our study combines synthetic stress testing with
+real-world execution, but the connection between
+these two layers remains incomplete. The syn-
+thetic layer enables controlled diagnosis of plan-
+ning, tool selection, and execution failures, yet
+cannot fully capture institution-specific protocols,
+tool behavior, data distributions, or workflow con-
+straints in clinical environments. In addition, our
+real-environment evaluation is based on 165 cases,
+which limits the statistical power of cross-system
+comparisons. Future work should narrow this
+synthetic–real gap through confidence intervals,
+multi-center validation, and adaptive benchmarks
+whose simulated tool ecosystems better reflect
+evolving radiology practice.
+Acknowledgements
+This work is supported by the National Natural
+Science Foundation of China (No. 24Z031503678).
+ChatGPT was used to refine the writing of parts of
+this manuscript and not to generate its content.

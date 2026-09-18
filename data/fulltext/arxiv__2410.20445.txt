@@ -1,0 +1,683 @@
+record_id: arxiv:2410.20445
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2410.20445
+fetched_title: TrajAgent: An LLM-Agent Framework for Trajectory Modeling via Large-and-Small Model Collaboration
+fetched_at: 2026-09-18T19:00:30Z
+
+TrajAgent: An LLM-Agent Framework for Trajectory
+Modeling via Large-and-Small Model Collaboration
+Yuwei Du∗, Jie Feng∗†, Jie Zhao, Yong Li†
+Department of Electronic Engineering, BRNist, Tsinghua University, Beijing, China
+{fengjie,liyong07}@tsinghua.edu.cn
+Abstract
+Trajectory modeling, which includes research on trajectory data pattern mining
+and future prediction, has widespread applications in areas such as life services,
+urban transportation, and public administration. Numerous methods have been
+proposed to address specific problems within trajectory modeling. However, the
+heterogeneity of data and the diversity of trajectory tasks make effective and reliable
+trajectory modeling an important yet highly challenging endeavor, even for domain
+experts. In this paper, we proposeTrajAgent, a agent framework powered by
+large language models (LLMs), designed to facilitate robust and efficient trajectory
+modeling through automation modeling. This framework leverages and optimizes
+diverse specialized models to address various trajectory modeling tasks across
+different datasets effectively. InTrajAgent, we first developUniEnv, an execution
+environment with a unified data and model interface, to support the execution
+and training of various models. Building onUniEnv, we introduce an agentic
+workflow designed for automatic trajectory modeling across various trajectory
+tasks and data. Furthermore, we introduce collaborative learning schema between
+LLM-based agents and small speciallized models, to enhance the performance
+of the whole framework effectively. Extensive experiments on four tasks using
+four real-world datasets demonstrate the effectiveness ofTrajAgentin automated
+trajectory modeling, achieving a performance improvement of 2.38%-69.91% over
+baseline methods. The codes and data can be accessed via https://github.
+com/tsinghua-fib-lab/TrajAgent.
+1 Introduction
+With the rapid development of web services and mobile devices [68, 6], large-scale trajectory data,
+such as check-in data from social network [ 58], have been collected, greatly facilitating research
+in trajectory modeling. Trajectory modeling involves the processing, mining and prediction of
+trajectory data, with widespread applications in urban transportation, location services and public
+management. The typical areas of trajectory modeling [ 6, 22] can be classified into five main
+categories: trajectory representation [ 21], trajectory classification [29], trajectory prediction [60],
+trajectory recovery [44], and trajectory generation [ 51]. Each category encompasses various sub-
+tasks; for instance, the trajectory prediction task can be further divided into next location prediction
+task [31], final destination prediction task [66], and travel time estimation task [48], among others.
+Given the huge value of trajectory modeling in diverse practical applications, various algorithms and
+models [22] have been proposed to address these tasks, particularly deep learning-based models in
+recent years. This has facilitated significant advancements in the field, with many tasks achieving a
+high level of performance.
+∗Equal contribution.
+†Corresponding author.
+39th Conference on Neural Information Processing Systems (NeurIPS 2025).
+arXiv:2410.20445v5 [cs.CL] 28 Oct 2025
+
+T1 T2 T3
+𝒎
+Multi-Task Model
+Data
+Task
+Model M1
+T1
+M2
+T2
+M3
+T3
+Seperate Models
+M4
+T4
+limited
+limitedfixed
+fixed
+T Task M1 DL-Model L1 LLM-Model Data Learning
+learn via
+training
+T1 T2 T3
+M3 L1
+TrajAgent: a flexible framework for large and small model collaborative learning
+T4
+Data
+Task
+Framework
+extensible
+extensible
+L2
+LLM based Agent
+T5
+𝒎
+Small DL models LLM-based models
+learn via
+reasoning
+learn via
+trainingM2 M1 M4
+Figure 1: The paradigm of LLM based automated trajectory modeling frameworkTrajAgent.
+However, existing methods are designed for specific tasks and datasets, making it difficult to share
+them across different tasks and data sources. For example, TrajFormer [29] is tailored for trajectory
+classification and cannot be applied in trajectory prediction or trajectory generation. Flash-back [57] is
+designed for sparse check-in trajectory prediction and is not suitable for dense GPS trajectory or road
+network-based trajectory modeling. In other words, due to the heterogeneity of application scenario
+and the diverse nature of trajectory data–varying in resolution, format and geographical regions–
+existing methods can only be applied in limited task with specific data for specific regions. While
+some early studies have explored effective trajectory modeling via unified framework [30, 71, 53],
+they often face several limitations: 1) their performance on individual tasks lags behind that of
+specialized models; 2) the range of supported trajectory modeling tasks remains limited; and 3)
+their training and inference processes are complex and non-trivial. Thus, despite their significant
+contributions, there is still a long way to go, necessitating further exploration of more effective and
+reliable trajectory modeling frameworks.
+In recent years, the rapid development of large language models (LLMs) [ 36, 47] with extensive
+commonsense and powerful reasoning abilities presents enable the LLM based agent [55, 46] as a
+new paradigm for solving complex task, such as automated software development [23, 38, 59] and
+automated machine learning tasks [24, 42, 67, 52]. For example, HuggingGPT [42] utilizes LLM as
+a core manager to address various machine learning tasks with existing AI models, VisionLLM [52]
+investigates unified modeling for vision tasks across different vision domains. Inspired by these, we
+explore the potential of leveraging an LLM-based agent framework for automated trajectory modeling,
+paving the way toward effective and reliable trajectory modeling solution. Specifically, our approach
+seeks toharness the capabilities of LLMs to establish a collaborative framework between LLMs
+and various specialized models, enabling the automated and unified trajectory modeling. However,
+designing such an LLM-based agent for this purpose presents several significant challenges. Firstly,
+how to handle and integrate the diverse trajectory data and specialized models for different trajectory
+modeling tasks into a single, unified framework is non-trivial. Secondly, the numerous steps involved
+in transforming raw trajectory data into the final model output are lengthy and cumbersome [ 6],
+making full automation of the process difficult and leading to a large action space for both planning
+and execution. Finally, while model performance heavily depends on delicate and specialized
+data adaptation and model optimization, the ultimate challenge lies in effectively automating the
+optimization of these adaptation processes.
+In this paper, we proposeTrajAgent, a systematic agent framework for automated trajectory modeling
+across diverse tasks and data. First, we design a unified environment,UniEnv, to process diverse
+trajectory data and provide a cohesive runtime environment for various trajectory modeling tasks
+withinTrajAgent. InUniEnv, we define unified data and model interfaces to facilitate the seamless
+execution of different trajectory modeling methods. Building upon this environment, we develop an
+agentic workflow withinTrajAgentfor the automatic multi-step planning and execution of trajectory
+modeling tasks. The diverse trajectory modeling task workflow is decomposed into four unified
+steps: task understanding, task planning, task execution, and task summarization. For each step, we
+design an expert agent to perform the corresponding operations effectively. Finally, we introduce a
+collaborative learning schemathat integrates agent learning through reasoning with model learning
+through training, enabling the effective optimization of model performance for specific data and
+tasks. We further provide in-depth analysis of optimization dynamics and failure modes, along with
+practical improvements to enhance robustness. In summary, our contributions are as follows,
+• To the best of our knowledge,TrajAgentis the first LLM-based agent framework for automated
+and unified trajectory modeling across diverse data and tasks. It decomposes the trajectory
+modeling process into several sub-tasks, with expert agents designed to each.
+2
+
+Check-in Trajectory Data
+GPS Trajectory Data
+Road Network Trajectory Data
+Trajectory Prediction
+Trajectory Recovery
+Trajectory Generation
+Trajectory Classification
+Trajectory Representation
+UniEnv
+Task Interface
+Data Interface
+Model Interface
+External Tools
+Unified Data Interface Unified Model Interface Trajectory Modeling Task
+Understanding
+Trajectory Modeling Task Summary
+Input: I want predict next loc ......
+Data (optional): [[a, x, n], [a, t, b]], .....
+Output
+1.Trained Model: TrajModel_v241 .....
+2. Parameter settings: k=10, ......
+3. Data augmentation: strategy 1.....
+TrajAgent
+Trajectory Task Execution Module
+Basic
+Execution
+Collaborative
+Learning
+Trajectory Modeling Task Planning
+Data Model
+Training Performance
+Small Model: Learning via training
+Long-term Memory
+Short-term Memory
+Self-reflection
+Verifier with
+feedback
+think
+action
+jointTrajectory Data
+Augmentation
+Parameter
+Optimization
+Prompt
+Optimization
+TEAgent: Learning via reasoning
+Collaborative
+Learning Schema Model: Learning via training
+Agent : Learning via reasoning
+MData Model
+ Data Processing
+ Data Augment
+ Paramter Optim
+ Prompt Optim
+N
+Figure 2: The whole framework ofTrajAgent.
+• To support the automated execution of various trajectory modeling tasks, we provide an unified
+running environmentUniEnvby integrating diverse trajectory data and specialized models.
+• Furthermore, we develop acollaborative learning schemabetween high-level agents and low-
+level models to effectively enhance the final performance ofTrajAgenton targeted data and
+tasks, proposing a closed-loop, feedback-driven optimization system that jointly adapts data
+augmentation strategies, model parameters, and agent reasoning based on real-time training
+outcomes.
+• Extensive experiments on four representative trajectory modeling tasks across four real-world
+datasets demonstrate the effectiveness of the proposed framework, with the optimized model
+achieving a performance gain of 2.38% to 69.91% over baseline methods.
+2 Methods
+2.1 Overview of TrajAgent
+Figure 1 presents the comparison between our work and existing works. Over the past few decades,
+researchers have developed various task-specific models for solving single tasks on limited datasets,
+as shown in the left of Figure 1. Recently, some works [ 71, 30, 53] have explored the potential
+of building unified models for multiple trajectory modeling tasks, as shown in the left of Figure 1.
+However, limitations in available data and the diversity of tasks have constrained these unified models
+to a narrow range of tasks. Additionally, these models are not easy to train and utilize, making
+optimization challenging and far from being simple and user-friendly. Thus, following the success of
+LLM-based agentic framework in other domains, we propose to build a unify framework to enable
+the automated trajectory modeling via the collaboration between LLM-based agents and smaller
+specialized models. The framework is presented in the right of Figure 1. In this framework, the
+LLM serves as a controller and processor, coordinating with specific smaller models to accomplish
+specific trajectory tasks. This approach enables users to effortlessly extend support for various data
+and models without delving into the intricate details of individual models. In essence,users can
+view the entire framework as a unified modeling platform, achieved through automated trajectory
+modeling across a variety of tasks and data.As TrajAgentAis to generate an optimized modelsM’,
+based on a user queryq, optional trajectory dataD, and the selected raw modelM, the task definition
+is as follows,
+M′ = arg min
+M
+L(M,T,q,D,A),
+whereT=A(q),D=A(q,T),M=A(T,D).
+(1)
+Figure 2 presents the whole framework ofTrajAgent. It contains three key components: (1)UniEnv, an
+environment with a unified data and model interface that supports the execution and training of various
+trajectory models; 2)Agentic Workflow, which is designed to automatically decompose and complete
+diverse trajectory modelling tasks; 3)Collaborative Learning Schema, an additional automated
+optimization module for enhancing the performance of specific model through the collaboration
+between LLM-based agents and specialized models with different learning mechanisms. Details of
+each component are presented as follows.
+3
+
+2.2 UniEnv: Environment for Experiments
+As shown in the left of Figure 2,UniEnvis a comprehensive and integrated environment that bridges
+trajectory data, tasks, and models, providing a foundational platform for trajectory modelling and
+analysis. It is designed to support the entire lifecycle of trajectory modelling workflows, from data
+preparation to task execution and model optimization.UniEnvcomprises four key components: a
+rich set ofdatasetsaccompanied by processing tools, a comprehensivetask collectionthat defines
+and manages various task types, a extensivemodel librarywith available source code, and an external
+tools poolfor extending the capabilities ofTrajAgent. Each component is seamlessly connected
+through a unified interface, enabling agents to plan and execute trajectory modeling tasks with
+minimal complexity.
+Task Interface:Figure 3 summarizes the trajectory modeling tasks and associated models supported
+byUniEnv. The framework covers 5 fundamental trajectory modeling tasks:prediction, recovery,
+classification, generation, and representation, utilizing a total of 18 methods. For tasks such
+as prediction, recovery, and classification, we further introduce several subtasks. For example,
+the prediction task includes subtasks like next location prediction and travel time estimation, the
+classification task includes subtasks like trajectory user linking, intention prediction and anomaly
+detection. To enhance the clarity and effectiveness of understanding users’ language queries, we
+provide a detailed language description for each task. This description helps extract precise task
+requirements from user queries and facilitates subsequent data and model selection processes.
+Data Interface:UniEnvsupports two commonly used trajectory data formats, namely Checkin
+trajectory (i.e., sequence of visited POIs) and GPS trajectory (i.e., sequence of gps points). These
+datasets, which come from different cities and with distinct forms, are pre-processing through a
+standard pipeline that ensures compatibility across the system. Pre-processing steps are done by
+generated code scripts from LLMs, include data cleaning, normalization, format transformation,
+which are crucial for handling inconsistencies between real-world datasets and task models. After
+processing, we will add a description for each dataset to support efficient data selection in the
+subsequent stage.
+DeepMove
+RNN
+GETNext
+FPMC
+MulT-TTE
+DeepTTE
+TrajBERT
+DeepMM
+GraphMM
+DPLink
+MainTUL
+S2TUL
+LIMP
+GM-VSAE
+ActSTD
+DSTPP
+CACSR
+Prediction
+NextLocationPrediction
+Travel Time Estimitation
+Recovery
+Trajectory
+RecoveryMap Matching
+Classiﬁcation
+Trajectory User
+Linking
+Intention PredictionAnomaly
+Generation
+Representation
+LLM-ZS
+TrajAgent
+Figure 3: TheTrajAgentframework supports
+5 fundamental trajectory modeling tasks, en-
+compassing a total of 18 methods. Detailed
+introduction of methods can refer to the ap-
+pendix A.
+Model Interface:As previously mentioned, we
+support 18 models across 5 fundamental trajectory
+modeling tasks. To support training these models in
+TrajAgent, we select at least one well-known model
+for each task and adapt them to match the running
+environments inUniEnv. Furthermore, we extract
+the semantic context from original paper of each
+model with the txyz.ai APIs 3 to generate detailed
+description of model. In this description, the veri-
+fied data information and supported trajectory task
+information are recorded which supports the data
+and model selection in the subsequent trajectory
+planning stage ofTrajAgent.
+External Tools:To extend the capabilities ofTrajA-
+gent, we collect several external tools inUniEnv, in-
+cluding paper context extraction tool txyz.ai, hyper-
+parameter optimization tool optuna, processing and
+visualization tool for trajectory data movingpandas,
+open street map data processing tool osmnx. Here,
+we also regard the LLM APIs utilized in the agen-
+tic workflow as one of the interface in theUniEnv,
+including the ChatGPT API and DeepInfra for open-
+source LLMs.
+2.3 Agentic Workflow of TrajAgent
+As shown in the middle of Figure 2, the agentic workflow ofTrajAgentis organized into four key
+modules: task understanding, task planning, task optimization, and task summary, which form an
+3https://www.txyz.ai/
+4
+
+automated processing chain from user query to final result, eliminating the need for human-in-the-
+loop. Specifically, the task understanding module first receives user instructions in natural language
+form, and analyzes and identifies the type, name, and other key information of the tasks involved.
+Then, the task planning module will plan for the identified task, including dataset matching and
+model selection. Next, the task execution module executes the planning task and cooperate with
+the additional performance optimization modulecollaborative learning schemato further improve
+the task performance from both the agent learning and model learning perspectives. Last, the
+task summary module generate an analytical report of the task based on historical interactions and
+decisions ofTrajAgent. Following the common practice[ 43], each module inTrajAgentcan be
+regarded as a small agent, consisting of a function module for executing its core function, a memory
+for recording the history interaction, and a reflection module for learning practice from the memory.
+Task Understanding Module:As the first module ofTrajAgentworkflow, task understanding
+module is designed to interact with user and extract detailed task information to launch subsequent
+stages. Given the user query, understanding module recognize the potential task name from it with
+the predefined supported tasks as additional input. If users ask for the out-of-scope tasks which has
+not been supported inUniEnv, we will directly recommend user to select task from the supported list.
+Task Planning Module:Follow the task understanding module is the planning module which is
+designed to generate the subsequent execution plan for efficient experiments of trajectory modelling.
+The input of the planning module is the task name and description from the understanding module,
+the supported data and model with brief description fromUniEnv. With the carefully designed
+prompt, the generated execution plan will contain the data name and model name for the given
+task, and also the detailed model optimization plan. Due to the characteristics of different tasks and
+existing practice, not all the model optimization are necessary for each task. If possible, skipping the
+optimization step which is time-consuming and costly can accelerate the whole procedure without
+sacrificing performance. After generating the plan, it will start a simple execution step to verify the
+feasibility of the plan. Once any error occurs during the execution, e.g., the model name is wrong,
+the planning module will obtain the feedback fromUniEnvand start to regenerate a new plan with
+the last plan as the failed history in its memory.
+Task Execution Module:Give execution plan, the task execution module is responsible for invoking
+UniEnvto execute the experiment plan. In addition to the previously mentioned basic execution
+interface, another interface of this module is to callcollaborative learning schemamodule to complete
+the model optimization automatically. For both interface, the task execution module will give the
+feedback including error information for failed cases and performance metrics for success cases.
+Task Summary Module:After the execution module, we design a task summary module to analyze
+the execution records to generate the optimization summary of the task. The summary contains the
+optimization path during the experiment and the final optimization result for the given task. User can
+also directly utilize the optimized model from the experiments via APIs for further applications.
+2.4 Collaborative Learning Schema
+Due to the geospatial heterogeneity and the diversity of trajectory data, the trajectory models usually
+cannot be directly transferred between data and regions. In other words, for various data in different
+region, the model needs to be trained from scratch. Thus, the sufficient optimization of various
+models with targeted data becomes emergent. InTrajAgent, we designcollaborative learning schema
+to complete this automatic optimization and generate optimized specialized models for targeted task
+and data. As shown in the right part of Figure 2, the collaborative learning framework involves
+two levels of learning: high-level knowledge reasoning for agents and low-level data training for
+specialized models. The high-level agent proposes training settings for the low-level models based
+on its expert knowledge and experimental records. The low-level models are then trained using
+these settings, and their performance metrics are reported back to the high-level agent for further
+collaborative learning. This iterative process continues until the performance meets the predefined
+requirements or the maximum number of exploration epochs is reached.
+2.4.1 Agent Learning via Reasoning
+Following Reflexion [43], we design expert optim agent for learning from the experimental records
+via reasoning. The standard optim agent utilizes the history operation and related results as the
+5
+
+feedback to update its action in the next step. Specifically, it works as two stages, including "think"
+and "action". To support the "think then action", it builds a long-term memory for recording all
+experimental data and a short-term memory for historical actions. In the "think" stage, optim agent
+analyzes the long-term memory and meta information of experiment and generating the guidance of
+action in the short-term memory. In the "action" stage, optim agent analyze the results in short-term
+memory to generate the action. Different optimization mechanism utilize the same optim agent with
+different action space and optimization tips. Besides, as shown in Figure 1, our framework can
+also utilize LLM-based agent as the specialized model to complete the trajectory modelling tasks.
+Thus, we design prompt optimization agent to optimize agent based specialized models. We keep all
+experimental records in each experiment, including the raw input trajectories, the LLM’s inference
+results, and the reasoning process. We select the two best-performing trajectories along with their
+corresponding inference results and reasoning process ashigh-scoring memory entries, which
+are then added to the original prompt for a re-run of the experiment. This process of conducting
+experiments and selecting results is referred to as one iteration. In each iteration, thehigh-scoring
+memory entriesare updated based on the experiment results.
+To validate that agents leverage causal reasoning over memory logs (not pattern matching), we
+conduct an ablation where memory entries were stripped of performance scores (i.e., no “good/bad”
+labels). As shown in Appendix Table 13, performance stagnated (∆Acc@5 < 0.5%), confirming that
+score-guided reflection is essential. This mirrors reinforcement learning’s reward signal, enabling the
+agent to infer why certain actions succeed.
+2.4.2 Model Learning via Training
+By collaborating with the high-level agent, the low-level specialized models learn specific trajectory
+patterns tailored to the target trajectory data and tasks. To enhance performance, we introduce several
+optimization techniques, including data augmentation, parameter tuning, and joint optimization.
+Data Augmentation.Based on the high-level optim agent, we introduce the specific action space for
+low-level trajectory data augmentation. For GPS/map-based trajectories, we adopt a geometry-aware
+augmentation pipeline inspired by DeepMM [12]: (1) raw trajectories are first downsampled to
+preserve spatial topology; (2) noise is injected only within road network constraints; (3) augmented
+samples are validated for temporal consistency before merging with original data. For check-
+in trajectories, we follow the practice from existing works [ 69, 9, 63], defining a fixed set with
+ten operators for trajectory data augmentation, e.g., insert, replace, split and so on. During the
+optimization, the operator set with simple description is provided to the optim agent, it can select
+optimal operator sequence(combination of operators with their simple parameters) and parameter
+configuration as the action, guided by training feedback. Then the specialized models are trained with
+the augmented trajectory data and report performance metrics. The optim agent obtain the feedback
+information, e.g., performance metrics, fromUniEnvto continue update its memory and action.
+Parameter Optimization.The action space of parameter optimization is defined based on the pa-
+rameters of model itself. We define a parameter configuration file for each model, the optim agent
+reads the configuration file and generates code as the action to update the parameters in it. To better
+understand the meaning of each parameter, we add comments for each parameter in the file. This
+kind of action space is flexible to adapt with any models.
+Joint Optimization.Furthermore, we introduce the joint optimization mechanisms to further improve
+the performance. Due to the different working paradigms, the direct combination of two kinds of
+optimizations is unsuccessful. We designate the optimization order to prioritize data augmentation
+first, followed by parameter optimization. This means that once the performance of data augmentation
+stabilizes, the agent proceeds with parameter optimization. This procedure can be repeated a fixed
+number of times until it meets the stop criteria.
+3 Experiments
+3.1 Settings
+Data.We utilize the widely used Foursquare (FSQ) [ 58] and Brightkite (BGK) [7] in our framework
+as the default check-in trajectory data. Porto [27] and Chengdu [8] are integrated in the framework as
+the default GPS trajectory data. Besides, we use Tencent [34] as the road network based methods
+6
+
+Table 1: Performance of representative methods across five fundamental trajectory modeling tasks.
+For the ten subtasks, only one model is presented for each. ‘DA’ represents data augmentation, ‘PO’
+denotes parameter optimization, ‘PRO’ denotes prompt optimization, ‘JO’ indicates joint optimization,
+δrepresents performance improvements.
+Task Trajectory Prediction Trajectory Recovery Trajectory Classification Trajectory Trajectory
+SubTask Next Loc Pre TTE Recovery Map-matching User Linking Intent Prediction Anomaly Generation Representation
+Metric Acc@5 Acc@5 MAE MAE MAEAcc m Acc@5Acc i AUC MAE Acc@5
+Dataset FSQ FSQ Porto Tencent Porto Tencent FSQ Beijing Porto Earthquake FSQ
+Models GETNext LLM-ZS MulT-TTE DutyTTE TrajBERT GraphMM S2TUL LIMP GM-VSAE DSTPP CACSR
+Origin0.3720 0.3110 163.12 190.82 42.71 0.2014 0.5755 0.745 0.9892 0.4611 0.31
++DA0.3894 – – – – 0.3258 0.6846 – – – 0.3369
++PO0.3995 0.3302 128.57 179.01 27.78 0.2427 0.757 – 0.9899 0.3584 0.3466
++PRO– 0.3225 – – – – – 0.7627 – – –
++JO0.4002 0.3350 128.57 179.01 27.78 0.3422 0.7802 0.7627 0.9899 0.3584 0.3472
+δ7.58% 7.72% 21.18% 6.19% 34.96% 69.91% 35.57% 2.38% 0 22.27% 12%
+Table 2: Comparison of performance on check-in trajectories for TrajAgent with different configura-
+tions, which demonstrate the generalization ofTrajAgentacross different tasks, models and datasets.
+FSQ BGK
+Task Next Location Prediction Trajectory User Linking Next Location Prediction Trajectory User Linking
+Model RNN DeepMove GETNext MainTUL DPLink S2TUL RNN DeepMove GETNext MainTUL DPLink S2TUL
+Metrics Acc@5 Hit@5 Acc@5 Hit@5
+Origin 0.1795 0.3422 0.3720 0.4871 0.7551 0.5755 0.4422 0.5570 0.5324 0.5908 0.8993 0.5802
++DA 0.2667 0.4018 0.3894 0.5973 0.7551 0.6846 0.5416 0.5647 0.6026 0.6836 0.9613 0.6903
++PO 0.1795 0.3422 0.3995 0.5691 0.7686 0.7570 0.5022 0.6041 0.6116 0.6683 0.9552 0.7137
++JO0.2717 0.4018 0.4002 0.6121 0.8010 0.7802 0.5470 0.6100 0.6227 0.7145 0.9622 0.7240
+δ51.36% 17.42% 7.58% 25.66% 6.08% 35.57% 23.70% 9.52% 16.96% 20.94% 6.99% 24.78%
+to support road network based tasks and Beijing [28] with human labeled intention to support the
+mobility intention prediction task. Finally, to verify the effectiveness of the whole system, we utilize
+self-instruct method [50] with 5 seed queries to generate 300 user queries as the experiment input.
+Models.As shown in Figure 3, our framework supports 18 models spanning 5 core trajectory model-
+ing tasks, which are further categorized into 9 subtasks. The next location prediction task includes
+FPMC [39], RNN, DeepMove [13], GETNext [60], LLM-ZS [2]. The travel time estimation task
+comprises DeepTTE [48] and MulT-TTE [32]. The trajectory recovery task features TrajBERT [44],
+while the map-matching task incorporates DeepMM [14] and GraphMM [34]. The trajectory user
+linking task includes DPLink [18], MainTUL [5], and S2TUL [10]. The mobility intention prediction
+task is supported by LIMP [28]. The trajectory anomaly detection task employs GM-VSAE [ 33],
+and the trajectory generation task includes ActSTD [ 65] and DSTPP [64]. Finally, the trajectory
+representation method is implemented using CASCR [21].
+Metrics.We adopt standard practices for each task to select appropriate metrics for evaluating our
+framework. The widely used Acc@k metric is employed for next location prediction, map-matching,
+trajectory user linking, mobility intention prediction, and trajectory representation tasks. The MAE
+metric is utilized for travel time estimation, trajectory recovery, and trajectory generation tasks. Lastly,
+the AUC metric is specifically defined for the trajectory anomaly detection task.
+3.2 Overall Performance and Generalization Capability of TrajAgent
+In this section, we assess the overall performance ofTrajAgentacross various fundamental trajectory
+modeling tasks, as summarized in Table 1. Furthermore, to demonstrate the generalization capability
+ofTrajAgentacross different datasets and models, we present detailed results on diverse trajectory
+data using several representative models in Table 2.
+As shown in Table 1, we select at least one representative models for 9 trajectory modelling tasks to
+present the effectiveness of proposed framework. As Table 1 shows,TrajAgentsupports a variety of
+widely-known trajectory models and demonstrates superior performance across multiple trajectory
+modeling tasks and trajectory datasets. The output ofTrajAgentconsistently outperforms the original
+methods, achieving performance gains ranging from 2.28% to 69.91%. For instance, in the next-
+location prediction task,TrajAgentharnesses its agentic workflow and collaborative learning schema
+for automatic modeling and optimization, leading to significant performance improvements of various
+7
+
+Table 3: Execution success rates and task performance at each stage of the agentic workflow of
+TrajAgentacross different LLMs. The Acc@5 is obtained by evaluating the next-location prediction
+task, with DeepMove as the default specialized model.
+LLM Extraction Processing Data/Model Selection Data Augmentation Parameter Optim. Joint Optim.
+Succ. Succ. Succ. Acc@5 Succ. Acc@5 Succ. Acc@5 Succ. Acc@5
+Qwen2-7B 85.00% 30% 72% 83.33% 15% 0.2015 25% 0.1833 64% 0.2668
+Mistral7B-V3 78.89% 42% 88% 90.91% 94% 0.294095% 0.208782% 0.2980
+LLama3-8B 69.44% 28% 81% 80.25% 18% 0.1790 11% 0.1809 65% 0.2809
+Gemma2-9B 83.88% 12% 57% 52.63% 18% 0.1822 15% 0.1848 70% 0.2970
+Gemma-2-27B 79.44% 30% 70% 88.57% 78% 0.2507 30% 0.1775 78% 0.3366
+GPT3.5-Turbo 88.89% 54%100%82.00% 88% 0.2846 90% 0.1809 92% 0.3295
+LLama3-70B 83.33%100%95% 86.32% 92% 0.2931 83% 0.1848 95% 0.3473
+Qwen2-72B 92.22% 95% 100%95% 96% 0.392570% 0.1816 94%0.4333
+GPT-4o-mini95.56%92%100% 98.00%90% 0.2967 85% 0.182296%0.3724
+Table 4: Ablation study ofTrajAgent. ‘MS’ stands for Model Selection, ‘DA’ represents Data
+Augmentation, ‘PO’ denotes Parameter Optimization, ‘JO’ stands for Joint Optimization. ↓ indicates
+a decrease in performance, and↑indicates an improvement.
+Agent Variants MS DA PO JO
+Succ. Acc Succ. Acc Succ. Acc Succ. Acc
+TrajAgent 100% 98% 98% 0.3050 89% 0.1895 85% 0.3724
+w/o Reflection 100% 95%↓98% 0.3028↓90%↑0.1872↓82%↓0.3212↓
+w/o Memory 99%↓80%↓85%↓0.1707↓70%↓0.2050↑68%↓0.1804↓
+models. Specifically, it enhances the deep learning-based model GETNext by 7.58% and the LLM-
+based model LLM-ZS by 7.72%. Performance gain in other tasks and models are much larger,
+for example improvement from 34.96% to 69.91% for trajectory recovery tasks. We observe that
+the improvement in the trajectory anomaly detection task is minimal, primarily due to the strong
+performance of the original models on the dataset.
+As shown in Table 2, we presents a performance comparison for check-in trajectory tasks, including
+the next-location prediction task and the trajectory user linking task, across three models and two
+datasets. The first key observation is the consistent improvement observed across tasks, models,
+and datasets, which highlights the potential generalization of the proposed framework. For different
+trajectory tasks, datasets, and models,TrajAgentconsistently provides transferable performance
+improvements, ranging from 6.08% to 35.57%. Additionally, we observe that the performance gap
+between different models (e.g., the top two models for each task) on specific tasks and datasets
+significantly narrows from 24.88% to 9.5% following the automatic optimization ofTrajAgent,
+emphasizing the critical role of effective data augmentation and parameter optimization.
+3.3 Ablation Study and Parameter Analysis of the Agentic Workflow
+Here, we select the next location prediction task as an example to demonstrate the efficiency of
+designs of agentic workflow and the effects of various LLMs in Table 3 and Table 4. During the
+experiment,we select DeepMove as the default specialized model for next location prediction task.
+Table 3 compares the execution efficiency ofTrajAgentimplemented by different LLMs, across
+each stages in the trajectory modelling workflow. We can observe that Qwen2-72B and GPT-4o-
+mini demonstrate the highest success rates (i.e., Succ.) across key stages such as Data Extraction,
+Processing, and Data/Model Selection, with over 90% success in each. In contrast, models like
+Gemma-2-9B and LLama3-8B struggle with lower processing and data selection success rates,
+which results in reduced overall performance. Their weaker performance in key optimization stages,
+especially in parameter selection, reflects their limitations in effectively supporting TrajAgent. These
+results show that TrajAgent’s efficiency is strongly influenced by the base LLM, with high-performing
+models like Qwen-72B and GPT-4o-mini significantly enhancing its capabilities.
+We conducted an ablation study by isolating two main designs: the memory unit and the reflection
+mechanism, resulting in two variants: 1)w/o Reflection, where the reflection mechanism is removed,
+and 2)w/o Memory, where the memory unit is excluded. The experimental results are presented in
+Table 4. We can find that: 1) Removing either component leads to average performance declines,
+8
+
+0 5 10 20 30
+Thought Step
+0.34
+0.36
+0.38
+0.40
+0.42
+0.44
+0.46Accuracy@5
+DA PO Joint
+(a) Thought steps.
+0 5 10 15 20
+Memory Length
+0.34
+0.36
+0.38
+0.40
+0.42
+0.44Accuracy@5
+DA PO Joint (b) Memory size.
+/uni00000033/uni00000032/uni00000013/uni00000033/uni00000032/uni00000018/uni00000033/uni00000032/uni00000014/uni00000013/uni00000033/uni00000032/uni00000014/uni00000018/uni00000033/uni00000032/uni00000014/uni00000018/uni0000000e/uni00000027/uni00000024/uni00000018/uni00000033/uni00000032/uni00000014/uni00000018/uni0000000e/uni00000027/uni00000024/uni00000014/uni00000013
+/uni00000032/uni00000053/uni00000057/uni0000004c/uni00000050/uni0000004c/uni0000005d/uni00000044/uni00000057/uni0000004c/uni00000052/uni00000051/uni00000003/uni00000030/uni00000048/uni00000057/uni0000004b/uni00000052/uni00000047
+/uni00000013/uni00000011/uni00000019/uni00000013
+/uni00000013/uni00000011/uni00000019/uni00000018
+/uni00000013/uni00000011/uni0000001a/uni00000013
+/uni00000013/uni00000011/uni0000001a/uni00000018
+/uni00000013/uni00000011/uni0000001b/uni00000013/uni00000024/uni00000046/uni00000046/uni00000023/uni00000018
+/uni00000036/uni00000015/uni00000037/uni00000038/uni0000002f/uni00000010/uni00000037/uni00000055/uni00000044/uni0000004d/uni00000024/uni0000004a/uni00000048/uni00000051/uni00000057
+/uni00000036/uni00000015/uni00000037/uni00000038/uni0000002f/uni00000010/uni00000032/uni00000053/uni00000057/uni00000058/uni00000051/uni00000044
+/uni00000036/uni00000015/uni00000037/uni00000038/uni0000002f/uni00000010/uni00000038/uni00000055/uni00000045/uni00000044/uni00000051/uni0000002f/uni0000002f/uni00000030
+/uni00000033/uni00000032/uni00000013/uni00000033/uni00000032/uni00000018/uni00000033/uni00000032/uni00000014/uni00000013/uni00000033/uni00000032/uni00000014/uni00000018/uni00000033/uni00000032/uni00000015/uni00000013/uni00000033/uni00000032/uni00000015/uni00000018 (c) Comparison with Optuna and UrbanLLM.
+Figure 4: (a-b) The impact of thought steps and memory size when using DeepMove in next location
+prediction tasks. (c) Compared to Optuna and UrbanLLM, TrajAgent achieves better performance in
+trajectory user linking tasks with S2TUL as the specialized model.
+with the memory unit being especially critical for maintaining execution efficiency. 2) Interestingly,
+removing a component occasionally results in slight increases in success or accuracy, suggesting that
+some components may introduce overhead or complexity in specific stages. Overall, the combined
+use of the memory and reflection mechanisms is crucial for optimizingTrajAgent’s performance.
+Due to the importance of reflection and memory in theTrajAgent, we analyze the effects of two
+important related parameters: 1)thought step: the number of steps that agent thought before taking
+action in reflection, and 2)memory size: the size of memory units inTrajAgent.
+As shown in Figure 4(a), performance initially improves with more thought steps, reflecting enhanced
+reasoning depth. However, beyond a threshold (e.g., 20 steps), performance declines—likely due
+to overfitting to suboptimal action sequences or repetitive exploration without sufficient novelty.
+Similarly, in Figure 4(b), increasing memory size beyond 10 leads to performance degradation,
+suggesting that excessive historical records may introduce noise or bias the agent toward previously
+failed strategies (a phenomenon we term the ‘optimization trap’).
+3.4 Analysis of Optimization Failure Modes and Improvements
+While TrajAgent demonstrates strong performance across diverse trajectory tasks, we observe that its
+optimization efficacy does not monotonically improve with increasing reasoning depth or memory
+capacity. To understand this phenomenon and enhance robustness, we conduct an in-depth analysis
+of the underlying optimization dynamics.
+Optimization Trap in Long Reasoning Chains: As the number of thought steps increases, the
+agent may converge prematurely to a local optimum. Once trapped, the agent stops exploring novel
+strategies and repeatedly refines the same ineffective combination. This behavior is exacerbated in
+weaker LLMs, which lack sufficient reasoning capacity to escape such traps. In contrast, reasoning
+models like DeepSeek-v3 exhibit more diverse exploration and are more likely to discover globally
+superior configurations within fewer steps (see Table 10 in Appendix).
+Memory Saturation and Noise Accumulation: Similarly, increasing memory size improves explo-
+ration efficiency up to a point, but larger memories introduce noisy or redundant historical records.
+Low-performing action sequences, if retained, can bias future decisions and lead the agent to revisit
+failed strategies—especially when memory is not actively curated. This “memory pollution” effect
+explains the performance drop in Figure 4(b). Crucially, stronger reasoning models (e.g., DeepSeek-
+v3, Gemini-2.0) are less affected, as shown in Table 10 in Appendix: they maintain or even improve
+performance with larger memories by better filtering useful experiences, whereas weaker models
+degrade significantly. This highlights memory content management and optimization as a key factor
+in mitigating memory pollution.
+It is also worth noting that although Figure 4(b) shows parameter optimization (PO) is less sensitive
+to memory size than data augmentation (DA), excessive memory (>10 entries) still degrades PO due
+to noise accumulation. The apparent stability in PO stems from its smaller action space, but memory
+pruning is equally critical for both.
+Mitigation via Contrastive Reflection and Memory Pruning: To address these issues, we introduce
+two practical improvements: (1) Contrastive Reflection: During the reflection phase, the agent
+9
+
+explicitly compares successful and failed trials, adjusting operator parameters to avoid repeating
+ineffective combinations. This encourages diverse yet informed exploration. (2) Dynamic Memory
+Pruning: We periodically discard low-scoring memory entries and retain only high-performing
+trajectories as high-scoring memory entries to guide future planning. As shown in Tables 12 and 11
+in Appendix, these strategies significantly stabilize optimization.Similarly, memory pruning enables
+consistent gains across memory lengths, with performance no longer collapsing at large capacities.
+3.5 Comparison with Automated Methods
+We compareTrajAgentwith the deep learning-based AutoML method Optuna [ 1] and the LLM-based
+automated urban task-solving framework UrbanLLM [26]. Using the trajectory user linking task with
+S2TUL model as an example, the results are presented in Figure 4(c). UrbanLLM (represented by the
+blue line) is designed to directly automate the use of existing models without further optimization,
+resulting in the lowest performance in Figure 4(c). Meanwhile, compared to the widely used
+AutoML method Optuna (represented by the red line), which focuses on parameter optimization,
+TrajAgent(depicted by the yellow line) achieves superior results with fewer trial-and-error iterations.
+Furthermore, its performance can be further enhanced through joint optimization combined with
+automated data augmentation, resulting in a significant performance improvement of over 11.1%. For
+computational overhead please ofTrajAgent, please refer to Table 8 in Appendix.
+4 Related Work
+Trajectory Modelling and Analytics:In recent year, trajectory modelling [ 68, 6, 22] makes great
+progress on its core research questions, including prediction [31, 13, 57, 41, 60], classification [25, 20,
+18, 29, 45, 5], recovery [54, 56] and generation [37, 65, 51]. While these specific methods accelerate
+the development of trajectory modelling from different aspects, they can only handle one type of task.
+In other words, the automated and unified model for all the trajectory modelling task is still missing
+due to the heterogeneity of tasks and trajectory data. In this paper, we propose to utilize the power of
+LLM and agent to build a unified model framework for diverse trajectory modelling tasks, which can
+automatically handle various data and modelling tasks without human intervention.
+Large Language Models:LLMs with extensive commonsense and outstanding reasoning abilities
+have been widely explored in many domains, such as mathematics [62], question answering [72], and
+human-machine interaction [47]. Following this direction and motivated by the exploration of LLMs’
+usability in urban studies [17], researchers have begun developing diverse domain-specific LLMs
+tailored for urban applications, for example, CityGPT [15], UrbanLLM [26], and UrbanLLaV A [16].
+In contrast to these approaches, which rely on fine-tuning LLMs with domain-specific knowledge,
+our work focuses on a training-free paradigm by constructing an agentic framework.
+LLM based Agents:In the general domain, agentic framework [ 49, 46, 55] are proposed to
+enhance the robustness and task solving abilities of LLMs for real-world complex tasks, such as
+web-navigation [61, 35, 70] and software development [23, 38, 59]. Besides, researchers also explore
+the potential of applying LLM based agent for automatic research experiments [3, 40, 4] especially
+machine learning experiments [24, 42, 67, 52]. Recently, LLM-based agent also be applied in specific
+trajectory modeling tasks, e.g., trajectory prediction [12] and trajectory simulation [11]. In this paper,
+our proposed agentic framework is designed for unified trajectory modelling which can provide
+automatically model training and optimization for various trajectory data and tasks.
+5 Conclusion
+In this paper, we proposeTrajAgent, an LLM-based agentic framework for automated trajectory
+modeling. Supported byUniEnv, which provides a unified data and model interface, andcollaborative
+learning schemafor joint performance optimization,TrajAgentcan automatically identify and train
+the appropriate model, delivering competitive performance across a range of trajectory modeling
+tasks.TrajAgentestablishes a new paradigm for unified trajectory modeling across diverse tasks and
+datasets.
+10
+
+Acknowledgments
+This work was supported in part by the National Key Research and Development Program of China
+under grant 2024YFC3307603, in part by the China Postdoctoral Science Foundation under grant
+2024M761670 and GZB20240384, in part by the Tsinghua University Shuimu Scholar Program
+under grant 2023SM235. This research is supported by Tsinghua University-Mercedes Benz Institute
+for Sustainable Mobility.

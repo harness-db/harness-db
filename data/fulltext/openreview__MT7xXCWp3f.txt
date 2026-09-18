@@ -1,0 +1,1014 @@
+record_id: openreview:MT7xXCWp3f
+source_used: openreview_pdf
+fetched_url: https://openreview.net/pdf?id=MT7xXCWp3f
+fetched_title: TradeCraft: AN ARENA FOR LONG -TERM STRATEGIC SOCIAL REASONING AND PLANNING
+fetched_at: 2026-09-18T19:01:18Z
+
+000
+001
+002
+003
+004
+005
+006
+007
+008
+009
+010
+011
+012
+013
+014
+015
+016
+017
+018
+019
+020
+021
+022
+023
+024
+025
+026
+027
+028
+029
+030
+031
+032
+033
+034
+035
+036
+037
+038
+039
+040
+041
+042
+043
+044
+045
+046
+047
+048
+049
+050
+051
+052
+053
+Under review as a conference paper at ICLR 2026
+TradeCraft: AN ARENA FOR LONG -TERM STRATEGIC
+SOCIAL REASONING AND PLANNING
+Anonymous authors
+Paper under double-blind review
+ABSTRACT
+Modern large language models (LLMs) demonstrate strong capabilities in planning
+and social reasoning when evaluated separately. However, solving problems in
+social environments typically requires the integration of both reasoning and social
+skills, posing a greater challenge. We present TradeCraft, a flexible and extensible
+multi-agent environment that embeds strict reasoning and planning requirements
+into socially grounded tasks. TradeCraft integrates trading, negotiation, and multi-
+step item crafting, supporting two rule sets: a Minecraft-inspired system, and a
+Little Alchemy 2–inspired system, each with about 1000 items and over 1000 for-
+mulas. The environment provides both a web-based GUI for human participation
+and a text-based API (compatible with gymnasium) for LLM agents, enabling di-
+verse forms of human–AI and multi-agent interaction. To catalyze further research,
+we introduce a workflow-based LLM agent that leverages task-specific prompting
+and ReAct mechanisms for trading and crafting, while exhibiting configurable
+social preferences ranging from cooperative to competitive. We further conduct
+a nine-dimensional evaluation through self-play experiments, analyzing cooper-
+ation, goal alignment, information utilization, theory of mind, and other aspects
+across multiple LLMs and strategy-guidance settings. TradeCraft is open source at
+https://github.com/TradeCraft-team/TradeCraft.
+1 I NTRODUCTION
+Human intelligence is marked by its strength in reasoning, planning, and social cognition. Recent
+advances show that large language models (LLMs) have begun to approach, and in some cases surpass,
+human-level performance in these domains when evaluated separately. For multi-step reasoning and
+planning, benchmarks in mathematics (Cobbe et al., 2021; Sun et al., 2025) and interactive task-
+planning (Xie et al., 2024; Zhou et al., 2023) are widely used, while general techniques (Wei et al.,
+2022; Yao et al., 2023b;a), and special methods (Wang et al., 2023; Han et al., 2024), have proven
+effective in enhancing performance. In terms of social intelligence, (Strachan et al., 2024) reports that
+GPT-4 exceeds human performance on a variety of Theory of Mind (ToM) tasks, and (Street et al.,
+2024) provides evidence that LLMs can master higher-order ToM tasks in human-level performance.
+Despite these promising results, limitations remain. Real-world applications rarely demand a single,
+isolated ability; instead, they require a dynamic combination of reasoning, planning, and social
+intelligence. For instance, (Wang et al., 2024) shows that models excelling in individual subtasks of
+ToM may underperform when required to solve the full integrated task in logical / geometric contexts.
+To better capture these complexities, recent work has turned to richer evaluation environments such
+as Diplomacy (Bakhtin et al., 2023), MineDojo (Fan et al., 2022), CivRealm (Qi et al., 2024), and
+MSCoRe (Lei et al., 2025). However, these settings face trade-offs: some are overly simplified with
+static cooperation or competition , while others (e.g., CivRealm (Qi et al., 2024)) are so complex
+that the behavioral signals of LLMs become too unstructured to reliably extract and evaluate. Indeed,
+researchers have noted a persistent gap: there is “a lack of multi-agent benchmarks for open-world
+environments” (Allen et al., 2024) that would allow diverse, realistic social interactions to unfold.
+With the purpose of balancing the trade-off between complexity and diversity of LLM-Agent’s
+evaluation, we introduce TradeCraft, a new multi-agent benchmark environment designed to probe
+high-order Theory of Mind, social reasoning, and strategic planning in both AI and human agents.
+Unlike existing platforms, TradeCraft offers an open-ended social sandbox where heterogeneous
+1
+
+054
+055
+056
+057
+058
+059
+060
+061
+062
+063
+064
+065
+066
+067
+068
+069
+070
+071
+072
+073
+074
+075
+076
+077
+078
+079
+080
+081
+082
+083
+084
+085
+086
+087
+088
+089
+090
+091
+092
+093
+094
+095
+096
+097
+098
+099
+100
+101
+102
+103
+104
+105
+106
+107
+Under review as a conference paper at ICLR 2026
+Trade Craft
+TradeCraft
+Steve’s Mind: I need only one ,
+but I must hide my real target and
+claim another crafting route. I can
+request for safety concern. Alex
+may agree if it is not really
+necessary for his target.
+×𝟏
+×𝟏
+Steve
+Has
+Want
+×𝟏
+×𝟏→ ×𝟒
+×𝟐→ ×𝟒
+I achieve my
+target!
+Steve Crafts:
+×𝟏+ ×𝟐→ ×𝟏
+×𝟏→ ×𝟐
+×𝟏+ ×𝟐+ ×𝟐→ ×𝟏
+Have
+×𝟏
+Want
+Makeena
+Has
+×𝟑
+×𝟏
+×𝟏
+Alex Has
+×𝟏 Want
+×𝟏
+×𝟏
+×𝟏
+Want
+×𝟏
+×𝟑
+×𝟐
+Makeena
+Has
+×𝟏
+×𝟑
+Steve
+Has Want
+Alex Has
+×𝟏 Want
+×𝟏
+×𝟏
+×𝟏
+Makeena’s Mind: Steve’s target is
+iron sword. He is sincere as he offers
+three . I need one for my target.
+His offer is not trap-like, as he is still
+defending me. And I need his offer
+of and next round.
+Steve’s Mind: Equivalently, a
+equals two and four , and
+can be used as fuel! Nobody
+know that is my real intention.
+I need nothing more and I am
+WINNING this turn!
+Makeena Crafts:
+×𝟏+ ×𝟏/𝟖→ ×𝟏
+×𝟏+ ×𝟏/𝟖→ ×𝟏
+×𝟏+ ×𝟏/𝟖→ ×𝟏
+Makeena’s Mind: I will offer Steve
+the two for his sword, but he
+must pay and for iron! As he
+claims so, I guess he will have them
+in his hand next turn, then we will
+both have our targets crafted!
+Turn (N)
+Steve Alex Makeena
+Steve Alex Makeena
+From: Steve
+To: Makeena (Invisible to Alex)
+Offer: ×𝟑
+Request: ×𝟏+ ×𝟏
+Message: Hi Alex, please help me smelt the . I need them for
+. I must keep your and for 1 turn in case your target is
+or . I will offer you and later.
+From: Makeena
+To: Steve
+Message: I accept!
+Figure 1: TradeCraft involves social interaction, deep reasoning, long-term planning, and fine-grained control.
+Players engage in social negotiation and trading, then synthesize target items through long-term planning and
+precise control. Achieving success requires high-order theory of mind: reasoning about others’ intentions,
+inventory states, and synthesis strategies under goal-directed contexts.
+agents must negotiate, trade, and craft to pursue their goals. At its core is a general-purpose composi-
+tional crafting system, inspired by open-world games (cf. Minecraft (Fan et al., 2022), Little Alchemy
+2 (Brändle et al., 2023)), which supports complex dependency structures and long-horizon objectives.
+A distinctive feature of TradeCraft is its rule variability: both goals and mechanics can be random-
+ized or customized across matches. This prevents rote memorization, provides a direct measure of
+adaptability and learning efficiency and enables a full control of task complexity. Social interaction is
+equally central because no single agent can succeed alone, agents must plan strategically, cooperate or
+compete, and engage in trade-based exchanges. Trading naturally gives rise to rich behaviors such as
+negotiation, trust building, deception, and higher-order belief modeling, offering a principled testbed
+for social reasoning.
+By supporting both AI and human participants, TradeCraft enables human-in-the-loop evaluation
+and comparative studies of social intelligence. Through its combination of cooperation, competition,
+open-world crafting, economic exchange, and configurable scenarios,TradeCraft establishes a unified
+benchmark that fills a long-standing gap in the study of adaptive multi-agent intelligence.
+In summary, our contributions are as follows: (1) TradeCraft Environment: We propose TradeCraft, a
+novel open-ended multi-agent environment with a compositional crafting and trading system, which
+explicitly targets the evaluation of complex social reasoning capabilities together with long-term
+planning in agents. Our platform supports both AI and human players, facilitating rigorous human-AI
+comparison studies.
+(2) A basic evaluation paradigm: We define a suite of benchmark tasks withinTradeCraft that involve
+both social and planning abilities. We demonstrate how these abilities in different fields are evaluated
+and see whether ability integration brings new challenge to AI agents.
+(3) Benchmark Results of LLMs: We release the initial evaluation protocols and baseline results,
+laying the groundwork for the community to develop and benchmark more agents on TradeCraft.
+2 T HE TradeCraft ENVIRONMENT
+2.1 T HE GAME DESIGN
+TradeCraft is a turn-based multiplayer online game designed as a testbed for long-term strategic
+social reasoning and planning, supporting both human and LLM agents. In each game session,
+players maintain a collection of items through bartering with other participants and crafting based on
+2
+
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+Under review as a conference paper at ICLR 2026
+(a)
+(b)
+Figure 2: (a) Pipeline of the TradeCraft game. (b) Distribution of task difficulty in our game set, defined by the
+combined complexity of craft chain length and required trade interactions, together with a case study of game
+initial state and the crafting route.
+predefined formulas. Example crafting formulas are illustrated in Figure. 1. The system currently in-
+corporates item sets and rule systems from Minecraft Java-v1.20 and LittleAlchemy2, while allowing
+straightforward modification, replacement, or extension of game rules and items (see Section B). Each
+game involves two or more players, each possessing a hand of items (with multiplicity) and being
+assigned a private target item to craft. While all players’ hands are fully visible to all participants,
+each player’s target item remains private. The objective for each player is to be the first to craft their
+designated target item. Since initial hands are typically insufficient for direct target item crafting,
+players must acquire necessary components through trading with other players.
+The game runs in turns, each turn consists of two phases: the trade phase and the craft phase, see
+Figure. 1. In the trade phase, one player (called the proposer of this turn) chooses another player and
+makes a proposal for trading, together with a text message; the chosen player decides to accept or
+to reject the proposal. If a proposal is accepted, then the hands of the two trading players change
+accordingly. If rejected, the proposal will be invisible to any other players. After one trial of the
+one-on-one trading, the trade phase ends. The proposer rotates to the next player at the end of the
+turn. The players act as the proposer in a fixed order. The craft phase follows the trade phase, where
+each player starts to craft items at the same time. It is possible to craft several times in a single craft
+phase until they choose to finish crafting. The hand changes will not be revealed to others until all
+players are done with crafts, and during the craft phase, items can be used in a number of rational
+numbers (fractions), and at the end of the craft phase, all non-integer amounts are rounded down.
+2.2 G AME IMPLEMENTATION AND INTERFACES
+The TradeCraft implementation consists of a server and two types of user-interfaces.
+The Server. The server hosts all the game state and dynamics, manages the login users and game.
+multiple games with different player amounts or rules can be hosted on a single server. Server is
+written in Python with package flask, MongoDB database are used to save game state and logs.
+Web-GUI The web-based GUI integrates all game functions together with built-in assistance and
+crafting support, human users can reach through web-browsers (see Appendix Figure. 7.)
+Lang-API The language-based API mirrors the functionality of the Web-GUI in text modal,
+designed to comply with gymnasium for agent integration. Observations are provided in language,
+and actions are executed via langchain tools. There is a set of standard tools provided together
+with the environment, shown in Figure. 2(a), while expansion with customized tools are supported.
+In gymnasium, a “observation-action” loop is maintained. In each cycle, an agent reads observa-
+tions and chooses an action with arguments. In the API, observations are provided in text format.
+Conducted by game-dynamics module, language interpreter module translates system messages into
+text generates the observations, both modules are highly extensible and customizable. Observations
+contain all the facts that web-GUI contains. Actions are in langchain tool format, accepting
+3
+
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+Under review as a conference paper at ICLR 2026
+(a)
+(b)
+Figure 3: Methods. Left: the multi-role agent design, where rolesRouter, Proposer, Decision Maker, Planner and
+Crafter are integrated in a whole pipeline. Right: The evaluation pipeline for various dimensions we designed.
+an argument dictionary. The end-of-phase tools affects the game state, containing submit proposal,
+submit decision, make craft, etc., while within-phase tools are for querying information, such as item
+info, game history, available crafts, etc. Using a tool leads to a new observation about change of game
+state or the response to a query.
+2.3 I NITIAL GAME STATES
+A game state is the hand items and targets of all players at some time. Since all target items must be
+craftable from the union of all players’ hand items, initial states (referred to as initials) that are not
+carefully designed tend to be invalid or trivial. For the Minecraft ruleset, we provide 40 predefined
+initial setups for the 1-vs-1 game mode, covering a range of difficulty levels (Figure 2(b)). The initials
+can be easily maintained by editing JSON files, and new game modes can be introduced by adding
+corresponding directories and adjusting configuration settings (see Section B). The difficulty of an
+initial setup is assessed along two dimensions: the length of the crafting chain and the minimum
+number of trading steps required. In designing these setups, we follow the principle that the union
+of all players’ initial items must suffice to craft each player’s target individually; however, it is
+not guaranteed that all targets can be crafted simultaneously (For instance, the total pool may
+contain only 3 stones, while two players each require 2 stones). To promote strategic competition
+and planning, initial hand items are not of exact amount to craft all goals. Redundant items helps
+introduce alternative crafting routes or provides distracts or deceiving targets. This design enhances
+the complexity of the game and allows for better evaluation of the model’s intelligence.
+3 M ETHODS
+3.1 C ONSTRUCTION OF TradeCraft AGENT
+Our agent is built on thegymnasium API and operates by selecting actions based on the observations
+made during each loop cycle. The agent follows a multi-role architecture, with each role adhering
+to the ReAct framework, maintaining an individual context, and performing specific tasks. To align
+with the game’s different phases, we have designed distinct roles: theRouter, which activates other
+roles, and the active roles of Proposer, Decision Maker, and Crafter, each corresponding to specific
+phases of the game. Additionally, a Planner is responsible for generating actionable plans that guide
+the Crafter’s actions, as illustrated in Figure 3(a). Furthermore, a “game history” is maintained as a
+list of logs, which informs the decision-making process of each role. This history is refined at each
+turn to prevent exceeding the context window.
+The ReAct workflow within each role generates rich, intermediate thoughts, which are effectively
+utilized by tools either during the working steps or as the final output. We group these logs for further
+evaluation and analysis.
+4
+
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+Under review as a conference paper at ICLR 2026
+Table 1: Three groups of evaluation metrics derived from TradeCraft gameplay logs. Group 1 consists of
+outcome-oriented heuristic indicators directly measurable from logs; group 2 captures higher-level social and
+strategic qualities, scored by LLM; group 3 specifies to detect signals of ToM in various orders, scored by LLM.
+Group Metrics and Description
+Heuristic,
+outcome-oriented
+signals
+Win–Loss Record: success in achieving the designated target item.
+Invalid Behavior per Turn: frequency of protocol-violating actions (e.g., infeasible
+trades, empty proposals).
+Average Game Turns: mean number of turns to complete a game (lower indicates
+higher efficiency).
+Proposal Rejection Rate: proportion of trade proposals rejected by the opponent.
+Model-based
+social and strategic
+qualities
+Goal Alignment: consistency of actions and proposals with the designated target.
+Cooperation: pursuit of mutual benefit (e.g., equitable trades, shared progress).
+Adaptability: flexibility in response to dynamic states and opponent behavior.
+Intention Concealment: deliberate obfuscation of goals via selective disclosure or
+misdirection.
+Strategic Planning: evidence of long-horizon reasoning, resource management, and
+contingency planning.
+Self-Interested Behavior: prioritization of individual payoff relative to collective
+benefit.
+Information Utilization: effectiveness in leveraging signals such as opponent ac-
+tions and resource states.
+Persuasion: ability to influence opponents through communication or structured
+proposals.
+Model-based
+ToM
+of various
+orders
+1st order: Reasoning about the opponent’s current beliefs or goals. E.g., “I think
+they want X. ”
+2nd order: Reasoning about what the opponent believes about oneself.E.g., “I think
+she thinks that I want more resources. ”
+3rd or higher: Deeper recursive belief reasoning across three or more levels. E.g.,
+“I guess she thinks that I know she will reject the proposal. ”
+3.2 E VALUATIONS
+The gameplay logs generated by agents in TradeCraft comprise both behaviors (i.e., observable
+actions) and thoughts (i.e., internal reasoning traces such as chain-of-thought logs). To systematically
+analyze these materials, we consider two complementary groups of indicators, heuristic and model-
+based, each reflecting different aspects of strategy and outcome.
+As summarized in Table 1, the first two groups of metrics are complementary while the third is
+extracted from the second as a special part. The heuristic outcome-oriented signals provide direct,
+quantitative evidence of task performance in terms of success, efficiency, and rule adherence. In
+contrast, the model-based social and strategic qualities capture more nuanced aspects of behavior,
+such as cooperation, persuasion, and long-term planning, which are not directly measurable from
+raw outcomes but are critical for understanding strategic competence in social interaction settings.
+As ToM is multi-dimensionally structured and plays an important role in capturing recursive belief
+reasoning central to negotiation, they are taken out from group 2 and form a single group.
+In sum, these metrics allow us to evaluate LLMs in a holistic manner—linking basic performance out-
+comes, social-cognitive reasoning, and role-driven behavioral traits—thus offering a comprehensive
+basis for subsequent analysis.
+4 E XPERIMENTS
+We evaluate our agents in TradeCraft using the defined metrics, focusing on a controlled two-player
+setting though our system allows more. This choice reduces design complexity and highlights ToM
+5
+
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+Under review as a conference paper at ICLR 2026
+signals, which become more probable to be trivial in larger groups where higher-order ToM on two
+agents induces self-reflection and thus more variable social behaviors (Wang et al., 2024).
+As described in Section 2.3, our benchmark includes five initial game states of varying difficulty. For
+each state, we perform cross-play between agents driven by pairs of LLMs instantiated with different
+social preferences: cooperative, competitive, and unprimed. Gameplay data, including both behaviors
+and reasoning traces, are exported from MongoDB in JSON format.
+For evaluation, we employ Gemini-1.5-Pro as the assessor. As shown in Figure 3(b), records are
+reconstructed into per-turn utterances, actions, proposals, and server responses. The assessor assigns
+per-turn scores inr0, 1s for metrics in groups 2, and identifies ToM levels using dedicated prompts.
+Player-level scores are obtained by averaging across turns and across repeated games or seeds. We
+report both per-case results and macro-averages, further stratified by persona and role to analyze how
+style conditions influence strategy, social behavior, ToM, and ultimately win/loss outcomes.
+4.1 M ODEL -L EVEL BEHAVIORAL COMPARISON
+We conducted pairwise matchups between agnets driven by GPT-4o, Claude-3.7-Sonnet, and Gemini-
+1.5-Pro to systematically analyze the performance variance among the models. As an agent’s behavior
+is not independent of its opponent’s behavioral pattern, Figures 4(a)-(c) present radar plots based on
+specific pairwise interactions, rather than aggregating scores across all games for a single agent.
+From the overall results (Figure 2(a)), we observe that the Claude-3.7-Sonnet–based agent demon-
+strates a clear advantage over GPT-4o and Gemini-1.5-Pro across multiple model-based evaluation
+dimensions. Claude also shows relatively uniform scores across metrics, suggesting a stable and bal-
+anced decision pattern. In contrast, GPT-4o reveals a distinct bias—scoring lower in Cooperation but
+higher in Intention Concealment—indicating a strategy that prioritizes goal preservation and strategic
+ambiguity over collaboration. Gemini-1.5-Pro, by comparison, performs weakest in Persuasion and
+Intention Concealment, making it the most transparent and least deceptive of the three.
+Pairwise contexts reveal additional dynamics. Gemini tends to behave more cooperatively against
+GPT-4o, yet its Cooperation score drops notably when facing Claude. Conversely, GPT-4o conceals
+intentions strongly when paired with Gemini, but this tendency diminishes against Claude. These
+findings suggest that model behavior is highly context-dependent, shaped not only by internal policies
+but also by the opponent’s behavioral profile or social orientation.
+Heuristic metrics complement these observations. GPT-4o records the highest rate of invalid actions
+and rejects nearly 90% of trade proposals, reinforcing its uncooperative tendencies. Gemini frequently
+accepts proposals, aligning with its cooperative orientation. Meanwhile, the Average Game Turn
+metric highlights strategic differences: GPT-4o tends to finish games quickly, reflecting aggressive
+goal pursuit, whereas Claude’s longer interactions suggest a more cautious, deliberative style. To-
+gether, these divergences underscore the value of studying LLMs’ social orientations in interactive
+environments.
+Figure 5(a) summarizes outcomes across all pairwise matchups. GPT-4o and Claude-3.7-Sonnet show
+strategic parity (4:4 win-lose), while GPT-4o dominates Gemini-1.5-Pro (7:3) with no mutual wins or
+losses, suggesting strong exploitation of weaker strategies. Claude also outperforms Gemini (4:2),
+but the presence of four mutual-loss games points to potential instability or risk-prone decisions.
+Gemini-1.5-Pro, by contrast, fails to secure dominance in any pairing.
+Those analysis above suggests that GPT-4o might prefer a more competitive and aggressive strategy in
+TradeCraft, whereas Gemini-1.5-Pro tends to exhibit more cooperative behavior. Although Claude-3.7
+demonstrates the most well-rounded behavioral profile according to our model-based evaluation,
+its inability to consistently secure wins against less adversarial opponents highlights a potential
+limitation in effectively capitalizing on cooperative dynamics.
+4.2 T OM IN TRADE CRAFT
+And regarding Theory of Mind, we also evaluated the pairwise interaction logs across different
+foundation models. Our updated results show that none of the three models exhibits any ToM behavior
+beyond the first order:
+6
+
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+Under review as a conference paper at ICLR 2026
+(a) GPT-4o vs. Claude
+(b) Gemini vs. GPT-4o
+(c) Gemini vs. Claude
+(d) competitive vs. competitive
+(e) cooperative vs. cooperative
+(f) unprimed vs unprimed
+(g) competitive vs. cooperative
+(h) unprimed vs. cooperative
+(i) competitive vs. unprimed
+(j) Different Models
+(k) Different Social Preference
+Figure 4: Evaluation results across all agent settings. (a-c) : Pairwise comparisons between different foundation
+models (GPT-4o, Claude-3.7-Sonnet, and Gemini-1.5-Pro). (d-f) : Matchups between agents with the same
+social preference (competitive, cooperative, and unprimed), revealing internally consistent behavioral patterns.
+(g-i): Interactions between agents with differing social preferences, highlighting behavioral asymmetries such as
+intention concealment and cooperation. (j-k): Heuristic evaluation metrics aggregated by model type and social
+preference, respectively.
+Overall, all three models demonstrate relatively strong first-order ToM ability—being able to infer
+or speculate about the opponent’s immediate goals and intentions. However, we findno evidence of
+second-order or higher-order ToM reasoning, i.e., recursive mental-state attribution such as “I
+think she thinks that I want more resources.”
+These observations suggest that in TradeCraft-style game-based tasks, LLMs may not spontaneously
+display Theory-of-Mind behaviors without specific prompts to elicit them, even though such reason-
+ing is central to human-like negotiation, deception detection, and perspective-taking. Importantly,
+TradeCraft provides a systematic setting to explore this gap.
+7
+
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+Under review as a conference paper at ICLR 2026
+0
+1
+2
+3
+4
+5
+6
+7
+7
+3
+4 4
+2
+1
+4
+1
+4
+GPT vs Gemini GPT vs Claude Gemini vs Claude
+P1 wins
+P2 wins
+both win
+both lose
+(a) model comparisons
+0
+1
+2
+3
+4
+5
+5 5
+4
+2 2 2
+5
+4
+1
+4
+3 3
+1
+5
+3
+1
+4 4
+2
+Cooperative vs Cooperative
+Cooperative vs Competitive
+Competitive vs Competitive
+Cooperative vs Unprimed
+Competitive vs Unprimed
+Unprimed vs Unprimed
+P1 wins
+P2 wins
+both win
+both lose (b) social preference comparisons
+Figure 5: Outcome head-to-head comparisons. (a) results of model comparisons; (b) results of social preference
+comparisons. Bar of same color with name represents winning counts, green for both win and red for both lose.
+Model 1st-Order ToM 2nd-Order ToM 3rd-or-Higher ToM
+Claude-3.7-Sonnet 0.867 0.0 0.0
+GPT-4o 0.736 0.0 0.0
+Gemini-1.5-Pro 0.840 0.0 0.0
+Table 2: Observed Theory-of-Mind levels across three LLMs inTradeCraft.
+We will release our detailed ToM evaluation methodology together with the raw logs in our repository
+upon approval, and update the corresponding sections in the revised manuscript.
+4.3 I MPACT OF SOCIAL PREFERENCES ON GAME OUTCOME
+Having established how different models behave under a shared task, we next examine how inten-
+tional prompt design—specifically manipulating an agent’s social preference—shapes behavior and
+outcomes. To this end, we modify the agent prompts to induce distinct social orientations. Alongside
+the baseline Gemini-Unprimed, which follows only the gameplay objective of crafting its assigned
+target item, we define two variants: Gemini-Cooperative, which emphasizes collaboration and
+mutual benefit, and Gemini-Competitive, which promotes adversarial behavior and goal obstruction.
+Table 3 summarizes the detailed prompts for each agent type.
+Table 3: Agent assigned with different social preference (Driven only by Gemini)
+Agent Name Specified Social Preferences
+Unprimed You do not need to consider the other team’s goal—treat them as neutral trading partners.
+Cooperative Support your opponent’s progress through information-sharing and fair trade.
+Competitive Attempt to disrupt or delay your opponent’s progress toward their target.
+Figure 4(d–i, k) reports the evaluation results for agents under different social orientations. Agents
+sharing the same orientation exhibit relatively consistent behavioral patterns when paired against each
+other (Figure 4(d–f)). By contrast, subplots (g–i), which show cross-orientation matchups, reveal
+clear asymmetries: Competitive agents tend to conceal intentions more deliberately and display
+stronger Self-Interested Behavior, whereas Cooperative agents consistently achieve higher scores in
+Cooperation.
+Interestingly, the Cooperative orientation enhances more than just collaboration. Compared to other
+types, Cooperative agents also achieve higher scores in Goal Alignment, Strategic Planning, Adapt-
+ability, and Information Utilization. Heuristic metrics reinforce this pattern: Cooperative agents
+commit fewer invalid actions and accept nearly all incoming trade proposals. We hypothesize that
+this stems from an underlying “helper-agent” bias in LLMs, which are often trained to assist and
+align with user intent by default.
+Figure 5(b) further summarizes head-to-head outcomes across the three orientations. Diagonal entries
+(i.e., matches with the same social orientation) show near-even win rates, reflecting the fairness and
+stability of our evaluation setup. Across cross-orientation matchups, Cooperative agents achieve
+8
+
+432
+433
+434
+435
+436
+437
+438
+439
+440
+441
+442
+443
+444
+445
+446
+447
+448
+449
+450
+451
+452
+453
+454
+455
+456
+457
+458
+459
+460
+461
+462
+463
+464
+465
+466
+467
+468
+469
+470
+471
+472
+473
+474
+475
+476
+477
+478
+479
+480
+481
+482
+483
+484
+485
+Under review as a conference paper at ICLR 2026
+the highest overall win rates . In particular, both Cooperative and Unprimed agents outperform
+Competitive ones (with win ratios of 5:1 and 4:2, respectively).
+These findings not only demonstrate the multifaceted influence of different social orientations on
+LLM behavior, but also highlight TradeCraft as a benchmark environment capable of systematically
+revealing such orientation-driven dynamics.
+4.4 C ORRELATING EVALUATION DIMENSIONS WITH TASK SUCCESS
+Building on the finding that social orientations shape agent behavior and outcomes, we next examine
+which specific behavioral dimensions are most predictive of successful task completion.
+More concretely, we ask: Which of the eight model-based evaluation dimensions best predict whether
+an agent ultimately succeeds in crafting its target item? We aggregated all 60 game records from
+the previous experiments, identified winners and losers in each game, and compared their average
+model-based evaluation scores. The results are shown in Figure 6.
+(a) Winners
+(b) Losers
+(c) Delta
+Figure 6: The model-based evaluation results for (a) all winners (b) all losers and (c) the delta.
+From the Delta values (∆“ |Winner’s Score´Loser’s Score|
+Loser’s Score ) in Figure 6(c), we find little difference between
+winners and losers in behavioral dimensions such as Cooperation and Intention Concealment. By
+contrast, winners score notably higher in strategy-oriented dimensions, including Goal Alignment,
+Strategic Planning, and Information Utilization.
+This suggests that in TradeCraft, social orientation influences outcomes only indirectly, whereas task-
+focused abilities—planning and execution toward assigned goals—are the more direct determinants
+of success. Still, cooperative prompting may enhance adaptability and planning, indirectly boosting
+win rates.
+Importantly, these results highlight TradeCraft as a benchmark that not only reveals outcome differ-
+ences, but also disentangles the strategic and social factors underlying LLM performance.
+5 C ONCLUSION
+TradeCraft provides a rigorous benchmark with structured tasks and dynamic interactions for evalu-
+ating social intelligence through strategic reasoning, planning, and Theory of Mind. For a detailed
+discussion of related work, see Appendix A. Evaluations of large language models highlight current
+limitations and guide future progress toward socially intelligent agents.

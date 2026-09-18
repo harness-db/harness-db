@@ -1,0 +1,654 @@
+record_id: leaderboard:osworld:agentic-lybic-maestro
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2509.11067
+fetched_title: LIANGXUAN GUO,Lybic, China BIN ZHU,Lybic, China QINGQIAN TAO,Lybic, China KANGNING LIU,Lybic, China XUN ZHAO,Lybic, China XIANZHE QIN,Lybic, China JIN GAO,Lybic, China GUANGFU HAO,Lybic, China
+fetched_at: 2026-09-18T19:08:11Z
+
+Agentic Lybic: Multi-Agent Execution System with Tiered Reasoning and
+Orchestration
+LIANGXUAN GUO∗,Lybic, China
+BIN ZHU∗,Lybic, China
+QINGQIAN TAO∗,Lybic, China
+KANGNING LIU∗,Lybic, China
+XUN ZHAO∗,Lybic, China
+XIANZHE QIN∗,Lybic, China
+JIN GAO∗∗,Lybic, China
+GUANGFU HAO∗∗,Lybic, China
+Technician
+Worker Evaluator
+Manager
+Operator
+Analyst
+User Query
+I need to ......
+Can you help me to ...
+task
+planning
+objective alignment
+Global State
+subtasks
+Current Subtask
+Periodic check
+Worker stale
+Worker success
+Final check
+Task Info
+Subtask Info
+Action Info
+QualityCheck Info
+Screenshot
+Artifacts
+Supplement
+Executor Send action to
+Operating System
+Directed Acyclic Graph
+(DAG) generate
+Fig. 1. Overview of the Agentic Lybic multi-agent system architecture.
+Autonomous agents for desktop automation struggle with complex multi-step tasks due to poor coordination and inadequate quality
+control. We introduceAgentic Lybic, a novel multi-agent system where the entire architecture operates as a finite-state machine (FSM).
+∗These authors contributed equally to this work. **Corresponding author(s): Guangfu Hao (haoguangfu@deepmatrix.com.cn), Jin Gao (gao-
+jin@deepmatrix.com.cn)
+Authors’ Contact Information: Liangxuan Guo, guoliangxuan@deepmatrix.com.cn, Lybic, Beijing, China; Bin Zhu, zhubin@tingyutech.com, Lybic,
+Beijing, China; Qingqian Tao, taoqingqian@tingyutech.com, Lybic, Beijing, China; Kangning Liu, liukangning@deepmatrix.com.cn, Lybic, Beijing,
+China; Xun Zhao, zhaoxun@deepmatrix.com.cn, Lybic, Beijing, China; Xianzhe Qin, qinxianzhe@deepmatrix.com.cn, Lybic, Beijing, China; Jin Gao,
+gaojin@deepmatrix.com.cn, Lybic, Beijing, China; Guangfu Hao, haoguangfu@deepmatrix.com.cn, Lybic, Beijing, China.
+This work is licensed under a Creative Commons Attribution 4.0 International License.
+Manuscript submitted to ACM 1
+arXiv:2509.11067v2 [cs.AI] 16 Sep 2025
+
+2 Guo et al.
+This core innovation enables dynamic orchestration. Our system comprises four components: a Controller, a Manager, three Workers
+(Technician for code-based operations, Operator for GUI interactions, and Analyst for decision support), and an Evaluator. The critical
+mechanism is the FSM-based routing between these components, which provides flexibility and generalization by dynamically selecting
+the optimal execution strategy for each subtask. This principled orchestration, combined with robust quality gating, enables adaptive
+replanning and error recovery. Evaluated officially on the OSWorld benchmark,Agentic Lybicachieves a state-of-the-art 57.07%
+success rate in 50 steps, substantially outperforming existing methods. Results demonstrate that principled multi-agent orchestration
+with continuous quality control provides superior reliability for generalized desktop automation in complex computing environments.
+CCS Concepts:•Computing methodologies → Multi-agent systems;Multi-agent planning;•Software and its engineering
+→Layered systems;•Human-centered computing→Graphical user interfaces.
+Additional Key Words and Phrases: Multi-agent systems, Desktop GUI automation, Task orchestration, Autonomous agents coordination
+ACM Reference Format:
+Liangxuan Guo, Bin Zhu, Qingqian Tao, Kangning Liu, Xun Zhao, Xianzhe Qin, Jin Gao, and Guangfu Hao. 2026. Agentic Lybic: Multi-
+Agent Execution System with Tiered Reasoning and Orchestration. InCHI Conference on Human Factors in Computing Systems (CHI
+’26), April 13–17, 2026, Creant el demà junts, Barcelona.ACM, New York, NY, USA, 21 pages. https://doi.org/10.1145/nnnnnnn.nnnnnnn
+1 Introduction
+The automation of complex desktop tasks through autonomous agents represents one of the most challenging frontiers
+in artificial intelligence, requiring systems that can navigate intricate multi-step workflows while maintaining reliability
+and efficiency[19, 42]. Recent advances in computer-using agents have demonstrated promising capabilities in executing
+tasks through Graphical User Interfaces (GUIs), with vision-language models enabling increasingly sophisticated
+interactions with visual elements[7, 20–23]. Current approaches to desktop automation typically fall into two categories:
+GUI-centric agents that rely exclusively on visual interaction[2, 37], and hybrid systems that combine GUI manipulation
+with programmatic execution. While GUI-only agents offer intuitive human-like interaction patterns, they suffer from
+brittleness in complex scenarios due to visual grounding ambiguity and accumulated error propagation over long
+sequences. Recent hybrid approaches, such as CoAct-1[25], have addressed some of these limitations by introducing
+specialized programming agents alongside GUI operators, achieving notable improvements in both efficiency and
+success rates. However, these systems’ core limitation lies in their handling of long-horizon tasks. They often employ a
+simplistic "delegate-and-forget" approach, which lacks the continuous oversight and adaptive re-planning needed for
+robust error recovery. Consequently, they fail to implement the sophisticated routing mechanisms and comprehensive
+quality control essential for coordinating multiple functional modules over extended workflows.
+The core challenge lies not merely in expanding the action space of computer-using agents, but in orchestrating
+multiple specialized components through principled coordination mechanisms that can dynamically adapt to changing
+task requirements and handle execution failures gracefully[27]. Existing systems often treat task decomposition and
+execution as separate phases, lacking the continuous feedback loops necessary for robust long-horizon performance[10].
+Furthermore, current quality assessment approaches are typically binary and reactive, missing opportunities for
+proactive intervention[26] and incremental course correction.
+To address these issues above, we draw inspiration from finite-state machines (FSMs), which provide a structured
+and predictable framework for managing complex, state-dependent workflows. In this work, we introduceAgentic
+©2025 Copyright held by the owner/author(s).
+Manuscript submitted to ACM
+Manuscript submitted to ACM
+
+Agentic Lybic : Multi-Agent Execution System with Tiered Reasoning and Orchestration 3
+Lybic, a novel FSM-based multi-agent execution system, which could addresse these fundamental limitations through a
+tiered reasoning architecture and sophisticated orchestration framework. Our system advances beyond simple hybrid
+execution by implementing a comprehensive four-tier architecture: aControllerthat manages global state and decision
+triggers, aManagerfor intelligent task decomposition and adaptive re-planning, aWorkersubsystem with three
+specialized roles (Technician for system operations, Operator for GUI interactions, and Analyst for decision support),
+and anEvaluatorthat provides continuous quality assessment and intervention triggers.
+The key innovation of our approach lies in the dynamic orchestration mechanism (i.e., routing) that seamlessly
+coordinates between different functional modules based on ongoing task assessment, coupled with a comprehensive
+quality gate system that enables persistent monitoring, adaptive re-planning, and robust error recovery. Unlike existing
+systems that perform static task delegation, Agentic Lybic implements a feedback-driven execution model where
+performance is continuously monitored through multiple trigger mechanisms (periodic checks, stagnation detection,
+and success verification), enabling the system to adaptively adjust its strategy mid-execution.
+Our tiered reasoning approach introduces several novel contributions: (1) a state-aware orchestration framework
+that dynamically selects optimal execution strategies based on task characteristics and current system state, (2) a
+comprehensive quality gate system with multiple intervention triggers that enable proactive error handling and
+adaptive re-planning, (3) a specialized worker architecture that provides fine-grained control over different execution
+modalities while maintaining seamless coordination, and (4) an incremental clarification policy that systematically
+addresses visual ambiguity in GUI-dense environments.
+We evaluate Agentic Lybic on the challenging OSWorld benchmark, where our system achieves a new state-of-the-art
+success rate of 57.07% in 50 steps, representing a substantial improvement over existing methods including the recent
+CoAct-1 [25] (56.4%) and agent s2.5 [2] (54.2%). Beyond raw performance gains, our system demonstrates superior
+reliability in long-horizon scenarios and maintains efficiency through proactive quality control. Our results demonstrate
+that principled multi-agent orchestration with continuous quality assessment provides a more robust and scalable
+foundation for generalized desktop automation, opening new possibilities for autonomous task execution in complex
+computing environments. The tiered reasoning approach not only improves success rates but also provides a systematic
+framework for handling the inherent complexity and uncertainty of real-world desktop automation tasks.
+2 Related Work
+2.1 Screen Understanding and Visual Grounding
+A foundational challenge in GUI automation lies in accurately perceiving and grounding interface elements from raw
+pixel input. Early approaches focused on developing sophisticated screen parsing capabilities that could identify and
+locate interactive elements without relying on structured representations like DOM trees or accessibility hooks[12].
+OmniParser [17, 40] pioneered this direction by learning screen-parsing primitives for pure vision-based understanding,
+enhancing the ability of large models to generate accurate actions in interface regions through interactive icon detection
+and semantic element extraction.
+The grounding problem—mapping natural language instructions to actionable screen locations—has been addressed
+through several specialized systems. SeeClick introduced instruction-to-target grounding capabilities [6], while Aria-
+UI [38] and UGround [8] extended this to universal GUI grounding across diverse interfaces. OS-Atlas [32] represents a
+major advance in this area, training a foundation action model that generalizes across multiple platforms (Windows,
+Linux, MacOS, Android, and web) using a massive corpus of over 13 million GUI elements. The system demonstrates
+Manuscript submitted to ACM
+
+4 Guo et al.
+how large-scale, cross-platform training data can substantially improve GUI grounding performance, particularly
+in out-of-distribution scenarios. ScreenSpot-Pro [ 14] provides dedicated grounding evaluation benchmarks under
+professional, high-resolution settings, addressing the growing need for robust performance assessment in complex
+visual environments.
+2.2 End-to-End GUI Agents
+The end-to-end paradigm represents a paradigmatic shift toward unified models that integrate perception, reasoning,
+and action generation within a single model. These approaches aim to eliminate the need for separate planning and
+grounding components by training models that can directly predict executable actions from visual input and high-level
+instructions.
+CogAgent [9] exemplifies this approach as an 18B parameter visual language model specifically designed for GUI
+understanding and navigation. By utilizing both low-resolution and high-resolution image encoders, CogAgent supports
+input at 1120×1120 resolution, enabling recognition of tiny page elements and text. The model achieves state-of-the-art
+performance on multiple text-rich and general VQA benchmarks while outperforming LLM-based methods on both
+PC and Android GUI navigation tasks using only screenshots as input. More recently, GUI-Owl [39] has pushed the
+boundaries of end-to-end GUI agents through three key innovations: large-scale environment infrastructure enabling
+self-evolving trajectory production, diverse foundational agent capabilities integrating UI grounding with planning and
+reasoning, and scalable environment reinforcement learning for real-world alignment. GUI-Owl-7B achieves impressive
+performance scores of 66.4 on AndroidWorld and 29.4 on OSWorld, demonstrating the potential of purpose-built
+foundational models for GUI automation.
+UI-TARS [23] represents a native end-to-end GUI agent model that processes raw screenshots and generates human-
+like interactions through unified perception, reasoning, action, and memory capabilities. The system integrates enhanced
+visual understanding through large-scale GUI datasets, unified action modeling across platforms, System-2 reasoning
+with explicit thought generation, and iterative refinement via online trace collection. UI-TARS-2 [29] further advances
+this approach through multi-turn reinforcement learning and hybrid GUI environments that combine screen actions
+with file system access. AGUVIS [ 36] and InfiGUIAgent [15] enhance GUI agent autonomy through unified visual
+frameworks, with InfiGUIAgent introducing a two-stage training pipeline that advances GUI task automation using inner
+monologue techniques. GUI-R1 [18] demonstrates how rule-based reinforcement fine-tuning can enhance high-level
+GUI action prediction while achieving competitive performance with considerably less training data. InfiGUI-R1 [16]
+shifts agents from reactive acting to deliberative reasoning through reasoning spatial distillation and reinforcement
+learning approaches.
+Recent work has also focused on addressing temporal dynamics and action prediction capabilities. ScaleTrack [11]
+predicts future actions from current GUI images and backtracks historical actions, thereby explaining the evolving
+correspondence between GUI elements and actions. UITron-Speech [41] extends beyond text-based instructions by
+introducing the first end-to-end GUI agent capable of processing speech instructions directly, utilizing mixed-modality
+training strategies and two-step grounding refinement to handle the inherent challenges of speech-driven interface
+interaction.
+2.3 Multi-Agent Frameworks
+While end-to-end models show promise for unified GUI interaction, agentic frameworks focus on orchestrating multiple
+specialized components to leverage complementary strengths and achieve more robust performance on complex
+Manuscript submitted to ACM
+
+Agentic Lybic : Multi-Agent Execution System with Tiered Reasoning and Orchestration 5
+tasks. These systems typically separate high-level planning from low-level execution while introducing sophisticated
+coordination mechanisms. The modular planner-grounder paradigm explicitly separates "what to do" from "where and
+how to act on screen. " Representative systems like SeeClick [6] and OS-Atlas [33] demonstrate how language planners
+can propose subgoals while visual models handle grounding. GTA-1 [37] strengthens this approach through test-time
+scaling, sampling multiple candidate actions and using multimodal large language model (MLLM) judges for selection,
+improving robustness on high-resolution, cluttered interfaces.
+CoAct-1 [25] represents the most recent advance in hybrid agentic frameworks, introducing a paradigm where agents
+can use coding as an enhanced action modality. The system features an Orchestrator that dynamically delegates subtasks
+between a GUI Operator and a specialized Programmer agent capable of writing and executing Python or Bash scripts.
+This hybrid approach demonstrates substantial performance improvements by leveraging the complementary strengths
+of GUI manipulation and programmatic execution, achieving state-of-the-art results on the OSWorld benchmark.
+Beyond GUI-specific systems, several frameworks provide general infrastructure for multi-agent orchestration and
+tool composition. Agent-S/Agent-S2 [1, 3] and AutoGen [31] offer reusable infrastructures for multi-agent coordination
+and tool calling. UFO-2 [43], PyVision [44], and ALITA [24] extend this principle to dynamic tool construction and
+invocation, though they are not specifically designed for GUI automation.
+While these agentic frameworks have made significant progress in combining different execution modalities, they
+often lack sophisticated quality control mechanisms and continuous oversight capabilities. Most systems treat task
+decomposition and execution as largely separate phases, missing opportunities for adaptive re-planning and proactive
+error correction that are essential for robust long-horizon performance. Our work addresses these limitations through a
+self-consistent FSM-based tiered reasoning architecture with continuous quality assessment and dynamic orchestration
+capabilities.
+3 Agentic Lybic: FSM-based Multi-Agent Architecture
+In this section, we present the detailed design ofAgentic Lybic. Our system transcends traditional approaches by
+implementing a four-tier architecture with continuous quality control and adaptive re-planning mechanisms, which is
+the core of state transition of the FSM.
+3.1 System Architecture Overview
+Agentic Lybicis built upon a hierarchical four-component architecture designed to maximize coordination efficiency
+while maintaining robust execution control (Figure 2). The system comprises: (1) aControllerthat manages global state
+transitions and decision triggers, (2) aManagerresponsible for intelligent task decomposition and adaptive re-planning,
+(3) aWorkersubsystem with three specialized execution roles, and (4) anEvaluatorthat provides continuous quality
+assessment and intervention mechanisms.
+The key innovation lies in our state-driven orchestration framework (i.e., state transition), where each component
+operates within a well-defined state space that enables seamless coordination and robust error handling. Unlike existing
+systems that rely on simple delegation patterns, our architecture implements a continuous feedback loop with multiple
+quality gates that enable proactive intervention and adaptive strategy adjustment.
+Manuscript submitted to ACM
+
+6 Guo et al.
+Task State
+Gate Check
+Y
+N
+N
+Y
+fulfilled or rejected
+subtasks?
+Final
+check
+User Query Finished
+ExecutorRule Engine
+Central Controller
+Current Situation
+REPLAN Rp
+Fs
+objective alignment
+task planning
+DAG generation
+supplement query
+Manager
+Operator AnalystTechnician
+Evaluator
+Web
+RAG
+SUPPLEMENT Sp GET ACTION Ga
+DONESTALECANNOT_EXECUTE SUPPLEMENT GENERATE_ACTION
+Ga
+GaGaGa
+Ga
+QUALITY CHECK Qc
+Qc
+FINA CHECK Fc
+Fc
+EXECUTE ACTION Ea
+Ea EaRp Rp RpSp Sp
+gate_done
+gate_done
+gate_fail
+gate_fail
+gate_supplement
+gate_continue
+## analysis_result - art-6ff7
+- **Created**: 2025-08-29T18:37:20.945028
+- **Type**: analysis_result
+- **Analysis**: Based on the memorized
+grade-scale cut-offs (0‒29 = Fail, 30‒59 = Pass,
+60‒79 = Average, ...
+#!/bin/bash
+echo "Hello World" > my.txt
+import requests
+url = "https://example.com"
+response = requests.get(url)
+Click
+DoubleClick
+Move
+Scroll
+Drag
+TypeText
+Hotkey
+Wait
+Open
+SwitchApplications
+SetCellValues
+Memorize
+Fs
+Supplement
+Documents
+Artifacts Artifacts
+Artifacts
+S1 S2 S3 S4 ... ... Sn
+assignee role
+Worker assignee role
+Decision
+agent.click(x,y)...
+run_commands
+StSt+1
+add_artifact
+Decision
+Decision
+quality_check_interval = 3
+repeated_action_consecutive = 3
+replan_threshold = 15
+max_steps = 50
+Fig. 2. State transition diagram ofAgentic Lybicshowing the tiered orchestration workflow. The Central Controller manages six
+core situations (REPLAN, SUPPLEMENT, GET ACTION, QUALITY CHECK, FINAL CHECK, EXECUTE ACTION) with dynamic
+transitions based on execution outcomes. The Manager handles task decomposition and re-planning, the Worker subsystem provides
+specialized execution through three roles (Operator for GUI, Technician for system operations, Analyst for decision support), and the
+Evaluator implements comprehensive quality gates with multiple trigger mechanisms (periodic checks, stagnation detection, success
+verification).
+3.2 Central Controller: State Management and Decision Orchestration
+The Controller serves as the central nervous system of our architecture, managing global state transitions and orches-
+trating component interactions through a sophisticated state machine. We define six primary controller situations that
+capture the essential phases of task execution:
+•REPLAN (𝑅 𝑝 ): Triggered when task initial decomposition or strategy adjustment is required
+• SUPPLEMENT (𝑆𝑝 ): Activated when additional contextual information from Web or external knowledge base is
+needed
+•GET_ACTION (𝐺 𝑎): Gets specific action generation by Worker components
+•QUALITY_CHECK (𝑄 𝑐 ): Evaluates execution effectiveness and determines continuation strategy
+•FINAL_CHECK (𝐹 𝑐 ): Performs comprehensive task completion verification
+•EXECUTE_ACTION (𝐸 𝑎): Coordinates actual operation execution through the hardware interface
+The Controller maintains a comprehensive state space that encompasses task-level status ( created, pending,
+on_hold, fulfilled, rejected ), subtask-level progress (ready, pending, stale, fulfilled, rejected ), and
+execution-level outcomes (executed, timeout, blocked, error ). This multi-granular state representation enables
+fine-grained control over the execution process while providing robust error handling capabilities.
+Formally, we define the global state as a tuple 𝑆=(𝑆 𝑇,𝑆𝑆𝑇,𝑆𝐸,𝐶) , where𝑆𝑇 represents task status, 𝑆𝑆𝑇 denotes
+subtask status, 𝑆𝐸 captures execution status, and 𝐶 indicates the current controller situation. The state transition
+function is defined as:
+𝑆𝑡+1 =𝛿(𝑆 𝑡,𝐴𝑡,𝑂𝑡)(1)
+Manuscript submitted to ACM
+
+Agentic Lybic : Multi-Agent Execution System with Tiered Reasoning and Orchestration 7
+where𝐴𝑡 represents the action taken at time𝑡,𝑂𝑡 is the observation received, and𝛿 is the state transition function
+(i.e., the wholeAgentic Lybicsystem) that determines the next state based on current context and execution outcomes.
+The Controller employs a trigger code system (i.e., a state transition look-up-table) organized into ten primary
+categories that enable precise coordination between components and robust error handling (see Table A.1 for complete
+reference). This trigger-driven architecture encompasses: Rule Validation triggers for automated quality control (periodic
+checks, stagnation detection, execution limits), Task Status Rules for system-wide oversight and resource management
+(completion detection, runtime limits, state switch boundaries), Worker Coordination triggers for managing the interface
+between planning and execution across all three Worker roles, and Error Recovery mechanisms for graceful degradation
+under unexpected conditions. The comprehensive trigger system ensures that Agentic Lybic maintains precise control
+over execution flow while providing the flexibility necessary for handling diverse desktop automation scenarios, with
+each trigger category contributing to different aspects of system reliability and coordination effectiveness.
+3.3 Manager: Task Decomposition and Adaptive Re-planning
+The Manager component implements advanced planning capabilities that go beyond simple task decomposition. Followed
+by Agent-S/Agent-S2 [1, 3], it employs a directed acyclic graph (DAG) representation for subtask dependencies, enabling
+sophisticated scheduling and parallel execution opportunities. The Manager’s core responsibilities include:
+Objective Alignment: The Manager begins by analyzing the user’s high-level intent and aligning it with the current
+visual context captured through screenshots. This alignment process disambiguates user queries by grounding abstract
+intentions in the concrete desktop environment, identifying available applications, current system state, and potential
+execution pathways.
+Initial Planning Generation: Following objective alignment, the Manager generates a comprehensive initial plan
+containing all necessary subtasks to achieve the user’s goal. This initial planning phase creates subtask specifications
+without dependency constraints, focusing on completeness and task coverage.
+DAG Construction: The Manager then transforms the initial plan into a directed acyclic graph (DAG) representation
+with explicit structure:
+• NODES: Each node contains a subtask title, detailed description, and assigned worker role (Technician for system
+operations, Operator for GUI interactions, or Analyst for decision support)
+• EDGES: Directed connections between nodes representing execution dependencies and precedence constraints
+Based on the DAG structure, the Manager performs topological sorting to generate the actual execution sequence,
+ensuring subtask execution respects dependency constraints while identifying opportunities for parallel execution.
+Adaptive Planning: The system implements dynamic planning adjustment through structured prompting strategies
+rather than mathematical optimization. The adjustment mechanism employs three levels: (1)light adjustmentfor
+parameter modifications within existing subtasks, (2)medium adjustmentfor subtask reordering and dependency
+restructuring, and (3)heavy adjustmentfor complete task re-decomposition when fundamental strategy changes are
+required. These adjustments are triggered by execution feedback and implemented through carefully crafted prompt
+templates that guide the Manager toward appropriate planning modifications.
+Supplement Integration: The Manager incorporates a supplement mechanism that leverages external knowledge
+sources (web search, Retrieval-Augmented Generation (RAG) systems) to enhance task understanding and fill information
+gaps. This capability is particularly crucial for handling novel scenarios or domain-specific requirements that may not
+be covered in the base knowledge.
+Manuscript submitted to ACM
+
+8 Guo et al.
+3.4 Worker Subsystem: Specialized Multi-Modal Execution
+The Worker subsystem represents a significant advancement over traditional single-modality approaches by imple-
+menting three specialized execution roles, each optimized for specific types of operations:
+Operator: Manages GUI-based interactions using vision-language models for visual grounding and action generation.
+The Operator excels in scenarios requiring human-like interface navigation, form filling, visual content interpretation,
+and any tasks where GUI interaction is the primary or only available interface. It implements sophisticated visual
+grounding techniques to handle dense GUI environments and maintains context awareness across multi-step interaction
+sequences.
+The Operator supports a comprehensive action repertoire including fundamental mouse operations (Click, Dou-
+bleClick, Move, Drag), keyboard interactions (TypeText, Hotkey), navigation controls (Scroll, SwitchApplications), and
+specialized functions for different contexts (SetCellValues for spreadsheets, Open for file operations). Additionally, it
+provides system coordination capabilities through Screenshot for visual state capture, Wait for timing control, and
+a unique Memorize function that enables cross-component information sharing by writing contextual memories to
+shared artifacts for other modules to access. Task completion is managed through explicit Done and Failed signals that
+trigger appropriate state transitions in the orchestration framework.
+Technician: Handles system-level operations through terminal commands and script execution. The Technician is
+particularly effective for file system operations, environment configuration, batch processing, and any tasks that can be
+accomplished more reliably through programmatic interfaces than GUI manipulation. It supports both Python and
+Bash scripting environments and implements secure execution boundaries to prevent system compromise.
+Analyst: Provides decision support and analytical capabilities for complex reasoning tasks. The Analyst is particularly
+essential for complex workflows where the Operator alone cannot complete the full task sequence—such as examination
+or assessment scenarios where questions must first be collected, analyzed, and answered before responses can be input.
+In these multi-stage workflows, the Operator first captures question content and writes it to shared artifacts, the Analyst
+retrieves this information from artifacts to perform reasoning and generate answers, then writes the solutions back to
+artifacts, enabling the Operator to subsequently extract and input the final answers. This artifact-mediated collaboration
+allows the system to handle sophisticated question-answering tasks that require separation of perception, reasoning,
+and action phases.
+3.5 Evaluator: Continuous Quality Assessment and Intervention
+The Evaluator component implements a comprehensive quality control framework that represents one of our key
+innovations. Unlike traditional binary success/failure assessments, our Evaluator provides continuous monitoring with
+multiple intervention triggers:
+Gate Decision Framework: The Evaluator employs a comprehensive gate decision mechanism with four possible out-
+comes: gate_done (subtask completed successfully),gate_fail (execution failed, requires re-planning),gate_continue
+(execution in progress, continue current strategy), andgate_supplement(additional information needed).
+Multi-Trigger Quality Assessment: The system implements three distinct trigger mechanisms for quality evalua-
+tion:
+• PERIODIC_CHECK: Regular assessment every 5 execution steps to ensure consistent progress and stagnation
+detection when identical actions are repeated more than 3 times or single subtask execution exceeds 15 actions.
+•WORKER_STALE: Triggered when workers report they are unable to determine how to continue execution.
+Manuscript submitted to ACM
+
+Agentic Lybic : Multi-Agent Execution System with Tiered Reasoning and Orchestration 9
+•WORKER_SUCCESS: Verification trigger when workers report task completion.
+The gate decision function processes these triggers through a comprehensive evaluation:
+𝐺(𝑠,𝑣 𝑡,𝑣𝑡−1)=
+ 
+
+gate_done if similarity(𝑣 𝑡,𝑣𝑡𝑎𝑟𝑔𝑒𝑡)>𝜏 𝑑𝑜𝑛𝑒
+gate_fail if progress(𝑣 𝑡,𝑣𝑡−1)<𝜏 𝑓𝑎𝑖𝑙
+gate_continue if𝜏 𝑓𝑎𝑖𝑙 ≤progress(𝑣 𝑡,𝑣𝑡−1)<𝜏 𝑑𝑜𝑛𝑒
+gate_supplement if uncertainty(𝑠)>𝜏 𝑠𝑢𝑝𝑝𝑙𝑒𝑚𝑒𝑛𝑡
+(2)
+where𝑣𝑡 represents the current visual state,𝑣𝑡𝑎𝑟𝑔𝑒𝑡 is the expected target state, and𝑠 denotes the current system
+state. All these functions described above (e.g., similarity(·,·)) are all served by the Evaluator role.
+Final Check Verification: The Evaluator implements a comprehensive final verification mechanism that activates
+when all subtasks reach completion status, serving as the ultimate quality gate before task termination. This final
+check performs holistic assessment beyond individual subtask verification, examining whether the combined execution
+results satisfy the user’s original intent. The system supports five outcomes: final_check_passed (successful comple-
+tion), final_check_failed (objectives unmet, triggers re-planning), final_check_pending (additional work discovered),
+final_check_error (verification error, triggers termination), and task_impossible (clean termination for intractable tasks).
+3.6 Workflow Orchestration and State Transitions
+As illustrated in Figure 2, our Agentic Lybic system operates through a self-consistent state-driven workflow that
+orchestrates seamless coordination between its four core components. The workflow begins when a user query enters
+the system, triggering the Central Controller to initialize the global state and enter the main execution pipeline.
+Initialization and Planning Phase: Upon receiving a user query, the Controller sets the task state to "created" and
+transitions to the REPLAN situation (𝑅𝑝). The Manager performs objective alignment to understand the user’s intent,
+then conducts dynamic task planning to decompose the goal into executable subtasks. Using DAG generation, the
+Manager creates a structured plan where subtasks are organized with explicit dependencies. The Rule Engine monitors
+this process, ensuring planning attempts remain within configured limits (default: 10 attempts).
+Action Generation and Execution Cycle: Once subtasks are available, the Controller transitions to GET_ACTION
+(𝐺𝑎). The Worker subsystem receives role assignments based on subtask characteristics—Operator for GUI interactions,
+Technician for system operations, or Analyst for decision support. Each Worker generates specific actions appropriate to
+their domain expertise. When Workers generate actual executable actions (such as Click, TypeText, or system commands),
+the Controller transitions to EXECUTE_ACTION (𝐸𝑎), where the Executor component coordinates hardware-level
+operation execution. However, when Workers return decision signals (CANNOT_EXECUTE, SUPPLEMENT, STALE, or
+DONE), the Controller transitions to appropriate states based on the specific decision: CANNOT_EXECUTE triggers
+REPLAN, SUPPLEMENT activates SUPPLEMENT state, STALE leads to QUALITY_CHECK, and DONE proceeds to
+QUALITY_CHECK for verification.
+Continuous Quality Monitoring: After each execution step, the system enters QUALITY_CHECK (𝑄𝑐) through
+multiple trigger mechanisms. The Evaluator employs three distinct triggers: periodic assessment every 5 steps, stagna-
+tion detection when identical actions repeat more than 3 times, and verification when Workers report task completion.
+The gate decision framework processes visual state comparisons and progress analysis to determine one of five out-
+comes: gate_done (continue to next subtask), gate_fail (trigger re-planning), gate_continue (maintain current strategy),
+Manuscript submitted to ACM
+
+10 Guo et al.
+gate_supplement (request additional information), or gate_error (handle evaluation errors and trigger appropriate
+recovery mechanisms).
+Adaptive Coordination and Recovery: When gate_supplement is triggered, the Controller transitions to SUPPLE-
+MENT (𝑆𝑝), where the Manager queries external knowledge sources or requests clarification. Failed quality checks
+return the system to REPLAN, enabling the Manager to perform light, medium, or heavy adjustments based on failure
+severity. This adaptive mechanism allows the system to modify parameters, restructure dependencies, or completely
+re-decompose tasks as needed.
+Completion and Verification: When all subtasks reach completion status, the Controller enters FINAL_CHECK
+(𝐹𝑐). The Evaluator performs comprehensive verification against the original objectives, ensuring all task requirements
+have been satisfied. Only upon successful final verification does the system transition to the terminal DONE state,
+marking task fulfillment.
+The workflow implements robust error handling through state recovery mechanisms. Invalid states trigger transitions
+to INIT for system reset, while execution errors redirect to appropriate recovery paths. This design ensures the system
+maintains operational stability even when individual components encounter failures, providing graceful degradation
+rather than complete system breakdown. The Rule Engine continuously monitors system health through configurable
+thresholds: maximum state switches (default: 100), task runtime limits, and execution step boundaries. These safeguards
+prevent infinite loops and ensure resource-bounded operation while maintaining execution flexibility for complex tasks.
+4 Results
+Table 1. Comparison of the state-of-the-art methods on the OSWorld [35] benchmark. We show the approach type in the second
+column. A specialized model means that the model is trained specifically for computer use. We report the success rate (%) as the
+evaluation metric in the third column. We only include the verified results fromhttps://os-world.github.io/.
+Agent Model Approach Type Success Rate
+50 steps
+o3 [22] General Model 17.17
+opencua-a3b [30] Specialized model 19.93
+opencua-qwen2-7b [30] Specialized model 20.60
+UI-TARS-72B-DPO [23] Specialized Model 25.80
+Jedi-7B w/ gpt-4o [34] Agentic Framework 26.92
+UI-TARS-1.5-7B [23] Specialized Model 27.30±2.1
+opencua-7b [30] Specialized model 28.20±0.5
+TianXi-Action-7B [28] Specialized model 29.80±0.6
+OpenAI CUA 4o [22] Specialized Model 31.30
+opencua-32b [30] Specialized Model 34.10±0.7
+claude-3-7-sonnet-20250219 [4] General Model 35.80
+claude-4-sonnet-20250514 [5] General Model 43.90
+Agent S2 w/ Gemini-2.5-Pro [2] Agentic Framework 45.76
+autoglm-os-9b [13] Specialized model 47.26
+GTA-1-7B w/ o3 [37] Agentic Framework 48.59
+Jedi-7B w/ o3 [34] Agentic Framework 50.65
+Agent S2.5 w/ o3 [2] Agentic Framework 54.21
+CoACT-1 w/ o3 [25] Agentic Framework 56.39
+Agentic Lybic w/ o3 & UI-TARS Agentic Framework57.07
+Manuscript submitted to ACM
+
+Agentic Lybic : Multi-Agent Execution System with Tiered Reasoning and Orchestration 11
+4.1 Experimental Setup
+Benchmark and Dataset.We evaluate Agentic Lybic on the OSWorld benchmark [ 35], a scalable real-computer
+testbed that exposes a Linux OS environment to agents through both pixel streams and shell interfaces. OSWorld
+comprises 361 tasks (excluding Google Drive tasks) spanning common productivity tools, IDEs, browsers, file managers,
+and multi-application workflows, providing comprehensive coverage of vision-language grounding and long-horizon
+planning challenges in heterogeneous GUI environments. Each task includes: (i) a deterministic VM snapshot capturing
+the initial desktop state, (ii) natural-language goals mirroring end-user requests (e.g., "resize the image to512× 512and
+export as PNG"), and (iii) rule-based evaluators built from 134 atomic execution-based components. Tasks range from
+atomic operations to complex cross-application pipelines, offering a realistic spectrum of automation complexity.
+Implementation Details.We implement Agentic Lybic with careful selection of backbone models for each component.
+For all core reasoning components (Controller, Manager, and the three Worker roles - Technician, Operator, and
+Analyst), we utilize OpenAI o3 [22] to leverage its advanced reasoning capabilities for complex task orchestration and
+decision-making. For visual grounding and GUI action generation within the Operator worker, we employ UI-TARS [23],
+a specialized vision-language model specifically fine-tuned for computer use tasks and GUI element recognition. The
+Evaluator component also uses o3 for comprehensive quality assessment and gate decision-making. Our system operates
+with carefully tuned limits: quality checks triggered every 5 execution steps, stagnation detection after 3 consecutive
+identical actions, and re-planning triggered when single subtask execution exceeds 15 actions. Our implementation is
+publicly available at https://github.com/xlang-ai/OSWorld/tree/main/mm_agents/maestro to facilitate reproducibility
+and future research. The OSWorld official held the evaluation process and reported the verified result Success Rate.
+Evaluation Protocol.We employ the rule-based evaluator provided by OSWorld, which expresses each task as Boolean
+expressions built from the 134 atomic evaluators. Task completion requires satisfying complex logical conditions (e.g.,
+(file exported AND MD5 matches) AND (email sent == True)), ensuring comprehensive verification of task objectives
+rather than superficial completion signals.
+Table 2. Per-task performance comparison on OSWorld tasks with 50 steps budget. The number beside each subtask is the total
+number of that subtask. It is obvious that Agentic Lybic outperforms the previous SOTA methods in almost all subtasks and achieves
+the best overall average performance. Subtasks with the most performance gain are Chrome, Impress, GIMP, and OS, demonstrating
+the effectiveness of our framework.
+Methods (50 steps) Chrome (46) Calc (47) Impress (47) Writer (23) GIMP (26) VSCode (23) Multi Apps (93) Thunderbird (15) OS (24) VLC (17) Avg.
+autoglm-os 36.96 58.70 27.57 52.17 57.69 69.57 33.43 80.00 66.67 64.29 47.26
+GTA-1 34.78 40.43 44.60 60.74 73.0882.6137.0586.6758.33 35.47 48.59
+Jedi-7B 57.69 40.43 44.66 65.22 80.77 56.52 34.97 80.00 54.17 58.06 50.65
+Agent S2.5 52.09 55.32 55.30 47.83 76.92 73.91 39.53 73.33 75.00 42.00 54.21
+CoACT-1 45.5768.0946.7273.9161.54 78.2642.3766.67 70.8366.0656.39
+Agentic Lybic60.7851.0659.4869.5684.6273.91 35.56 73.3379.1763.7557.07
+4.2 Main Results
+Table 1 presents comprehensive performance comparisons on OSWorld, demonstrating that Agentic Lybic establishes
+new state-of-the-art results across multiple evaluation settings. Our system achieves a remarkable success rate of
+57.07%at 50 steps, substantially outperforming all existing methods including CoAct-1 (56.39%), Agent S2.5 w/ o3
+(54.21%), and Jedi-7B w/ o3 (50.65%). This represents a meaningful advancement in desktop automation capabilities,
+particularly considering the challenging nature of OSWorld tasks.
+Manuscript submitted to ACM
+
+12 Guo et al.
+OSWorld Task Step Count Frequency Distribution
+Frequency
+Step Range
+Task Categories Distributiona b
+Fig. 3. OSWorld benchmark task complexity analysis. (a) Step count frequency distribution showing task completion requirements
+across the dataset. The distribution reveals the diverse complexity range in OSWorld tasks, from simple atomic operations to complex
+multi-step workflows. (b) Task category distribution across the 361 OSWorld tasks, showing multi-application workflows comprise
+the largest portion (93 tasks, 25.2% with average 27.3 steps), followed by LibreOffice applications (Calc: 47 tasks with 28.0 steps,
+Impress: 47 tasks with 28.0 steps, Writer: 23 tasks with 25.3 steps), Chrome browser tasks (46 tasks, 17.5 steps), and other specialized
+applications including GIMP (26 tasks, 20.9 steps), VS Code (23 tasks, 14.3 steps), OS operations (24 tasks, 8.8 steps), VLC (17 tasks,
+10.7 steps), and Thunderbird (15 tasks, 16.7 steps).
+Table 2 provides detailed breakdowns across application categories, revealing where our orchestration approach
+provides the most significant advantages. Agentic Lybic demonstrates strong performance across most application
+categories, with particularly notable results in Chrome browser tasks (60.78% vs. CoAct-1’s 45.57%), LibreOffice Impress
+presentations (59.48% vs. CoAct-1’s 46.72%), GIMP image editing (84.62% vs. CoAct-1’s 61.54%), and OS-level operations
+(79.17% vs. CoAct-1’s 70.83%).
+4.3 Efficiency Analysis
+Beyond success rates, Agentic Lybic demonstrates remarkable efficiency improvements through intelligent orchestration.
+Our system reduces the average number of steps required for task completion while maintaining higher success rates,
+indicating more effective task execution strategies. The tiered reasoning approach enables the system to select optimal
+execution modalities for each subtask, avoiding inefficient GUI manipulation sequences when programmatic approaches
+are more suitable.
+The OSWorld benchmark presents diverse complexity challenges that highlight the effectiveness of our orchestration
+approach (Figure 3). The task complexity analysis reveals a heterogeneous distribution with 361 tasks ranging from
+simple atomic operations (0-4 steps, 70 tasks) to complex multi-step workflows (45-50 steps, 93 tasks), with an average
+of 22.31 steps per task. The task category distribution (Figure 3b) shows that multi-application workflows comprise
+the largest portion (93 tasks, 25.2% with average 27.3 steps), followed by LibreOffice applications, Chrome browser
+tasks, and specialized tools. This complexity distribution demonstrates why sophisticated orchestration mechanisms
+are essential—simple GUI-only approaches may suffice for atomic operations, but complex workflows requiring 25+
+steps (representing 38.8% of all tasks) benefit significantly from our multi-modal coordination capabilities.
+The quality gate system contributes significantly to efficiency by enabling early detection of execution issues and
+proactive course correction, preventing costly error propagation that typically requires extensive recovery procedures
+Manuscript submitted to ACM
+
+Agentic Lybic : Multi-Agent Execution System with Tiered Reasoning and Orchestration 13
+in other systems. Our periodic checks (every 5 steps), stagnation detection (3 consecutive identical actions), and success
+verification mechanisms ensure optimal resource utilization while maintaining robustness.
+4.4 Error Analysis and Robustness
+Analysis of failure cases reveals that Agentic Lybic maintains robustness across diverse error conditions while high-
+lighting both system limitations and evaluation challenges.
+Evaluation Standard Limitations.A significant portion of observed failures stem from overly rigid evaluation
+criteria rather than actual system deficiencies. For instance, in a calculation task requiring multiplication of total work
+hours by hourly rate, our agent correctly computed the result but formatted it to two decimal places, while the gold
+standard required exactly four decimal places for acceptance. Similarly, in a presentation-to-video conversion task,
+our agent successfully exported slides to PNG format and encoded them into MP4 using ffmpeg, yet failed evaluation
+because the gold standard incorrectly marked this task as impossible to complete, as shown in Figure A.1. These
+cases highlight the need for more flexible evaluation frameworks that assess functional correctness rather than rigid
+formatting requirements.
+System Robustness Indicators.Despite these challenges, Agentic Lybic demonstrates superior error handling
+compared to baseline methods. The system’s multi-modal execution strategy proves particularly effective in complex
+scenarios requiring seamless coordination across multiple applications. Figure A.2 illustrates a representative successful
+case where the agent handles a sophisticated multi-step workflow: extracting an AWS invoice PDF from a local email in
+the "Bills" folder, moving it to the receipts folder while following existing file naming patterns, and updating a tally
+book record. This example showcases the agent’s capability to seamlessly coordinate across multiple applications (email
+client, file manager, spreadsheet) while maintaining context awareness for naming conventions and data entry patterns.
+The incremental clarification policy effectively resolves visual ambiguities in GUI-dense environments, preventing
+accumulation of grounding errors that typically plague pure vision-based approaches. Stagnation detection triggers
+(activated after 3 consecutive identical actions) successfully prevent infinite loops, while periodic quality checks (every
+5 steps) enable early intervention before critical failures occur. The tiered architecture enables graceful degradation
+when individual components encounter limitations. When the Operator struggles with visual grounding ambiguity,
+the system automatically transitions to Technician-based programmatic approaches where available. The Manager’s
+adaptive re-planning capabilities (light, medium, and heavy adjustment levels) provide multiple recovery strategies
+based on failure severity, ensuring robust performance across diverse failure conditions.
+Our analysis demonstrates that while Agentic Lybic faces challenges inherent to complex desktop automation, the
+sophisticated coordination mechanisms and continuous quality control provide substantial improvements in both
+success rates and error recovery compared to existing approaches. The multi-modal execution strategy, combined with
+robust quality gates and adaptive re-planning, enables the system to handle diverse failure conditions while maintaining
+operational effectiveness across complex multi-application workflows.
+5 Conclusion
+In this work, we introduced Agentic Lybic, a novel multi-agent execution system that addresses fundamental limitations
+in desktop automation through tiered reasoning architecture and sophisticated orchestration mechanisms. Our system
+advances beyond existing approaches by implementing a comprehensive four-tier framework comprising a Controller
+for state management, a Manager for intelligent task decomposition, specialized Workers for different execution
+modalities, and an Evaluator for continuous quality assessment.
+Manuscript submitted to ACM
+
+14 Guo et al.
+The key innovation of our approach lies in the dynamic orchestration mechanism that seamlessly coordinates between
+GUI manipulation, system-level operations, and analytical decision-making based on real-time task assessment. Unlike
+previous systems that rely on static task delegation, Agentic Lybic implements continuous feedback loops through
+comprehensive quality gates, enabling adaptive re-planning and robust error recovery throughout task execution. This
+principled approach to multi-agent coordination, combined with specialized worker roles and incremental clarification
+policies, provides a more robust foundation for handling the inherent complexity of real-world desktop automation.
+Our experimental evaluation on the challenging OSWorld benchmark demonstrates the effectiveness of this approach,
+achieving a new state-of-the-art success rate of 57.07% in 50 steps—a substantial improvement over existing methods
+including CoAct-1 (56.39%) and Agent S2.5 (54.21%). Beyond raw performance gains, our system exhibits superior
+reliability across diverse task categories. These results validate our hypothesis that principled orchestration with
+continuous quality control provides significant advantages over both pure GUI agents and simpler hybrid approaches.
+Our approach has certain inherent constraints: real-time visual understanding for tasks like video editing or gaming
+with continuous visual changes, and scenarios requiring human verification such as CAPTCHAs or secure authentication
+processes. Additionally, highly specialized software domains may require deeper contextual knowledge than current
+models provide.
+Our work opens several promising directions for future research. The tiered reasoning framework provides a
+systematic foundation for incorporating additional specialized components, such as domain-specific workers for
+complex applications like video editing software or development environments. The quality gate system could be
+extended with more sophisticated intervention strategies, potentially including predictive error detection and proactive
+resource allocation. Furthermore, the orchestration mechanisms could be adapted to handle collaborative multi-user
+scenarios or distributed computing environments.
+As vision-language models continue advancing, our orchestration framework provides a flexible foundation for
+integrating new capabilities into more robust automation systems. The success of our approach suggests that the future of
+desktop automation lies in developing sophisticated coordination mechanisms that can orchestrate multiple specialized
+components in principled and adaptive ways, opening possibilities for truly autonomous computing assistants that
+handle diverse human-computer interaction tasks with reliability and efficiency.

@@ -1,0 +1,401 @@
+record_id: s2_snowball:53ed4cb969fc1d01c2c4b4796d337ec61f3fc525
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2311.07491
+fetched_title: A Step Closer to Comprehensive Answers: Constrained Multi-Stage Question Decomposition with Large Language Models
+fetched_at: 2026-09-18T19:08:39Z
+
+A Step Closer to Comprehensive Answers: Constrained Multi-Stage
+Question Decomposition with Large Language Models
+Hejing Cao1∗, Zhenwei An 1∗, Jiazhan Feng 1, Kun Xu 2, Liwei Chen 2, Dongyan Zhao 1†
+1 Peking University 2 Kuaishou Technology
+{caohejing,anzhenwei,fengjiazhan,zhaody}@pku.edu.cn
+Abstract
+While large language models exhibit remark-
+able performance in the Question Answering
+task, they are susceptible to hallucinations.
+Challenges arise when these models grapple
+with understanding multi-hop relations in com-
+plex questions or lack the necessary knowl-
+edge for a comprehensive response. To address
+this issue, we introduce the "Decompose-and-
+Query" framework (D&Q). This framework
+guides the model to think and utilize exter-
+nal knowledge similar to ReAct, while also
+restricting its thinking to reliable information,
+effectively mitigating the risk of hallucinations.
+Experiments confirm the effectiveness of D&Q:
+On our ChitChatQA dataset, D&Q does not
+lose to ChatGPT in 67% of cases; on the Hot-
+PotQA question-only setting, D&Q achieved
+an F1 score of 59.6%. Our code is available at
+https://github.com/alkaidpku/DQ-ToolQA .
+1 Introduction
+Large language models (LLMs), such as ChatGPT
+(OpenAI, 2022), GPT-4 (OpenAI, 2023), Bard
+(Google, 2023), have made significant inroads into
+people’s work and daily life, substantially enhanc-
+ing productivity. For LLMs, to produce high-
+quality response for a complex question relies on
+two essential capabilities: 1) Understanding multi-
+hop reasoning in complex questions; 2) Employing
+external knowledge.
+On the one hand, many questions in our daily
+lives manifest as multi-hop questions. Individu-
+als often pose intricate questions or instructions
+within a single sentence, lacking necessary de-
+scriptions. This necessitates LLMs to proficiently
+decompose complex questions into multiple sub-
+questions. One potential solution involves employ-
+ing a sub-question decomposition approach, such
+as self-ask (Press et al., 2022), which decomposes
+*Equal Contribution.
+†Corresponding author.
+the question into sub-questions, resolves them inde-
+pendently, and consolidates the answers. However,
+this approach relies on LLMs’ ability to reasonably
+decompose questions and is typically more suit-
+able for high-quality prompts, such as HotPotQA
+(Yang et al., 2018) and 2WikiMultiHopQA (Ho
+et al., 2020). Challenges may arise when dealing
+with low-quality or unclear prompts.
+On the other hand, large language models are
+prone to hallucinations (Zhang et al., 2023b) and do
+not have access to up-to-date knowledge (Mallen
+et al., 2023). Integrating external tools (search en-
+gines, knowledge bases, APIs, and etc) with LLMs
+is a viable approach to address these challenges.
+Least-to-most (Zhou et al., 2022) decomposes com-
+plex question into sub-questions, ultimately leading
+to a comprehensive answer. However, answering
+these sub-questions may also bring hallucinations.
+ReAct (Yao et al., 2022) bridges the gap of rea-
+soning and action, enabling thoughtful interactions
+with tools. It is noteworthy that the action space of
+ReAct is limited, and its effectiveness is relatively
+modest. Shao et al. (2023a) introduced Iter-RetGen,
+which iteratively follows a two-step process: re-
+trieving relevant knowledge, and generating answer.
+The approach of Iter-RetGen bears similarities to
+Self-Refine (Madaan et al., 2023). However, Iter-
+RetGen lacks autonomous termination capabilities.
+To this, we have proposed a constrained question
+decomposition strategy that transforms question de-
+composition into a "Decompose-and-Query" depth-
+first search framework. Specifically, we construct
+a reliable question-answer base, which consists of
+high-quality question-answer pairs. The model is
+required to consult it to generate answers for search
+efficiency. In case of conflicts between the model’s
+knowledge and the reliable QA base, the base’s
+content takes precedence.
+We annotated solution trajectories for fine-tuning
+the model and subsequent predictions. The super-
+vised fine-tuning phase does not involve tool in-
+arXiv:2311.07491v1 [cs.CL] 13 Nov 2023
+
+vocation; the model processes static dialogue text,
+learning strategies for invoking tools. During the
+prediction phase, the model calls external tools to
+query a reliable QA base. If the LLM realizes
+during the search process that it has pursued an
+incorrect path, it can backtrack to previous steps
+and initiate a new search. Experiments confirm
+the effectiveness of D&Q: On our ChitChatQA
+dataset, D&Q does not lose to ChatGPT in 67%
+of cases; on the HotPotQA question-only setting,
+D&Q achieved an F1 score of 59.6%.
+Our contributions are the following:
+1. We build and make public a dataset of real
+conversation scenarios: ChitChatQA.
+2. We design a framework for LLMs using ex-
+ternal tools to perform constrained problem
+decomposition. Although simple, it can theo-
+retically be extended to any number of exter-
+nal tools.
+3. We achieve an F1 score of 59.6% on the
+question-only setting on HotPotQA dataset.
+2 Related Works
+Reasoning. The capacity for logical reasoning is
+a significant hallmark of intelligence in large lan-
+guage models. Wei et al. (2022) have proposed the
+Chain-of-Thought (CoT) as an effective means to
+enhance the reasoning abilities of large language
+models consistently and efficiently. However, in-
+correct reasoning paths often lead to incorrect rea-
+soning results. To this, Wang et al. (2022) suggest
+self-consistency, which samples a diverse set of
+reasoning paths and selects the most consistent an-
+swer. Self-consistency, despite its higher decoding
+cost compared to CoT, still struggles with challeng-
+ing problem-solving. Yao et al. (2023) introduce
+a novel approach by extending CoT into Tree-of-
+Thought (ToT). At each step, the model engages in
+self-evaluation and, when necessary, looks ahead
+or backtracks to enhance decision-making abilities.
+Similarly, Graph of Thoughts (GoT) framework
+models information generated by large language
+models as a graph, allowing for the combination of
+various LLM thoughts to yield collaborative results,
+extract insights from the entire thought network,
+and employ feedback loops to enhance thinking
+(Besta et al., 2023). Cumulative reasoning (Zhang
+et al., 2023a) employs proposers, verifiers, and re-
+porters to store intermediate results, facilitating the
+accumulation of the reasoning process. So far, the
+reasoning capabilities of large language models
+have remained understudied.
+Augmented Language Models. Large language
+models are prone to generating hallucinations and
+do not have access to up-to-date knowledge. Large
+language models are likely to make factual errors
+with long-tail knowledge (Kandpal et al., 2022).
+As a consequence, more and more research is fo-
+cusing on the use of external tools to enhance large
+language models. Retrieval-based language model
+is a classic augmented language model. The idea
+is to use discrete or dense retrievers to retrieve
+related context, and then merge the retrieved con-
+text into the input. It is possible to match certain
+capabilities of some of the largest LMs while hav-
+ing less parameters (Schick et al., 2023; Qin et al.,
+2023). Along with the research on CoT, many stud-
+ies have integrated external tools into the chain
+of thought paradigm (Yao et al., 2022; Paranjape
+et al., 2023; Feng et al., 2023; Press et al., 2022;
+Shao et al., 2023b; Trivedi et al., 2022; Gou et al.,
+2023a,b). Synergizing reasoning and invocation
+tools in LLMs is an underexplored potential re-
+search domain.
+3 Methodology
+This section presents our methodology. We con-
+struct ChitChatQA and the reliable QA base, anno-
+tate problem-solving trajectories and train a model
+to invoke tools.
+3.1 ChitChatQA dataset
+We introduce a novel dataset, ChitChatQA, to as-
+sess the capabilities of large language models in
+handling complex and diverse questions. Specifi-
+cally, we collected single-turn dialogue data from
+real scenarios in the KwaiTalk application. The
+dataset comprises authentic questions posed by
+users and responses generated by large language
+models. We denote the original question-answer
+data asS0 = (qi,a i)N0.
+We performed data cleaning on the collected
+question-answer dataset to eliminate noise. Specifi-
+cally, we initially utilized a grammatical correction
+model to filter out questions with low scores, fol-
+lowed by an intent recognition model to screen for
+questions with ambiguous intent. During the data
+cleaning process, we applied a lower intent recog-
+nition threshold to retain data with unclear intents.
+The detailed procedure for data cleaning can be
+found in Algorithm 1.
+
+Figure 1: Example of question decomposition trajectory. Q: Question; I: Iteration. Dashed line means rollback. We
+use Ques_Ret for QuestionRetriever and Ans_Ret for AnswerRetriever for brevity.
+Algorithm 1 Reliable QA Database Creation
+Require: S0,ϵ1,ϵ2, GEC, Intent
+Ensure: S
+1: S = new Set()
+2: forqi inS0 do
+3: if GEC(qi)>ϵ 1 and Intent(qi)>ϵ 2 then
+4: S.Add(qi)
+5: end if
+6: end for
+7: returnS
+3.2 Reliable QA Base
+We constructed a reliable question-answer base,
+which consists of high-quality question-answer
+pairs. Similar to Constitutional AI (Bai et al.,
+2022), all question-answer pairs are considered
+beyond doubt. The model is required to consult the
+database to generate answers. In case of conflicts
+between the model’s knowledge and the reliable
+QA base, the base’s content takes precedence. We
+believe that this makes the model less prone to
+hallucinations and more robust.
+In dialogue system, users may inquire about sim-
+ilar questions, such as "please provide me with a
+Python code for Bubble Sort" or "tell me the names
+of the Eight Great Masters of the Tang and Song
+dynasties". These generic questions are frequent.
+Preliminary analysis shows that these questions
+exhibit high quality. Therefore, we selected the
+top 50,000 questions based on their frequency as
+benchmark questions for the reliable QA base.
+Due to the fact that the pretraining data for large
+language models comprises noise, the outputs for
+the same question may vary. We categorized the
+questions into several types. Objective factual ques-
+tions demand precise and unique responses. For
+these questions, we employ a majority voting ap-
+proach to determine the response. Subjective opin-
+ion questions pertain to opinions or perspectives
+on certain matters, and for such questions, we use
+an opinion aggregation method to determine the
+response. Consequently, we designed an answer ag-
+gregation model to consolidate diverse viewpoints.
+The answer aggregation model is essentially
+a large language model through supervised fine-
+tuning. We manually annotated 5,000 answer ag-
+
+Figure 2: Model architecture of HotPotQA.
+gregation instances. Leveraging the LLaMA2-13b
+model as the base, we fine-tuned the model on the
+aforementioned data to create the answer aggrega-
+tion model. Subsequently, we performed answer
+aggregation on all the question-answer pairs in the
+reliable question-answer base.
+For examples of answer aggregation, please refer
+to Appendix A.
+3.3 Trajectory Annotation
+To train the model to invoke external tools, we need
+gather a sufficient amount of data for supervised
+fine-tuning. Both ChatGPT and GPT-4 exhibit
+excellent performance in data annotation (Ubani
+et al., 2023). Based on preliminary experiments,
+the annotation capabilities of ChatGPT are signifi-
+cantly inferior to those of GPT-4. The annotation
+framework is illustrated in Figure 1.
+3.4 Adaptive Constraint Question
+Decomposition
+We employ imitation learning using data that in-
+volves multiple iterations of calling an external
+retriever for fine-tuning large language models.
+We use LLaMA2-13b as base model. The train-
+ing is conducted in a multi-turn dialogue format,
+wherein, in each training round, only the output
+of that round’s dialogue is retained, and the rest
+is masked. For more details, please refer to the
+Experimental Section.
+4 Experiments
+Our primary experiments consist of two parts. To
+evaluate question decomposition capability, experi-
+ments were conducted on the ChitChatQA dataset.
+To assess the effectiveness of our approach in an-
+swering multi-hop questions, experiments were
+conducted using the academic dataset HotPotQA.
+4.1 ChitChatQA
+We utilized a set of 200 training instances and con-
+ducted supervised fine-tuning in a multi-turn di-
+alogue format on LLaMA2-13b. The supervised
+fine-tuning phase does not involve tool invocation;
+the model processes static dialogue text, learning
+strategies for invoking tools. During the predic-
+tion phase, the model calls external tools to query
+the reliable QA base. We defined three tools:
+[QuestionRetriever] for retrieving related ques-
+tions from the QA base, [AnswerRetriever] for
+retrieve answer to a question, and [Finish] indi-
+cating task termination.
+ChitChatQA’s data stems from real dialogue in-
+teractions with the Kuaishou dialogue model, with
+a test set comprising 100 instances. We employed
+the Kuaishou dialogue model’s output as a baseline,
+noted as "KwaiDialog", and compared it with Chat-
+GPT’s output. Model evaluation was conducted
+through human assessments labeled as win/tie/lose,
+as shown in Table 1.
+
+Method Generation Model Model Size EM F1
+Standard PaLM 540B 21.9 36.8
+CoT (Wei et al., 2023) PaLM 540B 30.0 44.1
+ReAct (Yao et al., 2022) PaLM 540B 24.9 44.7
+Self-Ask (Press et al., 2022) InstructGPT 175B 36.8 55.2
+IRCoT (Trivedi et al., 2022) Code-Davinci-002 175B - 60.7
+D&Q LLaMA2 13B 39.0 59.6
+Table 1: Results on HotPotQA dataset. EM: Exact Match.
+The results indicate a significant enhancement in
+the response capability of the Base model with the
+D&Q approach. Even after complex prompt fine-
+tuning and reinforcement learning for KwaiDialog,
+our method still achieves victory in 37% of test
+cases (not losing in 73%). Compared to ChatGPT,
+D&Q maintains a competitive position, not losing
+in 62% of cases.
+win tie lose
+D&Q vs KwaiDialog 37% 36% 27%
+D&Q vs ChatGPT 24% 38% 38%
+Table 2: Human evaluation on ChitChatQA
+4.2 HotPotQA
+4.2.1 Baselines
+ReAct Utilizes Search and Lookup tools itera-
+tively to provide external information for large lan-
+guage models (Yao et al., 2022).
+Self-Ask Requires the model to ask itself and use
+the answers by the search engine to enhance the
+model (Press et al., 2022).
+IRCoT Decomposes questions through Chain-of-
+Thought, retrieves results using a retriever, then
+concatenates the question and reference context to
+a more robust language model (GPT-3).
+4.2.2 Implementation Details
+We conducted experiments on the HotPotQA
+dataset. Similar to most baseline models, our con-
+figuration was question-only: providing only the
+question without accompanying references, allow-
+ing the model to autonomously invoke external
+tools for information retrieval. We defined three
+tools: [ArticleRetriever] for querying entries
+in Wikipedia, [PageRetriever] for retrieving
+pages corresponding to the entries, and [Finish]
+representing task termination. The specific imple-
+mentations of these tools were achieved through
+calls to the MediaWiki* API. We utilized 200 train-
+ing instances and performed supervised fine-tuning
+in a multi-turn dialogue format on LLaMA2-13b.
+4.2.3 Results
+Table 1 shows the D&Q result of HotPotQA. We
+can draw the following conclusions:
+Backtracking enhances the model’s retrieval
+capability. Although ReAct supports acquiring
+reference information through observation, this ap-
+proach is, in practice, greedy. Specifically, ReAct
+does not explicitly backtrack but tends toward ran-
+dom walks. In contrast, D&P stores intermediate
+states, allowing it to retreat to the previous state
+in case of retrieval failure, significantly enhancing
+retrieval capability.
+Tool invocation can compensate for parame-
+ter limitations. In comparison to IRCoT’s GPT-
+3 (175B), our generative model is LLaMA-13B.
+Through supervised fine-tuning, D&Q can achieve
+results comparable to IRCoT. This indicates that
+smaller models, through supervised fine-tuning
+to learn tool invocation, can achieve performance
+comparable to larger models.
+5 Ablation Study
+5.1 Retrieval Ability
+Method Average Contexts Recall
+direct prompt 26.7 52.3
+D&Q 50.0 68.8
+Table 3: Recall of retrieval.
+We limit the retriever’s calls to a maximum of
+10, with each call returning up to 5 relevant en-
+tries. Therefore, the model can return a maximum
+*https://www.mediawiki.org/wiki/API:Search/
+
+of 50 entries when generating responses. We cal-
+culate the recall by retrieving 50 entries using the
+initial question as a baseline. We tested the recall
+of D&Q’s retrieval ability and compared it with
+the baseline, resulting in an increase from 52.3%
+to 68.8%. This indicates that considering context
+contributes to more accurate tool invocation.
+6 Conclusion
+In conclusion, we propose the "Decompose-and-
+Query" framework (D&Q) to address the suscepti-
+bility of large language models to hallucinations by
+guiding them to utilize external knowledge within
+a constrained and reliable context. Through ex-
+periments on the ChitChatQA dataset and the Hot-
+PotQA question-only setting, D&Q demonstrated
+competitive performance against existing models.
+Our contributions include the introduction of the
+ChitChatQA dataset, a novel framework for con-
+strained problem decomposition, and the achieve-
+ment of a notable F1 score on HotPotQA. These
+findings underscore the potential of D&Q in en-
+hancing the robustness and performance of large
+language models in question-answering tasks.

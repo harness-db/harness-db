@@ -1,0 +1,763 @@
+record_id: s2_snowball:92a3edabfaa77587c131f9eebb214bec9b95ea01
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2604.09167
+fetched_title: Existing Methods MAG-3D: Multi-Agent Grounded Reasoning Approach Grounded Ungrounded
+fetched_at: 2026-09-18T19:00:43Z
+
+MAG-3D: Multi-Agent Grounded Reasoning for
+3D Understanding
+Henry Zheng1,2,⋆, Chenyue Fang1,⋆, Rui Huang1,2, Siyuan Wei2, Xiao Liu2,
+and Gao Huang1,
+1 Tsinghua University
+2 Pico, ByteDance
+{jh-zheng22,fcy23,hr20}@mails.tsinghua.edu.cn,
+{weisiyuan.buaa,liuxiao.ai}@bytedance.com,
+gaohuang@tsinghua.edu.cn
+Existing Methods
+MAG-3D: Multi-Agent Grounded Reasoning Approach
+Retrieve visual
+memory to get
+frame containing
+schoolbag
+Find the
+schoolbag and
+the table
+Calculate the
+distance from
+schoolbag to table
+Grounded
+Ungrounded
++6.4 +4.8
+More
+grounded
+Higher
+performance
+Implicit reasoning
+Question
+What color is the schoolbag
+near the table?
+Fig. 1: Comparison between existing methods and MAG-3D.While exist-
+ing methods (top) often rely on implicit reasoning, MAG-3D (bottom) introduces a
+training-free multi-agent framework for grounded 3D reasoning. Crucially, MAG-3D
+avoids in-domain tuning or hand-crafted pipelines, offering superior flexibility to adapt
+to diverse queries and environments by dynamically coordinating expert agents. As
+shown on the right, this approach significantly boosts reasoning consistency and accu-
+racy, achieving state-of-the-art performance with off-the-shelf VLMs.
+Abstract.Vision-language models (VLMs) have achieved strong per-
+formance in multimodal understanding and reasoning, yet grounded rea-
+soningin3Dscenesremainsunderexplored.Effective3Dreasoninghinges
+on accurate grounding: to answer open-ended queries, a model must
+first identify query-relevant objects and regions in a complex scene, and
+then reason about their spatial and geometric relationships. Recent ap-
+proaches have demonstrated strong potential for grounded 3D reasoning.
+⋆ Equal contributions.Corresponding author.
+arXiv:2604.09167v1 [cs.CV] 10 Apr 2026
+
+2 H. Zheng et al.
+However, they often rely on in-domain tuning or hand-crafted reason-
+ing pipelines, which limit their flexibility and zero-shot generalization
+to novel environments. In this work, we present MAG-3D, a training-
+free multi-agent framework for grounded 3D reasoning with off-the-shelf
+VLMs. Instead of relying on task-specific training or fixed reasoning pro-
+cedures, MAG-3D dynamically coordinates expert agents to address the
+key challenges of 3D reasoning. Specifically, we propose a planning agent
+that decomposes the task and orchestrates the overall reasoning pro-
+cess, a grounding agent that performs free-form 3D grounding and rele-
+vant frame retrieval from extensive 3D scene observations, and a coding
+agent that conducts flexible geometric reasoning and explicit verification
+through executable programs. This multi-agent collaborative design en-
+ables flexible training-free 3D grounded reasoning across diverse scenes
+and achieves state-of-the-art performance on challenging benchmarks.
+Keywords:3D Vision-Language Understanding·Multi-Agent Frame-
+work·Grounded 3D Reasoning
+1 Introduction
+Vision-language models (VLMs) have rapidly evolved into powerful multimodal
+systemswithstrongcapabilitiesinvisualunderstandingandreasoning,achieving
+impressive performance on diverse tasks such as open-ended image and video
+question answering, GUI grounding, and visual code generation [18,29,33,39].
+However, extending these capabilities to embodied spatial reasoning within 3D
+scenes remains challenging. Success on conventional 2D vision-language tasks
+does not directly imply reliable reasoning over 3D geometry, spatial relations,
+and scene structure from visual observations [6,7,10,56].
+Effective 3D reasoning inextricably depends on accurate grounding. Answer-
+ing open-ended queries in a 3D scene requires identifying task-relevant entities,
+aggregating evidence from fragmented observations, and performing consistent
+spatial deduction. This is fundamentally different from 2D settings, where lan-
+guage priors or surface-level semantic correlations often suffice. Without explicit
+grounding in the 3D scene structure, VLMs are prone to hallucinations, gen-
+erating plausible-sounding responses that are factually disconnected from the
+physical environment. Thus, bridging the gap between high-level semantic rea-
+soning and low-level geometric grounding is essential.
+Recent efforts have made strides toward grounded 3D reasoning but face dis-
+tinctlimitations.Reasoning-orientedmethods[4,9,28,30,34,47]typicallyenhance
+performance through instruction tuning on 3D data. However, they rely heavily
+on specialized supervision and in-domain adaptation, limiting their generaliza-
+tion to unseen scenes. Alternatively, tool-augmented methods [17,31] leverage
+external perception modules for evidence collection. While promising, they of-
+ten depend on rigid, predefined reasoning pipelines or static tool configurations.
+Such designs lack the flexibility required for open-world settings, where diverse
+user queries necessitate dynamic and adaptive reasoning paths.
+
+MAG-3D: Multi-Agent Grounded Reasoning for 3D Understanding 3
+To address these challenges, we present MAG-3D, a training-free, multi-agent
+framework that empowers off-the-shelf VLMs to perform robustgrounded 3D
+reasoning. Departing from static pipelines, MAG-3D employs a centralPlanning
+Agentto dynamically decompose complex queries and coordinate the reasoning
+process. Specifically, we introduce two agents for robust, open-world-compatible
+3D grounded reasoning: (1) aGrounding Agentthat resolves free-form language
+references to localize query-relevant objects and retrieve supporting views from
+extensive scene observations, forming a shared visual memory; and (2) aCoding
+Agentthat performs explicit geometric computation and verification by gener-
+ating task-specific executable programs conditioned on the task query and the
+accumulated scene state. This design yields a reasoning process that is flexible,
+interpretable, and explicitly grounded in the 3D scene.
+Our experiments on the Beacon3D and the MSQA (Multi-modal Situated
+Question Answering) tasks show that MAG-3D consistently achieves state-of-
+the-art performance on open-ended 3D question answering without additional
+training. On Beacon3D, MAG-3D improves its corresponding base planners sub-
+stantially (e.g., +6.4 and +3.2 over pure GPT-4o on case-level and object-
+level QA Scores, respectively), and MAG-3DSeed-1.6 achieves the best overall
+performance among prior methods, outperforming the previous strongest ap-
+proach SceneCOT [28] by +6.1 points in case-level QA Score and +4.3 in the
+stricter object-level score. Without training on the MSQA domain, MAG-3D still
+achieves the best performance among zero-shot methods under both the official
+and vision-only settings. Finally, on Beacon3D coherence evaluation, MAG-3D
+achieves the highestGood Coherencemetric, further supporting that the accu-
+racy gains stem from more faithful grounded reasoning.
+In summary, our contributions are as follows:
+–We propose MAG-3D, a training-free multi-agent framework that enables
+grounded 3D reasoning with off-the-shelf VLMs, avoiding task-specific train-
+ing or in-domain tuning.
+–We develop an agentic design that explicitly tackles 3D reasoning via coor-
+dinated planning, open-vocabulary localization, and geometric verification.
+–We validate MAG-3D on Beacon3D and MSQA, achieving state-of-the-art
+performance among training-free methods on both benchmarks; on Bea-
+con3D, our grounding–QA analysis also shows the strongest grounding–QA
+coherence, indicating improved grounding–QA alignment.
+2 Related Work
+2.1 VLMs for 3D Spatial Understanding
+The 3D spatial understanding task is a non-trivial capability fundamental to
+embodied intelligence, necessitating long-horizon multi-view integration, explicit
+modeling of spatial relations, and globally consistent reasoning. Recent evidence
+suggests that Large Vision-Language Models (LVLMs) remain brittle when spa-
+tial demands extend beyond single-view 2D recognition [46]. To address such 3D-
+
+4 H. Zheng et al.
+centric challenges, recent 3D-VLMs explore diverse scene representation strate-
+gies. One prevalent direction leverages multi-view 2D images as a proxy, either
+by augmenting the input representations with 3D information [35,54,56] or by in-
+troducing novel 3D-aware training objectives [41]. Alternatively, instance-aware
+strategies parse the scene into discrete objects via 3D semantic instance seg-
+mentation [38], bridging these object-level representations to LLMs through ad-
+vanced multimodal fusion [12,49]. For specialized tasks like object localization,
+some approaches forgo general-purpose LLMs entirely in favor of self-supervised
+learning on point clouds [2]. Beyond architectural variations, another line of re-
+search focuses on enhancing internal spatial representations through specialized
+training on reasoning-intensive data [28,34] or the construction of large-scale
+3D Question-Answering (QA) datasets [15,27,52]. However, both architectural
+and data-driven methods remain constrained by the scarcity and high cost of 3D
+annotations, often struggling to generalize to the unstructured complexities of
+open-world environments. Consequently, achieving robust, multi-step, and glob-
+ally consistent reasoning remains a primary research focus in the field.
+2.2 Tool-Grounded Reasoning
+Building on the limitations discussed earlier, a promising direction for improv-
+ing spatial reasoning is to integrate external expertise via specialized tools.
+DeepSeek introduces a thinking retention mechanism for tool calling, retain-
+ing tool invocations and their returned observations to support multi-step tool-
+augmented reasoning [11]. More broadly, such designs follow the general line of
+tool-using and memory-aware agent frameworks for interleaving reasoning with
+actions and managing intermediate context [37,48]. In 2D-VLMs, tool usage
+is often framed as a cycle of active perception, where models iteratively “ob-
+serve–think–act” [16,19,26,40,43–45,55]. Extending this framework to video,
+tool-augmented LVLMs have been developed to externalize spatiotemporal ev-
+idence through modules such as tracking, temporal grounding, and video seg-
+mentation [13,14,50,51,53]. These modules help capture visual scenes, enabling
+models to reason across spatial dimensions in 2D and both spatial and tempo-
+ral dimensions in video. Towards 3D understanding, recent efforts also employ
+tool-augmented reasoning that maps semantic queries and 2D observations into
+an explicit geometric state amenable to computation and exploration [8,17,31].
+However, these approaches remain limited by either reliance on additional tuning
+on in-domain data or relatively hand-crafted reasoning schemes that can reduce
+expressiveness and robustness in open-world settings. Motivated by these limi-
+tations, we propose MAG-3D, a flexible training-free multi-agent framework for
+3D reasoning with a grounded verifiable multi-modal reasoning chain.
+3 Methods
+This section presents our training-free multi-agent framework for 3D spatial
+understanding from multi-view RGB observations in diverse settings. We first
+
+MAG-3D: Multi-Agent Grounded Reasoning for 3D Understanding 5
+Can you guide
+me to the
+object used
+for seating?
+Natural Language
+Question
+RGB
+Observations
+There are chairs for seating at your 12 o'clock
+Label Description Vague
+Browse Scene (VLM)
+Grounding Agent
+SAM3 Segmentation
+VGGT 3D Lifting
+Multi-view
+Consolidation
+Coding Agent
+Label , BBox , Frames
+Custom
+Tools
+Calculation Output
+def comp_bbox()
+def filter_objs()
+... Object Location
+Planning Agent
+OV-3D Grounding
+Visual Memory Caching
+Task
+Allocation
+Memory
+Retrieval
+Inspection & Summary
+Frames
+Task: Find the
+objects used for
+seating
+Planning
+Agent
+OV-3D
+Grounding
+Visual Memory
+CachingGrounding
+Agent
+Coding
+Agent
+Task: Calculate
+the direction of
+the chair
+Spatial
+Grounding
+Geometric
+Reasoning
+Scene
+Memory
+Final Answer
+Fig. 2: The overall framework of MAG-3D.Given a question q and RGB observa-
+tionsI, the planning agent dynamically orchestrates expert agents for spatial ground-
+ing, geometric reasoning, and retrieves information from scene memoryMas needed.
+The framework maintains explicit, inspectable intermediate results (e.g., grounded in-
+stances and geometric results), which are then aggregated and summarized into the
+final answer a. The right panel summarizes the functional components of each agent.
+formalize the task and summarize the overall system design in Sec. 3.1, then de-
+tail thePlanning(Sec. 3.2),Grounding(Sec. 3.3), andCoding(Sec. 3.4) agents,
+and explain how they interact in an end-to-end reasoning loop.
+3.1 Overview
+We study open-world 3D spatial understanding from video or multi-view RGB
+observations, optionally with point cloudsP. LetI= (I i)N
+i=1 denote the RGB
+observations, where Ii is the i-th frame or view. GivenI, optionalP, and a
+natural-language query q, we predict an answera grounded in the underlying
+3D scene. In contrast to prior 3D-VLM systems [35,43,54] that depend on ex-
+plicit 3D priors (closed-vocabulary 3D detectors) or task-specific fine-tuning, our
+approach is training-free and operates with off-the-shelf image-level foundation
+models. We decompose grounded 3D reasoning into three collaborating agents:
+aPlanning Agentthat decomposes q and orchestrates the process, aGround-
+ing Agentthat performs free-form 3D grounding by discovering query-relevant
+objects or regions and associating them with supporting observations as visual
+memory, and aCoding Agentthat translates spatial-language intents into exe-
+cutable geometric programs for explicit computation and verification. The agents
+communicate via a shared scene memoryM, which stores intermediate results
+(e.g., object candidates, reconstructed geometry, visual memory, and measure-
+ments), enabling iterative grounding-verification for a grounded answer (Fig. 2).
+
+6 H. Zheng et al.
+3.2 Planning Agent for Multi-agent Orchestration
+The Planning Agent serves as the central coordinator of the framework. Given
+the queryq and the current state of the shared scene memoryM, it decomposes
+the task into sub-goals, allocates each sub-goal to the appropriate agent, and
+decides whether additional grounding or geometric reasoning is required. Rather
+than relying on fixed human-crafted rules or predefined reasoning pipelines, the
+Planning Agent enables adaptive coordination, allowing the framework to handle
+diverse 3D question types in a flexible yet generalizable manner. After each step,
+intermediate outputs are written back toM, enabling it to update the reason-
+ing state and refine subsequent actions. If intermediate results are ambiguous,
+incomplete, or inconsistent, it can re-plan, re-invoke agents to retry failed steps
+with updated evidence. Once sufficient verified evidence has been collected, it
+summarizes the intermediate results and produces the final grounded answer.
+3.3 Grounding Agent for Adaptive 3D Grounding
+Open-Vocabulary3DGrounding.Givenanatural-languagereferentialquery,
+the Grounding Agent localizes the referenced object as a set of grounded in-
+stances{(ℓ,b)}, whereℓis an open-vocabulary label andba 3D bounding box.
+In this work, we treat grounding asopen-vocabulary 3D instance identification
+and decouple it from downstream spatial reasoning: the agent only localizes
+query-relevant object instances, while geometric or spatial relations are handled
+by downstream explicit geometric reasoning modules.
+We support bothclearreferences (explicit categories or functional/attribute
+descriptions (e.g.,“chair”,“objects for storing food”)) andvaguereferences (e.g.,
+“what is to the left of the chair?”) specified implicitly by context or relations. For
+clear prompts, we directly use the input text as the grounding cue. For vague
+prompts (or when initial grounding fails), we provideBrowse Scene, whereas
+the VLM could utilize to propose a small set of candidate labels from RGB
+observations, which are then used as grounding prompts.
+Our grounding is training-free, combining 2D open-vocabulary instance seg-
+mentation with multi-view geometric lifting and consolidation. We obtain 2D in-
+stancemaskswithSAM3[5]andliftthemto3DusingVGGT[42]usingpredicted
+depth and camera poses. Multi-view lifting introduces cross-view inconsistency
+under occlusion, partial visibility, and noisy pseudo-geometry; we address this
+with lightweight post-processing: (1)visual re-promptingresolves mask con-
+flicts arising from overlap by re-querying the disputed region together with both
+competing labels and keeping the most consistent hypothesis [23]; (2)label-
+gated geometric mergingremoves cross-view duplicates byoverlap-based fu-
+sion: for instances with the same predicted label, we compute a containment-
+based overlap score on voxelized points,s o(A,B) = max
+
+|VA∩VB|
+|VA| ,|VA∩VB|
+|VB|
+
+,
+whereVA andVB denotevoxelized3Dinputs;wemergeinstanceswhens o(A,B)≥
+τ(union of their 3D supports), whereτis a set threshold; and (3)yaw-oriented
+box fittingfits a ground-aligned 3D box by projecting the merged points to
+
+MAG-3D: Multi-Agent Grounded Reasoning for 3D Understanding 7
+bird’s-eye view and computing the minimum-area enclosing rotated rectangle
+(yaw only). More implementation details are provided in the appendix.
+3D Visual Memory.To reduce irrelevant visual context while preserving
+occlusion-aware evidence, we maintain a3D Visual Memorybuilt from VGGT
+reconstructions [42]. For each framei, we store its RGB image and point map
+P(i)∈R Hp×Wp×3 in the scene coordinate system, providing persistent 2D–3D
+correspondences for later inspection.
+Visual Memory Caching.When the Grounding Agent produces a 3D instance
+boxb, we cache a compact visual memory entry by ranking frames according to
+how much3D volumeof the queried instance region is actually observed (i.e.,
+overlapped) by the frame’s pixel-aligned point map. Concretely, given a 3D query
+regionR⊂R 3, we define the per-frame 3D coverage scorefi(R)as theoccupied
+volumeinduced by points from frameithat fall insideR, and cache the top-K
+frames with the highest scores:
+F(R) = TopKi∈{1,...,N} fi(R), f i(R) =∆ 3
+
+n
+V∆(p)
+p∈P (i)∩R
+o.
+HereV ∆(·)maps a 3D point to its voxel index under grid resolution∆, sofi(R)
+measures the 3DvolumeofRcovered by image-overlapping points rather than
+raw point counts. We cache the indices inF(R)together with the corresponding
+point maps, yielding an instance-centric cache that can be reused across multiple
+downstream queries without repeated global scanning.
+Visual Memory Retrieval.Downstream modules retrieve visual evidence by in-
+stantiating a 3D regionRand returning the top-Kframes ranked by the volu-
+metric coverage scorefi(R), along with their 2D–3D mappings. TheRis instan-
+tiated either as the axis-aligned region of a grounded boxb(instance retrieval)
+or as a small query-aligned local volume around a target location and heading
+(location retrieval; see appendix for the region definition and parameters). Com-
+pared to 2D-only caching that ranks frames by instance mask area, volumetric
+3D coverage prefers viewpoints that observe a larger portion of the underlying
+3D region, making retrieval more robust to partial observations across views.
+3.4 Coding Agent for Precise Calculations
+The Coding Agent executes grounded geometric reasoning for tasks that are dif-
+ficult to solve reliably by direct language generation. Given the planning agent’s
+coding instruction and scene memoryM, containing information such as 3D
+bounding boxes, images, and question specific ego-poses, it generates executable
+Python code to perform task-specific computation and return the final result.
+The agent interacts with a Python interpreter in a multi-round manner. At
+each step, it proposes python codes, executes it, and uses the result as feedback
+
+8 H. Zheng et al.
+for possible revision. Formally, given a coding queryqc and scene memoryM,
+the agent iteratively produces an action and receives execution feedback,
+ct =π t
+code(qc,M), o t =E(c t), t= 1,...,T,
+whereE(·)denotes the Python interpreter,Tis the step when the agent termi-
+nates, and the final result isoT. This process allows the agent to verify inter-
+mediate computations through actual execution, which improves robustness for
+multi-step spatial reasoning. A few built-in function libraries are available for
+common calculations, and other cases will be handled with custom Python code.
+Additional details are given in the appendix.
+4 Experiments
+In this section, we outline the experimental setup (Sec. 4.1), benchmarks, and
+metrics, including QA Score and Beacon3D GQA-Chain coherence (Sec. 4.2),
+then present Beacon3D and MSQA results (Sec. 4.3). Finally, we provide abla-
+tions (Sec. 4.4) and qualitative analyses with intermediate evidence (Sec. 4.5).
+4.1 Experimental Setup
+For the main experiments, we instantiate the planning agent with either Seed-1.6
+(doubao-seed-1-6-250615) or GPT-4o (gpt-4o-0806). Unless otherwise speci-
+fied, all other agents are instantiated with Seed-1.6 throughout the experiments.
+We adopt Seed-1.6 as the default backbone for the sub-agents because it demon-
+strates strong and stable performance on agentic tasks within our framework,
+enabling a controlled study of the effect of different planner models.
+Under this configuration, we evaluate our method on Beacon3D [21] and
+MSQA [27]. We primarily follow the official MSQA setting to ensure fair com-
+parison with prior methods. In addition, we include a vision-only MSQA setting
+as a supplementary study to examine robustness when only RGB videos are
+available, a setting that is also relevant for real-world implementations.
+For the ablation studies, unless otherwise specified, we use Seed-1.6 as the
+backbone for all agents and conduct experiments on the vision-only setting of the
+MSQA ScanNet benchmark. In the ablation, we also report a single-agent tool-
+use baseline, where a single VLM, prompted with a fixed tool-calling template,
+invokes the same grounding module and a predefined task-specific tool set.
+4.2 Benchmarks and Evaluation Metrics
+We evaluate on challenging benchmarks that require models to understand 3D
+inputs and generate open-ended answers, thereby reducing shortcuts commonly
+introduced by multiple-choice evaluation. This setting is particularly important
+for trustworthy 3D scene understanding, where answers should be grounded
+in the corresponding relevant objects and scene context rather than driven by
+
+MAG-3D: Multi-Agent Grounded Reasoning for 3D Understanding 9
+dataset bias or spurious correlations. To this end, we adopt Beacon3D [21] as
+our primary benchmark, since it evaluates not only QA performance but also
+grounding-QA coherence through Grounding-QA Chains (GQA-Chains). As a
+supplementary evaluation, we additionally report results on MSQA, which mea-
+sures multimodal situated 3DQA performance.
+QuestionAnsweringEvaluation(QAScore).FollowingBeacon3D[21]and
+MSQA [27], we evaluate answer quality using an LLM-based judge. For each QA
+pair, the judge assigns a scoreMi∈{1,2,3,4,5}. Then, the case-level QA Score,
+measuring the average quality of individual QA pairs, is computed as
+QA-ScoreCase = 1
+|Q|
+X
+i∈Q
+Mi−1
+4 ×100, (1)
+whereQis the set of QA pairs. For Beacon3D, we provide additional object-level
+QA Scores,
+QA-ScoreObj = 1
+|O|
+X
+o∈O
+1
+
+min
+k=1,2,3
+Mo,k≥4
+
+×100, (2)
+whereOdenotes the set of objects andMo,k is the judge score for thek-th QA
+pair associated with objecto. The object-level metric requires all three QA pairs
+for an object to receive sufficiently high scores.
+Grounding–QACoherence(GQA-Chains).Beacon3Devaluatesgrounding–
+QA coherence by categorizing each example into four GQA-Chain outcomes:
+Good coherenceG(✓,✓), Type-1 broken coherenceT 1 (✓,×), Type-2 bro-
+ken coherenceT 2 (×,✓), and Double failureD(×,×), where the tuple denotes
+(grounding, QA). In addition to reporting the percentage of examples in each
+outcome, Beacon3D defines two conditional ratios:
+R1 = T1
+T1 +D ×100, R 2 = T2
+T2 +G ×100. (3)
+R1 measuresthefractionofQAfailuresthatoccurdespitecorrectgrounding,and
+R2 measures the fraction of QA successes achieved without correct grounding
+(shortcut ratio). Lower values indicate better grounding–QA alignment.
+4.3 Quantitative Results
+Results on Beacon3D.Table 1 shows that MAG-3D consistently improves
+over its corresponding baseline under both backbones, confirming the effective-
+ness of our training-free multi-agent design for grounded 3D reasoning. Relative
+to pure GPT-4o, equipping with MAG-3D, MAG-3DGPT-4o improves the overall
+case-level QA score by +6.4 and the strict object-level QA score by +3.2. Rel-
+ative to Seed-1.6, MAG-3DSeed-1.6 further improves the case-level metric by 4.8
+points and the object-level score by 4.3 points, yielding the best performance.
+
+10 H. Zheng et al.
+T able 1: Results on Beacon3D. Results are reported for five question types and
+two overall QA metrics. “Case” and “Obj”. denote the case-level and object-level QA
+Scores, respectively. The green highlighted rows denote models implemented with our
+multi-agent method, which consistently improve over the corresponding base models
+under both planner backbones.
+Method Question Type QA Score
+Class App. Geo. Spa. Exi. Case Obj.
+PQ3D-LLM [21] 28.0 30.8 35.2 25.2 26.2 27.9 2.3
+PQ3D [58] 36.4 28.0 27.8 11.9 45.5 27.8 3.5
+3D-VisTA [57] 20.5 33.5 52.1 33.8 36.5 35.3 8.1
+Chat-Scene [20] 36.4 39.8 56.7 47.6 48.8 45.8 7.8
+SceneVerse [25] 35.6 41.7 48.9 41.9 35.7 40.3 6.6
+LEO [22] 17.4 41.0 53.2 48.7 39.7 43.2 7.8
+SceneCOT [28] – – – – – 58.9 23.2
+GPT-4o [24] 33.3 49.9 54.9 52.1 73.8 57.1 20.2
+MAG-3DGPT-4o 29.7 61.2 64.0 65.0 77.1 63.5↑6.4 23.4↑3.2
+Seed-1.6 [3] 38.9 65.0 54.9 58.2 67.4 60.2 23.2
+MAG-3DSeed-1.6 32.4 65.9 65.6 63.3 78.0 65.0↑4.8 27.5↑4.3
+T able 2: Grounding-QA Chain analysis
+on Beacon3D.Results are reported for dif-
+ferent Grounding-QA Chain evaluation met-
+rics and the overall object-level QA Score.
+Method Coherence Metrics QA Score
+T1↓T2↓R 1↑R 2↓DF↓ Obj.↑
+3D-VisTA [57] 33.4 17.4 49.3 49.9 31.7 8.1
+SceneVerse [25] 31.7 19.5 50.7 48.9 28.3 6.6
+Chat-Scene [20] 24.8 25.9 44.4 56.9 29.8 7.8
+SceneCOT [58] 24.1 16.8 58.9 41.0 34.7 23.2
+MAG-3DGPT-4o 18.3 24.5 47.2 39.2 19.3 23.4
+MAG-3DSeed-1.6 19.2 23.9 53.0 37.5 17.2 27.5
+SceneVerse*Chat-SceneSceneCOT* MAG-3D
+(GPT-4o)
+MAG-3D
+(Seed-1.6)
+40.0
+20.5
+45.4
+19.5
+51.5
+34.7
+62.4
+37.9
+63.6
+39.7
+51.1
+43.1
+59.0 60.8 62.5
+QA 75
+Good Coherence ( )
+100 R2 ( )
+* Trained on additional data.
+Fig. 3: Grounding-QA coherence
+on Beacon3D.Comparison of QA
+Score≥75, Good Coherence, andR 2
+across state-of-the-art methods.
+We also compare against SceneCOT [28], which is trained on specially crafted
+data for 3D grounded reasoning, and observe that MAG-3D still achieves higher
+overall performance without in-domain training. In particular, relative to the
+previousbestmethod,SceneCOT,inTable1,ourMAG-3D Seed-1.6 improvesCase
+by +6.1 andObj.by +4.3 (from 23.2 to 27.5). The improvement on the stricter
+object-level metric is especially meaningful: sinceObj.requires all QA pairs
+associated with an object to be answered reliably, the consistent gains indicate
+more stable and coherent object-centric reasoning rather than isolated correct
+answers. Overall, these results establish MAG-3D as a strong recipe for zero-shot
+grounded 3D reasoning with off-the-shelf VLMs. We next analyze whether these
+gains also translate into better grounding-QA coherence and consistency.
+
+MAG-3D: Multi-Agent Grounded Reasoning for 3D Understanding 11
+T able 3: Results on MSQA.Results are reported under the official setting and
+vision-only setting. T, I, O, and PC denote text, image, object proposals, and point
+cloud inputs, respectively. The green rows represents our methods, it shows that our
+method consistently improves overall performance across both settings.
+Method Input Question Type Overall
+Count. Exist. Attr. Spatial Navi. Others Score
+Official Setting
+LEO [22] T+PC 0.8 15.5 11.8 7.3 2.3 15.3 7.8
+Claude-3.5-Sonnet [1] T+I+O 32.6 66.3 69.9 30.1 45.5 83.6 49.7
+GPT-3.5 [32] T+O 34.8 74.5 75.8 27.9 43.0 88.0 50.7
+GPT-4o [24] T+I+O 31.2 71.4 75.2 31.5 36.7 88.0 49.7
+MAG-3DGPT-4o T+I+O 37.0 85.6 66.5 31.2 53.2 79.2 53.0↑3.3
+Seed-1.6 [3] T+I+O 31.3 75.1 69.4 36.8 24.0 77.1 47.9
+MAG-3DSeed-1.6 T+I+O 44.1 88.5 62.2 33.9 53.5 73.7 54.3↑6.4
+Vision-only Setting
+GPT-4o [24] T+I 17.9 66.5 44.1 33.4 31.1 68.4 39.4
+MAG-3DGPT-4o T+I 17.5 68.7 52.2 26.2 38.8 75.4 40.8↑1.4
+Seed-1.6 [3] T+I 15.1 62.6 26.2 22.6 21.5 51.7 29.6
+MAG-3DSeed-1.6 T+I 23.6 70.5 48.8 29.6 42.6 67.0 42.4↑12.8
+Grounding-QA Chain Analysis.Beyond answer accuracy, we further ask
+whether the model arrives at the correct answer for theright reason. To this
+end, Table 2 and Figure 3 analyze Grounding-QA Chains on Beacon3D, mea-
+suring whether correct answers are supported by correct grounding. The detailed
+breakdown in Table 2 further supports this conclusion. MAG-3DGPT-4o achieves
+the lowest Type-1 broken coherence, reducing it by 5.8 relative to the best prior
+baseline, while MAG-3DSeed-1.6 achieves the lowest double-failure rate at 17.2.
+The clearest trend in Figure 3 is that MAG-3D-based methods substantially
+increaseGood Coherence—the proportion of examples in which both grounding
+and QA are correct—while also reducing incoherent prediction patterns. Com-
+pared with the best prior baseline, SceneCOT [28] that is trained on in-domain
+grounded-QA chain-of-thought data, in Figure 3, MAG-3DGPT-4o improvesGood
+Coherenceby 3.2 (from 34.7 to 37.9) and MAG-3DSeed-1.6 improves it by 5.0
+(from 34.7 to 39.7). Remarkably, as compared to the best prior non-reasoning
+baseline, SceneVerse [25], MAG-3DSeed-1.6 improves 19.2 (from 20.5 to 39.7).
+Moreover, MAG-3DSeed-1.6 further reducesR 2 by 3.5 relative to the previous
+method, indicating fewer cases in which the model produces seemingly correct
+answers without reliable grounding. Although certain coherence sub-metrics are
+influenced by the overall QA success rate and are therefore not directly com-
+parable in isolation, the overall trend is clear: explicit multi-agent coordination
+yields substantially better alignment between grounding and reasoning, rather
+than merely stronger language-only answer generation.
+
+12 H. Zheng et al.
+T able 4: Ablation of proposed
+components. G.A.,C.A.denote the
+groundingagentandcodingagent,respec-
+tively. WhileT.U.denotes the non-multi-
+agent tool-use baseline.
+T.U. Multi-Agent QA
+G.A. C.A. Score
+– – – 37.5
+✓ – – 44.6
+– ✓– 43.6
+– ✓ ✓ 47.6
+T able 5: Ablation of agent back-
+bones.We evaluate alternative backbone
+choices for the agents; We use the GPT-
+4o-mini variant for a more manageable
+cost in ablation experiments.
+Grounding Coding QA
+Agent Agent Score
+GPT-4o-mini Qwen3-Coder 45.1
+GPT-4o-mini Seed-1.6 45.3
+Seed-1.6 Qwen3-Coder 47.0
+Seed-1.6 Seed-1.6 47.6
+Results on MSQA.Table 3 shows that MAG-3D also generalizes well to
+MSQA and achieves state-of-the-art performance under both settings among
+the zero-shot methods. Under the official setting, MAG-3D consistently improves
+over the corresponding base models, raising the overall score from 3.3 with GPT-
+4o and 6.4 with Seed-1.6. These results indicate that the advantages of MAG-3D
+are not specific to Beacon3D, but generalize to a different 3DQA benchmark.
+As a supplementary robustness study, we additionally evaluate a vision-only
+setting in which stronger structured cues are removed. Under this setting, both
+methods improve compared to base models, with MAG-3DSeed-1.6 improving
+from 29.6 to 42.4, a remarkable gain of 12.8. The gain for the Seed-1.6-based
+variant suggests that the proposed open-world-targeted grounding agent pow-
+ered by VGGT [42] is especially helpful when explicit 3D inputs are unavailable.
+Overall, these results further demonstrate that MAG-3D provides a robust so-
+lution for grounded 3D reasoning across different 3DQA evaluation settings.
+4.4 Ablation Studies
+Component Ablation.Table 4 reports ablations on the MSQA ScanNet sub-
+set. The first row is a single model baseline that achieves a QA Score of 37.5.
+The second row is asingle-agent tool-use(T.U.) baseline in Sec 4.1, which im-
+proves performance to 44.6 and highlights the benefit of explicit grounding and
+geometric computations provided by tool interaction. However, this design still
+falls short of our multi-agent system, where a Planning Agent delegates instance
+localization to the Grounding Agent and geometric computation to the Coding
+Agent, further increasing QA Score from 44.6 in tool-use baselines to 47.6.
+Agent Backbone Ablation.We further study how the choice of backbone
+models affects the grounding and coding agents. Table 5 compares various back-
+bone combinations for these two agents. Swapping the coding-agent backbone
+while keeping GPT-4o-mini [24] for grounding leads to only a modest change. In
+contrast, switching the grounding-agent backbone from GPT-4o-mini to Seed-
+1.6 yields a larger improvement under both coding backbones, reaching 47.0
+
+MAG-3D: Multi-Agent Grounded Reasoning for 3D Understanding 13
+T able 6: Ablation of grounding
+methods.We compare no grounding,
+Mask3D-based grounding, and our open-
+vocabulary Grounding Agent (G.A.).
+Count.andExist.are grounding-sensitive
+categories, and improvements on them
+correlate with higher QA Score.
+Method Count. Exist. QA Score
+None 14.1 62.5 37.5
+Mask3D [38] 20.9 71.9 38.5
+G.A. 27.8 78.1 47.6
+T able 7: Ablation of visual mem-
+ory strategies.“None (Uniform)” uses
+no explicit visual memory caching and
+uniformly samples input images, “SAM3”
+selects frames based on 2D cues, and our
+3D-based method retrieves views aligned
+with the queried 3D region.
+Visual Memory QA Score
+None (Uniform) 44.3
+2D-based (SAM3 [5]) 46.0
+3D-based (Ours) 47.6
+with Qwen3-Coder [36] and 47.6 with Seed-1.6. Overall, these results suggest
+that, within the tested configurations, the grounding agent backbone has a more
+pronounced impact on the QA Score, while the coding-agent backbone provides
+smaller gains. A possible explanation is that the code-based verification in 3DQA
+is relatively lightweight, and thus can already be handled well by modern LLMs
+that are trained on substantially more complex programming tasks.
+Grounding Method Ablation.Table 6 compares different grounding meth-
+ods for downstream QA. Without explicit grounding, the model directly answers
+the question and achieves a QA Score of 37.5. Using instance proposals from
+the closed-vocabulary 3D instance segmentation model Mask3D [38] yields only
+a small improvement to 38.5. This limited gain suggests that generic closed-
+vocabulary segmentation is a weak substitute for question-conditioned ground-
+ing, as its fixed label space limits its ability to localize the query-relevant objects
+needed for downstream reasoning. In contrast, our Grounding Agent substan-
+tially improves performance to 47.6. This effect is most evident onCount.and
+Exist., which are highly grounding-sensitive since they depend on identifying
+query-relevant objects. Mask3D improvesCount.andExist.to 20.9 and 71.9,
+respectively, whereas our Grounding Agent achieves 27.8 and 78.1, consistent
+with the corresponding gains in overall QA Score.
+Visual Memory Ablation.Table 7 compares strategies for providing visual
+context to the grounding agent.Uniform samplingis a no-memory baseline
+where the planner observes uniformly sampled frames, achieving 44.3. A2D-
+basedstrategy with SAM3 [5] improves to 46.0 by selecting frames that contain
+query-relevant objects, but it mainly reflects image-space coverage and cannot
+assesswhethertheobjectisfullyobservedacrossselectedviewpoints.Incontrast,
+our3D-based visual memoryleverages 3D correspondences to retrieve views that
+better cover the queried 3D region, obtaining the best QA Score of 47.6, yielding
+a 3.3 points improvement from the no visual memory baseline.
+
+14 H. Zheng et al.
+Question: What is the major color of the bag
+closest to the door?
+Final Answer: white. GT Answer: White.
+Planning Agent:
+Object Grounding (grounding_agent)
+Task: Find all bags and doors in the scene.
+Execute: object_detection(bag,
+door), visual_memory_caching(bag, door)
+Result: Detected backpack_1, backpack_2,
+bag_1 and door_1.
+Geometric Computing (coding_agent)
+Memory Retrieval (planning_agent)
+Observation: The close-up image shows bag_1 is primarily
+white with a red logo.
+Final Answer: white. GT Answer: White.
+Planning Agent:
+Object Grounding (grounding_agent)
+Task: Find the couch with white pillow in the
+scene.
+Execute: object_detection(couch, pillow),
+visual_memory_caching(couch, pillow)
+Result: Detected couch_1, couch_2, pillow_1.
+Final Answer: black. GT Answer: Black.
+Task: Calculate the distance between each bag
+and the door, then find the closest bag.
+Execute: write_code(task), run_code()
+Result: dist(backpack_1,door_1)=3.35,
+dist(backpack_2,door_1)=3.84, dist(bag_1,
+door_1)=1.27. The closest bag to the door_1 is
+bag_1 with a distance of 1.27.
+Question: What color is the couch with white
+pillow?
+Memory Retrieval (planning_agent)
+Task: Extract the frames containing couch_1,
+couch_2, and pillow_1
+Execute: visual_memory_retrieval(couch_1,
+couch_2, pillow_1)
+Result: Retrieve 3 close-up frames from
+memory:
+bag_1
+Observation: The close-up images show that pillow_1
+(black-and-white striped) is on couch_1, and couch_1
+is black.
+Result: Retrieve 1 close-up frame from memory:
+couch_1
+couch_1
+pillow_1 pillow_1
+couch_2
+Task: Check the major
+color of bag_1.
+Execute: visual_memory_\
+retrieval(bag_1)
+Fig. 4: Qualitative results on Beacon3D.For each query, we show (top) the input
+question and RGB sequence, (middle) intermediate visual and geometric outputs, and
+(bottom) the predicted and ground-truth answers.
+4.5 Qualitative Results
+Fig. 4 illustrates how MAG-3D answers diverse questions with explicit interme-
+diate outputs. Given a query, MAG-3D grounds the relevant objects, performs
+geometric computation, and retrieves close-up evidence frames from memory to
+inform the final prediction. Together, these intermediate detections, geometric
+estimates, and retrieved frames provide structured cues that enable MAG-3D to
+carry out explicit 3D reasoning over objects and their spatial relations.
+5 Conclusion
+Grounded 3D reasoning depends on accurate localization of task-relevant entities
+aswellasspatialandgeometricinferencethatremainsconsistentwiththescene’s
+structure. We introduced MAG-3D, a training-free multi-agent framework that
+tackles this challenge by flexibly coordinating open-vocabulary grounding, vi-
+sual memory retrieving, and programmatic geometric verification without task-
+specifictrainingorhand-craftedpipelines.OnbothBeacon3DandMSQA,MAG-
+
+MAG-3D: Multi-Agent Grounded Reasoning for 3D Understanding 15
+3D achieves state-of-the-art performance compared to previous method. Be-
+yond overall accuracy, our Grounding–QA coherence analysis shows that MAG-
+3D demonstrate grounded 3D ability by aligning correct answers with correct
+grounding, reducing cases where a seemingly correct response is produced de-
+spite incorrect instance grounding. Moreover, the design of MAG-3D makes it
+straightforward to incorporate stronger backbones or improved perception mod-
+ules as they become available, without changing the overall framework. Overall,
+these results suggest that agentic coordination with explicit grounding and ver-
+ification offers a practical path toward flexible and dependable 3D reasoning in
+open-world settings. Looking forward, MAG-3D may serve as an automatic an-
+notator to help bootstrap grounded 3D reasoning data at scale, for example by
+generating object references, evidence-linked views, spatial relations, and veri-
+fication traces from large collection of readily available data from web, which
+can then be filtered or validated with human oversight. We hope our findings
+encourage further work on grounded reasoning for 3D spatial understanding.
+
+16 H. Zheng et al.

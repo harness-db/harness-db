@@ -1,0 +1,910 @@
+record_id: arxiv:2508.12379
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2508.12379
+fetched_title: GraphCogent: Mitigating LLMs’ Working Memory Constraints via Multi-Agent Collaboration in Complex Graph Understanding
+fetched_at: 2026-09-18T18:59:52Z
+
+GraphCogent: Mitigating LLMs’ Working Memory Constraints
+via Multi-Agent Collaboration in Complex Graph Understanding
+Rongzheng Wang1, Shuang Liang1*, Qizhi Chen1, Yihong Huang1, Muquan Li1,
+Yizhuo Ma1, Dongyang Zhang1, Ke Qin1, Man-Fai Leung2
+1 University of Electronic Science and Technology of China
+2 Anglia Ruskin University
+wangrongzheng@std.uestc.edu.cn shuangliang@uestc.edu.cn
+Abstract
+Large language models (LLMs) show promising performance on
+small-scale graph reasoning tasks but fail when handling real-world
+graphs with complex queries. This phenomenon arises from LLMs’
+working memory constraints, which result in their inability to
+retain long-range graph topology over extended contexts while sus-
+taining coherent multi-step reasoning. However, real-world graphs
+are often structurally complex, such as Web, Transportation, Social,
+and Citation networks. To address these limitations, we propose
+GraphCogent, a collaborative agent framework inspired by hu-
+manWorking Memory Modelthat decomposes graph reasoning
+into specialized cognitive processes: sense, buffer, and execute. The
+framework consists of three modules: Sensory Module standardizes
+diverse graph text representations via subgraph sampling, Buffer
+Module integrates and indexes graph data across multiple formats,
+and Execution Module combines tool calling and tool creation for
+efficient reasoning. We also introduce Graph4real, a comprehen-
+sive benchmark that contains four domains of real-world graphs
+(Web, Transportation, Social, and Citation) to evaluate LLMs’ graph
+reasoning capabilities. Our Graph4real covers 21 different graph
+reasoning tasks, categorized into three types (Structural Query-
+ing, Algorithmic Reasoning, and Predictive Modeling tasks), with
+graph scales up to 10 times larger than existing benchmarks. Exper-
+iments show that Llama3.1-8B based GraphCogent achieves a 50%
+improvement over massive-scale LLMs like DeepSeek-R1 (671B).
+Compared to state-of-the-art agent-based baseline, our framework
+outperforms by 20% in accuracy while reducing token usage by
+80% for in-toolset tasks and 30% for out-toolset tasks. Code will be
+available after review.
+CCS Concepts
+•Networks→ Network algorithms;•Computing methodolo-
+gies→ Knowledge representation and reasoning;•Mathe-
+matics of computing→Graph algorithms.
+Keywords
+Large Language Model, Graph Algorithms, Multi-agent System
+1 Introduction
+Large language models (LLMs) [24] have demonstrated remarkable
+cognitive capabilities in natural language processing. However,
+when querying the connection path between two webpages in
+a Web graph, state-of-the-art LLMs like DeepSeek-R1 [ 8], GPT-
+o3 [24], and Gemini-2.5 pro [12] return incorrect navigation routes
+“Of course not! I remember the previous
+letter was A. My memory is absolutely
+flawless!”
+“Correct! Keep it up!”
+“Now, the sixth letter is D. Is it the same
+as the third letter in the sequence?”
+“Uh... wait a second... was the third one
+H or B? I remember there was an E? I
+was wondering what to have for dinner...”
+Excellent! What a good memory!
+Edge set 4 has been processed. was
+the edge(X, Y) present in the first set?
+“Yes, I match this edge from memory — it
+appears as the 17th entry in the second
+set of edges.”
+“…I currently do not have all the edges of
+the first set in my memory. please provide
+all the edges again."
+Participants are sequentially given randomly
+ordered letters (e.g., H, B, D, A, E, D, ...). After a
+few letters are shown, the system gives the
+participant with a query: “Has the current letter
+appeared in the previous N positions?”
+“Unfortunately , the answer is incorrect!”
+“No, you can only rely on your
+memory. This time, your answer is
+incorrect!"
+The Large Language Model is first presented with
+multiple sets of edges (e.g., in the form of edge(A,
+B)). During the query phase, the LLM is asked
+whether a given edge from the current set also
+appeared in one of the previous sets.
+“Now, look carefully! The fifth letter is E.
+Is it the same as the fourth letter?”
+Human N-back query task Graph N-back query task
+“Edge sets 3 have been provided. Now
+evaluating edge(U, V): is this edge
+present in the second set?”
+Figure 1: Graph N-back Query Task: A graph is split into 50-
+edge subsets𝐸𝑡 . At turn𝑡+𝑁 , the LLM verifies edge existence
+in𝐸 𝑡 . Experimental results are in Section 4.2.
+in 9 out of 10 cases. This failure reveals that current LLMs remain
+limited in handling large real-world graph reasoning tasks.
+Researchers have explored various methods to address the con-
+straints of LLMs’ inability to perform graph reasoning.Text-based
+methods [6, 9, 21] leverage Chain-of-Thought (CoT) [33] reason-
+ing but struggle with the dynamic programming requirements of
+graph algorithms (e.g., Bellman-Ford [5]), resulting in cascading
+errors in complex tasks.Tool-basedmethods [ 32, 36] rely on ex-
+ternal tools for computation, requiring predefined tools and rigid
+input formats (e.g., preprocessed files). These limitations hinder
+their ability to process diverse graph text representations, such as
+adjacency lists, symbolic notations, and linguistic descriptions [9],
+thereby reducing their adaptability to real-world scenarios.Agent-
+basedmethods [ 20, 37] employ multi-agent collaboration, often
+decomposing graph tasks into sequential stages via naive instruc-
+tion prompts. However, these approaches are fundamentally limited
+by the complexity of code construction and the inherent memory
+constraints of LLMs. As graph scales increase and tasks involve
+real-world graph problems, agent-based methods perform poorly
+when handling graph data comprehension and task execution.
+This limitation stems from LLMs’ working memory constraints
+that restrict simultaneous processing of complex graph topology
+and multi-step reasoning. A common mitigation approach involves
+partitioning graphs into smaller units for sequential processing [17],
+arXiv:2508.12379v2 [cs.AI] 30 Sep 2025
+
+XX, 2026, XX, XXX Wang et al.
+mirroring how humans decompose complex problems into man-
+ageable information chunks [23]. Classic human working memory
+capacity assessments N-back test [ 1, 18, 19] (exampled in Fig. 1,
+left) reveals a rapid cognitive decline when humans are required
+to retain more than three items. Inspired by the N-back test, we
+design an analogous LLMs’ Graph N-back test. As exampled in the
+right of the Fig. 1, by the 3rd processing turn, Llama3.1-8B [29] ex-
+hibits significant topology forgetting, detailed quantitative result is
+analyzed in Section 4.2. This demonstrates that LLM graph reason-
+ing similarly suffers from working memory constraints, mirroring
+human cognitive limitations.
+Human brain addresses these constraints through a specialized
+working memory model for sensory processing, information buffer-
+ing, and task execution [ 4]. Facing a complex task, humans rely
+on an external sensory system to perceive stimuli, an episodic
+buffer to integrate and store information, and a central executive
+to coordinate cognition and processing. This absent architecture
+in monolithic LLMs reveals their key graph reasoning bottlenecks:
+(1)Diverse Text Representations: The sensory limitation in process-
+ing diverse graph text representations leads to inconsistent com-
+prehension, especially for mainstream open-source models (e.g.,
+Llama [29], Qwen [ 34], and GLM [ 10]), thus impairing reason-
+ing accuracy; (2)Overload Graph Scale: Lacking a buffer mecha-
+nism, LLMs’ limited input context windows hinders long-range
+dependency capture, causing global information loss and cascad-
+ing reasoning errors; (3)Code Execution Fragility: The executive
+dysfunction results in unreliable code generation and inefficient
+algorithmic implementation.
+Inspired by the cognitive architecture of human working mem-
+ory model, we proposeGraphCogent, aGraph Collaboration
+Agentic framework designed to mitigate LLMs’ working memory
+constraints in graph reasoning. Our framework consists of three
+modules:Sensory Moduleemploys a sensory agent to sample
+subgraph and transform unstructured graph text representations
+into standardized adjacency list.Buffer Moduleintegrates graph
+data from the Sensory Module and establishes data indices for di-
+verse data formats (including NumPy, PyG, and NetworkX) based
+on Buffer Agent.Execution Modulesynergistically combines tool
+calling and with on-demand tool creation. Naive graph reasoning
+tasks are handled by a Execution Agent through a pre-built common
+toolset, while complex tasks leverage a tool creator that produces
+modular, task-specific components and backfills new tool requests
+with the Buffer’s preprocessed data, thereby avoiding error-prone
+full-code generation.
+To evaluate LLM’s generalization capability in graph reasoning,
+we construct a more challenging Graph4real benchmark dataset,
+which collects graph data from four real-world domains: Web [22],
+Social [22], Transportation [27], and Citation [7]. Our Graph4real
+covers 21 different graph reasoning tasks, categorized into three
+types (Structural Querying, Algorithmic Reasoning, and Predictive
+Modeling tasks), with graph scales that are 10 times larger than ex-
+isting benchmarks (e.g., NLGraph [30], GraphWiz [6]). Experimen-
+tal results demonstrate that our method achieves state-of-the-art
+performance with an average accuracy of 98.5% based on the open-
+source Llama3.1-8B, representing a 20% improvement over other
+agent-based approaches. Cross-dataset validation demonstrates ro-
+bust generalization, maintaining over 90% accuracy across diverse
+public benchmarks. The combining tool calling and tool creation
+strategy delivers dual optimization: it reduces token consumption
+by 80% for tasks covered by our toolset while still achieving 30%
+token savings for out-toolset tasks compared to the conventional
+agent-based method.
+Our contributions are summarized as follows: (1) We propose
+GraphCogent, a novel agent collaboration framework addressing
+LLMs’ working memory constraints through its sensory-buffer-
+execution architecture; (2) We design a reasoning mechanism that
+combines tool calling and tool creation with aThinking Policy Ini-
+tializationto stabilize early-stage decision-making and a tailored
+Capability-Margin Preference Optimization (CMPO)objective to
+sharpen tool discrimination, enabling efficient handling of diverse
+graph tasks; (3) We construct Graph4real, a comprehensive bench-
+mark featuring real-world graphs that covers 21 different graph
+reasoning tasks, categorized into three types (Structural Querying,
+Algorithmic Reasoning, and Predictive Modeling tasks), with graph
+scales that are 10 times larger than existing benchmarks.
+2 Related work
+LLMs for Graph Reasoning Tasks.Existing graph reasoning
+methods adopt three paradigms:Text-based[ 6, 9, 13, 21, 31] ap-
+proaches leverage chain-of-thought prompting to decompose graph
+algorithms stepwise, but suffer error accumulation in multi-step
+reasoning.Tool-based[ 24, 32, 36] methods offload computations to
+external solvers (e.g., NetworkX), yet rigid input requirements limit
+adaptability to diverse text representations.Agent-based[ 20, 37]
+frameworks attempt task decomposition through multi-agent col-
+laboration, but face scalability bottlenecks when handling large
+graphs due to code generation complexity and memory overload.
+Working Memory Constraints in LLMs.Like humans facing
+working memory constraints in complex tasks [15, 25], LLMs show
+similar capacity constraints. Cognitive studies show humans typi-
+cally retain only few information units simultaneously, with perfor-
+mance decaying sharply in N-back tests (where N = 3) [1, 16, 18, 19].
+LLMs mirror this pattern, exhibiting accuracy declines on 3-step de-
+pendencies [3]. This working memory overload manifests in graph
+reasoning as excessive graph scale and complex reasoning tasks,
+thus hindering effective processing of intricate graph structures
+and multi-step reasoning.
+Graph Reasoning Benchmarks for LLMs.NLGraph [30], as
+the pioneering benchmark, demonstrates LLMs’ competence on
+small-scale graphs (less than 40 nodes) with basic reasoning tasks.
+GraphWiz [6] later expands to 100 nodes with more complex tasks.
+However, these and other benchmarks [9, 21, 31, 32] remain con-
+strained by fixed-size graphs within context windows and templated
+reasoning tasks, failing to match real-world reasoning demands
+where both scale and complexity exceed current test conditions.
+3 Graph4real Construction
+Current LLMs’ graph reasoning benchmarks face three key limita-
+tions: (1) Limited scale, primarily using randomly generated graphs
+that lack real-world topological characteristics; (2) Simple textual
+representations, over-relying on preprocessed files or adjacency
+lists while ignoring domain-specific semantic descriptions; (3) Arti-
+ficial task formulations, where queries directly specify algorithms
+
+GraphCogent: Mitigating LLMs’ Working Memory Constraints via Multi-Agent Collaboration in Complex Graph Understanding XX, 2026, XX, XXX
+0 1 2 320
+30
+40
+50
+60Value
+Adjacency
+0 1 2 3
+Symbol
+0 1 2 3
+Linguistic
+True Edges False Edges Accuracy
+0
+25
+50
+75
+100
+Accuracy
+Figure 2: Graph N-back Query. Accuracy (right y-axis) mea-
+sures memory retention across dialogues, computed as sum
+of True edges (correctly identified existing edges) and False
+edges (correctly rejected non-existent edges) (left y-axis).
+25 50 75 1000
+25
+50
+75
+100Value
+Adjacency
+25 50 75 100
+Symbol
+25 50 75 100
+Linguistic
+Edit Cost GEC
+0.0
+2.5
+5.0
+7.5
+10.0
+GEC
+Figure 3: Graph Efficiency Coefficient (right y-axis) across
+sampling granularity. Edit shows graph Edit distance (left
+y-axis), and Cost (left y-axis, scaled×100) counts total LLM
+interactions. Lower GEC indicates better performance.
+with only a single sentence rather than mirroring real-world rea-
+soning scenarios requiring intent interpretation.
+Real-World Graph Scaling.To establish a comprehensive bench-
+mark for evaluating LLMs on real-world graph reasoning tasks, we
+curate a diverse set of graphs from four domains: Web (Google
+Web Graph [22]), Social (SNAP Social Circles [22]), Transportation
+(PeMS [27]), and Citation graphs (Cora [ 7]). Unlike prior bench-
+marks [21, 30] that rely on randomly generated graphs, our dataset
+is constructed from real-world sources to ensure realistic topolog-
+ical properties and domain-specific characteristics. We employ a
+biased random walk sampling strategy to construct graphs at three
+scales (40, 100, and 1000 nodes), ensuring both effective evaluation
+of LLM-based methods through smaller-scale graphs and construct
+large-scale graphs to challenge existing methods.
+Various Graph Text Representation.We formalize three
+graph text representation formats to evaluate LLMs’ graph compre-
+hension and reasoning capabilities: (1) Adjacency list ([0,1],[0,2],...);
+(2) Symbolic notation (0→1, 2→3); (3) Linguistic descriptions us-
+ing domain-specific predicates (Linked/Followed/Connected/Cited).
+These representations preserve various semantics, enabling assess-
+ment of LLMs’ ability to process both formal graph formats and
+domain-specific descriptions.
+Intent-Driven Task Design.A total number of 21 tasks are
+designed and categorized into three classes: (1)Graph Structural
+Querying Tasks: Focus on fundamental graph properties, such as
+edge existence or node count, testing basic graph structural compre-
+hension. (2)Graph Algorithmic Reasoning Tasks: Require reasoning
+based on classical algorithms, such as shortest path and maximum
+flow, evaluating algorithmic proficiency. (3)Graph Predictive Model-
+ing Tasks: Involve neural network-based predictions, such as node
+classification and link prediction, assessing predictive capabilities.
+For task generation, we collect five real-world scenarios for each
+of the four domains (e.g., travel planning and logistics optimization
+for transportation) and craft 20 prompt templates to construct con-
+textually grounded questions. Using DeepSeek-R1 [8], we generate
+graph reasoning tasks based on templates with specific scenarios,
+ensuring both diversity and relevance. To validate task quality, we
+employ a dual evaluation approach: DeepSeek-R1 for automated
+assessment and human for manual review. This process produces
+a dataset with 4200 questions distributed across the 21 tasks. The
+detailed task definitions, dataset statistics, and prompt templates
+are provided in our released anonymous github code.
+4 GraphCogent
+We propose GraphCogent, an agent-based framework inspired by
+the human working memory model to address the challenges of
+real-world graph reasoning tasks. Our framework consists of three
+specialized modules: Sensory Module (samples subgraphs and trans-
+form unstructured graph text representations into standardized
+adjacency list), Buffer Module (integrates graph data from Sen-
+sory Module and establishes data indices for diverse data formats),
+and Execution Module (combines tool calling and tool creation to
+address graph reasoning tasks). The overall pipeline of the GraphCo-
+gent is illustrated in Fig. 4.
+4.1 Graph N-back Query
+Real-world graphs present two fundamental characteristics: (1)
+Large Graph Scale, benchmarks like NLGraph [30] use small graphs
+(less than 40 nodes), while real-world graph (e.g., Cora [ 7]) con-
+tains thousands of nodes and edges; (2) Varied Text Representation,
+different domains use distinct descriptions ("connected" in trans-
+portation or "followed" in social), and same text representation
+may appear in varied formats (adjacency lists, symbolic notations,
+linguistic descriptions).
+We propose Graph N-back Query, a graph memory evaluation for
+LLM inspired by the human working memory assessment through
+N-back tasks [18]: Using a 100-node graph (sampled from PeMS
+datasets [27]) partitioned into 50-edge subsets𝐸𝑡 , we test memory
+retention across three text representations by querying edge exis-
+tence at turn𝑡+𝑁 . Experiments with Llama3.1-8B in Fig. 2 reveal
+significant forgetting across dialogues, demonstrating that LLMs’
+inherent memory mechanisms fail to reliably handle large-scale
+graph reasoning. This highlights that LLMs’ inherent context win-
+dow limitations constrains their ability to maintain global graph
+information, rendering conventional step-by-step graph input ap-
+proaches ineffective due to these working memory constraints.
+4.2 Sensory Module
+The Sensory Module, which is proposed to address the dual chal-
+lenges of graph scale and text representations, consists of two key
+components: Sensory Agent parses raw graph data via subgraph
+sampling and transform diverse text representations inputs into
+
+XX, 2026, XX, XXX Wang et al.
+Execution Agent
+Tool
+Web Citation TransportationSocial
+Tool Creator
+New Tool Graph Index
+Answer
+Execution Module
+Verifier
+Sampling
+Sensory Module
+Sensory Agent
+Graph
+Text Representation
+Graph Text
+Representation:
+[1,2],[1,6],[4,3],…
+1->2,1->6,4->3,…
+Node 1 is connected to
+Node 2,…
+Text Representation
+Symbol Representation
+Adjacency Representation
+Buffer Module
+Graph Index
+Buffer Agent
+Graph Graph Integrate
+Numpy(matrix=[[0,1,0,0], [0,0,1,0], ...])
+Numpy Format
+PyG(edge_index=[[0, 1], [1, 2], [2, 3], ...])
+Pyg Format
+NetworkX([(0, 1), (1, 2), (2, 3), (3, 4), ...])
+NetworkX Format
+I will call Dijkstra
+I will write GCN
+Figure 4: Overview of GraphCogent. Sensory Module (left) standardizes various graph text representations through subgraph
+sampling and conversion; Buffer Module (center) establishes cross-format data (e.g., NetworkX) integrating and indexing
+transformations; Execution Module (right) enables two reasoning modes: Execution Agent is employed for tool discrimination
+and implements tool calling for in-toolset tasks, Tool Creator handles out-toolset tasks based on tool creation.
+standardized adjacency lists; Graph Verifier serves as a supervi-
+sory mechanism for the Sensory Agent’s transformation process,
+detecting both format deviations and misaligned conversions.
+Sensory Agent: Experiments in Fig. 3 demonstrate that the
+granularity of sampling directly impacts LLMs’ transformation per-
+formance. To achieve accurate text representation transformation,
+we define the Graph Efficiency Coefficient (GEC) to balance transfor-
+mation accuracy (measured by Edit distance) against computational
+Cost (LLM token consumption):
+GEC=Edit_distance(𝐺,𝐺 ′)×
+˝𝑁
+𝑖=1(𝑇𝑖
+input+𝑇 𝑖
+output)
+𝑇max
+,(1)
+where Edit_distance(𝐺,𝐺′) measures the structural deviation be-
+tween the original graph𝐺 and the sampled graph𝐺′; ˝𝑁
+𝑖=1(𝑇𝑖
+input+
+𝑇𝑖
+output) quantifies the total token cost of LLM interactions, nor-
+malized by𝑇max (maximum allowed tokens per LLM interaction).
+The algorithm for calculating Edit_distance and the rationale for
+selecting token count as the Cost metric are detailed in Appendix C.
+We prepare 100 graphs (300 edges each) to test four subgraph
+granularities (25-100 edges). Using Llama3.1-8B, we measure Edit
+distance and Cost to compute GEC. Results in Fig. 3 show that
+coarser granularity exceeds LLM’s transformation capacity, increas-
+ing Edit distance, while finer granularity raises Cost through fre-
+quent LLM interactions. The GEC for graph reasoning tasks varies
+across models due to differences training or parameter scales, and
+for Llama3.1-8B, it achieves optimal GEC at approximately 50 edges.
+Guided by GEC, the Sensory Agent decomposes large graphs
+into optimally sized subgraphs to achieve accurate transformation.
+We employ heuristic prompts to elicit standardized adjacency lists
+regardless of input format (e.g., symbolic notations, linguistic de-
+scriptions). To handle both weighted and unweighted adjacency
+lists, we implement dual regular-expression templates that auto-
+matically match these formats; extracted edges are subsequently
+validated by the Graph Verifier. For text-represented graphs, we
+implement a sliding-window sampler whose window size is se-
+lected by GEC; by default with Llama3.1-8B we use 50 edges per
+window. Each window carries a fixed 5% edge overlap to preserve
+cross-window structures at boundaries. For structured graph files
+(e.g., edgelist, txt, and json), we bypass partitioning and load them
+directly into the Buffer Module without windowing.
+Graph Verifier.While GEC controls the granularity, LLM out-
+puts can still introduce parsing noise during transformation. The
+Verifier checks quantity consistency (|𝑉| ,|𝐸| ) and adjacency-list
+format compliance via regex parsing, and failed transformations
+trigger Sensory Agent retries. After per-window transformation,
+the Verifier merges subgraphs via a deterministic set-union with
+de-duplication and then runs a quick quantity-and-format check
+to ensure global consistency before dispatching any reasoning. By
+default, text graphs use a 50-edge window with 5% overlap, and file-
+based graphs are not partitioned. Experiments on how the Graph
+Verifier enhances transformation reliability and ensures global con-
+sistency are provided in Appendix B.1.
+4.3 Buffer Module
+Current agent frameworks for graph reasoning lack storage mech-
+anisms, relying instead on pre-processed files or delegating prepro-
+cessing to code generation. As Fig. 3 shows, even simple adjacency
+list transformations exhibit growing Edit distance with scale increas-
+ing, revealing LLMs’ declining reliability in graph comprehension.
+Moreover, graph paradigms diverge fundamentally in storage: al-
+gorithm tasks use OOP structures (e.g., NetworkX), link prediction
+requires tensor formats (e.g., PyG), and traffic prediction needs
+sparse matrices (e.g., NumPy). This difference overloads LLMs’
+working memory, thus resulting in inaccurate code generation,
+demanding both task-accurate implementations and cross-format
+transformation via reasoning.
+Based on the human episodic buffer mechanism [ 11], we con-
+struct the Buffer Module to serve as an intermediary that not only
+stores and integrates graph data but also establishes indices for
+
+GraphCogent: Mitigating LLMs’ Working Memory Constraints via Multi-Agent Collaboration in Complex Graph Understanding XX, 2026, XX, XXX
+Shortest Path
+<Tool>
+<Think>
+Thinking Generation Thinking Policy Initialization
+Shortest is in
+Toolset(Chosen)
+Link Predict is in
+Toolset(Reject)
+Chosen&Reject CMPO Execution Agent
+Tool Creator
+Link Prediction
+New ToolTool Creation Fine-tuning
+In-toolset
+Out-toolset
+Tool Collection
+Figure 5: Overview of Execution Agent and Tool Creator training. In-toolset task (top) initializes a thinking policy from Think
+and Tool pairs, applies a CMPO method to refine Execution Agent’s tool capability discrimination; Out-toolset task (bottom)
+uses the fine-tuned Tool Creator to synthesize minimal task-specific tools, and backfills them into the common toolset.
+different data formats. This module transforms raw graph text
+representations into multiple standardized formats: NetworkX for
+graph algorithms, NumPy for numerical operations, and PyG for
+tensor requirement tasks.
+The Buffer Module begins by integrating adjacency lists from
+the Sensory Module to construct complete graph structures. To
+support diverse reasoning tasks, the raw graph data is transformed
+into multiple standardized data formats. For Structural Querying
+and Algorithmic Reasoning tasks, the data is preprocessed into
+NetworkX graph objects that preserve topological relationships
+and node attributes. For Predictive Modeling tasks, we implement
+data preprocessing including normalization and outlier treatment
+before encapsulating the graph as NumPy arrays or PyG tensors.
+To enable efficient access across these data format, we implement
+the Buffer Agent to build data index that tracks key characteristics
+including data dimensionality, organizational schema, and metadata
+description. These indices are then passed to the Execution Module,
+allowing it to rapidly retrieve the most suitable graph format for
+each specific reasoning task.
+4.4 Execution Module
+Execution Module tackles code construction complexity and inef-
+ficiency through two collaborating components: Execution Agent
+and Tool Creator. The Execution Agent performs task analysis and
+tool invocation using a pre-built common toolset. It first assesses
+whether a problem instance is solvable within the toolset’s capabil-
+ities via invoking existing tools; when covered, it directly executes
+the appropriate tool. For cases beyond current capabilities, it issues
+a creation request to the Tool Creator, which synthesizes a minimal
+task-specific tool and fills the pending invocation. By directly oper-
+ating on the Buffer Module’s preprocessed data results, it avoids
+the fragility of full-code generation while retaining adaptability to
+complex requirements. Newly created tools can also be registered
+back into the toolset for future reuse.
+4.4.1 Execution Agent.We adopt a two-stage instruction-tuning
+pipeline that couples (i) thinking policy initialization for robust
+tool invocation with (ii) capability-margin preference optimiza-
+tion (CMPO) for reliable tool capability discrimination. The first
+stage follows instruction-tuned policy learning with explicit think-
+ing traces [14]; the second stage follows preference-based policy
+learning [26] to shape a likelihood-ratio margin around the tool
+capability boundary.
+Phase 1: Thinking Policy Initialization for Tool Invocation.
+We pair graph reasoning problemsProbwith toolset descriptions
+Toolsetto form composite queries Ques=⟨Prob,Toolset⟩ . These are
+processed by DeepSeek-R1 to produce Ans=⟨Think,Tool⟩ , where
+Thinkexposes the reasoning trace to enhance routing stability
+and auditability, andToolindicates the selected tool. We curate
+pairs with correct invocation and optimize the maximum-likelihood
+objective:
+Linit =−
+𝑁∑︁
+𝑖=1
+log𝑃𝜃
+⟨Think,Tool⟩𝑖
+⟨Prob,Toolset⟩𝑖
+,(2)
+with the factorization:
+log𝑃𝜃(Ans|Ques)=log𝑃 𝜃(Think|Ques)
+| {z }
+thinking generation
++log𝑃 𝜃(Tool|Think,Ques)
+| {z }
+tool selection
+. (3)
+While the first stage provides strong invocation priors, Appen-
+dix B.3 shows a boundary effect: the agent may still over-rely on
+existing tools for tasks that actually require creation. This motivates
+a decision margin for the model’s tool capability. For later unifica-
+tion, we define a policy score relative to a frozen reference policy
+𝑃ref for subsequent preference optimization and tool-capability dis-
+crimination:
+𝑠𝜃(𝑦|𝑥)=log𝑃 𝜃(𝑦|𝑥)−log𝑃 ref(𝑦|𝑥).(4)
+Phase 2: Capability-Margin Preference Optimization.
+To refine agent’s tool capability discrimination, we adopt follow-
+ing two strategies.
+(a) Action-segment scoring.Mtool denotes the token indices be-
+longing to the action segment (demarcated by special tool markers
+in data). We compute a policy score centered at a frozen reference
+policy𝑃 ref but restricted to the action segment:
+𝑠tool
+𝜃 (𝑦|𝑥)=
+∑︁
+𝑡∈M tool
+log𝑃𝜃(𝑦𝑡|𝑦 <𝑡,𝑥)−
+∑︁
+𝑡∈M tool
+log𝑃 ref(𝑦𝑡|𝑦 <𝑡,𝑥). (5)
+
+XX, 2026, XX, XXX Wang et al.
+The score aggregates only the decision-critical tokens within the
+tool segment, isolating action selection from reasoning-style vari-
+ance. We then quantify the pairwise preference between a preferred
+response𝑅𝑤 and a less-preferred response𝑅𝑙 by a likelihood-ratio
+margin:
+Δ𝑠tool =𝑠 tool
+𝜃 (𝑅𝑤|𝑥)−𝑠 tool
+𝜃 (𝑅𝑙|𝑥).(6)
+(b) Capability-aware hard negatives.For each 𝑥, we sample a can-
+didate setC𝐾(𝑥) from the initialized policy and select a challenging
+negative via the reference action-segment likelihood:
+𝑅𝑙 =argmax
+𝑦∈C𝐾(𝑥)\{𝑅 𝑤}
+ℓtool
+ref (𝑦|𝑥),(7)
+ℓtool
+ref (𝑦|𝑥)=
+∑︁
+𝑡∈M tool
+log𝑃 ref(𝑦𝑡|𝑦 <𝑡,𝑥).(8)
+This selection aims to identify the most confusing incorrect answer
+for the agent based on the reference likelihood, forcing the agent
+to learn to distinguish fine-grained differences between them.
+We then optimize a logistic objective with a fixed margin𝑚:
+L(margin)
+CMPO =−E(𝑥,𝑅𝑤,𝑅𝑙)
+h
+log𝜎 𝛽(Δ𝑠 tool−𝑚) i
+,(9)
+which encourages the agent not only to prefer the correct tool over
+the negative, but to maintain a minimum confidence gap between
+them, thereby improving robustness near the decision boundary.
+At execution time, we define a capability score𝛾(𝑥)=Δ𝑠 tool and
+employ a two-threshold hysteresis rule to stabilize tool capability
+discrimination near the boundary, thereby further ensuring the
+stability and robustness of the agent’s decisions:
+route(𝑥)=
+ 
+
+Ainvoke, 𝛾(𝑥)≥𝜏 high,
+Acreate, 𝛾(𝑥)≤𝜏 low,
+keep previous decision,otherwise.
+(10)
+4.4.2 Tool Creator.The Tool Creator handles missing-capability
+cases by generating only the tool body under a prompt template and
+returning it to fill the pending invocation. The template supplies
+the task description, admissible libraries and variable names, and
+the expected return object; outer interface and skeleton code is
+provided by the framework at runtime. By executing directly on
+the Buffer Module’s preprocessed data structures, this design keeps
+generation reliable and avoids brittle full-file synthesis.
+We curate a corpus from classical graph algorithms (e.g., PageR-
+ank) and neural models (e.g., GCN, GAT) on GitHub. Using LLMs
+(DeepSeek-v3 [8], GPT-4o [24], Claude-3.7 [2]), we synthesize code
+and retain only samples that execute successfully. For each retained
+sample, we extract the body segment between special body marker.
+On the input side, we concatenate the original query with its task
+template to form QuesTpl =⟨Ques,T⟩ , and keep a minimal con-
+textual scaffold 𝑐𝑖 (e.g., necessary imports, a function signature,
+lightweight placeholders) to induce body-only completion.
+Tool Creation Fine-tuning.We optimize a body-only maxi-
+mum likelihood objective:
+Ltrain =−
+𝑁∑︁
+𝑖=1
+𝑀body,𝑖∑︁
+𝑡=1
+log𝑃𝜃
+𝑦𝑖,𝑡
+𝑦𝑖,<𝑡,Ques Tpl
+𝑖 , 𝑐𝑖
+,(11)
+where𝑁 is the number of validated examples,𝑀body,𝑖 denotes the
+number of tokens in the body segment of example 𝑖 (we reindex
+body tokens as𝑡= 1,...,𝑀 body,𝑖),𝑦𝑖,𝑡 is the𝑡-th target token within
+the body. This objective focuses learning on the implementation
+logic while leaving interface details to the framework. At infer-
+ence, the template provides the necessary task and contextual cues;
+the Tool Creator emits the body segment to satisfy the Execution
+Agent’s pending invocation, which the framework assembles with
+the runtime skeleton and executes to produce final results.
+4.4.3 Training Settings.We use Llama3.1-8B as the backbone for
+all agents. For capability-aware negatives, the candidate set size
+is𝐾= 8. Two-thresholds are set to 𝜏low = 0.55and 𝜏low = 0.45.
+Both Execution Agent and Tool Creator are trained on Graph4real
+dataset. The training set employs 4 of 20 prompt templates, with
+their corresponding tasks excluded from the test set to ensure fair
+evaluation. More detailed settings can be founed in Appendix A.
+5 Experiments
+5.1 Experimental Settings
+Dataset.We evaluate on Graph4real, a real-world benchmark with
+graphs from 40 to 1,000 nodes spanning transportation, social, web,
+and citation domains. The dataset includes both in-toolset and out-
+toolset tasks, with 500 test instances per task and scale (across
+domains). To ensure fair comparisons, we use standard adjacency
+lists for graph text representation for main experiments in Table 1.
+Additionally, we introduce public datasets: NLGraph [30], Talk like
+a Graph [9], GraphWiz [6], GraphArena [28], GraCoRe [35] and
+GraphInstruct [21].
+Baseline Methods.We compare three types of methods: (1)Text-
+based methodsincluding GPT-4o [24], Claude-3.7 [2], and DeepSeek-
+R1 [8] with 2-shot CoT prompting. (2)Tool-based methodsincluding
+Graph-Toolformer [36], GraphTool-Instruction [32] on Llama3.1-
+8B [29] and GPT-4o with Function Calling [ 24]; (3)Agent-based
+methodsare the state-of-the-art GraphTeam [ 20] framework with
+GPT-4o-mini [24] and reproduced GCoder [ 37] with Llama3.1-
+8b [29]. All LLMs’ versions and settings are in Appendix A.
+Evaluation Metrics.We use accuracy for all tasks except traffic
+flow prediction (measured by MAE).
+5.2 Main Result
+The performance results are reported in Table 1. Our method sig-
+nificantly outperforms all baseline methods across toolset-covered
+tasks. As for text-based methods, they demonstrate advantages on
+small-scale simple Structural Querying tasks (e.g., DeepSeek-R1
+achieves 100% on edge existence). However, these methods show
+significant performance degradation when dealing with problems
+requiring multi-step reasoning (e.g., only 30.8% accuracy on short-
+est path), and this issue becomes more pronounced as the scale
+increases. Tool-based approaches such as GPT4o-FC demonstrates
+robust performance across all tasks on small-scale graphs by lever-
+aging GPT4o’s powerful reasoning capabilities. However, they suf-
+fer 10% performance degradation when scaling from 40 to 100 nodes.
+The agent-based GraphTeam and GCoder demonstrate limitations
+in code generation across multiple tasks. The complex data prepro-
+cessing and reasoning requirements overload the model’s working
+memory, resulting in lower performance. In contrast, our method
+maintains state-of-the-art performance across all scales with less
+
+GraphCogent: Mitigating LLMs’ Working Memory Constraints via Multi-Agent Collaboration in Complex Graph Understanding XX, 2026, XX, XXX
+Table 1: Performances of GraphCogent and other baselines on Graph4real in-toolset tasks. Note: Graph-TF, GraphTool-Ins ,and
+GPT4o-FC are abbreviations for Graph-Toolformer, GraphTool-Instruction,and GPT4o-Function Calling.
+Method Model Edge
+Existence
+Edge
+Count
+Triangle
+Count
+Shortest
+Path
+Path
+Existence
+Cycle
+Detection
+Node
+Existence
+Node
+Count
+Degree
+Count Average
+Small-Scale (40 Nodes)
+Text
+GPT-4o [24] 10022.2 20.6 25.8 77.2 78.210084.2 29.8 59.8
+Claude-3.7 [2] 99.2 22.4 21.0 21.2 79.8 81.810080.2 32.2 59.8
+DeepSeek-R1 [8] 10032.6 26.6 30.8 86.6 86.810090.4 31.0 65.0
+Tool
+Graph-TF [36] 48.0 75.6 71.0 63.8 44.2 66.8 50.2 77.2 50.0 60.8
+GraphTool-Ins [32] 94.2 98.0 97.8 98.2 96.8 99.0 100 10097.8 98.0
+GPT4o-FC [24] 95.099.298.4 99.0 99.2 100 100 10099.0 98.9
+Agent
+GraphTeam [20] 86.6 84.8 82.8 80.2 97.6 80.0 96.8 70.8 97.6 86.4
+GCoder [37] 82.0 84.6 83.4 82.8 90.6 80.6 88.0 74.0 87.8 83.8
+GraphCogent 99.4 98.2 99.098.6 97.8 10099.2 100 100 99.1
+Middle-Scale (100 Nodes)
+Text
+GPT-4o [24] 90.4 6.8 5.4 7.2 54.0 67.6 99.8 58.6 6.8 44.1
+Claude-3.7 [2] 93.0 6.2 4.8 6.8 55.8 73.0 99.2 52.2 7.2 44.2
+DeepSeek-R1 [8] 98.0 7.4 6.2 8.0 60.6 76.610060.4 7.4 47.2
+Tool
+Graph-TF [36] 43.2 68.0 63.8 57.4 39.8 60.0 45.2 69.4 45.0 54.6
+GraphTool-Ins [32] 84.8 89.0 88.0 88.4 89.0 89.0 90.6 92.0 88.0 88.8
+GPT4o-FC [24] 85.4 89.2 88.6 89.0 89.2 89.4 97.0 94.2 89.0 90.1
+Agent
+GraphTeam [20] 91.6 80.2 73.0 65.8 93.2 69.6 89.6 65.4 95.2 80.4
+GCoder [37] 80.0 68.0 60.8 68.2 82.4 71.4 78.2 67.4 82.8 73.2
+GraphCogent 98.2 97.8 98.8 98.2 97.4 99.099.4 97.6 99.8 98.5
+Large-Scale (1000 Nodes)
+Agent GraphCogent 97.0 97.4 98.6 98.0 97.2 97.0 96.8 97.2 99.6 97.6
+Table 2: Performance evaluation on out-toolset tasks. Note: Except for the traffic prediction (which values represent MAE), all
+other values represent Accuracy.
+Web Transportation Social Citation
+Method Common PageRank Link Max DiameterTraffic Maxcore Connect. Link Reference Cluster. Node
+Neighbor Calcu. Pred. Flow Calcu.Pred. Calcu. Compo. Pred. Match Coeff. Class.
+GraphTeam 51.2 76.8 71.6 72.4 61.696.7 69.8 72.0 76.4 78.8 76.4 72.0
+GCoder 49.0 74.0 68.5 70.0 58.899.2 67.2 69.0 72.0 75.0 74.0 68.0
+GraphCogent 88.8 92.6 86.4 89.6 92.435.1 91.6 87.6 85.2 90.0 85.2 89.6
+than 1% variance. Notably, while no baseline could handle large-
+scale graphs, we have only included the results of our approach.
+We then evaluate GraphCogent’s performance on out-toolset
+tasks against GraphTeam and GCoder in Table 2 on middle-scale
+graphs. Focusing on agent capabilities for handling uncovered tasks,
+we omit tool-based methods from comparison as they inherently
+lack these functionalities. Our method demonstrates superior adapt-
+ability, achieving 20% improvements over GraphTeam and GCoder
+across four domains.
+We further conduct a systematic comparison among agent-based
+approaches on public benchmarks (right part of Fig. 6). For fair com-
+parison, the evaluation is conducted on the intersection of tasks
+jointly covered by three agent-based methods. The results demon-
+strate that GraphCogent maintains strong performance across all
+six public datasets. We attribute this to our working memory model
+inspired pipeline, which leads to lower execution-error rates and
+more efficient runs. This is further supported by the Code Execu-
+tion Rate statistics (left part of Fig. 6), where our method achieves
+higher one-pass success rates than GraphTeam’s three-retry mecha-
+nism and GCoder’s compiler-feedback–based reinforcement tuning.
+These findings are consistent with our analysis of working memory
+constraints: when an LLM must simultaneously retain complex
+graph topology, perform multi-step reasoning, and synthesize exe-
+cutable code, it tends to degrade in both accuracy and executability.
+Experiments on effectiveness evaluation of our approach demon-
+strate the superiority in two key aspects. First, our token consump-
+tion analysis in Table 3 shows consistent improvements across all
+tasks, with significantly reduced input token consumption and sub-
+stantial output token savings over GraphTeam (approximately 80%
+for in-toolset tasks and 30% for out-toolset tasks) while maintaining
+high accuracy. Second, we compare Tool-based and Agent-based
+
+XX, 2026, XX, XXX Wang et al.
+Table 3: Reasoning token comparison between agent baselines. Note: Input and Output are abbreviation for average input
+tokens and average output tokens respectively.
+In-Toolset Tasks Out-Toolset Tasks
+Method Shortest Path Cycle Detection Max Flow Link Prediction
+Input Output Accuracy Input Output Accuracy Input Output Accuracy Input Output Accuracy
+GraphTeam 4248 3285 65.8 4207 2901 69.6 4122 3023 72.4 4423 3820 76.4
+GCoder 3782 1051 68.2 3640 620 71.4 3927 1181 70.0 3855 1909 72.0
+GraphCogent 2794 615 98.2 2533 595 99.0 3009 1044 89.6 3128 1244 90.2
+Table 4: Reasoning time comparison between GraphCogent and other baselines.
+Methods Shortest Path Cycle Detection Triangle Count Path Existence Link Prediction
+Time Accuracy Time Accuracy Time Accuracy Time Accuracy Time Accuracy
+GPT4o-Function Calling 12.2s 89.0 10.7s 89.4 11.3s 88.6 12.9s 89.2 / /
+Graph-Toolformer 18.1s 57.4 16.6s 60.0 18.9s 63.8 17.3s 39.8 / /
+GraphTool-Instruction 19.8s 88.4 18.3s 89.0 20.1s 88.0 19.2s 89.0 / /
+GraphTeam 58.1s 65.8 56.6s 69.6 57.3s 73.0 58.9s 93.2 59.5s 76.4
+GCoder 21.5s 68.2 17.5s 71.4 17.4s 60.8 13.3s 82.4 27.7s 72.0
+GraphCogent 22.8s 98.2 23.3s 99.0 20.1s 98.8 19.2s 97.4 24.0s 85.2
+T alk like a Graph
+GraphWiz
+NLGraph
+GraphInstruct
+GraphArena
+GraCoRe
+99.1
+88.6
+97.8
+88.1
+86.5
+87.2
+99.3
+90.0
+99.7
+94.8
+91.9
+92.0
+97.1
+89.3
+97.6
+89.9
+84.0
+84.8
+Average Performance on Public Benchmarks
+GraphCogent
+GraphT eam
+GCoder
+Transport Social Web Citation
+40
+60
+80
+100Execution Rate (%)
+Code Execution Rate on Out-T oolset T asks
+Figure 6: Average Performance on Public Benchmarks (right).
+Code execution rate on out-toolset tasks (left).
+Table 5: Accuracy on larger graph.
+Scale Shortest Cycle Triangle Path PageRank Max
+Path Detect. Count Exist. Calcu. Flow
+2000 97.0 97.0 98.6 97.0 93.0 89.6
+5000 98.2 97.0 98.8 98.0 90.8 87.8
+10000 97.4 96.8 99.0 97.0 89.8 88.4
+methods on reasoning time in Table 4. While GPT4o-FC’s API im-
+plementation demonstrates significant time advantages over local
+open-source LLMs, our local method GraphCogent achieves com-
+petitive speed while maintaining superior accuracy. The additional
+reasoning time in our framework mainly stems from multi-round
+sampling in the Sensory module. In contrast, although GraphTeam
+(based on GPT4o-mini) benefits from faster API inference, its per-
+formance is compromised by working memory overload in complex
+tasks and the overhead of its three-retry mechanism, making its
+direct code generation approach both slower and less accurate.
+Table 6: Framework adaptability across different LLMs.
+Base Model Shortest Cycle Max Link
+Path Detect. Flow Pred.
+Naive GLM4-9B 0.0 68.4 0.0 48.6
+GraphCogent (GLM) 96.2 96.8 81.4 82.2
+Naive Qwen2.5-7B 0.0 56.4 0.0 51.0
+GraphCogent (Qwen) 92.2 90.4 91.2 87.2
+Naive GPT-4o 7.2 67.6 10.2 62.4
+GraphCogent (GPT-4o) 100 100 99.2 90.8
+Naive DeepSeek-R1 8.0 76.7 9.6 60.4
+GraphCogent (DeepSeek-R1) 100 100 99.2 91.2
+Although our experiments primarily focus on the Llama3.1-8B,
+the framework’s modular design ensures compatibility with both
+open-source and closed-source LLMs. Table 6 reveals our frame-
+work’s adaptability. For open-source models like GLM4-9B-chat
+and Qwen2.5-7B-coder-Instruct, our framework significantly en-
+hances their reasoning capabilities especially for complex tasks
+requiring multi-step graph reasoning, improving performance from
+near-zero accuracy in tasks such as Shortest Path and Max Flow
+to high accuracy. Second, based on the framework’s instruction
+without training, massive-scale LLMs like GPT-4o and DeepSeek-
+R1 achieve high performance with in-toolset tasks and out-toolset,
+demonstrating the universal applicability of our framework design.
+The scalability evaluation in Table 5 on larger graphs further
+demonstrates the effectiveness of our framework, where it main-
+tains stable performance across various tasks. Through ablation
+studies in Appendix B, we also examine the contributions of each
+component.
+
+GraphCogent: Mitigating LLMs’ Working Memory Constraints via Multi-Agent Collaboration in Complex Graph Understanding XX, 2026, XX, XXX
+6 Conclusion
+In this work, we proposed GraphCogent, a novel agent frame-
+work that enhances LLMs’ graph reasoning capabilities by mit-
+igating their working memory constraints. Inspired by human cog-
+nitive architecture, GraphCogent integrates three key modules:
+Sensory Module (standardizing diverse graph text representations),
+Buffer Module (integrating and indexing graph data), and Execu-
+tion Module (combining tool-calling and tool-creation reasoning).
+To evaluate LLMs on real-world graph reasoning tasks, we intro-
+duce Graph4real, a benchmark featuring large-scale graphs for four
+real-world domains. Experiments show that GraphCogent achieves
+20% higher than existing state-of-the-art agent-based method while
+reducing over 30% token usage.

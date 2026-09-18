@@ -1,0 +1,879 @@
+record_id: github:UKGovernmentBEIS/inspect_ai
+source_used: github_repo
+fetched_url: https://github.com/UKGovernmentBEIS/inspect_ai/tree/0.3.261
+fetched_title: UKGovernmentBEIS/inspect_ai
+fetched_at: 2026-09-18T19:09:07Z
+
+# UKGovernmentBEIS/inspect_ai
+ref: tag:0.3.261 f9186b4e2f34ca81f192ae2c08535c24b7e8f356 2026-08-30
+description: Inspect: A framework for large language model evaluations
+topics: 
+
+## README (README.md)
+[<img width="295" src="https://inspect.aisi.org.uk/images/aisi-logo.svg" />](https://aisi.gov.uk/)
+
+Welcome to Inspect, a framework for large language model evaluations created by the [UK AI Security Institute](https://aisi.gov.uk/).
+
+Inspect provides many built-in components, including facilities for prompt engineering, tool usage, multi-turn dialog, and model graded evaluations. Extensions to Inspect (e.g. to support new elicitation and scoring techniques) can be provided by other Python packages.
+
+To get started with Inspect, please see the documentation at <https://inspect.aisi.org.uk/>.
+
+Inspect also includes a collection of over 200 pre-built evaluations ready to run on any model (learn more at <https://inspect.aisi.org.uk/evals/>).
+
+> Coding agents: a structured index of the docs is published at <https://inspect.aisi.org.uk/llms.txt>. The user guide is concatenated as Markdown at <https://inspect.aisi.org.uk/llms-guide.txt>, and <https://inspect.aisi.org.uk/llms-full.txt> additionally bundles the API and CLI reference. Individual pages are available as Markdown by appending `.md` to the `.html` path (e.g. `/extensions/index.html.md`).
+
+***
+
+To work on development of Inspect, clone the repository and install with the `-e` flag and `[dev]` optional dependencies:
+
+```bash
+git clone https://github.com/UKGovernmentBEIS/inspect_ai.git
+cd inspect_ai
+pip install -e ".[dev]"
+```
+
+Alternatively, if you use [uv](https://docs.astral.sh/uv/), sync the development environment from the checked-in lockfile:
+
+```bash
+uv sync --extra dev
+```
+
+The uv workflow is supported but not required. The `uv.lock` file records a reproducible development resolution; project dependencies are still declared in `requirements*.txt` and exposed through `pyproject.toml`. When changing dependencies, update the appropriate requirements file and refresh the lockfile rather than relying on `uv add`.
+
+Optionally install pre-commit hooks via
+
+```bash
+make hooks
+```
+
+Run linting, formatting, and tests via
+
+```bash
+make check
+make test
+```
+
+When working in a uv-managed environment, prefix those commands with `uv run` (for example, `uv run make check`).
+
+If you use VS Code, you should be sure to have installed the recommended extensions (Python, Ruff, and MyPy). Note that you'll be prompted to install these when you open the project in VS Code.
+
+### Frontend development (TypeScript)
+
+The web UI lives in a git submodule at `src/inspect_ai/_view/ts-mono/`. **These steps are only needed if you plan to work on the TypeScript/React frontend** — Python-only contributors can skip this entirely.
+
+Initialize the submodule and install dependencies — see the [one-time setup guide](https://github.com/meridianlabs-ai/ts-mono/blob/main/docs/submodule-guide.md#one-time-setup).
+
+### Documentation
+
+To work on the Inspect documentation, install the optional `[doc]` dependencies with the `-e` flag and build the docs:
+
+```
+pip install -e ".[doc]"
+cd docs
+quarto render # or 'quarto preview'
+```
+
+If you intend to work on the docs iteratively, you'll want to install the Quarto extension in VS Code.
+
+## docs (first 20000 chars of 25 files)
+### docs/_agent_limits.md
+To run an agent with one or more limits, pass the limit object in the `limits` argument to a function like `handoff()`, `as_tool()`, `as_solver()` or `run()` (see [Using Agents](agents.qmd#using-agents) for details on the various ways to run agents).
+
+Here we limit an agent we are including as a solver to 500K tokens:
+
+``` python
+eval(
+task="research_bench",
+solver=as_solver(web_surfer(), limits=[token_limit(1024*500)])
+)
+```
+
+Here we limit an agent `handoff()` to 500K tokens:
+
+``` python
+eval(
+task="research_bench",
+solver=[
+use_tools(
+addition(),
+handoff(web_surfer(), limits=[token_limit(1024*500)]),
+),
+generate()
+]
+)
+```
+
+### Limit Exceeded
+
+Note that when limits are exceeded during an agent's execution, the way this is handled differs depending on how the agent was executed:
+
+- For agents used via `as_solver()`, if a limit is exceeded then the sample will terminate (this is exactly how sample-level limits work).
+
+- For agents that are `run()` directly with limits, their limit exceptions will be caught and returned in a tuple. Limits other than the ones passed to `run()` will propagate up the stack.
+
+``` python
+from inspect_ai.agent import run
+
+state, limit_error = await run(
+agent=web_surfer(),
+input="What were the 3 most popular movies of 2020?",
+limits=[token_limit(1024*500)])
+)
+if limit_error:
+...
+```
+
+- For tool based agents (`handoff()` and `as_tool()`), if a limit is exceeded then a message to that effect is returned to the model but the *sample continues running*.
+### docs/_builtin-scorers.md
+Inspect includes both text matching scorers as well as model graded scorers. Below is a summary of these scorers. See the [`inspect_ai.scorer`](reference/inspect_ai.scorer.qmd) reference for complete function signatures and options.
+
+::: {.builtin-scorers}
+
+`includes()`
+: Check whether the `target` appears anywhere in the model output (a substring match). Case sensitive or insensitive (defaults to insensitive).
+
+`match()`
+: Check whether the `target` appears at a known position: `begin`, `end` (the default), or `any`. With `location="exact"` the whole output must equal the target. Ignores case and white-space by default. Pass `numeric=True` to compare numbers rather than text; currency symbols (`$`, `€`, `£`), thousands separators (`,`), and formatting markers (`*`, `_`) are stripped first.
+
+`pattern()`
+: Extract the answer from model output using a regular expression, for cases where the answer is embedded in templated text. Requires at least one capture group; with multiple groups, set `match_all=True` to require every captured value to match the target (the default matches any one group). Returns an `INCORRECT` score with `reason="invalid_response_format"` when the pattern does not match.
+
+`answer()`
+: For prompts that instruct the model to end with `ANSWER: X`. Extracts the letter, word, or remainder of the line that follows.
+
+`model_graded_qa()`
+: Have another model assess whether the output is a correct answer, based on grading guidance in `target`. Use it for open-ended answers. The built-in template can be customised; see [Model Grading](model-graded.qmd).
+
+`model_graded_fact()`
+: Like `model_graded_qa()` but narrower: have another model assess whether the output contains the fact set out in `target`. Use it when the output is too complex to assess with `match()` or `pattern()`. See [Model Grading](model-graded.qmd).
+
+`exact()`
+: Normalize the answer and target(s) and require the whole output to match one or more targets exactly, returning `CORRECT` on a match. Reports `mean` and `stderr` metrics.
+
+`f1()`
+: Compute the F1 score (the harmonic mean of precision and recall) over token overlap, for short free-text answers such as extractive QA. Accepts an `answer_fn` to extract the answer from the completion and a `stop_words` list to exclude from tokenization. Reports `mean` and `stderr` metrics.
+
+`choice()`
+: Score multiple-choice questions produced by the `multiple_choice()` solver. Unshuffles any choices the solver shuffled before scoring, and supports multiple correct answers via a comma-separated `target` (e.g. `"A,B"`).
+
+`math()`
+: Compare answers for mathematical equivalence rather than as text. Extracts answers (supporting both `\boxed{}` LaTeX notation and plain text), normalizes expressions, and uses a non-evaluating mathematical grammar with bounded SymPy comparison across LaTeX, fractions, roots, percentages, sets, matrices, and algebra. Mathematical answers are treated as data: parsing and comparison run in a time-bounded worker thread and never evaluate answer text as Python. Malformed or over-budget model answers are incorrect; an invalid or over-budget target is unscored rather than counted against the model. Requires the optional math dependencies (install with `pip install inspect-ai[math]`).
+
+`perplexity()`
+: Compute per-token negative log-likelihood (NLL) from prompt log probabilities, for full-text perplexity benchmarks (WikiText, C4). Requires `prompt_logprobs` in `GenerateConfig`. See [Perplexity](perplexity.qmd).
+
+`target_perplexity()`
+: Compute NLL of target-completion tokens only, given a prompt context, for benchmarks like ARC-C, MMLU, and HumanEval where only trailing target tokens are scored. See [Perplexity](perplexity.qmd).
+
+:::
+
+## Metrics
+
+Each scorer provides one or more built-in metrics. Most report `accuracy` and `stderr`; `exact()` and `f1()` report `mean` and `stderr`; and the perplexity scorers report `perplexity_per_token` and `perplexity_per_seq`. You can override these by passing your own `metrics` to the `Task`:
+
+``` python
+Task(
+dataset=dataset,
+solver=generate(),
+scorer=match(),
+metrics=[custom_metric()],
+)
+```
+
+See [Scoring Metrics](metrics.qmd) for the built-in metrics, metric grouping, clustered standard errors, and writing your own.
+### docs/_container_limits.md
+### Max Sandboxes
+
+The `max_sandboxes` option determines how many sandboxes can be executed in parallel. Individual sandbox providers can establish their own default limits (for example, the Docker provider has a default of `2 * os.cpu_count()`). You can modify this option as required, but be aware that container runtimes have resource limits, and pushing up against and beyond them can lead to instability and failed evaluations.
+
+When a `max_sandboxes` is applied, an indicator at the bottom of the task status screen will be shown:
+
+![](images/task-max-sandboxes.png)
+
+Note that when `max_sandboxes` is applied this effectively creates a global `max_samples` limit that is equal to the `max_sandboxes`.
+
+### Max Subprocesses
+
+The `max_subprocesses` option determines how many subprocess calls can run in parallel. By default, this is set to `os.cpu_count()`. Depending on the nature of execution done inside sandbox environments, you might benefit from increasing or decreasing `max_subprocesses`.
+
+### Max Samples
+
+{{< include _max_samples.md >}}
+### docs/_cost_limits.md
+Cost is computed from token usage and model cost data (see [Model Cost](#model-cost)). Cost limits are checked whenever `generate()` is called.
+### docs/_errors_and_retries.md
+## Eval Retries {#eval-retries}
+
+When an evaluation task fails due to an error or is otherwise interrupted (e.g. by a Ctrl+C), an evaluation log is still written. In many cases errors are transient (e.g. due to network connectivity or a rate limit) and can be subsequently *retried*.
+
+For these cases, Inspect includes an `eval-retry` command and `eval_retry()` function that you can use to resume tasks interrupted by errors (including [preserving samples](eval-logs.qmd#sec-sample-preservation) already completed within the original task). For example, if you had a failing task with log file `logs/2024-05-29T12-38-43_math_Gprr29Mv.json`, you could retry it from the shell with:
+
+``` bash
+$ inspect eval-retry logs/2024-05-29T12-38-43_math_43_math_Gprr29Mv.json
+```
+
+Or from Python with:
+
+``` python
+eval_retry("logs/2024-05-29T12-38-43_math_43_math_Gprr29Mv.json")
+```
+
+Note that retry only works for tasks that are created from `@task` decorated functions (as if a `Task` is created dynamically outside of an `@task` function Inspect does not know how to reconstruct it for the retry).
+
+Note also that `eval_retry()` does not overwrite the previous log file, but rather creates a new one (preserving the `task_id` from the original file).
+
+Here's an example of retrying a failed eval with a lower number of `max_connections` (the theory being that too many concurrent connections may have caused a rate limit error):
+
+``` python
+log = eval(my_task)[0]
+if log.status != "success":
+eval_retry(log, max_connections = 3)
+```
+### docs/_max_samples.md
+Another consideration is `max_samples`, which is the maximum number of samples to run concurrently within a task. Larger numbers of concurrent samples will result in higher throughput, but will also result in completed samples being written less frequently to the log file, and consequently less total recovable samples in the case of an interrupted task.
+
+By default, Inspect sets the value of `max_samples` to `max_connections + 1` (note that it would rarely make sense to set it _lower_ than `max_connections`). The default `max_connections` is 10, which will typically result in samples being written to the log frequently. On the other hand, setting a very large `max_connections` (e.g. 100 `max_connections` for a dataset with 100 samples) may result in very few recoverable samples in the case of an interruption.
+
+{{< include _setting_max_samples.md >}}
+### docs/_message_limits.md
+Message limits enforce a limit on the number of messages in any conversation (e.g. a `TaskState`, `AgentState`, or any input to `generate()`).
+
+Message limits are checked:
+
+* Whenever you call `generate()` on any model. A `LimitExceededError` will be raised if the number of messages passed in `input` parameter to `generate()` is equal to or exceeds the limit. This is to avoid proceeding to another (wasteful) generate call if we're already at the limit.
+
+* Whenever `TaskState.messages` or `AgentState.messages` is mutated, but a `LimitExceededError` is only raised if the count exceeds the limit.
+### docs/_metadata_typing.md
+If you want a more strongly typed interface to sample metadata, you can define a [Pydantic model](https://docs.pydantic.dev/latest/concepts/models/) and use it to both validate and read metadata.
+
+For validation, pass a `BaseModel` derived class in the `FieldSpec`. The interface to metadata is read-only so you must also specify `frozen=True`. For example:
+
+```python
+from pydantic import BaseModel
+
+class PopularityMetadata(BaseModel, frozen=True):
+category: str
+label_confidence: float
+
+dataset = json_dataset(
+"popularity.jsonl",
+FieldSpec(
+input="question",
+target="answer_matching_behavior",
+id="question_id",
+metadata=PopularityMetadata,
+),
+)
+```
+
+To read metadata in a typesafe fashion, use the `metadata_as()` method on `Sample` or `TaskState`:
+
+```python
+metadata = state.metadata_as(PopularityMetadata)
+```
+
+Note again that the intended semantics of `metadata` are read-only, so attempting to write into the returned metadata will raise a Pydantic `FrozenInstanceError`.
+
+If you need per-sample mutable data, use the [sample store](agent-custom.qmd#sample-store), which also supports [typing](agent-custom.qmd#store-typing) using Pydantic models.
+### docs/_model-providers.md
+| | |
+|------------------------------------|------------------------------------|
+| Lab APIs | [OpenAI](providers.qmd#openai), [Anthropic](providers.qmd#anthropic), [Google](providers.qmd#google), [Grok](providers.qmd#grok), [Mistral](providers.qmd#mistral), [DeepSeek](providers.qmd#deepseek), [Moonshot AI](providers.qmd#moonshot-ai), [Perplexity](providers.qmd#perplexity) |
+| Cloud APIs | [AWS Bedrock](providers.qmd#aws-bedrock), [AWS SageMaker](providers.qmd#aws-sagemaker), and [Azure AI](providers.qmd#azure-ai) |
+| Open (Hosted) | [Groq](providers.qmd#groq), [Together AI](providers.qmd#together-ai), [Fireworks AI](providers.qmd#fireworks-ai), [Cloudflare](providers.qmd#cloudflare), [HF Inference Providers](providers.qmd#hf-inference-providers), [SambaNova](providers.qmd#sambanova) |
+| Open (Local) | [Hugging Face](providers.qmd#hugging-face), [vLLM](providers.qmd#vllm), [Ollama](providers.qmd#ollama), [Lllama-cpp-python](providers.qmd#llama-cpp-python), [SGLang](providers.qmd#sglang), [TransformerLens](providers.qmd#transformer-lens), [nnterp](providers.qmd#nnterp) |
+
+<br/>
+
+If the provider you are using is not listed above, you may still be able to use it if:
+
+1. It provides an OpenAI compatible API endpoint. In this scenario, use the Inspect [OpenAI Compatible API](providers.qmd#openai-api) interface.
+
+2. It is available via OpenRouter (see the docs on using [OpenRouter](providers.qmd#openrouter) with Inspect).
+
+You can also create [Model API Extensions](extensions-model-api.qmd#model-apis) to add model providers using their native interface.
+### docs/_reasoning-defaults.md
+| Model | Default effort |
+|---|---|
+| anthropic/claude-fable-5 | high |
+| anthropic/claude-mythos-5 | high |
+| anthropic/claude-opus-4-6 | adaptive |
+| anthropic/claude-opus-4-7 | adaptive |
+| anthropic/claude-opus-4-8 | high |
+| anthropic/claude-opus-5 | high |
+| anthropic/claude-sonnet-4-6 | adaptive |
+| anthropic/claude-sonnet-5 | high |
+| deepseek/deepseek-reasoner | no effort scale |
+| deepseek/deepseek-v4-flash | high |
+| deepseek/deepseek-v4-pro | high |
+| google/gemini-3-flash-preview | medium |
+| google/gemini-3-pro | high |
+| google/gemini-3.1-flash-lite-preview | medium |
+| google/gemini-3.1-pro | high |
+| google/gemini-3.5-flash | medium |
+| google/gemini-3.5-flash-lite | minimal |
+| google/gemini-3.6-flash | medium |
+| grok/grok-3-mini | low |
+| grok/grok-4 | no effort scale |
+| grok/grok-4.3 | low |
+| grok/grok-4.5 | high |
+| grok/grok-4.6 | high |
+| mistral/magistral-medium-2506 | no effort scale |
+| mistral/magistral-small-2506 | no effort scale |
+| mistral/mistral-medium-2604 | none |
+| mistral/mistral-small-2603 | none |
+| moonshotai/kimi-k3 | max |
+| openai/gpt-5 | medium |
+| openai/gpt-5-mini | medium |
+| openai/gpt-5-nano | medium |
+| openai/gpt-5.1 | medium |
+| openai/gpt-5.1-codex | medium |
+| openai/gpt-5.2 | medium |
+| openai/gpt-5.2-codex | medium |
+| openai/gpt-5.2-pro | high |
+| openai/gpt-5.3-codex | medium |
+| openai/gpt-5.4 | medium |
+| openai/gpt-5.4-mini | medium |
+| openai/gpt-5.4-nano | medium |
+| openai/gpt-5.4-pro | high |
+| openai/gpt-5.5 | medium |
+| openai/gpt-5.5-pro | high |
+### docs/_sample-preservation.md
+### Sample Preservation {#sec-sample-preservation}
+
+When retrying a log file, Inspect will attempt to re-use completed samples from the original task. This can result in substantial time and cost savings compared to starting over from the beginning.
+
+#### IDs and Shuffling
+
+An important constraint on the ability to re-use completed samples is matching them up correctly with samples in the new task. To do this, Inspect requires stable unique identifiers for each sample. This can be achieved in 1 of 2 ways:
+
+1. Samples can have an explicit `id` field which contains the unique identifier; or
+
+2. You can rely on Inspect's assignment of an auto-incrementing `id` for samples, however this *will not work correctly* if your dataset is shuffled. Inspect will log a warning and not re-use samples if it detects that the `dataset.shuffle()` method was called, however if you are shuffling by some other means this automatic safeguard won't be applied.
+
+If dataset shuffling is important to your evaluation and you want to preserve samples for retried tasks, then you should include an explicit `id` field in your dataset.
+
+#### Max Samples
+
+{{< include _max_samples.md >}}
+### docs/_sandboxenv-exec-remote.md
+### exec_remote()
+
+``` python
+async def exec_remote(
+self,
+cmd: list[str],
+options: (
+ExecRemoteStreamingOptions
+| ExecRemoteAwaitableOptions
+| None
+) = None,
+*,
+stream: bool = True,
+) -> ExecRemoteProcess | ExecResult[str]:
+"""
+Raises:
+TimeoutError: If `timeout` is specified in
+ExecRemoteAwaitableOptions and the command
+exceeds it (only applicable when `stream=False`).
+"""
+...
+```
+
+The `exec_remote()` options (`ExecRemoteStreamingOptions` and `ExecRemoteAwaitableOptions`) include a `user` field that requests the command run as the specified user (equivalent to `docker exec --user`). This requires the sandbox tools server to be running as root inside the container. If the server cannot switch users, a `ToolException` is raised.
+### docs/_sandboxenv-exec.md
+### exec()
+
+``` python
+async def exec(
+self,
+cmd: list[str],
+input: str | bytes | None = None,
+cwd: str | None = None,
+env: dict[str, str] = {},
+user: str | None = None,
+timeout: int | None = None,
+timeout_retry: bool = True,
+concurrency: bool = True
+) -> ExecResult[str]:
+"""
+Raises:
+TimeoutError: If the specified `timeout` expires.
+UnicodeDecodeError: May be raised if the sandbox provider
+cannot decode the command output to UTF-8 and does not
+support using the UTF-8 replacement character for
+characters which cannot be decoded.
+PermissionError: If the user does not have
+permission to execute the command.
+"""
+...
+```
+
+The `exec()` method should enforce an output limit of `SandboxEnvironmentLimits.MAX_EXEC_OUTPUT_SIZE` (default 10MB, configurable via the `INSPECT_SANDBOX_MAX_EXEC_OUTPUT_SIZE` environment variable) and front-truncate its output to the limit when it is exceeded.
+
+To deal with potential unreliability of container services, the `exec()` method includes a `timeout_retry` parameter that defaults to `True`. For sandbox implementations this parameter is _advisory_ (they should only use it if potential unreliability exists in their runtime). No more than 2 retries should be attempted and both with timeouts less than 60 seconds. If you are executing commands that are not idempotent (i.e. the side effects of a failed first attempt may affect the results of subsequent attempts) then you can specify `timeout_retry=False` to override this behavior.
+### docs/_sandboxenv-interface.md
+### write_file()
+
+``` python
+async def write_file(
+self, file: str, contents: str | bytes
+) -> None:
+"""
+Raises:
+TimeoutError: If the operation times out.
+PermissionError: If the user does not have
+permission to write to the specified path.
+IsADirectoryError: If the file exists already and
+is a directory.
+"""
+...
+```
+
+Note that `write_file()` automatically creates parent directories as required if they don't exist.
+
+### read_file()
+
+``` python
+async def read_file(
+self, file: str, text: bool = True
+) -> Union[str | bytes]:
+"""
+Raises:
+TimeoutError: If the operation times out.
+FileNotFoundError: If the file does not exist.
+UnicodeDecodeError: If an encoding error occurs
+while reading the file.
+(only applicable when `text = True`)
+PermissionError: If the user does not have
+permission to read from the specified path.
+IsADirectoryError: If the file is a directory.
+OutputLimitExceededError: If the file size
+exceeds the 100 MiB limit.
+"""
+...
+```
+
+The `read_file()` method should enforce the `SandboxEnvironmentLimits.MAX_READ_FILE_SIZE` limit (default 100MB, configurable via the `INSPECT_SANDBOX_MAX_READ_FILE_SIZE` environment variable) and raise an `OutputLimitExceededError` when it is exceeded.
+
+The `read_file()` method should preserve newline constructs (e.g. crlf should be preserved not converted to lf). This is equivalent to specifying `newline=""` in a call to the Python `open()` function.
+
+### connection()
+
+``` python
+async def connection(self, *, user: str | None = None) -> SandboxConnection:
+"""
+Raises:
+NotImplementedError: For sandboxes that don't provide connections
+ConnectionError: If sandbox is not currently running.
+"""
+...
+```
+
+The `connection()` method is optional, and provides commands that can be used to login to the sandbox container from a terminal or IDE.
+
+### Expected and Unexpected Errors
+
+For each method there is a documented set of errors that are raised: these are _expected_ errors and can either be caught by tools or allowed to prop
+
+## File tree (first 400 of 2181 paths)
+.claude/skills/ci-perf/SKILL.md
+.claude/skills/ci-perf/scripts/collect_ci_data.py
+.claude/skills/land-ts-mono/SKILL.md
+.claude/skills/release-sandbox-tools/SKILL.md
+.devcontainer/Dockerfile
+.devcontainer/devcontainer.json
+.dockerignore
+.editorconfig
+.github/ISSUE_TEMPLATE.md
+.github/dependabot.yml
+.github/pull_request_template.md
+.github/qualified.yml
+.github/scripts/check_openapi_drift.py
+.github/scripts/pr_gate.py
+.github/workflows/build.yml
+.github/workflows/changelog-lint.yml
+.github/workflows/docker.yml
+.github/workflows/log_viewer.yml
+.github/workflows/npm-publish.yml
+.github/workflows/pr-gate.yml
+.github/workflows/pr-stale.yml
+.github/workflows/sync_model_data.yml
+.github/workflows/test.yml
+.gitignore
+.gitmodules
+.pre-commit-config.yaml
+.vscode/extensions.json
+.vscode/launch.json
+.vscode/settings.json
+AGENTS.md
+CHANGELOG.md
+CITATION.cff
+CLAUDE.md
+CONTRIBUTING.md
+LICENSE
+MANIFEST.in
+Makefile
+README.md
+SECURITY.md
+design/acp/agent-acp-tui.md
+design/acp/agent-acp.md
+design/acp/agent_channel_brief.md
+design/acp/elicitation.md
+design/adaptive-concurrency.md
+design/checkpoint-snapshot-strategy.md
+design/ci-perf/history/2026-08-04.json
+design/ci-perf/history/2026-08-05.json
+design/ci-perf/history/2026-08-12.json
+design/ci-perf/history/2026-08-18.json
+design/ci-perf/history/2026-08-19.json
+design/ci-perf/history/2026-08-21.json
+design/ci-perf/history/2026-08-23.json
+design/ci-perf/history/2026-08-25.json
+design/ci-perf/history/2026-08-27.json
+design/ci-perf/prs.md
+design/ci-perf/report.md
+design/ctl/agent-discoverability.md
+design/ctl/cli-refactor.md
+design/ctl/config-log-persistence.md
+design/ctl/control-channel.md
+design/ctl/endpoint-cost-audit.md
+design/ctl/generate-progress.md
+design/ctl/interim-scoring.md
+design/ctl/max-tasks-retune.md
+design/ctl/pause-resume.md
+design/ctl/sample-requeue.md
+design/ctl/sample-store.md
+design/ctl/security.md
+design/ctl/tool-call-cancel.md
+design/deepagent-background.md
+design/deepagents.md
+design/eval-set-scanners.md
+design/fastapi-async.md
+design/hf-lazy-dataset.md
+design/large-samples.md
+design/log_edits_tags_metadata.md
+design/media-authority.md
+design/message-pool-dedup.excalidraw.svg
+design/metric-score-view-refactor.md
+design/model-proxy-lifecycle.md
+design/model-throughput.md
+design/nan-serialization.md
+design/recover.md
+design/retry-deferred-destination-log.md
+design/retry-reused-sample-flush.md
+design/sample-lifecycle.md
+design/sample-source.md
+design/sandbox-tools-ci-gates.md
+design/task-source.md
+design/temporal-data-handling.md
+design/type-generation-pipeline.md
+design/viewer-config.md
+design/viewer_log_editing.md
+docs/.gitignore
+docs/CHANGELOG.md
+docs/CNAME
+docs/_agent_limits.md
+docs/_builtin-scorers.md
+docs/_container_limits.md
+docs/_cost_limits.md
+docs/_errors_and_retries.md
+docs/_extensions/meridianlabs-ai/inspect-docs/_discover.py
+docs/_extensions/meridianlabs-ai/inspect-docs/_extension.yml
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/excalidraw.lua
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/github-callouts.lua
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/llms.lua
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/promote-title.lua
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/reference/commands.py
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/reference/filter.py
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/reference/interlink.lua
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/reference/parse.py
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/reference/post.lua
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/reference/render.py
+docs/_extensions/meridianlabs-ai/inspect-docs/filters/shift-headings.lua
+docs/_extensions/meridianlabs-ai/inspect-docs/post-render.py
+docs/_extensions/meridianlabs-ai/inspect-docs/pre-render.py
+docs/_extensions/meridianlabs-ai/inspect-docs/resources/copy-page.html
+docs/_extensions/meridianlabs-ai/inspect-docs/resources/excalidraw/.gitignore
+docs/_extensions/meridianlabs-ai/inspect-docs/resources/excalidraw/excalidraw-to-svg.mjs
+docs/_extensions/meridianlabs-ai/inspect-docs/resources/excalidraw/package-lock.json
+docs/_extensions/meridianlabs-ai/inspect-docs/resources/excalidraw/package.json
+docs/_extensions/meridianlabs-ai/inspect-docs/resources/jinja2.xml
+docs/_extensions/meridianlabs-ai/inspect-docs/resources/theme.scss
+docs/_max_samples.md
+docs/_message_limits.md
+docs/_metadata_typing.md
+docs/_model-providers.md
+docs/_quarto.yml
+docs/_reasoning-defaults.md
+docs/_sample-preservation.md
+docs/_sandboxenv-exec-remote.md
+docs/_sandboxenv-exec.md
+docs/_sandboxenv-interface.md
+docs/_scripts/generate_reasoning_defaults_table.py
+docs/_setting_max_samples.md
+docs/_shuffling-choices.md
+docs/_store_typing.md
+docs/_token_limits.md
+docs/_tools-annotations-required.md
+docs/_tools-basics.md
+docs/_tools-standard.md
+docs/_turn_limits.md
+docs/_variables.yml
+docs/_vscode-viewing-logs.md
+docs/_working_limits.md
+docs/agent-bridge.qmd
+docs/agent-custom.qmd
+docs/agents.qmd
+docs/analysis.qmd
+docs/approval.qmd
+docs/caching.qmd
+docs/checkpointing.qmd
+docs/compaction.qmd
+docs/control-channel.qmd
+docs/custom-scorers.qmd
+docs/dataframe.qmd
+docs/datasets.qmd
+docs/deepagent.qmd
+docs/early-stopping.qmd
+docs/eval-logs.qmd
+docs/eval-sets.qmd
+docs/evals/evals-app.js
+docs/evals/evals-filter.js
+docs/evals/evals.css
+docs/evals/evals.json
+docs/evals/evals_overrides.yml
+docs/evals/index.qmd
+docs/evals/inspect-evals.mk
+docs/evals/llms.py
+docs/evals/model_cards.yml
+docs/evals/sync.py
+docs/evals/sync_all.py
+docs/evals/sync_harbor.py
+docs/extensions-approvers.qmd
+docs/extensions-components.qmd
+docs/extensions-filesystems.qmd
+docs/extensions-hooks.qmd
+docs/extensions-model-api.qmd
+docs/extensions-sandboxes.qmd
+docs/extensions.qmd
+docs/extensions/extensions-app.js
+docs/extensions/extensions.css
+docs/extensions/extensions.json
+docs/extensions/extensions.yml
+docs/extensions/generate.py
+docs/extensions/index.qmd
+docs/extensions/llms.py
+docs/fallbacks.qmd
+docs/favicon.svg
+docs/handling-errors.qmd
+docs/human-agent.qmd
+docs/images/acp-listing.png
+docs/images/acp-pending.png
+docs/images/acp-session.png
+docs/images/aisi-logo.svg
+docs/images/eval-log.png
+docs/images/inspect-activity-bar.png
+docs/images/inspect-human-agent-container.png
+docs/images/inspect-human-agent.png
+docs/images/inspect-multiple-models.png
+docs/images/inspect-terminal-transcript.png
+docs/images/inspect-view-answers.png
+docs/images/inspect-view-chips-score.png
+docs/images/inspect-view-filter.png
+docs/images/inspect-view-history.png
+docs/images/inspect-view-home.png
+docs/images/inspect-view-info.png
+docs/images/inspect-view-log-link.png
+docs/images/inspect-view-logging-console.png
+docs/images/inspect-view-logging.png
+docs/images/inspect-view-main.png
+docs/images/inspect-view-messages.png
+docs/images/inspect-view-metadata.png
+docs/images/inspect-view-petri-custom-view.png
+docs/images/inspect-view-scoring.png
+docs/images/inspect-view-sort.png
+docs/images/inspect-view-splash.png
+docs/images/inspect-viz-scores-by-model.png
+docs/images/inspect-viz-scores-by-task.png
+docs/images/inspect-viz-scores-timeline-gpqa.png
+docs/images/inspect-vscode-config.png
+docs/images/inspect-vscode-install.png
+docs/images/inspect-vscode-logview.png
+docs/images/inspect-vscode-output-channel.png
+docs/images/inspect-vscode-run-task.png
+docs/images/inspect.png
+docs/images/log-viewer-ctf.png
+docs/images/log-viewer-simpleqa.png
+docs/images/logs-drop-down.png
+docs/images/logs-open-button.png
+docs/images/logs.png
+docs/images/petri-samples-view.png
+docs/images/popularity.png
+docs/images/python-tool-view.png
+docs/images/rate-limit.png
+docs/images/running-theory.png
+docs/images/task-max-sandboxes.png
+docs/images/toolenv-no-cleanup.png
+docs/images/vnc-port-info.png
+docs/images/vnc-view-only.png
+docs/images/web-browser-tool-view.png
+docs/index.qmd
+docs/inspect-viz.qmd
+docs/intervention.qmd
+docs/listing/listing.css
+docs/listing/listing.js
+docs/log-viewer.qmd
+docs/metrics.qmd
+docs/model-graded.qmd
+docs/models-batch.qmd
+docs/models-concurrency.qmd
+docs/models.qmd
+docs/multi-agent.qmd
+docs/multimodal.qmd
+docs/multiple-scorers.qmd
+docs/options.qmd
+docs/parallelism.qmd
+docs/perplexity.qmd
+docs/providers.qmd
+docs/react-agent.qmd
+docs/reasoning.qmd
+docs/reference/.gitignore
+docs/reference/index.qmd
+docs/reference/inspect_ai.agent.qmd
+docs/reference/inspect_ai.analysis.qmd
+docs/reference/inspect_ai.approval.qmd
+docs/reference/inspect_ai.dataset.qmd
+docs/reference/inspect_ai.event.qmd
+docs/reference/inspect_ai.hooks.qmd
+docs/reference/inspect_ai.log.qmd
+docs/reference/inspect_ai.model.qmd
+docs/reference/inspect_ai.qmd
+docs/reference/inspect_ai.scorer.qmd
+docs/reference/inspect_ai.solver.qmd
+docs/reference/inspect_ai.tool.qmd
+docs/reference/inspect_ai.util.qmd
+docs/reference/inspect_ai.viewer.qmd
+docs/reference/inspect_cache.qmd
+docs/reference/inspect_eval-retry.qmd
+docs/reference/inspect_eval-set.qmd
+docs/reference/inspect_eval.qmd
+docs/reference/inspect_info.qmd
+docs/reference/inspect_list.qmd
+docs/reference/inspect_log.qmd
+docs/reference/inspect_sandbox.qmd
+docs/reference/inspect_score.qmd
+docs/reference/inspect_trace.qmd
+docs/reference/inspect_view.qmd
+docs/running.qmd
+docs/sample-source.qmd
+docs/sandboxing.qmd
+docs/scanners.qmd
+docs/scorers.qmd
+docs/scoring-workflow.qmd
+docs/scoring.qmd
+docs/setting-limits.qmd
+docs/solvers.qmd
+docs/standard-scorers.qmd
+docs/structured.qmd
+docs/styles.css
+docs/task-source.qmd
+docs/task-views.qmd
+docs/tasks.qmd
+docs/tools-custom.qmd
+docs/tools-mcp.qmd
+docs/tools-standard.qmd
+docs/tools.qmd
+docs/tracing.qmd
+docs/tutorial.qmd
+docs/vscode.qmd
+examples/approval/README.md
+examples/approval/approval.py
+examples/approval/approval.yaml
+examples/ask_user/demo.py
+examples/biology_qa.py
+examples/bridge/agentsdk/README.md
+examples/bridge/agentsdk/agent.py
+examples/bridge/agentsdk/dataset.json
+examples/bridge/agentsdk/task.py
+examples/bridge/langchain/README.md
+examples/bridge/langchain/agent.py
+examples/bridge/langchain/dataset.json
+examples/bridge/langchain/requirements.txt
+examples/bridge/langchain/task.py
+examples/bridge/pydantic-ai/README.md
+examples/bridge/pydantic-ai/agent.py
+examples/bridge/pydantic-ai/dataset.json
+examples/bridge/pydantic-ai/task.py
+examples/browser/browser.py
+examples/browser/compose.yaml
+examples/cache.py
+examples/categorical_demo.py
+examples/code_execution.py
+examples/computer/compose.yaml
+examples/computer/computer.py
+examples/computer/moonWeight.ods
+examples/early_stopping.py
+examples/evals_in_eval/Dockerfile
+examples/evals_in_eval/README.md
+examples/evals_in_eval/bash_task.py
+examples/evals_in_eval/claude.py
+examples/evals_in_eval/compose.yaml
+examples/evals_in_eval/file_probe.py
+examples/evals_in_eval/task.py
+examples/evalset.py
+examples/hello_world.py
+examples/hooks/mlflow_tracing.py
+examples/hooks/mlflow_tracing_example.py
+examples/hooks/mlflow_tracking.py
+examples/hooks/trackio_tracking.py
+examples/hooks/wandb_weave.py
+examples/http_proxy/Dockerfile
+examples/http_proxy/README.md
+examples/http_proxy/claude.py
+examples/http_proxy/compose.yaml
+examples/http_proxy/entrypoint.sh
+examples/http_proxy/remap.py
+examples/http_proxy/task.py
+examples/human/Dockerfile
+examples/human/compose.yaml
+examples/human/human.py
+examples/images/ballons.png
+examples/images/bike.png
+examples/images/images.jsonl
+examples/images/images.py
+examples/inline_cards/approval.py
+examples/inline_cards/cancel_sample.py
+examples/inline_cards/cancel_tool.py
+examples/inline_cards/question.py
+examples/intervention/README.md
+examples/intervention/computer/approval.yaml
+examples/intervention/computer/compose.yaml
+examples/intervention/intervention.py
+examples/intervention/multi_tool/compose.yaml
+examples/intervention/shell/Dockerfile
+examples/intervention/shell/compose.yaml
+examples/mcp_tools.py
+examples/popularity.py
+examples/prefill.py
+examples/reasoning.py
+examples/remotemcp.py
+examples/responses-bridge.py
+examples/scorer.py
+examples/security_guide.py
+examples/simpleqa.py
+examples/skills/README.md
+examples/skills/__init__.py
+examples/skills/compose.yaml
+examples/skills/skills/disk-usage/SKILL.md
+examples/skills/skills/disk-usage/scripts/diskinfo.sh
+examples/skills/skills/network-info/SKILL.md
+examples/skills/skills/network-info/scripts/netinfo.sh
+examples/skills/skills/system-info/SKILL.md
+examples/skills/skills/system-info/scripts/sysinfo.sh
+examples/skills/task.py
+examples/structured.py
+examples/surfer.py
+examples/text_editor.py
+examples/theory_of_mind.py
+examples/tool_use.py

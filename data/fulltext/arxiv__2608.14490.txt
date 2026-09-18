@@ -1,0 +1,803 @@
+record_id: arxiv:2608.14490
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2608.14490
+fetched_title: Twin: Playing an Unknown Game with a Test-Time Digital Twin
+fetched_at: 2026-09-18T19:00:38Z
+
+Twin: Playing an Unknown Game with a Test-Time Digital Twin
+Alexy Skoutnev,4 Kirill Acharya,1 Gaston Longhitano,3
+Madeleine Udell,1 Kevin Ellis,2 Iddo Drori4,1
+1Stanford University
+2Cornell University
+3University of Southern California
+4Yeshiva University
+Abstract
+WepresentaTest-timeWorld-modelInference(Twin)sys-
+tem, in which a frontier coding agent writes an executable
+world modelfor completing continual learning tasks, such
+as ARC-AGI-3 games. Traditional approaches hand-engineer
+such models, one custom design per task. Each game hides
+its rules and goal, and our system constructs them from sim-
+ulation and interaction alone. Its inductive prior over grid
+games is strong enough to recover the true transitions of the
+gameandthegoalonnearlyalllevels.Replayvalidationhap-
+pens in a twin world model. The harness enforces that an
+action is not made until the program reproduces every pre-
+vious observed game transition. Each mismatch between a
+worldmodelpredictionandtheactualactionresultbecomesa
+counterexample that is used to repair the world model.Twin
+clears179 out of 183 levels (97.8%), and does so more ef-
+ficiently than humans in158 out of 179 levels (88.3%). The
+system infers the goal before any reward on 156 of the levels
+it clears (87.2%), and in the remaining levels automatically
+discovers the goal by search. The benchmark scores comple-
+tionandactionefficiency,between0and100,againsthumans
+playing each game for the first time. Played directly, the base
+model scores only 7.8%; an off-the-shelf harness increases it
+to 61.1%, whereas our twin world model increases the same
+basemodelto93.3%,clearing23outof25games.Building
+ausableworldmodelissimplerthananticipated,whereasthe
+harderproblemisinferringtherightgoal.Theprojectwebsite
+replays all 25 runs action by action:TWIN website; code:
+GitHub repository.
+Introduction
+Considerlearninganunfamiliarvideogamewithoutinstruc-
+tions. You press a button and watch what changes. Within a
+handfuloftries,youhaveaworkingmentalmodelofthecon-
+trols, the objects, and what counts as winning. That model
+lets you plan a few moves and act deliberately rather than
+mashing buttons. How might an agent acquire and use such
+a model as efficiently as you do?
+We study this on ARC-AGI-3 (ARC Prize Foundation
+2026),aninteractivesuccessortotheARCreasoningbench-
+marks (Chollet 2019; Chollet et al. 2025). Each task is a
+grid-world game on a64×64grid of colored cells whose
+controls and win condition are not stated and must be dis-
+covered by playing. Humans completely clear these games,
+whereasfrontiermodelsfailatmostgames.Toclosethegap,
+the field has moved from base models to agentic harnesses,
+and now to harnesses that build world models of their en-
+vironment. ARC-AGI-3’s action-efficiency score, between 0
+and 100, rewards clearing each game in as few actions as a
+humanplayingitforthefirsttime.Reasoning,code,andsim-
+ulationarenotscored.Playeddirectly,astrongfrontiermodel
+scoresonly7.8%,whereasthesamemodelinanoff-the-shelf
+coding harness increases the score to 61.1%. Introducing a
+world model into the harness, which builds and validates a
+model of the game, increases the score to93.3%. The diffi-
+culty is neither knowledge nor perception: these games hide
+both how the world behaves and what counts as winning.
+To act in an unfamiliar world, an agent should build an
+explicit model of it and reason inside it.Twinuses a coding
+agent to write the world model in code at test time. It treats
+each game as an unknown deterministic world and builds
+the twin, a Python program checked against reality, until
+its predictions match every observed transition. Recovering
+those rules is the tractable part. Searching inside the twin
+still needs a target, and the win condition is never stated,
+so the difficulty remains inferring the goal itself. Goal in-
+ferenceistheexplorationproblemofreinforcementlearning
+(Dearden, Friedman, and Russell 1998): taking actions to
+discover a goal the environment never states explicitly. Each
+game therefore poses anasymmetric objective: the dynam-
+ics can be verified against every interaction, whereas goal
+reachability must be established through exploration.
+Inferring the hidden goal state from sparse feedback is
+the more challenging problem.Twintreats the win condi-
+tion as a hypothesis to test before any reward exists. Search-
+ing inside the validated twin surfaces states that look like
+progress.Theagentwritesrivalgoalpredicatesoverpromis-
+ingplannedstatesandchoosesthemostefficientplan.Com-
+pletingalevelconfirmsacandidate,whileanexactlyreached
+non-goal eliminates it. The concurrent systems we compare
+against either wait for the first reward or leave the question
+unanswered.
+Contributions.
+•Test-time world-model inference: the agent writes the
+simulator it plans in.The unknown environment be-
+comesanexecutablehypothesistoinspect,falsify,repair,
+andplanthrough,ratherthanablackboxtheagentreacts
+to.Becausethetwinmustreplayeveryprevioustransition
+arXiv:2608.14490v1 [cs.AI] 14 Aug 2026
+
+FREE unscored computation
+SCORED real actions
+1 Observe
+a game frame; append to the log
+ARC-AGI-3 · 64×64 · 16 colors
+append-only log D (prev, a, next)
+t prev a next
+1
+click
+38,38
+✓
+2
+click
+38,46
+✓
+3
+click
+54,46
+✓
+4
+click
+22,16
+✓
+⋮
+2 Write the twin
+an executable copy: step + goal
+# the twin
+def step(grid, action):
+x, y = click(action) # ACTION6:x,y
+t = tile_at(grid, x, y)
+# click cycles the tile: 9 <-> 8
+if t.color in (9, 8):
+t.fill(8 if t.color==9 else 9)
+return grid
+def goal_reached(grid):
+# glyph 0 -> color 8 ; glyph 2 -> color 9
+return all(t.color == target(glyph, t)
+for t in outer_tiles(grid))
+3 Validate
+replay the twin over the whole log
+candidate v1 · paint, no cycle
+✗
+✗ rejected at transition 1 · predicted 9, observed 8 → repair
+the learned twin
+✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓
+✓ survives every logged transition · 0 mismatch → clean
+each tick = one logged transition replayed against the twin; a single
+counterexample rejects it
+4 Explore
+diagnose: ﬁx dynamics, or set a goal
+dynamics wall validation failed
+stub predicts
+≠
+observed
+click · tile 9↔8 → Repair
+ranked by miss rate · effect diversity · support
+goal wall clean twin · no route
+candidate: every tile matches its glyph
+4 tiles recolor one card depth 4 → Plan target
+5 Plan
+search inside the twin for a route
+imagined futures, searched breadth-ﬁrst inside the twin
+›
+›
+›
+›
+4 moves · shortest
+route · set each glyph-0 tile → color 8 · 4 moves
+›
+… 8 moves
+›
+… 6 moves
+6 ExecuteChecked
+submit one move at a time
+predicted
+=
+observed
+match → plan continues
+predicted
+≠
+observed
+mismatch → append (prev,a,next) to D, halt
+the only scored actions
+write replay
+clean twinmismatchrepair
+submit
+observe next frame → append to D
+counterexample (mismatch) triggers repair
+Figure 1: TheTwinloop, illustrated with states from the level ft09. Left of the scored boundary, every step is unscored. The
+agent appends each real transition to the logDand rewrites the twin untilV alidatereplays every logged transition without a
+mismatch.Explorethenranksrepairtargets,orproposesreachablegoalcandidateswhennoroutetothegoalisfound.Planning
+runs only inside a validated world model.Plansearches the world model for the shortest route, andExecuteCheckedsubmits
+that route one move at a time against the real ARC-AGI-3 simulator. A halted move returns its transition as a counterexample.
+before it is trusted, a route is planned and tested before
+any action is submitted. Of the actions the agent chose,
+92.9% execute a route already tried in the twin.
+•Evaluated on the ARC-AGI-3 benchmark, a world
+model written at test time is enough to play an un-
+known game at human action efficiency.Twinclears
+179 of 183 levels and 23 of 25 games, and uses fewer
+actions than humans playing each game for the first time
+on 158 of the 179 levels it clears. With the validate–
+explore–plan loop removed, the same agent clears 148
+levels; played directly, the base model clears one game.
+•Inferringwhatcountsaswinningistheharderhalfof
+learning an unknown world.A twin recovers how the
+world behaves from every action it takes, whereas only a
+completed level shows what winning looks like. Despite
+that gap, the first goalTwinproposes is the right one on
+156 of the 179 levels it clears, and search finds the goal
+on the rest.
+Related Work
+Neural and object-centric world models.Dyna (Sutton
+1991) established the loop of learning a model, planning
+throughit,andactingtoimproveit.Modernsystemssuchas
+WorldModels(HaandSchmidhuber2018),MuZero(Schrit-
+twieser et al. 2020), and DreamerV3 (Hafner et al. 2025)
+learn parametric latent dynamics by gradient descent over
+many episodes.Twininstead induces symbolic source code
+at test time from tens of transitions, using a pretrained code
+model (Chen et al. 2021) and execution-guided repair. Code
+provides exact replay tests, deterministic long-horizon roll-
+outs, and a legible artifact, at the cost of assuming program-
+compressible, roughly deterministic dynamics. Its object-
+relative rules mirror learned, object-centric models (Kipf,
+van der Pol, and Welling 2020); its novelty-driven goal dis-
+covery echoes Go-Explore (Ecoffet et al. 2021).
+PrograminductionandLLMagents.Programinduction
+and test-time adaptation produced the strongest ARC-AGI-
+1/2 systems (Ellis et al. 2020; Wang et al. 2024b; Greenblatt
+2024; Li et al. 2025; Chollet et al. 2024).Twinbrings this
+recipetointeraction.Insteadofinducingastaticinput-output
+transformation, it induces the environment, and its experi-
+ments choose its training data. ReAct (Yao et al. 2023b),
+Reflexion (Shinn et al. 2023), Voyager (Wang et al. 2024a),
+and Tree-of-Thoughts (Yao et al. 2023a) keep the language
+model in the decision loop.Twininstead uses the language
+model to construct an artifact that removes it from the inner
+loop; once the twin validates, a multi-step plan runs under
+machine verification.Twinthus spends test-time compute
+(Snell et al. 2025) on world-model inference rather than an-
+swer sampling; the validated twin fills the verifier role that
+sample-and-filter(Lietal.2022)andverified-search(Hubert
+et al. 2026) methods assume.
+Related methods tackling ARC-AGI-3.Five concurrent
+systems target the same benchmark. PRO-LONG (Fox et al.
+2026) mandates no world model. Its contribution is a loss-
+less append-only log the agent queries with code, and world
+models emerge in its runs unprompted, one agent reinvent-
+
+ing replay validation on its own. It reports 76.1 pass@1
+at its default 500-action budget and 94.6 at2,000actions.
+PRO-LONG improves what the agent remembers, whereas
+Twinrestricts how it acts: no scored action until a vali-
+dated world model explains everything seen. Prime Agent
+(Karten et al. 2026a) takes a different approach: rather than
+explicitly modeling the game, it makes the agent’s own har-
+ness programmable. It combines recursive language models
+(Zhang, Kraska, and Khattab 2025), which expose context
+andsub-agentcallsinsideapersistentREPL,withContinual
+Harness (Karten et al. 2026b), which lets the agent mod-
+ify its prompt, skills, memory, and sub-agents during a run.
+PrimeAgentthereforeadaptstheagent’sinternalmachinery,
+whereasTwinbuilds and repairs an executable model of the
+external world. With GPT-5.6 Sol, the base model used by
+Twin,PrimeAgentscores78.3andclears164of183levels.
+With Claude Opus 5, it scores 95.5 and clears 179, just past
+the 95.4 human-expert baseline it cites.Twinreaches 93.3
+with Sol. The other three systems converge on one control
+loop. Each logs every interaction, holds the game as an ex-
+ecutable program, accepts the program only when it replays
+the log, plans inside it, and halts at the first misprediction.
+EWM (Rodionov 2026) established the recipe with a single
+coding agent, scoring 63.8. OPINE-World (Courtis, Li, and
+Sanner 2026) splits acting and synthesis across two cooper-
+atingagents,steersexplorationbyaBayesianontologyerror,
+andscores78.4;itdeclareshidden-stategamesoutofscope.
+Schema (Zeng et al. 2026) is the closest design to ours. It
+packages the same loop as tools its models drive, backtest
+andBFSamongthem,theloopTwin’sharnessenforces,and
+self-reports 98.98 on the public set through a best-of-two-
+models fallback per game.
+Twindiffers from all five in two ways. First, before sub-
+mittinganyscoredaction,itsharnessrequiresthetwintore-
+produceeverytransitionintheinteractionhistory.Thischeck
+is enforced by the harness rather than left to the agent. The
+other three world-model systems also test models or plans
+against past experience, but they do not require a model to
+match the entire history before every real action. Second,
+Twinhypothesizes the goal before any reward arrives and
+discriminatesrivalgoalpredicatesbythemostefficientplan,
+whereasOPINE-Worldfitsitspredicateonlyafterafirstlevel
+isclearedandSchemainfersis_goalalongsideitsdynam-
+ics. The order changes what a scored action buys: a system
+withoutapre-rewardhypothesisspendsactionssurfacingits
+first win, while a correct one converts them into a planned
+route.Wefoundthatthefirstgoalhypothesisiscorrecton156
+of 179 completed levels (87.2%), so most levels are played
+goal-directed from the first action.
+Other approaches trade explicit world modeling for more
+search or greater reliance on the base model. Training-
+free graph exploration (Rudakov, Shock, and Cowley 2025)
+reaches deep states through unbounded search, but at near-
+zero action efficiency. Direct-play systems instead act with-
+out an explicit model. Claude Opus 5 (Anthropic 2026) re-
+ports a verified 30.2% on the semi-private evaluation set,
+while GPT 5.6 Sol xhigh, the base model used byTwin,
+scores 7.8%.
+Program-synthesized world models.WorldCoder intro-
+duced the core pattern of using an LLM to synthesize an ex-
+ecutable transition and reward model from interaction, plan
+through it, and repair it from counterexamples (Tang, Key,
+andEllis2024;Tangetal.2024).CWM(Daineseetal.2024)
+likewisesynthesizesPythondynamicsunderexecutionfeed-
+back, and PoE-World (Piriyakulkij et al. 2025) scales it by
+composingmultipleprogrammaticexperts.Twinretainsthe
+executable model, replay repair, and model-based planning,
+but moves them online to raw grid frames with hidden con-
+trols and goals. Its central departure is the asymmetric ob-
+jective. WorldCoder’s joint recipe instantiates optimism un-
+der uncertainty, the principle behind R-MAX and optimistic
+MLE (Brafman and Tennenholtz 2002; Liu et al. 2023):
+among data-consistent models, pursue one that promises
+reward.Twinkeeps the optimism but splits the objective.
+Consistencywitheveryobservedtransitionisahardprecon-
+dition for action, whereas optimistic reachability is pursued
+through planning and goal discovery, not imposed jointly
+during synthesis.
+TheTwinMethod
+Ourmethodhasfourparts:(i)aproblemstatement;(ii)three
+harness routines (validate, explore, plan); (iii) a checked ex-
+ecutor; and (iv) goal discovery, as shown in Figure 1.Twin
+repeatedlyfitsanexecutableworldmodeltoagrowinginter-
+action log, plans inside it, and executes while checking the
+predictionateachstep.Amismatchreturnsdataforrepairing
+the world model, whereas a consistent model without a goal
+state results in goal discovery.
+Problem statement and core representations
+Environment and level protocol.Each level defines an
+episodic MDPM= (S,A,T,R,s 0). A states∈Sis a
+rendered64×64color grid, and the agent chooses from
+a menuAof four to six actions, including a click at grid
+coordinate(x,y),ACTION6:x,y. The transition function
+T:S×A→Sproduces the next grid, while the hidden
+predicateR:S→ {0,1}indicates whether the level is
+complete.Levelswithinagameshareanactioninterfaceand
+broad mechanics but change the initial layout. Each game
+starts fresh: an identity twin, an empty log, and a new agent
+context.Twin,log,andagentcontextpersistacrossthegame’s
+levels. At a boundary between levels the agent refactors the
+twinintorulesthatreplayeveryloggedtransition,andcross-
+level pairs do not enter the log.
+Agent interface.At each step, the agent observes the cur-
+rent grid and the available actions. After acting, it receives
+the next grid and a completion signal. It is not given ob-
+ject identities, action semantics, the transition or goal rules,
+demonstrations,oranyprivilegedsimulatorstate.Itmustin-
+ferbothhowtheworldchangesandwhatconstitutessuccess
+solely from interaction.
+The executable twin.A Python file implements ˆT:S×
+A→Sand ˆR:S→{0,1}with a fixed contract:
+step(grid, action) -> grid
+goal_reached(grid) -> bool
+
+Raw-grid outputs permit cell-by-cell verification, while the
+implementation may parse objects, update an abstract state,
+andrenderbacktopixelsformoreefficientsearch.Thecode
+begins as an identity stub, so every nontrivial rule comes
+from interaction.
+We describe the method by a running example: a public
+game of cards and tiles (ft09). A click may recolor a tile.
+Nothing states which cells matter or when a level ends.
+Best practices for an uncontaminated run.The agent
+plays the game the way a person does. Every scored action
+passes through the live engine’s own interface, five buttons
+and a click, and nothing else touches game state: no save-
+scumming, no state teleport, no level skip. Web search is
+disabled, and an integrity audit scans the transcript and raw
+agent log for web-tool use or reads of deny-listed ground-
+truth sources, so a run that cheats is invalidated rather than
+scored. The harness does not encode game-specific rules,
+and the public games, released March 2026, are after the
+basemodel’sGPT5.6Sol,February2026trainingcutoff,so
+every rule in a twin is learned from interaction.
+The pipeline: validate, explore, plan
+A twin must explain the observed past and support useful
+imagined futures. Three routines split the work:V alidate
+checks the twin against the log,Explorepicks the rule to
+repair or the destination to try, andPlansearches the val-
+idated twin. Because only a submitted real move (Submit)
+costs score, the loop exhausts the three routines beforeExe-
+cuteCheckedcommitsanyaction.FollowingWorldCoder’s
+consistency and optimism constraints (Tang, Key, and Ellis
+2024),Twinenforces the asymmetric objective: fit is re-
+quiredbeforeanyscoredaction,whereasreachabilityispur-
+sued only through search.
+Validate:doesthetwinexplainthepast?Eachrealmove
+is added permanently to the transition logDas a triple
+(s,a,s′), and the twin must reproduce every entry:
+ϕfit(D, ˆT)⇐⇒ ∀(s,a,s ′)∈D, ˆT(s,a) =s ′.(1)
+V alidateis the decision procedure for Eq. 1: it replays the
+log and returns either an empty list or the failing transitions
+and cells, at once a consistency test and a free bug report.
+A twin that fails to replay the past is blocked from acting:
+no scored move is issued while validation is nonempty. The
+check certifies consistency with observed data, not correct-
+ness on unseen states. In ft09 the identity stub fails on the
+firstclickthatrecolorsatile,andthemismatchedcellsreturn
+as the first counterexample.
+Explore:whatblocksprogress?Thereareonlytwoways
+tobestuck:thetwinfailstoreplaythepast,thedynamicswall,
+or it replays everything yet reaches no goal, thegoal wall.
+Explorereads which wall is live and answers it, one com-
+ponent per half of the asymmetric objective. Thedynamics
+componentturnsvalidationfailuresintorankedrepairtargets
+for ˆT. Thereachability componentturns missing routes into
+rankeddestinationcandidates.Thelivewalldecideswhatthe
+next action should teach.
+When validation fails, the dynamics component compiles
+the failing transitions into a bug report for the agent, in the
+spiritofself-debuggingfromexecutionfeedback(Chenetal.
+2024). The report groups errors by local context and ranks
+eachgroupbyhowoftenitfails,howvarieditsoutcomesare,
+and how little evidence backs its current rule. Appendix D
+specifiesthegroupingandtherankingsignals.Topsendsthe
+highest-priority group and its failing examples toRepair.
+Theedited ˆTmustthenreplaythefulllog,preventingalocal
+fix from breaking an earlier mechanic. In ft09, the report
+isolates a click that cycles a tile between two colors; after
+Repairencodes the cycle, validation passes.
+WhenvalidationpassesbutPlanfindsnoroute,thereach-
+abilitycomponentsearchesthetwinwithout ˆR,usingalarger
+budget thanPlan. It ranks reachable states by five signs of
+progress relative to the current frame: a color appears or
+disappears, a compact region changes, the scene changes
+globally, or the search reaches a new frontier. For each sig-
+nal, it retains the strongest candidate and prefers a shorter
+path when scores tie, because testing costs real actions. The
+goal-discoveryloopthenconvertstherankedcandidatesinto
+hypotheses and tests them in order.
+Plan: what should the agent do if the twin is correct?
+Planrunsbreadth-firstsearchwith ˆTasthesuccessorfunc-
+tion and ˆRas the goal test, deduplicating full-grid states.
+Click games supply a shortlist of candidate coordinates to
+keep the branching factor finite. The target is one imagined
+routetothegoalwithinahorizonH,theplannerdepthlimit:
+ϕH
+reach(s, ˆT, ˆR)⇐⇒ ∃k∈{0,...,H},
+∃a 1,...,a k∈A, s0,...,s k∈S:
+s0 =s, s i = ˆT(s i−1,a i) (i= 1,...,k),
+ˆR(sk) = 1.
+(2)
+A returned plan satisfies Eq. 2 by construction. With unit-
+cost actions, the first goal found is a shortest plan within
+theactionset,depthlimit,andnodebudget.Thebudgetsare
+fixed across games: depth 8 with20,000nodes, widened to
+14and30,000forgoaldiscovery.Thequantifiersexposethe
+asymmetry:fitmustholdforeveryloggedtransition,whereas
+reachabilityneedsonlyoneimaginedroute.ReturningNone
+meansonlythatthecurrenttwinandbudgetexposenoroute,
+whichsendscontrolbacktoExplore.Ingameft09,theroute
+is the click sequence that sets each outer tile to the color its
+center glyph names.
+Execution turns plans into tests
+Foraplan[a 1,...,a k]fromstates 0,ExecuteChecked(Al-
+gorithm1)predictsˆs i = ˆT(ˆsi−1,a i),submitsactionsoneat
+a time, and stops at
+i⋆ = min{i:s i̸= ˆsi},(3)
+or at a level boundary. A match is verified progress. A mis-
+match is appended toD, invalidates the twin, and blocks
+further scored moves until repair. Thus every committed ac-
+tion yields either progress or one localized counterexample.
+Ingameft09,everyclickofthefinalplanmatchesitspredic-
+tion, and the level ends with no wasted action.
+
+Goal discovery: learning what counts as success
+Dynamicsandgoalsreceivedifferentsupervision.Everyac-
+tionprovidesatransitionlabelfor ˆT,but ˆRreceivesapositive
+label only when the environment signals level completion.
+At the start of a game,ˆRtherefore rejects every state, leav-
+ingPlanwithout a target.Twinresolves this bootstrapping
+problem by turning a reachable state into a tentative goal
+predicateusedonlytoplanatest.Alevelboundaryconfirms
+thehypothesis;reachingthepredictedstatewithoutabound-
+ary rejects it. Interaction thus validates the coding prior’s
+dynamics, while goal discovery supplies the missing target.
+Atthegoalwall,thetwinalreadyexplainstheobservedtran-
+sitions; what it lacks is a testable destination hypothesis.
+Propose and plan.If validation passes butPlanfinds no
+route, the goal branch ofExploresupplies ranked candi-
+date states. The harness, not the coding agent, generates one
+candidate per progress signal and prefers shorter paths. The
+coding agent then editsgoal_reachedto describe the
+top candidate’s salient change, producing a tentativeˆR. Be-
+fore spending any scored action, the harness applies two
+filters. First, ˆRmust evaluate false on every logged frame;
+because level completion replaces the winning frame, all
+logged frames are known non-goals. This is WorldCoder’s
+observed-data consistency requirement (Tang, Key, and El-
+lis2024).Second,anycandidatepreviouslyreachedwithout
+completing the level is permanently excluded. A candidate
+thatpassesbothfiltersbecomesatemporarytargetforPlan,
+which searches the world model for the lowest-cost real test.
+Test and update.The resulting route is executed under
+the same halt-on-mismatch guard, producing three distinct
+outcomes:
+1. A level boundary confirms the candidate. The coding
+agent updates the goal predicate to accept the predicted
+pre-boundary candidate state and reject ordinary logged
+states, then marks the predicate as confirmed.
+2. Thecandidatestateisreachedexactly,butnolevelbound-
+ary occurs.RejectCandidatepermanently excludes it,
+and the next candidate is tested.
+3. Reality mismatches ˆTbefore the candidate is reached.
+This tests the dynamics, not the goal: the candidate re-
+mains tentative while ˆTis repaired and the route is re-
+planned.
+Onlythefirsttwooutcomesprovideevidenceaboutthegoal;
+a prediction mismatch provides evidence only aboutˆT. If
+Explorefinds no reachable candidate,Probetakes one in-
+formative action, either an untried control or an unexplored
+click,andappendstheresultingtransitiontothelog.Goaldis-
+coverythereforefollowsaheuristiccycleofproposing,plan-
+ning,andtestingratherthanprovidingacorrectnessguaran-
+tee.Inft09,thefirstcandidateisacardwhosetilesmatchits
+glyph. It triggers a level boundary and is confirmed. Harder
+games reject several candidates before finding the goal.
+A twin grows by counterexample-guided refinement, the
+CEGISrecipe(Solar-Lezama2008;Tangetal.2024):valida-
+tion shows that the twin is wrong, exploration shows where,
+and repair fixes the code. The agent follows Algorithm 1
+Algorithm 1:Twin, test-time world-model inference. Per
+game the agent starts an identity twin and an empty logD.
+Permoveitvalidatesandrepairsthetwin,plansarouteinside
+it, and submits under a halt-on-mismatch check.Explore
+ranksbrokenrulesatthedynamicswallandreachablecandi-
+datesatthegoalwall.Aproposedgoalmustevaluatefalseon
+every logged frame, and an exactly reached non-goal is per-
+manently excluded from future proposals. A level boundary
+updates the goal, and a mismatch returns a counterexample.
+1:( ˆT, ˆR)←identity twin;D←∅// per game
+2:foreach leveldo
+3:whilelevel not complete and budget remainsdo
+4:s←Perceive()// read the real grid
+5:whileV alidate( ˆT,D)returns gapsdo
+6:g←Top(Explore(s,D))// dynamics wall
+7: ˆT←Repair( ˆT,g)
+8:end while
+9:p←Plan(s, ˆT, ˆR)// BFS inside the twin
+10:ifp=Nonethen
+11:c←Top(Explore(s,D))// goal wall
+12: ˆR←ProposeGoal(c)// tentative
+13:while ˆR(si) = 1for some logged framesi do
+14:c←next candidate; ˆR←ProposeGoal(c)
+// consistency check, free
+15:end while
+16:p←Plan(s, ˆT, ˆR)// cheapest test of ˆR
+17:end if
+18:ifp=Nonethen
+19:p←[Probe(s,D) ]// one informative move
+20:end if
+21:o←ExecuteChecked(p)// halt on mismatch,
+log toD
+22:ifois a level boundarythen
+23: ˆR←UpdateGoal(o,D)// first positive label
+24:else iforeachescwith no boundarythen
+25:RejectCandidate(c)// permanently exclude
+this non-goal
+26:end if
+27:end while
+28:end for
+because it is prompted to. The harness enforces two replay
+requirements. No scored move issues until the twin replays
+every logged transition (Eq. 1). No scored goal test begins
+until the tentativeˆRevaluates false on every logged frame,
+and a candidate reached without a level boundary is never
+proposed again.
+Experimental Results
+We studyTwinon all 25 public ARC-AGI-3 games. The
+experimentsmeasurehowwellbuildingadigitaltwinscores,
+whether every scored action routes through the validated
+model, and how far the prior carries before goal discovery
+takes over. We driveTwinwith OpenAI Codex running the
+base model, connected to the game only through files, with
+nogame-specifictools.OPINE-WorldrunsClaudeOpus4.8
+
+andEWMrunsGPT-5.5athigheffort,sotheCodexablation
+and Prime Agent’s Sol configuration are the only entries
+sharingTwin’s base model.
+Compute.Acrossthe25runs,Twinused2.60billionpro-
+cessed tokens and 91.4 hours of wall-clock inference, aver-
+aging roughly224,000tokens per scored action. Compute
+follows difficult goal discovery, not level count: the ka59
+run consumed 24% of all tokens for less than 10% of all
+scored actions. Per-game usage ranged from 5.1 million to
+625 million tokens.
+Building a twin plays ARC-AGI-3 well
+Twinreaches a mean score of 93.3 out of 100 on previously
+unseengames,clearing23of25andreachingthe100.0ceil-
+ing on 18 (Table 1, Figure 2). OPINE-World scores 78.4,
+and EWM scores 63.8 (Table 7, Appendix H). Prime Agent,
+run onTwin’s own base model, scores 78.3 and clears 164
+levels.Playeddirectly,thesamebasemodelclearsonegame
+and scores 7.8, so model knowledge alone does not explain
+theresult.Thepublicgamesalsopostdateitstrainingcutoff.
+TheTwinharness accounts for the remaining 85.5 percent-
+age points, and the analyses below identify where that gain
+appears.
+The largest gains appear on the hardest games.Easy
+games provide little separation: all four systems score 100.0
+on ar25 and cn04. Differences emerge on longer multilevel
+games.Twinis the only system to clear bp35, lf52, and
+sk48, which contain nine, ten, and eight levels, respectively.
+Ondc22,Twinclearsallsixlevelsin1,219actions,whereas
+EWM uses1,842actions and clears four.
+Harness-enforcedvalidationmattersmostonlonggames.
+InTwin, replay validation is a hard constraint enforced by
+the harness. The executor blocks every scored action until
+theworldmodelreproducesthecompleteinteractionlog.By
+contrast,thecomparisonsystemsrelyonpromptinstructions
+to request validation, which do not mechanically prevent an
+Table 1: Aggregate performance on the 25-game, 183-level
+public set. Score averages the benchmark action-efficiency
+values over games. Won and Levels count full clears and
+cleared levels, and all systems use the same published hu-
+man baselines. The human row is the score’s normalization
+reference,notameasuredsystem.Twin,asshowninthelast
+row,scores93.3of100usingGPT-5.6Sol,aheadofOPINE-
+World78.4,PrimeAgent78.3usingGPT-5.6Sol,EWM63.8
+using GPT-5.5, and Codex using GPT-5.6 Sol 61.1.
+System Score
+Won
+(/25)
+Levels
+(/183)
+Human reference 100.0 25 183
+OPINE-World 78.4 20 160
+Prime Agent 78.3 – 164
+EWM 63.8 14 146
+Codex 61.1 13 148
+Twin(ours)93.3 23 179
+unvalidated action. This hard constraint keeps model errors
+from compounding across long games and may explain why
+Twinalone clears bp35, lf52, and sk48.
+Validated planning reduces scored actions.To separate
+efficiency from coverage, we compare the thirteen games
+thatTwin, EWM, and OPINE-World all fully clear. Be-
+cause every system reaches the same endpoint on these
+games, their action counts are directly comparable.Twin
+uses3,357scoredactions,comparedwith5,367forOPINE-
+World,5,381for EWM, and7,485for the human reference.
+Twinusesthefewestactionson11ofthese13games.Thus,
+Twinsolves the same games with fewer interactions, con-
+sistent with replay validation and planning within the world
+model reducing unnecessary moves.Twinalso matches or
+beats the human action count on 21 of its 23 cleared games
+and uses0.61×as many actions as humans on average (Fig-
+ure 3).
+The worst games invert the comparison.Twinand
+OPINE-World solve different subsets of games (Figure 2).
+OPINE-WorldclearsthetwogamesTwinleavesunfinished.
+sc25 isTwin’s worst score, 32.7 against OPINE-World’s
+84.0. A hidden countdown on level 4 charges a real test for
+every ordering hypothesis, andTwinsinks 647 of its 701
+actions there. Trial and error pays no per-hypothesis price.
+sp80 repeats the shape at 82.1 against 100.0: the twin stays
+92.3%accuratewhilethesixthlevel’sgoalresists,agoalwall
+rather than a dynamics wall. The reverse gap is wider.Twin
+reaches the 100.0 ceiling on bp35 and lf52, where OPINE-
+World scores 2.6 and 4.2, stalling by level three of nine and
+four of ten.
+The harness earns the score: an ablation
+To test whether the gains come from the method rather
+than the base agent, we run off-the-shelf Codex (the Codex
+columns of Table 7). The ablation keeps the identical agent,
+base model, file bridge, and sandbox, with the entireTwin
+harnessdisabled.Thedeletionremovestheexecutableworld
+model, replay validation (V alidate), diagnostic exploration
+(Explore), model-based planning (Plan), and the halt-on-
+mismatchexecutor.Thiscomparisonisolatesthefullharness
+with the base model fixed. Disabling theTwinharness re-
+duces the mean score from 93.3 to 61.1 and the number of
+fully cleared games from 23 to 13 (Table 1).Twinmatches
+or exceeds the ablation’s score on 24 of 25 games. The sole
+exception is sc25, whereTwinscores 32.7 and the ablation
+scores 44.8. Under the countdown above, the ablation clears
+five levels by trial and error, which scores higher because
+uncleared levels receive zero credit.
+Every scored action starts from a replay-validated twin.
+Replayvalidationcertifiesallloggedtransitionsbutdoesnot
+guaranteepredictionsinunseensituations.Ofthescoredac-
+tions, 92.9% execute plans tested in simulation, while 7.1%
+are deliberate probes chosen to improve the model. Out-
+comes disagree with the twin on 20.1% of actions, and each
+mismatchbecomesacounterexampleforrepair.Repairsper-
+sist:31previouslymispredictedsituationsrecurlater,andthe
+repaired twin predicts all 31 correctly.
+
+ar25 bp35 cd82 cn04 ft09 lf52 lp85 ls20 m0r0 r11l re86 s5i5 sb26 su15 tr87 tu93 vc33 wa30 dc22 g50t sk48 sp80 ka59 tn36 sc25
+0
+25
+50
+75
+100game score
+EWM OPINE-World TWIN (ours)
+Figure 2: Per-game ARC-AGI-3 action-efficiency scores forTwin, OPINE-World, and EWM, ordered byTwinscore. For each
+clearedlevelℓ,therawefficiencyfactorise ℓ = min{1.15,(h ℓ/aℓ)2},whereh ℓ anda ℓ arethehumanbaselineandagentaction
+counts; uncleared levels haveeℓ = 0. The level-index-weighted game score is capped by the weighted completion fraction, at
+most 1.0, then scaled to 100. Each game carries three dots joined by a gray range bar,Twinblue, OPINE-World orange, EWM
+violet. The blue dot leads or ties on 22 of the 25, with OPINE-World ahead on g50t, sp80, and sc25.
+101 102 103
+first-time human actions per game
+101
+102
+103
+TWIN actions per game
+parity
+ar25
+bp35
+cd82
+cn04
+ft09
+lf52
+lp85
+ls20
+m0r0
+r11l
+re86
+s5i5
+sb26 su15
+tr87tu93
+vc33
+wa30
+dc22
+g50t
+sk48
+ka59
+tn36
+Figure3:Actionefficiencyrelativetothehumanreferenceonthe23gamesTwinwins.Eachdotplacesonegamebyitshuman
+action count againstTwin’s, both axes logarithmic. Green dots lie at or under the dashed parity line, no more actions than the
+first-time human, 21 of the 23 at a mean ratio of0.61×. The red dots tn36 (1.5×) and ka59 (1.6×) lie above.
+Dynamics generalize, while goal errors dominate cost.
+A pair is first-seen when no identical state–action pair ap-
+pears earlier in the log. Each predicted next frame is hashed
+and committed before the outcome is observed, so it cannot
+be revised after seeing the result. The twin predicts8,210
+of10,392first-seen pairs exactly (79.0%), compared with
+602 of 635 recurring pairs (94.8%). Novelty therefore costs
+15.8 percentage points, yet nearly four of five unseen pairs
+remain cell-exact. Goal errors are less frequent but more
+costly: the first committed goal hypothesis is correct on 156
+of 179 completed levels (87.2%). sp80 stalls goal-limited
+at 92.3% dynamics accuracy, while sc25 is mixed at 83.7%
+with costly timer-driven tests. Goal search also raises action
+counts on tn36 (1.5×human) and ka59 (1.6×). The cost is
+concentrated: the 23 non-optimal levels add1,291actions
+over the human baselines, and five levels account for 71%.
+Goal proposal and temporal state modeling are therefore the
+main targets for improvement.
+Limitations
+Replay validation assumes deterministic dynamics repre-
+sentable by the twin and certifies only logged transitions,
+a boundary a probabilistic twin would loosen. Planning and
+goal discovery run under fixed search budgets, so a goal be-
+yond the horizon goes unfound.stepreads one frame, so
+mechanics driven by long temporal context, history the grid
+doesnotshow,arebeyondthisscope.Yetbp35hidesmostof
+each level behind a scrolling camera, andTwinclears all 9
+levelsunderthehumancountbybuyingthehiddenmapone
+probeperplace(AppendixG),sothisclassofpartialobserv-
+ability is handled too. Truly latent state, a variable no frame
+ever shows, stays out of scope. Exact replay also presumes
+
+smalldiscretestates:cellequalityon64×64gridsisfreeand
+decidable,whilecontinuousobservationswouldmakeevery
+replay an approximate comparison with a threshold to tune.
+ExtendingTwinto probabilistic twins remains future work.
+Conclusion
+Twintreatsinteractionwithanunknowngameastheproblem
+ofconstructingandvalidatinganexecutableworldmodel.A
+coding agent expresses its current theory as a Python pro-
+gram,checksitagainsteveryobservedtransition,plansinside
+it, and executes under a halt-on-mismatch guard. Each sub-
+mittedactionthereforebecomesplannedprogress,aconcrete
+counterexample for model repair, or a deliberate probe.
+Twinscores 93.3 of 100 on the benchmark’s action-
+efficiencymetric,clearing23of25publicgames(179of183
+levels). The same off-the-shelf Codex without the validate-
+explore-plan loop scores 61.1 and acts without predictions
+validated against the interaction history. Twins predict 79%
+offirst-seenstate–actionpairsexactly,showingreusablerules
+rather than transition replay. The first goal hypothesis is cor-
+rectbeforeanyrewardon87.2%ofcompletedlevels(156of
+179); search covers the rest.
+The unfinished games mark the frontier: accurate dynam-
+ics, unresolved goals.Twindemonstrates a new paradigm
+in which the agent writes the environment as an executable
+hypothesis to inspect, falsify, repair, and plan through.
+Stronger priors may help agents infer goals as quickly as
+humans do when playing an unfamiliar game for the first
+time, drawing on a lifetime of experience.

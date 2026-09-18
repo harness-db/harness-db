@@ -1,0 +1,392 @@
+record_id: arxiv:2604.07681
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2604.07681
+fetched_title: Multi-Agent Orchestration for High-Throughput Materials Screening on a Leadership-Class System
+fetched_at: 2026-09-18T19:01:00Z
+
+Multi-Agent Orchestration for High-Throughput
+Materials Screening on a Leadership-Class System
+Thang Duc Pham1, Harikrishna Tummalapalli2, Fakhrul Hasan Bhuiyan1,
+Álvaro Vázquez Mayagoitia1, Christine Simpson2, Riccardo Balin2, Venkatram
+Vishwanath2, and Murat Keçeli1
+1 Computational Science (CPS) Division, Argonne National Laboratory, Lemont IL
+60439, USA
+2 Argonne Leadership Computing Facility (ALCF), Argonne National Laboratory,
+Lemont IL 60439, USA
+Abstract.The integration of Artificial Intelligence (AI) with High-
+Performance Computing (HPC) is transforming scientific workflows from
+human-directed pipelines into adaptive systems capable of autonomous
+decision-making. Large language models (LLMs) play a critical role in
+autonomous workflows; however, deploying LLM-based agents at scale
+remains a significant challenge. Single-agent architectures and sequential
+tool calls often become serialization bottlenecks when executing large-
+scale simulation campaigns, failing to utilize the massive parallelism
+of exascale resources. To address this, we present a scalable, hierar-
+chical multi-agent framework for orchestrating high-throughput screen-
+ing campaigns. Our “planner–executor” architecture employs a central
+planning agent to dynamically partition workloads and assign subtasks
+to a swarm of parallel executor agents. All executor agents interface
+with a shared Model Context Protocol (MCP) server that orchestrates
+tasks via the Parsl workflow engine. To demonstrate this framework,
+we employed the open-weight gpt-oss-120b model to orchestrate a high-
+throughput screening of the Computation-Ready Experimental (CoRE)
+Metal-Organic Framework (MOF) database for atmospheric water har-
+vesting. The results demonstrate that the proposed agentic framework
+enables efficient and scalable execution on the Aurora supercomputer,
+with low orchestration overhead and high task completion rates. This
+work establishes a flexible paradigm for LLM-driven scientific automa-
+tion on HPC systems, with broad applicability to materials discovery
+and beyond.
+Keywords:Large Language Models·Multi-Agent Systems·Workflow
+Orchestration·High-Throughput Screening·Exascale Computing
+1 Introduction
+Traditional High-Performance Computing (HPC) workflows excel at executing
+large, predefined ensembles of simulations at scale, but their largely static control
+flow makes it difficult to adapt dynamically to intermediate results and failures.
+Recent advances in large language models (LLMs) [1] offer a complementary ca-
+pability: the ability to reason over complex scientific objectives and dynamically
+arXiv:2604.07681v1 [cs.AI] 9 Apr 2026
+
+2 T. D. Pham et al.
+adapt execution strategies [2]. By coupling LLMs with external simulation tools,
+researchers can create autonomous, agentic workflows that translate high-level
+intent directly into executable computation.
+However,scalingtheseagenticworkflowstomodernexascalesystemspresents
+a significant challenge. Many current agent-based systems rely on iterative rea-
+soning loops in which tool calls are generated and executed sequentially. In
+large-scale screening campaigns, this pattern can introduce substantial serial-
+ization overhead and prevent effective use of available HPC concurrency. As a
+result, naive LLM-driven workflows may underperform relative to conventional
+workflows that are explicitly constructed for parallel execution.
+To address this limitation, we introduce a scalable and hierarchical “plan-
+ner–executor” multi-agent framework that decouples high-level reasoning from
+large-scale task execution. Implemented via LangGraph [3], a central planner
+agent decomposes workloads while a dynamic swarm of executor agents pro-
+cesses tasks asynchronously. Tool execution is standardized through the Model
+Context Protocol (MCP) and integrated with the Parsl workflow engine [4].
+This separation of concerns allows the planner to focus on scientific intent and
+strategy, while Parsl manages resource allocation, fault tolerance, and large-scale
+concurrency. The resulting system enables LLM agents to orchestrate large sim-
+ulation campaigns without direct exposure to low-level scheduling or execution
+details.
+We demonstrate the capabilities of this approach using a high-throughput
+materials screening application focused on Metal-Organic Frameworks (MOFs)
+[5]. MOFs have emerged as promising candidates for atmospheric water harvest-
+ing (AWH) [6]. Identifying suitable MOFs for AWH requires evaluating adsorp-
+tion behavior across specific humidity ranges, making it a computationally in-
+tensive screening problem over thousands of candidate materials [7]. This makes
+AWH an ideal test case for evaluating intelligent, scalable workflows that can
+efficiently explore large materials spaces.
+To this end, we employ the open-weightgpt-oss-120bmodel to orchestrate
+a high-throughput screening of the Computation-Ready Experimental (CoRE)
+MOF database [8] on the Aurora supercomputer [9]. Our results show that the
+framework can coordinate large simulation campaigns with modest orchestration
+overhead while leveraging the scalable execution capabilities of Aurora through
+Parsl. More broadly, this study illustrates a practical route for combining LLM-
+based agents with workflow engines to support scientific automation on HPC
+systems.
+2 Contributions
+This paper presents a scalable architecture for running LLM-driven scientific
+workflows on leadership-class HPC systems. Our key contributions are:
+Hierarchical multi-agent orchestration framework.We introduce a
+planner–executor architecture, implemented using LangGraph, that separates
+planning, execution, and analysis roles across multiple agents. This design en-
+ables high-level task decomposition, concurrent workflow generation, and im-
+
+Multi-Agent Orchestration 3
+proved modularity and traceability in complex scientific workflows. To support
+reproducibility and reuse, the framework is available as open-source software
+under a permissive license on GitHub.
+Asynchronous MCP–Parsl integration.We introduce a tool interface in
+which MCP tools generate Parsl applications rather than executing simulations
+directly. This enables asynchronous dispatch of large simulation ensembles while
+Parsl manages scheduling and fault tolerance.
+Demonstration on Aurora using an open-weight model.We demon-
+strate the framework in an end-to-end screening of the CoRE MOF database
+on the Aurora supercomputer using an open-weight model, showing that LLM-
+based orchestration can support large simulation campaigns with modest over-
+head relative to simulation time.
+3 Related Work
+3.1 Agentic AI for Scientific Discovery
+LLMs are increasingly being used to build autonomous agents capable of in-
+teracting with external tools and executing multi-step scientific workflows. The
+ReAct framework [10] introduced a paradigm in which models combine reasoning
+and tool execution, which has since been adopted by systems such as ChemCrow
+[11], ChemGraph [12], El Agente [13], and Cactus [14]. These systems enable
+natural language interaction with simulation software, automating tasks such as
+input preparation, job execution, and analysis.
+However, most existing implementations target interactive or small-scale
+workloads and do not explicitly address the concurrency requirements of large
+HPC campaigns. When thousands of simulations must be executed, sequential
+tool invocation can introduce significant serialization overhead. Scaling agentic
+workflows to leadership-class HPC systems therefore remains an open challenge,
+particularly when thousands of independent simulations must be orchestrated
+efficiently. Recent work has begun to explore distributed agent architectures in
+scientific settings [15], highlighting the potential of multi-agent systems for co-
+ordinating more complex workloads.
+3.2 Convergence of Agents and HPC
+Workflow management systems such as Parsl [4], FireWorks [16] and Balsam [17]
+provide scalable infrastructure for executing large scientific workflows on HPC
+systems, providing abstractions for defining and executing distributed workflows
+while handling resource management, fault tolerance, and data dependencies.
+Parsl, in particular, enables users to express workflows as Python-based Directed
+Acyclic Graphs (DAGs) and has been shown to scale to exascale systems [18].
+Despite their scalability, traditional WMS are largely static: workflow struc-
+ture and execution logic are defineda prioriby human developers. They lack the
+semantic reasoning capabilities needed to adapt execution strategies dynamically
+based on intermediate results or evolving scientific objectives. Integrating LLM-
+based reasoning with robust workflow managers therefore represents a promising
+path toward dynamic, adaptive scientific workflows.
+
+4 T. D. Pham et al.
+Recent efforts have attempted to bridge the gap between AI reasoning and
+HPCexecution.TheColmenaframework[19]introducedtheconceptof“Thinker”
+and “Doer” agents, separating the inference tasks from the simulation tasks.
+This allows for interleaving AI inference with simulation ensembles, primar-
+ily for active learning applications. Similarly, rapid prototyping of agents using
+LangChain has been explored in conjunction with Parsl to enable tool-use on
+supercomputers [20]. Our work builds on this emerging intersection, but focuses
+specifically on hierarchical multi-agent orchestration and on translating agent-
+generated tool requests into asynchronously dispatched simulation ensembles
+through MCP and Parsl.
+4 Methodology
+4.1 Model Context Protocol
+We used the Model Context Protocol (MCP) [21] to connect the LLM agents
+with external tools. Two MCP servers were implemented: (1) a Data Tool server
+for aggregating simulation outputs and ranking materials, and (2) a Chemistry
+server for launching GCMC simulations.
+The Chemistry server exposes tools that generate Parsl applications corre-
+sponding to individual or ensemble simulation tasks. These tasks are submitted
+to a co-located Parsl manager, which schedules them across compute nodes.
+All tools are implemented asynchronously, enabling multiple executor agents to
+request concurrent simulations without blocking.
+4.2 Grand Canonical Monte Carlo Simulations
+Todemonstratetheworkflow,weperformedGCMCsimulationsusingthegRASPA
+package [22]. Each simulation executed on one tile of the Intel Data Center
+Max 1550 GPU. Framework atoms were modeled with the Universal Force Field
+(UFF) [23], while adsorbates were represented using standard models (TIP4P for
+H2O [24] and TraPPE for CO2 and N2 [25]). Framework charges were assigned
+using PACMOF2 [26]. Standard Lennard-Jones and Ewald summation methods
+were used to compute intermolecular interactions.
+The MOF structures were obtained from the CoRE MOF 2025 database
+[8], consisting of 5,591 all-solvent-removed and computation-ready structures
+hosted by the Cambridge Crystallographic Data Centre [27]. The simulation
+settings provide a realistic benchmark for evaluating the orchestration frame-
+work, rather than a definitive assessment of MOF performance for atmospheric
+water harvesting.
+4.3 Agentic Workflow
+The architecture shown in Figure 1 extends our previously introducedChem-
+Graphsystem [12], which enables LLM agents to orchestrate molecular simula-
+tion workflows through natural language interaction. While ChemGraph focuses
+
+Multi-Agent Orchestration 5
+Fig. 1.Schematic of the scalable multi-agent orchestration architecture, with a central
+planner agent, dynamically allocated number of executor agents, a data analyst agent
+and MCP servers.
+on automating simulation setup, execution, and analysis, the present work ex-
+tends the framework to support scalable orchestration of large simulation cam-
+paigns on HPC systems.
+The system consists of a planner agent, a pool of executor agents, a data
+analyst agent, and two MCP servers. Given a user query, the planner agent
+decomposes the scientific objective into independent simulation tasks and dis-
+tributes them across the executor pool. Executor agents invoke simulation tools
+exposed by the Chemistry MCP server to launch atomistic simulations through
+Parsl. The number of executors scales dynamically based on the workload gen-
+erated by the planner agent.
+After the simulations are completed, the results are forwarded to the data
+analyst agent, which aggregates the outputs using tools provided by the Data
+Tool MCP server and produces the final response to the user query.
+4.4 Experimental Setup
+ExperimentswereconductedontheAurorasupercomputerattheArgonneLead-
+ership Computing Facility (ALCF). Agent reasoning was performed using the
+gpt-oss-120b model deployed on the ALCF inference endpoints [28].
+The workflow was initiated using the structured prompt below, which defines
+the scientific objective and simulation parameters.
+Role:You are coordinating a delegated workflow.
+Data Source:The CoRE MOF database is located at:
+/path/to/coremof-database
+Objective:Identify the top 20% best-performing MOFs for atmospheric
+water harvesting by calculating the working capacity between adsorption
+and desorption conditions.
+Simulation Parameters:
+
+6 T. D. Pham et al.
+–Temperature: 298 K
+–Water Saturation Pressure at 298K: 3200 Pa
+–Adsorption condition: 60% relative humidity
+–Desorption condition: 10% relative humidity
+–Duration: 2,000,000 (2 million) cycles per run
+5 Results and Discussion
+5.1 Agentic Workflow Output Demonstration
+Figure 2 demonstrates the representative input and output of our agentic work-
+flow. Starting from a human natural language query, the planner agent interprets
+the scientific objective and decomposes it into structured, executable tasks. The
+task is then dispatched to the executor agent, which invokes simulation tools
+and records both the tool calls and their returned outputs. The resulting simu-
+lation data (saved as a JSONL file) are then processed by a data analyst agent,
+which performs post-processing, aggregation, and ranking to generate a final,
+user-facing response.
+Fig. 2.Representative outputs from an agentic workflow used for high-throughput
+screening of 1,152 MOFs for atmospheric water harvesting. The figure illustrates the
+end-to-end interaction, including the human query, the planner agent’s task decompo-
+sition, the executor agent’s tool invocation and corresponding outputs, and the data
+analyst agent’s post-processing steps and final response. For clarity, both the user query
+and agent outputs are abbreviated using [...].
+This example highlights the transparent step-by-step reasoning process en-
+abled by the agentic design, where intermediate decisions and tool interactions
+are explicitly exposed. This traceability is critical for debugging, validation, and
+scaling high-throughput scientific workflows on HPC systems, particularly when
+screening large design spaces.
+
+Multi-Agent Orchestration 7
+5.2 High-throughput Screening Results
+Building on the demonstration illustrated in Figure 2, we plotted the water
+working capacities of the 2,304 MOFs, defined as the difference in the amount
+of water adsorbed at the adsorption condition (298 K, 1920 Pa) and desorption
+condition (298 K, 320 Pa). Figure 3 shows the distribution of working capaci-
+ties computed by the agentic workflow, verifying the agent’s ability to manage
+thousands of concurrent GCMC simulations and aggregate the resulting data
+without human intervention.
+Fig. 3.Distribution of working capacities of water for the screened 2,304 Metal-Organic
+Frameworks (MOFs), calculated between 1920 Pa (adsorption) and 320 Pa (desorption)
+at 298 K, from the 256 nodes weak-scaling run. The violin plot illustrates the proba-
+bility density of the dataset, while the overlaid strip plot represents individual MOF
+candidates. The red-dashed line marks the 80th percentile (top 20% cutoff).
+The screening analysis of 2,304 MOFs reveals a highly skewed distribution,
+with the majority of candidates exhibiting working capacities below 1.0 mol/kg,
+making them unsuitable for practical atmospheric water harvesting. In contrast,
+the top 20% of candidates demonstrated high performance, with working ca-
+pacities achieving 7.06 mol/kg. While the identification of a definitive optimal
+material requires further consideration of hydrothermal stability and specific
+cycling conditions, the physical trends captured here provide a useful screening-
+level assessment. More importantly, these results demonstrate that agentic work-
+flows can streamline high-throughput research by allowing researchers to execute
+large-scale simulation campaigns through a simple natural language query.
+5.3 Multi-Objective Workflow
+Scientificscreeningcampaignsoftenrequireevaluatingcandidatematerialsagainst
+multiple objectives simultaneously. To test this capability, we issued a natu-
+
+8 T. D. Pham et al.
+ral language query instructing the agentic system to perform a multi-objective
+screening. The request asked the system to evaluate three adsorption scenarios:
+water adsorption at 60% RH and 298 K, CO2 adsorption at 0.15 bar and 298 K,
+and N2 adsorption at 1 bar and 77 K, and then identify the top 20% performing
+MOFs for each application.
+Role:You are coordinating a delegated workflow.
+DataSource:TheCoREMOFdatabaseislocatedat:/path/to/coremof-database
+Objective:I want to run the following simulations:
+–Water adsorption at 60% RH, 298K
+–CO 2 adsorption at 0.15 bar, 298K
+–N 2 adsorption at 1 bar, 77K
+–Identify the top 20% best-performing MOFs for each application.
+Simulation Parameters:
+–Water Saturation Pressure at 298K: 3200 Pa
+–Duration: 50,000 cycles per simulation
+The planner agent interpreted this high-level query and decomposed it into
+three independent simulation tasks corresponding to the specified adsorption
+conditions. These tasks were distributed across three executor agents, which
+launched the simulations in parallel using the Chemistry MCP tools. After com-
+pletion, the data analyst agent aggregated the results and ranked the materials
+to identify the top 20% performing MOFs for each objective.
+Thisexperimenthighlightsakeyadvantageofthearchitecture:multi-objective
+workflows can be generated dynamically from natural language instructions
+without modifying the underlying codebase. Because the planner agent trans-
+lates user intent into executable tasks at runtime, new screening campaigns with
+different properties, conditions, or objectives can be expressed directly through
+the interface while reusing the same execution framework.
+5.4 Scaling
+Weak ScalingTo test the throughput stability, we performed weak scaling
+experiments in which the number of MOF structures increases proportionally
+with the compute resources. We used a fixed workload of 9 MOFs per node (18
+simulations per node).
+Although the GCMC simulations used a fixed number of cycles, individual
+simulation times fluctuated significantly depending on the size of the simula-
+tion box (MOF crystal structure) and the number of water molecules adsorbed.
+Observed simulation times ranged from 1,600 seconds to 4,400 seconds. To inves-
+tigate the impact of structural complexity on scaling, we employed two sampling
+strategies: (1) Random Sampling: MOFs were selected randomly for each run,
+and (2) Nested Sampling: A cumulative strategy where the set of MOFs used in
+smaller scale runs is retained and expanded upon for larger scale runs.
+Figure 4a compares the weak scaling performance of these two strategies. As
+the system scales from 1 to 256 nodes, the total workflow durations for both
+strategies remain relatively stable between 5,500 and 8,000 seconds and indicate
+effective weak scaling.
+
+Multi-Agent Orchestration 9
+Fig. 4.Scalingperformanceofthemulti-agentorchestrationworkflow.(a)Weakscaling
+with a constant workload of 9 MOFs per node across 1 to 256 nodes. (b) Strong scaling
+with a fixed workload of 5,591 MOFs (11,182 simulations) across 8 to 256 compute
+nodes.
+Strong scalingTo evaluate the strong scaling performance, we ran the agentic
+workflow with the complete dataset of 5,591 MOFs while increasing compute re-
+sources from 8 to 256 nodes. For these experiments, the GCMC simulation was
+adjusted to 50,000 cycles to facilitate rapid throughput. This reduced number of
+cycles was used only for the scaling benchmark, whereas the 2,000,000-cycle set-
+ting for the weak-scaling runs was used for production calculations. The choice
+of 50,000 cycles was made so that the full 5,591-MOF workload could be com-
+pleted on 8 Aurora nodes within the wall-time limit. Figure 4b illustrates the
+execution time as a function of node count. The workflow demonstrates near-
+linear speedup, tracking the ideal strong scaling curve from 8 to 32 nodes. At
+higher node counts (128 and 256), the system maintains a significant reduction
+in time-to-solution, though strong scaling efficiency drops down to 64.9%.
+5.5 Agentic Framework Evaluation
+Inthiswork,weemployedgpt-oss-120b,anopen-weightmodel,todrivetheagen-
+ticworkflow.Whileproprietarymodelsoftenperformbestinagenticbenchmarks
+[29, 12], utilizing gpt-oss-120b allows users to self-host both the model and work-
+flow logic. This is crucial for scalability, because as workflows grow in complexity,
+the token costs associated with proprietary APIs can become a significant finan-
+cial burden for researchers.
+In terms of performance, we observed a total agentic overhead (comprising
+API calls and LangGraph orchestration, excluding simulation timing) of approx-
+imately 60 to 90 seconds across independent runs. While this provides a baseline
+for the orchestration cost, it is important to note that this overhead is variable
+and highly dependent on model inference throughput and API latency.
+In terms of execution reliability, we occasionally observed failures in gpt-
+oss-120b’s tool-calling capabilities, where invalid generated arguments led to
+
+10 T. D. Pham et al.
+workflow termination. To mitigate this, failed runs were restarted from the ini-
+tial query. From the weak and strong scaling runs, we performed a total of 25
+experiments. We observed 4 failures, resulting in an overall success rate of 84%.
+6 Conclusions
+A major barrier to utilizing leadership-class HPC systems is the steep learn-
+ing curve associated with environment management, task orchestration, and job
+scheduling. Our results demonstrate that an agentic workflow can bridge the
+gap between natural language requests and HPC execution. By successfully in-
+terpreting high-level scientific queries, ranging from simple single-task requests
+to complex multi-objective screenings, the agentic framework presented here al-
+lows researchers to perform a large-scale simulation campaign using a simple
+prompt.
+Single- and multi-objective tests demonstrate the flexibility of the framework,
+while the weak and strong scaling experiments highlight the scalability of our
+approach across diverse workflow settings. Even with the significant variance
+in simulation times caused by different MOFs, the workflow maintained stable
+throughput. This suggests that AI agents, when paired with a workflow manager
+like Parsl, are well-suited for high-throughput screening campaigns where the
+computationalcostpercandidateisnon-uniform,acommonscenarioinmaterials
+discovery.
+Animportantfindingofthisworkisthatgpt-oss-120b,anopen-weightmodel,
+can support complex scientific workflows. The observed success rate of 84% indi-
+cates a remaining reliability gap, but this gap is likely to narrow as open-weight
+models continue to improve. In addition to cost advantages, open-weight models
+enable self-hosting and provide greater control over privacy, deployment, and re-
+producibility. It should also be noted that the framework itself is model-agnostic
+and can be used with either open-weight or frontier models.
+7 Acknowledgment
+This work was supported by the Office of Science, U.S. Department of Energy,
+under contract DE-AC02-06CH11357. MK is supported by the U.S. Department
+of Energy (DOE), Office of Science, Office of Basic Energy Science, Division
+of Chemical Sciences, Geosciences, and Biosciences through Argonne National
+Laboratory under Contract No. DE-AC02-06CH11357. A.V.M. was supported
+by the Office of Science, U.S. Department of Energy, under contract DE-AC02-
+06CH11357. This research used resources of the Argonne Leadership Comput-
+ing Facility, a U.S. Department of Energy (DOE) Office of Science user facility
+at Argonne National Laboratory. This work leverages ALCF Inference End-
+points, which provide a robust API for LLM inference on ALCF HPC clusters
+via Globus Compute. The authors thank Dr. Abhishek Bagusetty for assistance
+with gRASPA software.
+
+Multi-Agent Orchestration 11
+8 Code A vailability
+ChemGraph is open-source and available on GitHub at
+https://github.com/argonne-lcf/ChemGraph.

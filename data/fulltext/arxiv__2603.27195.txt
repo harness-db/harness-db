@@ -1,0 +1,858 @@
+record_id: arxiv:2603.27195
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2603.27195
+fetched_title: AutoMS: Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+fetched_at: 2026-09-18T19:00:15Z
+
+AutoMS: Multi-Agent Evolutionary Search for Cross-Physics Inverse
+Microstructure Design
+Zhenyuan Zhao * 1 Yu Xing* 1 Tianyang Xue 2 Lingxin Cao 1 Xin Yan1 Lin Lu 1
+Abstract
+Designing microstructures with coupled cross-
+physics objectives is a fundamental challenge
+where traditional topology optimization is often
+computationally prohibitive and deep generative
+models frequently suffer from physical hallucina-
+tions. We introduce AutoMS, a multi-agent neuro-
+symbolic framework that reformulates inverse de-
+sign as an LLM-driven evolutionary search. Au-
+toMS leverages LLMs as semantic navigators to
+decompose complex requirements and coordinate
+agent workflows, while a novel Simulation-Aware
+Evolutionary Search (SAES) mechanism handles
+low-level numerical optimization via local gra-
+dient approximation and directed parameter up-
+dates. This architecture achieves a state-of-the-art
+83.8% success rate on 17 diverse cross-physics
+tasks, significantly outperforming both traditional
+evolutionary algorithms and existing agentic base-
+lines. By decoupling open-ended semantic or-
+chestration from simulation-grounded numerical
+search, AutoMS provides a robust pathway for
+navigating complex physical landscapes that re-
+main intractable for standard generative or purely
+linguistic approaches.
+1 Introduction
+The automated discovery of microstructures, complex geo-
+metric architectures that determine the macroscopic prop-
+erties of materials, remains a frontier challenge in AI for
+Science (Bertoldi et al., 2017; Vyatskikh et al., 2018). From
+lightweight aerospace lattices to biocompatible implants, the
+ability to inverse-design structures with specific, often con-
+flicting, cross-physics properties promises transformative en-
+gineering breakthroughs (Surjadi & Portela, 2025; Ha et al.,
+2023; Schumacher et al., 2015; Zheng et al., 2014). How-
+ever, this task represents a non-trivial optimization problem:
+*Equal contribution 1Shandong University, Qingdao, China
+2The University of Hong Kong, Hong Kong, China. Correspon-
+dence to: Lin Lu<llu@sdu.edu.cn>.
+Preprint. April 14, 2026.
+the search space is high-dimensional and discontinuous,
+while the objective function—derived from coupled cross-
+physics simulations—is non-differentiable and expensive to
+evaluate (Takezawa et al., 2014).
+Existing computational approaches generally fall into two
+paradigms, each with distinct limitations: Topology Opti-
+mization (TO) offers principled derivation but struggles to
+escape local optima in non-differentiable landscapes (Meng
+et al., 2026; Takezawa et al., 2014), while Deep Generative
+Models (DGMs) operate as “one-shot” probabilistic map-
+pings that, despite their exploratory power, lack the inherent
+reasoning capability to negotiate conflicting “cross-physics”
+constraints (Vlassis & Sun, 2023; Regenwetter et al., 2022;
+Xue et al., 2025). Consequently, DGMs often suffer from
+physical hallucination, generating visually plausible but
+physically invalid structures (Behzadi et al., 2024; Bastek &
+Kochmann, 2023), because they optimize for statistical like-
+lihood rather than physical validity (Maz´e & Ahmed, 2023).
+To bridge this “validity gap,” we contend that a paradigm
+shift is necessary: moving from “one-shot” generation to
+a closed-loop iterative refinement process. Evolutionary
+search provides a natural solution to this challenge by lever-
+aging simulation feedback to progressively eliminate invalid
+designs (Deb et al., 2002; Mouret & Clune, 2015). How-
+ever, traditional evolutionary operators lack semantic un-
+derstanding. Compounding this challenge is an interaction
+bottleneck: the fuzzy semantics in human natural language
+leads to a misalignment between the designer’s “want” and
+the actual “get”. Conversely, while LLMs empowered by
+reasoning frameworks (Yao et al., 2023; Gao et al., 2023)
+provide this capacity, naive single-agent approaches fail due
+to their open-loop nature. The critical solution, therefore,
+is to ground LLM semantic creativity within a rigorous,
+closed-loop physical validation process.
+To address these limitations, we introduce AutoMS, a multi-
+agent neuro-symbolic framework that reformulates inverse
+design as an LLM-driven evolutionary search, as illustrated
+in Figure 1. Leveraging MIND (Xue et al., 2025), orig-
+inally designed for single-physics inverse design, as our
+foundational generator, AutoMS establishes a systematic
+pathway to bridge single-physics generation with rigorous
+cross-physics requirements.
+1
+arXiv:2603.27195v2 [cs.AI] 12 Apr 2026
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+User
+Designanarchitectedaluminuminfill
+microstructureforaerospaceheatsinks.
+Theunitcellmustbalancehighthermal
+conductivitywithstructuralflexibilityto
+accommodateextremethermalexpansion.
+AutoMS
+Ambiguous semantic specification
+Designamicrostructurewith25%
+volumefraction,having26W/(m·K)
+thermalconductivity,3.8×10⁶S/m
+electricalconductivity,0.25Poisson’s
+ratio,and3GPaYoung ’smodulus.
+Precise property constraints
+Figure 1.The AutoMS workflow: From abstract intent to
+concrete microstructure design.The system takes ambiguous
+semantic specifications as input and operationalizes them into
+quantifiable targets. Through a simulation-aware evolutionary
+loop, AutoMS iteratively refines the design candidates, resulting
+in optimized, topologically coherent microstructures that satisfy
+the initial cross-physics demands.
+AutoMS adopts a two-layer architecture, with an Orchestra-
+tion Layer that translates natural-language intent into quan-
+tifiable targets and coordinates agents, and an Optimization
+Layer that runs a simulation-grounded evolutionary loop.
+In the Optimization Layer, the Generator uses MIND to
+propose candidates and the Simulator evaluates them under
+cross-physics constraints. Simulation-Aware Evolutionary
+Search (SAES) serves as the core controller of this layer. It
+uses cross-physics feedback to guide mutation or crossover
+exploration, filtering physically invalid geometries and steer-
+ing the search toward feasible designs, while coordinating
+Pareto-driven selection and simulation-informed updates
+in the parameter space to meet target specifications under
+conflicting objectives.
+Our contributions are as follows:
+• Neuro-Symbolic Framework: We propose AutoMS, the
+first framework that operationalizes LLM agents as se-
+mantic evolutionary operators to automate inverse design
+under coupled cross-physics constraints.
+• Simulation-Aware Evolutionary Search (SAES): We
+introduce SAES, a closed-loop optimization strategy that
+leverages simulation feedback to guide agent decision-
+making, significantly reducing physical hallucinations
+compared to standard generative methods.
+• Empirical State-of-the-Art: Across a benchmark of 17
+diverse tasks, AutoMS achieves a 83.8% success rate,
+nearly doubling the performance of traditional NSGA-II
+(43.7%) and outperforming strong numerical baselines
+such as BayesOpt (65.0%) and CMA-ES (66.7%). Fur-
+thermore, the hierarchical orchestration reduces wall-
+clock time by 23.3% compared to ReAct-based LLM
+baselines by pruning physically invalid search paths.
+2 Related Work
+2.1 Physics-Constrained Microstructure Generation
+Early computational microstructure design focused on pa-
+rameterized periodic architectures, which restrict the design
+space (Ashby, 2006; Zheng et al., 2014). Topology opti-
+mization expanded this space via gradient-based discovery
+of complex geometries through SIMP and level-set meth-
+ods (Bendsøe & Sigmund, 2004; Yulin & Xiaoming, 2004),
+with multiscale extensions enabling concurrent optimiza-
+tion of macroscopic structures and underlying microstruc-
+tures (Xia & Breitkopf, 2014; Wu et al., 2021). Despite these
+advances, such methods typically target single-physics ob-
+jectives, require substantial expert intervention, and rely on
+repeated high-fidelity simulations, limiting scalability and
+interactive exploration.
+Inverse homogenization reframes microstructure design as
+an inverse problem, in which unit-cell geometries are opti-
+mized to match prescribed effective properties (Sigmund,
+1994). Although theoretically grounded, these methods
+often suffer from ill-posedness, non-convex optimization
+landscapes, and limited integration of manufacturing or
+cross-physics constraints. Data-driven extensions accelerate
+property evaluation by querying databases of pre-computed
+microstructures (Bessa et al., 2017; Sardeshmukh et al.,
+2024), but their reliance on existing samples restricts extrap-
+olation and complicates multi-objective design involving
+competing performance requirements.
+Recent advances in artificial intelligence reshape the
+paradigms for inverse microstructure design (Zheng et al.,
+2025; Van et al., 2025). Generative models, including vari-
+ational autoencoders and generative adversarial networks,
+enable learned representations of microstructure spaces and
+synthesis of novel geometries (Sardeshmukh et al., 2024;
+Fokina et al., 2020). Diffusion-based models further im-
+prove generation quality and controllability, and conditional
+diffusion has been applied to inverse design tasks targeting
+mechanical, thermal, and acoustic properties (Vlassis & Sun,
+2023; Li et al., 2025b; Baishnab et al., 2025). The MIND
+framework (Xue et al., 2025) advances this direction by
+jointly encoding geometric and physical attributes in hybrid
+latent representations.
+Complementary to generative approaches, neural opera-
+tors provide efficient surrogate models for property eval-
+uation (Li et al., 2020; Lu et al., 2021), reducing the com-
+putational cost of iterative optimization. However, most
+existing learning-based methods operate in open-loop set-
+tings, rely on surrogate approximations rather than direct
+physical verification, and struggle to robustly enforce cou-
+pled cross-physics constraints. These limitations motivate
+closed-loop, physics-constrained frameworks capable of au-
+tonomously exploring inverse microstructure design spaces
+2
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+under conflicting physical objectives.
+2.2 Multi-Agent LLMs for Physics-Grounded Design
+Large language models (LLMs) have recently shown promis-
+ing capabilities in scientific workflows, particularly in
+knowledge reasoning and tool orchestration (Wang et al.,
+2023). Domain-specific systems such as ChatMOF (Kang
+& Kim, 2024) and ChemHAS (Li et al., 2025c) demonstrate
+how language interfaces can coordinate complex compu-
+tational tools. However, most existing systems focus on
+property prediction, data retrieval, or isolated workflow au-
+tomation, rather than end-to-end design generation with
+physics-based validation. MetaGen (Makatura et al., 2025)
+leverages the strong coding and reasoning capabilities of
+LLMs for metamaterial generation. However, LLMs lack in-
+trinsic awareness of physical laws (Ali-Dib & Menou, 2024).
+Consequently, numerical simulation remains essential for
+ensuring physical consistency, motivating the integration of
+LLMs with simulation-driven agent systems.
+The shift from monolithic models to collaborative multi-
+agent architectures has expanded the applicability of LLMs
+in scientific computing (Zheng et al., 2025; Wang et al.,
+2023). General-purpose frameworks such as AutoGen (Wu
+et al., 2024), AutoAgents (Chen et al., 2024a), and MetaA-
+gent (Zhang et al., 2025b) enable coordinated problem
+decomposition through structured agent interactions (Bar-
+bosa et al., 2024). These paradigms have been applied
+to autonomous chemical synthesis (Boiko et al., 2023),
+metal–organic discovery (Kang & Kim, 2024), and physics-
+informed neural network automation (Wuwu et al., 2025).
+Recent efforts further extend multi-agent LLMs to physics-
+based simulations. Lang-PINN (He et al., 2025) maps
+natural language specifications to PINN architectures,
+while MooseAgent (Zhang et al., 2025a) and MetaOpen-
+FOAM (Chen et al., 2024b) automate finite element and
+CFD workflows. In materials science, hybrid GNN–LLM
+systems have been proposed for rapid alloy design (Gha-
+farollahi & Buehler, 2025). Related studies also explore
+simulation parameterization (Xia et al., 2024), end-to-end
+atomistic simulations (Vriza et al., 2026), and cooperative
+optimization in cyber-physical systems (Chen & He, 2025).
+Despite these advances, multi-agent LLM systems have
+not been systematically applied to inverse geometry or mi-
+crostructure design from ambiguous semantic intent. Ex-
+isting approaches typically operate in open-loop or single-
+physics settings, lacking validation to enforce physical con-
+straints and struggling with multi-objective optimization
+under conflicting requirements (Li et al., 2025a). In contrast,
+our work performs end-to-end inverse design from seman-
+tic descriptions to geometry candidates validated through
+closed-loop cross-physics simulation. Our approach enables
+physically grounded, multi-objective optimization rather
+than purely generative or tool-centric systems.
+3 Methodology
+3.1 Problem Formulation
+We formulate the cross-physics microstructure design as
+an optimization problem over a mechanical conditioning
+spaceX . Specifically, we treat the mechanical properties
+(e.g., Elastic Modulus E, Poisson’s ratioν) as the design
+variables x∈ X , where x is a continuous conditioning
+vector in latent mechanical space, which serve as the input
+conditions for the generative process.
+LetGMIND :X →Ω denote the pre-trained MIND (Xue
+et al., 2025) generative model, which maps a set of me-
+chanical conditions x to a microstructure geometry m, and
+Ω denotes the admissible microstructure geometry space.
+Subsequently, a high-fidelity simulatorS: Ω→R evalu-
+ates the generated structure m to obtain its cross-physics
+performance (e.g., thermal conductivityκ), which serves as
+the objective.
+Our objective is to identify the optimal mechanical condi-
+tioning parameters x∗ that induce a microstructure maxi-
+mizing the expected cross-physics performance:
+x∗ = arg max
+x∈X
+Em∼GMIND(x)[S(m)].(1)
+This formulation shifts the design paradigm from directly
+manipulating geometric voxels to optimizing the latent me-
+chanical conditions, effectively navigating the complex in-
+verse mapping between mechanical inputs and cross-physics
+outputs.
+3.2 The AutoMS Framework
+To navigate the non-differentiable and stochastic optimiza-
+tion landscape defined in Equation (1), we introduceAu-
+toMS, a neuro-symbolic framework that orchestrates spe-
+cialized agents via aTwo-Stage Hierarchical Architecture
+(Figure 2). AutoMS decouples high-level semantic planning
+from low-level numerical search. This structure grounds the
+semantic flexibility of LLMs within the rigorous constraints
+of physical laws through two specialized layers:
+Orchestration Layer.Governed by theManager, this
+layer manages the “Semantic-to-Parametric” translation and
+high-level task supervision. Upon receiving a natural lan-
+guage request, the Manager invokes theParser. Leveraging
+the open-source GraphRAG framework (Edge et al., 2024),
+the Parser resolves vague qualitative descriptions into quan-
+tifiable targets within the mechanical conditioning spaceX .
+TheGeneratorthen synthesizes geometries via MIND, the
+Simulatorperforms FEA validation (details in Appendix D),
+and theReportersynthesizes the final recommendations.
+3
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+Simulator Results
+Manager
+GeneratorParser
+User
+Reporter
+GraphRAG Plan
+History Sampling Points
+Parameter Update
+Exploitation
+Confidence-based Adaptive
+𝜂⋅𝐠𝐤
+𝐠𝐤"
+𝛽𝜁x x!
+Elite Archive
+Adaptive Weight
+Update
+DesignAl6061microstructureswithathermalconductivityexceeding35W/(m·K),whilemaintainingaYoung's
+modulusabove4000MPaandavolumefractionbetween30%and40%.
+Simulation-Aware EvolutionarySearch
+NSGA-IISelection
+Objective 1 (𝑣#)
+Objective 2 (𝜅)
+Rank 1(Non-dominated Front)
+Rank2
+Crowding Distance
+Pareto-Driven Selection
+Exploration
+Local Gradient Approximation
+Electrical Plasticity
+Thermal Elasticity
+Candidates Cross-physics
+𝐱!=𝐱𝐤+𝜂⋅sgn𝑦#$#−𝑦%⋅𝐠𝐤
+𝐠𝐤&
++𝛽𝜉
+𝑦𝐱≈𝑦𝐱𝐤+∇𝑓𝐱𝐤’𝐱−𝐱𝐤
+Orchestration Layer
+Optimization Layer
+Figure 2.The AutoMS Multi-Agent Architecture for Cross-Physics Inverse Design.The framework comprises two hierarchical layers:
+Orchestration Layer: Governed by a Manager Agent, this layer coordinates the Parser (leveraging GraphRAG) to operationalize semantic
+intent into parametric targets, while the Generator, Simulator, and Reporter agents handle geometry synthesis, physical validation, and
+results synthesis, respectively. Optimization Layer: Functioning as the numerical engine, it executes Simulation-Aware Evolutionary
+Search (SAES) through four mathematical phases: Local Gradient Approximation (Perception) via Weighted Least Squares, Parameter
+Update (Action) using gradient-guided navigation, and Pareto-Driven Selection combined with Adaptive Weight Updates (Integration) to
+resolve conflicting objectives and break local optima.
+The detailed system prompts defining the specific behaviors
+and constraints for all agents are provided in Appendix A.1.
+By flagging high-level exceptions, including violations of
+physical feasibility constraints, the Manager counteracts the
+hallucinations inherent to open-loop LLM reasoning.
+Optimization Layer: Simulation-Aware Evolutionary
+Search (SAES).Functioning as the computational engine,
+this layer executes the SAES algorithm to iteratively re-
+fine the conditioning parameters x. This layer operates
+through four specialized numerical phases:Local Gradient
+Approximation (Perception)estimates the search direc-
+tion from historical simulation data using Weighted Least
+Squares;Parameter Update (Action)applies gradient-
+guided navigation with adaptive step sizes to drive x toward
+target properties;Pareto-Driven Selection (Integration)
+maintains population diversity and preserves elite candi-
+dates through non-dominated sorting, and Adaptive Weight
+Update dynamically rebalances objective priorities to break
+through local optima. This numerical backbone effectively
+bridges the gap between high-level semantic intent and low-
+level physical validity.
+3.3 Simulation-Aware Evolutionary Search (SAES)
+The core of the Optimization Layer is SAES, designed to
+navigate the non-differentiable landscape of cross-physics
+simulations. SAES constructs a local gradient approxima-
+tion from simulation feedback to guide MIND’s condition-
+ing parameters x. The process consists of three phases: Per-
+ception (Local Gradient Approximation), Action (Gradient-
+Guided Parameters Update), and Integration (Pareto-Driven
+Selection & Adaptive Update).
+Local Gradient Approximation (Perception)Since the
+cross-physics simulatorS is a black-box oracle without an-
+alytical gradients, we cannot directly compute∇f(x). To
+overcome this, we construct asimulation-aware local gra-
+dientby estimating local gradients from historical data. Let
+D={(x i,yi)}N
+i=1 denote the history of evaluated designs,
+where x∈X is the mechanical conditioning vector and
+yi =y(x i) is the simulated scalar response. We use y(x)
+as the response notation throughout, and define the local
+objective as f(x) :=y(x) . To capture the local geome-
+try around the current candidate xk, we employ a sliding
+window strategy, selectingM nearest neighborsSk⊂D .
+We approximate the local gradient via a first-order Taylor
+4
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+expansion centered atxk:
+y(x)≈y(x k) +∇f(x k)⊤(x−x k),(2)
+where gk =∇f(x k) is the estimated local gradient. We
+solve for gk by minimizing the Weighted Least Squares
+(WLS) error:
+gk = arg min
+g
+X
+(xj,yj)∈Sk
+wj·
+
+yj−yk−g⊤(xj−xk)
+2
+.
+(3)
+To ensure robustness against the non-stationary nature of the
+search process, the weight wj is designed as a composite
+metric of both spatial proximity and temporal freshness:
+wj = 1
+1 +∥xj−xk∥2
+| {z }
+wdist(xj,xk)
+·exp
+
+−λt
+N−t j
+N
+
+| {z }
+wtime(tj)
+.(4)
+Here,wdist assigns higher confidence to neighbors geomet-
+rically closer to the query point xk, ensuring geometric
+locality. The termwtime introduces a temporal decay based
+on the iteration indextj of the sample xj. By incorporating
+the decay rateλt, this mechanism effectively down-weights
+stale data points (where N−t j is large) that may exert a
+detrimental influence due to distribution shifts, while pri-
+oritizing recent observations that provide a more accurate
+reflection of the current optimization landscape.
+Gradient-Guided Parameter Update (Action)To ac-
+celerate convergence, we introduce a Gradient-Guided Pa-
+rameter Update that transforms the random updating into a
+directed navigation:
+x′ =x k +η·sgn(y tgt−yk)· gk
+∥gk∥2
++βξ,(5)
+where η is the adaptive step size and ξ represents Gaus-
+sian exploration noise. β denotes the exploration noise
+coefficient. The term sgn(ytgt−y k)∈{−1,1} encodes
+physics-aware intuition: it acts as a directional switch that
+drives the search along the gradient to boost properties when
+undershooting, or against the gradient to reduce them when
+overshooting. This mechanism explicitly corrects the me-
+chanical inputs x toward the cross-physics target based on
+simulation trends.
+Pareto-Driven Selection & Adaptive Update (Integra-
+tion)The final phase, Integration, serves two critical func-
+tions: preserving high-quality candidates and rectifying
+search stagnation.
+Pareto-Driven Selection: We employ the non-dominated
+sorting mechanism of NSGA-II to stratify the population
+into Pareto frontiersF1,F 2,... . To prevent mode collapse,
+we apply crowding distance sorting to maintain diversity in
+the conditioning space. An Elite ArchiveA is maintained
+to preserve valid designs that satisfy physical constraints,
+ensuring monotonicity in performance improvement.
+Adaptive Weight Update: To address cases where the
+parameter x stagnates due to conflicting objectives (e.g.,
+maximizing thermal conductivity while minimizing volume
+fraction), we implement an adaptive guidance strategy. We
+monitor the improvement ratio γj of each objective over
+a sliding window. If stagnation is detected ( γj≈0 ), the
+scalarization weightsw governing the optimization utility
+are dynamically rebalanced:
+w(t+1)
+j =clip
+
+w(t)
+j ·(1 +δ(γ j)),0.1,2.0
+
+,(6)
+where δ is a penalty factor. This weight adjustment ef-
+fectively rotates the aggregated gradient direction for the
+subsequent Perception phase, compelling the search to break
+out of local optima and explore under-optimized regions of
+the Pareto frontier.
+To illustrate the practical coordination of these components,
+we provide a concrete workflow example in Appendix A.2.
+Additionally, detailed implementation specifications and
+SAES hyperparameters are documented in Appendix B.
+4 Experimental Setup
+Hardware and Software Configuration.All experi-
+ments were conducted on a high-performance computing
+cluster equipped with two NVIDIA A40 GPUs (48 GB
+VRAM each), 512 GB system RAM, and a 64-core AMD
+EPYC 7763 processor. The AutoMS framework is imple-
+mented in Python 3.10, with simulation engines powered
+by JAX-FEM (Xue et al., 2023) for cross-physics analy-
+sis. LLM inference utilizes DeepSeek-V3.2 as the default
+backbone, with additional experiments on GPT-4o, GPT-5.2,
+Claude Haiku 4.5, and Qwen3-Max for robustness evalua-
+tion.
+Benchmark Tasks.We designed a comprehensive suite
+of 17 tasks covering four orthogonal dimensions to evaluate
+the framework’s versatility:
+• Material Diversity: Encompassing high-performance
+metals (Al6061, Ti6Al4V , AlSi10Mg) and engineering
+polymers (ABS, TPU).
+• Optimization Modality: Including single-objective (5
+tasks), multi-objective with 2–5 competing constraints (8
+tasks), and Pareto frontier exploration (4 tasks).
+• Physical Coupling: Ranging from isolated physical fields
+to full tri-field coupling, supplemented by plasticity simu-
+lations for nonlinear deformation analysis.
+• Difficulty Stratification: Tasks are classified into Easy
+(3), Medium (8), and Hard (6) based on objective cardinal-
+ity, proximity to physical limits, and simulation fidelity.
+5
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+Evaluation Metrics.To systematically quantify the per-
+formance of AutoMS, we assess the framework across three
+critical dimensions:
+• Task Completion: Measures the system’s reliability in
+meeting strict design requirements, tracked viaSuccess
+Rate (SR)for fully valid solutions andConstraint Satis-
+faction Rate (CSR)for partial objective fulfillment.
+• Solution Quality: Evaluates the physical precision and
+multi-objective trade-offs of the generated microstruc-
+tures. Metrics includeMean Relative Error (MRE)for
+accuracy,Best Property Match (BPM)for Pareto align-
+ment, and a compositeQuality Score (QS)for holistic
+ranking.
+• Efficiency: Quantifies the computational cost required
+for convergence, measured byIterations (Iter)and total
+executionTime(s) excluding plasticity simulations.
+Detailed mathematical definitions and calculation formulas
+for all metrics are provided in Appendix E. All experimental
+results are averaged over four independent runs to ensure
+statistical robustness.
+Baselines.To benchmark AutoMS against established
+paradigms and isolate the contributions of its hierarchical
+neuro-symbolic architecture, we compare it with representa-
+tive baselines covering traditional numerical optimization
+and monolithic LLM reasoning:
+• NSGA-II(Deb et al., 2002): A classic multi-objective ge-
+netic algorithm. It optimizes theconditioning parameters
+(E,G,ν) passed to the MIND through evolutionary oper-
+ators, using the same simulation engines as AutoMS but
+without natural language reasoning or agent collaboration.
+• ReAct(Yao et al., 2023): A single-agent Large Language
+Model baseline based on the ReAct paradigm. It performs
+iterative reasoning and action planning to solve the de-
+sign task. Unlike AutoMS, it operates as a solitary entity
+without role specialization or collaborative dialogue.
+• Bayesian Optimization(BayesOpt) (Snoek et al., 2012):
+A standard black-box optimizer operating on the same
+conditioning space and simulation feedback.
+• CMA-ES(Hansen & Ostermeier, 2001): A strong
+covariance-adaptation evolutionary strategy baseline un-
+der the same simulator budget.
+• Single-Agent + SAES(S-SAES): A single-agent variant
+using the same SAES numerical update but without multi-
+agent role decomposition.
+• CoT + SAES(C-SAES) (Wei et al., 2022): A chain-of-
+thought single-agent variant coupled with SAES updates.
+For a fair comparison, all methods (AutoMS and baselines)
+invoke the identical microstructure generation model and
+cross-physics simulation engine. This standardization en-
+sures that performance divergences are strictly attributable
+to the efficiency of the decision-making paradigm, ranging
+Table 1.Quantitative Benchmark Results.Comprehensive com-
+parison of AutoMS against numerical and agentic baselines in a
+unified table. The framework is evaluated across three critical
+dimensions: Task Completion, Solution Quality and Efficiency.
+Method Completion Solution Quality Efficiency
+SR↑CSR↑MRE↓BPM↑QS↑Iter↓Time (s)↓
+NSGA-II 43.7% 53.3% 0.4276 51.7% 49.8 48.8 5550.2
+ReAct 53.3% 53.6% 0.0345 67.2% 61.2 10.0 2843.9
+BayesOpt 65.0% 55.6% 0.0194 85.6% 73.7 39.2 3982.9
+CMA-ES 66.7% 55.7% 0.0241 84.7% 73.7 40.8 4202.3
+S-SAES 69.2% 66.4% 0.0172 86.5% 78.29.6 1743.0
+C-SAES 74.1%70.2%0.0227 90.5% 81.9 16.7 2980.8
+AutoMS 83.8%59.6%0.0140 94.2% 82.414.4 2180.5
+from evolutionary approaches and standalone LLM rea-
+soning to collaborative neuro-symbolic search, rather than
+varying fidelities in synthesis or validation.
+5 Experimental Results
+5.1 Comparative Performance Analysis
+Superiority in Validity and Precision.As summarized
+in Table 1, AutoMS achieves a state-of-the-art Success Rate
+(83.8%), significantly outperforming traditional evolution-
+ary algorithms like NSGA-II (43.7%) and black-box opti-
+mizers such as CMA-ES (66.7%).
+The performance disparity highlights the limitations of
+single-paradigm approaches. While purely numerical meth-
+ods (NSGA-II, CMA-ES) frequently stall in the discon-
+tinuous search space due to a lack of informed semantic
+initialization, the monolithic ReAct baseline (53.3% SR)
+suffers from open-loop reasoning failures where generated
+designs lack physical grounding.Crucially, the comparison
+between AutoMS and its ablation variants, Single-Agent +
+SAES (69.2% SR) and CoT + SAES (74.1% SR), provides
+empirical evidence for the necessity of the multi-agent or-
+chestration. The 14.6% SR gap between the full framework
+and the single-agent variant demonstrates that the success
+of AutoMS is not solely derived from the SAES algorithm.
+Instead, it stems from the specialized role decomposition.
+Beyond categorical success, AutoMS exhibits exceptional
+solution precision. It achieves a Mean Relative Error (MRE)
+of 0.0140, an order of magnitude lower than NSGA-II
+(0.4276). With a Best Property Match (BPM) score of
+94.2%, the framework proves its capability to not only lo-
+cate feasible regions but also precisely converge onto the
+target physical specifications.
+Efficiency via Intelligent Orchestration.While multi-
+agent systems often incur higher latency due to inter-agent
+communication, AutoMS reduces the total wall-clock time
+by 23.3% compared to ReAct. This efficiency gain is at-
+tributable to the hierarchical two layer architecture. By
+6
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+filtering physically invalid requests and pruning the search
+space before engaging the expensive high-fidelity simulator,
+the Orchestration Layer acts as an effective computational
+gatekeeper, preventing the wasteful simulation cycles that
+plague the unguided ReAct baseline.
+Detailed task-specific performance and visual trajectories
+are documented in Appendix C.
+5.2 Cross-Physics Fidelity and Structural Analysis
+To evaluate the handling of conflicting constraints, we an-
+alyze Task 1 (Two-Physics Precise) and Task 2 (Cross-
+Physics Precise), which require balancing inverse physical
+properties in Table 2.
+Table 2.Cross-Physics Fidelity Analysis on Representative
+Tasks.Quantitative validation on Task 1 (Two-Physics Precise)
+and Task 2 (Cross-Physics Precise). Err is defined in Appendix E.2.
+Task Property Target ReAct NSGA-II AutoMS
+Val Err% Val Err% Val Err%
+Task 1
+κ(W/(m·K))0.035 0.0220 -37.1 0.0554 +58.30.0340 -2.9
+E(MPa)110 125.8 +14.4 484.7 +340.6107.4 -2.4
+ν0.26 0.2652 +2.0 0.2960 +13.80.2558 -1.6
+vf (%)30.029.03 -3.252.74 +75.8 28.24 -5.9
+Task 2
+σ(S/m)3.8M 2.89M -23.8 3.53M -7.13.78M -0.5
+κ(W/(m·K))26.0 20.14 -22.5 24.59 -5.426.27 +1.0
+E(MPa)3000.0 3265.8 +8.9 4946.0 +64.93021.4 +0.7
+ν0.25 0.2560 +2.4 0.2282 -8.70.2542 +1.7
+vf (%)25.0 32.62 +30.5 31.31 +25.226.21 +4.8
+Quantitative Validation.Baselines exhibit significant
+failures in managing coupled objectives. NSGA-II struggles
+with multi-objective trade-offs, resulting in a +340.6% error
+in stiffness for Task 1 and a +64.9% overshoot in Task 2. Re-
+Act similarly fails to map semantic intent to feasible param-
+eters, undershooting the thermal conductivity target in Task
+1 by 37.1%. In contrast, AutoMS successfully navigates the
+Pareto frontier, maintaining errors consistently below 3%
+across all dimensions (κ,E,ν,vf ). For instance, in Task 2,
+it achieves a thermal conductivity of 26.27 W/(m·K) and
+a Young’s modulus of3021.4 MPa, matching targets with
+high precision.
+Visual Verification.To intuitively visualize the trade-
+offs across cross-physical domains, Figure 3 presents radar
+charts for the representative tasks. The results demonstrate a
+clear contrast in multi-objective alignment: AutoMS (Red)
+exhibits a near-perfect overlap with the target specifications,
+forming a balanced polygon that satisfies all constraints
+simultaneously. In contrast, the baselines (Blue/Orange)
+produce highly skewed envelopes, indicating a failure to
+balance conflicting properties. This graphical disparity high-
+lights that while baselines may optimize single metrics,
+they fail to navigate the high-dimensional Pareto frontier,
+resulting in designs that drift significantly from the user’s
+𝜈
+𝐸(MPa) 𝜎(S/m)
+AutoMS ReAct NSGA-II
+3021.4
+26.27
+3.78M
+26.21%
+0.2542
+28.24%
+25.58%
+0.03
+107.4
+𝑣!
+𝑣!
+𝐸(MPa)
+𝜈
+AutoMS ReAct NSGA-II
+𝜅 (W/(m·k)) 𝜅 (W/(m·k))
+(a) Task 1 (b) Task 2
+Figure 3.Visual Validation of Quantitative Benchmarks.A
+structural and functional comparison of the designs quantified
+in Table 2.
+cross-physics intent.
+5.3 Ablation Studies
+We analyzed the Optimization Layer components to validate
+the neuro-symbolic synergy within AutoMS in Table 3. The
+table is organized into two groups: component ablations and
+reasoning and algorithmic engine variants.
+Impact of Core Components.Removing the Weighted
+Least Squares (WLS)-based gradient estimation (the w/o
+Local Grad. variant) significantly degrades performance.
+Although it reduces average computation time (1787.4 s vs.
+2180.5 s) , the Success Rate (SR) drops sharply from 83.8%
+to 66.7%. Without the physics-aware directional guidance
+provided by∇f(xk), the search effectively reverts to an in-
+efficient random walk in the high-dimensional conditioning
+space. This is further evidenced by the decline in solution
+quality, with the Mean Relative Error (MRE) increasing
+from 0.0140 to 0.0207. These results confirm that local gra-
+dient approximation is essential for both search frequency
+and numerical precision
+Necessity of Adaptive Weight Update (Integration).
+The Adaptive Weight Update mechanism is indispensable
+for breaking search stagnation. The variant without this
+Table 3.Ablation study results.Results are organized into com-
+ponent ablations and reasoning and algorithmic engine variants.
+Method Completion Solution Quality Efficiency
+SR↑CSR↑MRE↓BPM↑QS↑Iter↓Time (s)↓
+AutoMS (Full) 83.8%59.6%0.0140 94.2% 82.4 14.42180.5
+Component ablations
+w/o Local Grad. 66.7% 38.7% 0.0207 84.4% 68.5 14.61787.4
+w/o Adapt. Weight 71.7% 26.8% 0.0261 86.1% 66.5 15.7 1965.9
+w/o SAES 78.3%76.2%0.0302 89.7% 80.4 16.8 2885.9
+Reasoning and algorithmic engine variants
+w/ reasoner 75.0% 66.7% 0.0154 89.7% 80.7 18.1 3653.8
+w/o NSGA-II w/ GA 76.9% 61.0% 0.0227 84.7% 77.3 15.1 2767.4
+w/o NSGA-II w/ CMA-ES 81.7% 69.6% 0.0158 86.9% 81.8 15.2 2696.6
+7
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+16 18 20 22 24 26 28 3016 18 20 22 24 26 28 30
+4200
+4000
+3200
+3400
+3600
+3800𝐸(MPa)
+4400
+Generation1
+Generation2
+Generation3
+Generation4
+Generation5
+Target property
+constraints
+Final optimal
+microstructure
+𝜅 (W/(m·k))𝜅 (W/(m·k))
+(a) AutoMS (Full) (b) w/o SAES
+Figure 4.Visualization of Optimization Trajectories.The scatter
+plots illustrate the evolutionary search process in the cross-physics
+property space (E vs. κ). Candidates are color-coded by gener-
+ation index to visualize temporal progression. The blue arrows
+trace the optimization path, highlighting the contrast between the
+directed convergence of AutoMS (Left) and the erratic, divergent
+search pattern of the baseline without SAES (Right).
+feature (w/o Adapt. Weight) yielded the lowest Constraint
+Satisfaction Rate at 26.8%. Without the dynamic rebal-
+ancing defined in Equation (6), the optimization frequently
+becomes trapped in local optima dominated by easier objec-
+tives (e.g., V olume Fraction), failing to satisfy more chal-
+lenging, conflicting constraints like simultaneous high stiff-
+ness and thermal conductivity. The adaptive strategy forces
+the system to explore the difficult regions of the Pareto fron-
+tier, ensuring that all cross-physics objectives are addressed.
+The Partial Satisfaction Trap.Ablating the SAES mod-
+ule reveals a critical trade-off: the w/o SAES variant main-
+tains a high CSR (76.2%) but a significantly lower SR
+(78.3%) than the full system (83.8%). This ”trap” occurs
+because, without SAES guidance, the optimizer preferen-
+tially converges on isolated, easier objectives—inflating
+CSR while failing to align the coupled constraints required
+for full success. Figure 4 corroborates this; the ablated
+model stagnates on single-physics manifolds, whereas Au-
+toMS leverages gradient updates to navigate the thermal
+dimension (κ) and reach the valid target zone.
+Algorithmic and Reasoner Robustness.Replacing
+NSGA-II with GA or CMA-ES yields 76.9% and 81.7% SR,
+respectively. These results confirm that while the choice
+of optimization engine influences efficiency, the primary
+performance gains stem from the closed-loop multi-agent
+coordination and simulation-aware updates.
+Robustness Across LLM Logic Cores.Table 4 shows
+that the framework remains stable across diverse LLM
+model cores. DeepSeek-V3.2 provides the best overall qual-
+ity trade-off (best MRE/BPM/QS), GPT-5.2 achieves the
+highest SR with weaker CSR, and GPT-4o is fastest but
+less accurate. Qwen3-Max obtains the highest CSR, while
+Claude Haiku 4.5 is the most iteration-efficient. This pat-
+tern indicates that performance differences are mainly in
+efficiency-quality trade-offs, while the closed-loop architec-
+ture remains effective across model families.
+Table 4.Robustness Analysis across LLM Logic Cores.Perfor-
+mance comparison of AutoMS across diverse LLM cores, showing
+that robustness is mainly driven by the AutoMS architecture rather
+than any single model.
+LLM Core Completion Solution Quality Efficiency
+SR↑CSR↑MRE↓BPM↑QS↑Iter↓Time (s)↓
+GPT-4o 71.8% 59.8% 0.0439 84.6% 75.5 13.41022.7
+GPT-5.284.6% 52.0% 0.0188 87.2% 76.2 12.3 2379.2
+Claude Haiku 4.5 76.9% 64.7% 0.0397 89.7% 80.110.71142.0
+Qwen3-Max 82.3%68.8%0.0247 92.6% 81.5 14.9 1845.8
+DeepSeek-V3.283.8% 59.6%0.0140 94.2% 82.414.4 2180.5
+Comprehensive experimental evaluations and physical 3D-
+printed results are documented in Appendix C.
+5.4 Failure Analysis
+Despite AutoMS achieving a state-of-the-art success rate
+of 83.8%, the analysis of the remaining failure cases offers
+critical insight into the intrinsic topological severity of cross-
+physics inverse design. In high-difficulty regimes, the feasi-
+ble manifold becomes sparse and disjoint due to conflicting
+constraints. Although our Adaptive Weight Update navi-
+gates this landscape by dynamically rebalancing gradients,
+unlocking regions intractable for baselines, the search must
+still contend with stochastic simulation feedback. Conse-
+quently, rare instances of local Pareto stagnation in coupled
+tri-field tasks reflect the extreme narrowness of the solution
+space rather than architectural limitations. These cases val-
+idate our closed-loop strategy, demonstrating its ability to
+probe frontiers where open-loop models collapse.
+6 Conclusion and Future Work
+We presented AutoMS, a multi-agent neuro-symbolic frame-
+work that reformulates cross-physics inverse microstructure
+design as an autonomous, closed-loop discovery process.
+By synergistically integrating LLM-driven semantic navi-
+gation with simulation-aware numerical optimization, Au-
+toMS grounds ambiguous design intent in rigorous physical
+validity, effectively eliminating the ”physical hallucinations”
+prevalent in traditional generative models. Our Simulation-
+Aware Evolutionary Search (SAES) mechanism enables
+specialized agents to navigate complex, non-differentiable
+landscapes by leveraging direct simulation feedback for
+local gradient approximation.
+Empirical evaluation across 17 diverse tasks yields a state-
+of-the-art 83.8% success rate and a 23.3% reduction in exe-
+8
+
+AutoMS : Multi-Agent Evolutionary Search for Cross-Physics Inverse Microstructure Design
+cution time compared to existing agentic baselines. These
+results establish that role-specialized neuro-symbolic search
+offers a robust and scalable solution for inverse design prob-
+lems that remain intractable for purely linguistic or numeri-
+cal approaches.
+Future WorkWhile AutoMS sets a new standard for in-
+verse design, we identify two strategic directions for future
+research. First, we aim to incorporate explicit physical laws
+(e.g., governing PDEs) directly into the agents’ reasoning
+logic to minimize reliance on iterative trial-and-error simu-
+lations. Second, we plan to extend the framework to mul-
+tiscale design, concurrently optimizing micro-architectural
+unit cells and their macroscopic topological arrangements to
+unlock superior performance through cross-scale synergy.
+Impact Statements
+This paper presents work whose goal is to advance the field
+of machine learning. There are many potential societal
+consequences of our work, none of which we feel must be
+specifically highlighted here.

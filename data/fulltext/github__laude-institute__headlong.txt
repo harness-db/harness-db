@@ -1,0 +1,1145 @@
+record_id: github:laude-institute/headlong
+source_used: github_repo
+fetched_url: https://github.com/laude-institute/headlong/tree/eef1105caf0bb0f96fcf3e2f53faa119f0fe10ef
+fetched_title: laude-institute/headlong
+fetched_at: 2026-09-18T19:01:36Z
+
+# laude-institute/headlong
+ref: commit:main eef1105caf0bb0f96fcf3e2f53faa119f0fe10ef 2026-08-31
+description: An open source agent microharness featuring persistent agency and recursive LLMs. Of bash, by bash, for bash; it's shells all the way down.
+topics: 
+
+## README (README.md)
+```
+██ ██ █████ ████ █████ ██ ████ ██ ██ ████ ██
+██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ███ ██ ██ ██ ██
+██▀▀██ ████ ██████ ██ ██ ██ ██ ██ ██▀███ ██ ███ ██ ██
+██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▀██ ██ ██ ██ ██
+██ ██ █████ ██ ██ █████ █████ ████ ██ ██ █████ ██
+```
+
+[![CI](https://github.com/laude-institute/headlong/actions/workflows/ci.yml/badge.svg)](https://github.com/laude-institute/headlong/actions/workflows/ci.yml)
+
+**Headlong** is an open source agent microharness, a complete agent harness
+with a core of about 10K lines of Bash.
+
+[Launch post](https://www.laude.org/updates/headlong-a-microharness-for-persistent-agents) |
+[Announcement](https://x.com/andykonwinski/status/2091990178638496195)
+
+> [!IMPORTANT]
+> Headlong is alpha research software. Expect frequent changes. Run it in a
+> sandbox because Headlong agents run shell commands. Use a dedicated,
+> spend-capped API key, and do not give your agent sensitive secrets.
+
+Headlong's defining feature is **persistent
+agency**. Your agent keeps thinking between external interactions in a
+self-guided loop inspired by human inner monologue. A message from a human
+doesn't start a session. It lands in the agent's thought stream as one more
+observation, and the agent decides if and when to respond. You give your agent
+a name and a personality, and it sets its own interests and priorities, starts
+its own projects, and pings you when it has something to say.
+
+A Headlong agent is also built to be shared. A whole team can talk to one
+agent over Slack, Telegram, and a chat app, and every conversation lands
+in the agent's single stream of thoughts. The agent follows what different
+people are working on, connects them, and pings whoever seems most
+relevant. Sharing one agent is fun, because it behaves more like a person
+than a service.
+
+At the heart of Headlong is `shellm`, a Bash implementation of a
+[recursive language model (RLM)](https://alexzhang13.github.io/blog/2025/rlm/).
+The agent thinks by writing shell commands, running them, and reading the
+output. No tool system besides Bash is needed.
+
+## Get started
+
+One line installs everything, interviews you to bring a Headlong agent to
+life, and opens a dashboard where you can watch its mind run:
+
+```bash
+curl -fsSL https://headlong.ai/install.sh | bash
+```
+
+You'll need bash 3.2+, git, curl, jq, and an LLM API key (Anthropic,
+OpenAI, Gemini, or OpenRouter); the dashboard also needs
+[uv](https://docs.astral.sh/uv/) and bun or node, and the installer offers
+to fetch those.
+
+Headlong is alpha research software. Use a dedicated, spend-capped key, because
+your agent runs real shell commands and thinks around the clock. With Docker
+running, the installer offers to keep the whole agent in a container, or to
+install on your machine with the agent's commands sandboxed in a container
+(an unsandboxed host install exists too, behind an explicit yes, and is not
+recommended).
+Without Docker the commands would run directly on your machine as you, so the
+installer stops and asks for an explicit yes before setting that up. How much
+the background thinking costs depends on how quickly
+the agent loops and which model backs it. The rate of thinking backs off
+exponentially when nobody is talking to the agent and resets the moment a
+message arrives. At the settings we run our agent with, it comes to $1 to $2
+an hour.
+
+The agent's name becomes a command:
+
+```bash
+ada hello # one message, wait for the reply
+ada # chat
+ada stop / ada start # pause / resume its mind
+ada dash # open the dashboard
+ada bugreport # bundle logs + trajectory (keys scrubbed) for a bug report
+```
+
+`headlong-killall` stops every Headlong process on the machine if you need a
+panic button. `curl -fsSL https://headlong.ai/status.sh | bash` shows what is
+installed and running; `curl -fsSL https://headlong.ai/uninstall.sh | bash`
+removes it all (details in
+[docs/install.md](docs/install.md#stopping-and-uninstalling)).
+
+The container flow the installer offers is this, and you can also run it
+yourself:
+
+```bash
+docker run -it --name headlong --restart unless-stopped -p 8080:8080 buildpack-deps:curl \
+bash -c 'curl -fsSL https://headlong.ai/install.sh | bash; exec bash'
+```
+
+Details, non-interactive/CI installs, and installing from a checkout are
+in [docs/install.md](docs/install.md).
+
+## Key ideas
+
+- **Persistent agency.** Most harnesses are reactive, or wake on a
+schedule to run a fixed checklist. A Headlong agent is never asleep and
+there is no checklist. It keeps generating thoughts about whatever it
+decides is interesting, even when there is no external input. Messages
+from Slack, Telegram, or the chat app are injected into the thought
+stream as observations, and the agent decides if and when to respond.
+Classic turn-taking request/response mode works too.
+- **Multi-player fun.** One agent, one mind, many people. There are no
+per-user sessions; the agent experiences all of its conversations in a
+single timeline and decides who to reply to and when. That single
+stream also means no hard walls between people: assume anything you
+tell the agent is shared with everyone who talks to it.
+- **Built around Ken Thompson's philosophy.** The core tooling is a
+handful of small Bash executables (`shellm`, `traj`, `llm`, `context`,
+`mem`, `skills`, ...), each doing one thing well and composing through
+pipes, files, and environment variables. The model writes shell
+commands, so `curl` is the HTTP client and `jq` is the JSON processor.
+- **An agent's trajectory is a DAG of jsonl files** with fork and merge.
+An agent has access to everything it has thought and done, and the
+tooling to explore it down to any single step.
+- **Context is a projection of the trajectory.** Nothing is compacted
+away in place. Compaction and agent introspection operate on the same
+files with the same tools.
+- **Tiered context compaction.** The entire trajectory stays in context
+at exponentially decaying resolution. Recent entries appear verbatim,
+and older entries are progressively summarized. The tiers act as an
+index, so the agent can retrieve raw entries when it needs them.
+- **Subagents see their ancestors' trajectories.** A subagent can see why
+it was created, what the parent already tried, and how it fits into the
+big picture.
+- **Docker by default.** Generated code sandboxes itself into a container
+whenever Docker is available, and container reuse keeps restarts cheap.
+Local mode works too.
+- **Self-improvement by fork, test, merge.** An agent forks the Headlong
+codebase (and optionally its own trajectory), changes something, and
+runs. Merge the change back if it worked, or discard the agent and its
+changes if it didn't. No rollback machinery is needed. The agent we run
+at Laude works in its own fork of this repo, and we have pulled over 50
+of its commits back into main.
+
+The full backstory and design philosophy are in
+[philosophy.md](philosophy.md).
+
+## The tools
+
+To make a minimal agent, you need:
+
+- a loop that repeatedly generates the next thought (`thinkers`, which
+calls `llm`),
+- a way for a thought to reason and act (`shellm`, with Bash as the only
+tool),
+- a way to record the agent's trajectory, its life so far (`traj`), and
+- a way to turn that trajectory into the context for the next call into
+the LLM (`context`).
+
+Headlong also gives an agent a few convenience tools, such as a way to
+distill and codify its experience (`mem`) and a way to save and reuse
+procedures for specialized tasks (`skills`). The core is the tools the
+running mind executes, the executables in `bin/` plus the thought
+processes in `thinkers/`, and it comes to about 10K lines by cloc's count. A
+harness this small can be read end to end, and it is easy to modify and
+experiment with.
+
+| Tool | What it does |
+|------|-------------|
+| **shellm** | The RLM core. It sends context to an LLM, runs the bash the LLM writes back, and repeats |
+| **llm** | Multi-provider LLM CLI. Anthropic, OpenAI, Gemini, and OpenRouter behind one interface |
+| **traj** | Trajectory operations on append-only jsonl DAGs with fork and merge |
+| **context** | Renders a trajectory into an LLM messages array with tiered compaction |
+| **thinkers** | The mind. Reactive thought processes run by a dispatcher |
+| **chat** / **focus** | Messages and goals on an identity's trajectory |
+| **mem** / **skills** | File-based memory store and SKILL.md-based abilities |
+| **recap** | Summarizes a trajectory into themes and episodes |
+| **shellm-docker** | Constrained docker facade staged into sandbox containers for generated code |
+| **glob** / **view** / **put** / **sub** | Small file tools the agent uses instead of the sharp edges of coreutils |
+
+Everything you run *around* the mind lives in `tools/`:
+
+| Tool | What it does |
+|------|-------------|
+| **shellm-docker-broker** | Host-side policy server for brokered Docker, never present in the mind's environment |
+| **identity** | Creates and manages identities (persona, memories, activate script) |
+| **persona** | Talks to and manages an identity by name, from anywhere |
+| **headlong-init** | One-time bootstrap: interview, first identity, first thoughts |
+| **shellm-explore** | Visualizes run trees and writes LLM-powered reports on what happened and why |
+| **headlong-web** | The dashboard, where you watch a mind think in the browser |
+| **headlong-slack-bridge** / **headlong-telegram-bridge** | Slack and Telegram connectors into the same inner experience |
+| **headlong-killall** | Panic button that stops every Headlong-related process |
+| **pr-committee** | Multi-model pull request review, used on this repo |
+
+## Learn more
+
+- [philosophy.md](philosophy.md) — the case for applying Ken Thompson's
+philosophy to agent microharnesses, and the full design story
+- [docs/shellm.md](docs/shellm.md) — the shellm engine reference: the
+loop, context passing, Docker sandboxing, envs, the `llm` tool, options
+- [docs/install.md](docs/install.md) — every install variant, including
+CI/non-interactive and long-lived Docker
+- [AGENTS.md](AGENTS.md) — operating a running identity (for humans and
+coding agents): paths, logs, health checks, sharp edges
+- [web/](web/README.md), [slack/](slack/README.md),
+[telegram/](telegram/README.md) — the dashboard and the chat bridges
+- [deploy/](deploy/README.md) — running an agent on a dedicated box
+(systemd units, terraform, operations)
+
+## Acknowledgements
+
+The recursive language model idea in `shellm` comes in part from the
+[Recursive LLM](https://github.com/andyk/recursive_llm) experiment (April
+2023) and from Alex Zhang's [Recursive LM
+(RLM)](https://alexzhang13.github.io/blog/2025/rlm/) project (October
+2025). The continuous thinking behind Headlong's persistent agency — and
+its name — come from the [Headlong](https://github.com/andyk/headlong)
+research project.
+
+## License
+
+[Apache 2.0](LICENSE). Copyright 2026 Laude Institute.
+
+## docs (first 20000 chars of 4 files)
+### docs/README.md
+# docs/
+
+Reference documentation.
+
+- [install.md](install.md) covers every install variant, including
+non-interactive/CI installs and the long-lived Docker container.
+- [shellm.md](shellm.md) is the shellm engine reference: the loop,
+context passing, Docker sandboxing, envs, the `llm` tool, and options.
+- [RELEASING.md](RELEASING.md) is the playbook for tagging a release on
+GitHub before an announcement: checklist, commands, pinned install line.
+
+The design story and the case for the microharness are in
+[philosophy.md](../philosophy.md), and design documents live in
+[design/](../design/).
+### docs/install.md
+# Installing Headlong
+
+The short version is in the [README](../README.md). This page has every
+variant.
+
+## The one-liner
+
+```bash
+curl -fsSL https://headlong.ai/install.sh | bash
+```
+
+The installer first looks for Docker, because the agent writes and runs
+real shell commands and Docker is the sandbox for them.
+
+- With Docker running, it asks where the agent should live: fully inside
+a Docker container (the default, described in the next section), on
+your machine with the agent's shell commands still sandboxed in Docker,
+or, not recommended and behind another typed `yes`, on your machine
+with no sandbox at all. The unsandboxed choice sticks across re-runs;
+set `HEADLONG_UNSANDBOXED=0` in `~/.headlong/.env` and re-run
+`headlong-init` to turn the sandbox on.
+- With Docker installed but not running, it asks you to start Docker and
+checks again.
+- With no Docker at all, it stops and warns you: the agent's commands
+would run directly on your machine as your user. You must type the word
+`yes` to continue without a sandbox.
+
+On the host path it then clones the repo to `~/.headlong/app`, symlinks
+the tools into `~/.local/bin`, asks for an LLM API key, and runs a short
+optional interview: a name, a few words of personality, what they should
+think about when idle. The answers become the agent's core identity and
+first memories. Then their mind starts and the dashboard opens. Their
+name becomes a command:
+
+```bash
+ada # chat with them
+ada hello # one message, wait for the reply
+ada stop / ada start # pause / resume their mind
+ada dash # open the dashboard
+ada bugreport # bundle logs + trajectory (keys scrubbed) for a bug report
+```
+
+Use a dedicated, spend-capped API key: the agent executes real shell
+commands and calls the LLM continuously.
+
+Re-running the one-liner updates everything in place. The installer never
+uses sudo, and the piped script only clones the repo and re-runs the
+installer from the checkout, so what executes is the same code you can
+read here. To read first:
+
+```bash
+curl -fsSLO https://headlong.ai/install.sh
+less install.sh && bash install.sh --init
+```
+
+## Docker: a long-lived agent
+
+The same installer works inside a container. Nothing touches your
+machine, and the agent's shell commands run in the container too. When
+the one-liner above finds Docker running, it offers this flow and runs
+the command below for you; pasting it yourself does the same thing. The
+installer apt-installs its own dependencies (as root in a fresh
+container) and the dashboard binds `0.0.0.0` so the published port works.
+
+```bash
+docker run -it --name headlong --restart unless-stopped -p 8080:8080 buildpack-deps:curl \
+bash -c 'curl -fsSL https://headlong.ai/install.sh | bash; exec bash'
+```
+
+Paste your key, answer the interview, then open http://localhost:8080 on
+your host to watch the mind run. Typing `exit` does not end the world:
+Docker restarts the container in the background, the installer re-runs
+prompt-free (it keeps your key and identity and pulls the latest code),
+and the mind and dashboard come back up on their own.
+
+Day-to-day:
+
+```bash
+docker exec -it headlong bash -l # drop back into your agent's world
+docker stop headlong # pause everything
+docker start headlong # resume
+docker rm -f headlong # delete the agent and its whole world
+```
+
+Pasting the run command a second time fails with "name headlong already in
+use". That means your agent already exists; `docker exec` is how you get
+back to it.
+
+For a throwaway sandbox instead, drop `--name` and `--restart` and add
+`--rm`. Exiting the shell then deletes everything.
+
+## Non-interactive install (CI and coding agents)
+
+With no tty, every question falls back to an environment variable or a
+default, so a script or a coding agent can install with no interaction:
+
+```bash
+export OPENROUTER_API_KEY=sk-or-... # or ANTHROPIC_/OPENAI_/GEMINI_API_KEY
+export HEADLONG_IDENTITY_NAME=ada # optional; the interview's answers
+export HEADLONG_IDENTITY_VIBE="curious, warm, and plainspoken"
+export HEADLONG_IDENTITY_FOCUS="learning how their own mind works"
+export HEADLONG_IDENTITY_USER="I'm Sam, a programmer trying Headlong out"
+curl -fsSL https://headlong.ai/install.sh | bash
+```
+
+A key must be in the environment; everything else is optional.
+`HEADLONG_NO_DASH=1` and `HEADLONG_NO_THINKERS=1` skip those parts.
+
+With no tty there is nobody to answer the sandbox question, so on a
+machine without a working Docker daemon the install stops unless
+`HEADLONG_UNSANDBOXED=1` is set. Setting it accepts that the agent's
+shell commands run directly on the machine. Inside a container it is not
+needed; the container already is the sandbox.
+
+When Docker is present, the installer writes `SHELLM_REQUIRE_DOCKER=1`
+to `~/.headlong/.env`. From then on, a Docker daemon that stops answering
+is a hard error for the agent's runs instead of a silent fall back to
+running on the host. Set it to `0` there if you want the old best-effort
+behavior.
+
+The installer writes `status.json` in the state home (`~/.headlong`) with
+the outcome:
+
+```bash
+jq -r '.mind.status, .dash.status, .dash.url' ~/.headlong/status.json
+```
+
+[AGENTS.md](../AGENTS.md) covers operating a running identity: paths,
+logs, health checks, and the sharp edges.
+
+## From a checkout
+
+```bash
+git clone https://github.com/laude-institute/headlong.git
+cd headlong
+./install.sh # add --init to also bootstrap an identity + dash
+```
+
+This copies the tools in `bin/` and `tools/` to `~/.local/bin`, the core
+skills to `~/.skills/core-skills`, the bundled thinker templates to
+`~/.headlong-thinkers`, and builds the Rust TUI if cargo is present.
+
+`headlong-init --dry-run` walks the Docker sandbox question interactively
+without writing or starting anything, which is handy for seeing what the
+install will ask on a given machine. Setting
+`HEADLONG_FAKE_DOCKER=ok|down|missing` fakes the Docker probe and
+`HEADLONG_NO_TTY=1` forces the no-terminal behavior, so every path can be
+rehearsed anywhere. Use `--symlinks` to
+symlink instead (edits take effect without reinstalling), or
+`--prefix /usr/local/bin` for a different location.
+
+## Reporting a bug
+
+If something goes wrong, run
+
+```bash
+ada bugreport # or: persona <name> bugreport
+```
+
+and attach the `.tgz` it prints (it lands in your home directory) to a
+GitHub issue or a message to us. The bundle holds what we need to see what
+happened: the agent's trajectory and rollups, memories, thinker logs, the
+dash and install logs, and a `report.txt` with versions and status. Your
+`.env` is not included, and API keys or other credential-looking values are
+scrubbed before the file is written: keys and tokens keep their first and
+last four characters (`<redacted sk-o...cdef>`) so two keys can be told
+apart, passwords are masked whole. The agent's
+`workdir/` is left out unless you pass `--include-workdir`. Look inside
+first if you want: `tar tzf <file>` lists it; unpack it with `tar xzf
+<file>` and read `headlong-bugreport-*/report.txt` for the summary.
+
+Where things live, if you would rather pick files by hand: the state home is
+`~/.headlong/` (`logs/`, `status.json`, `.env`), the checkout is
+`~/.headlong/app/`, and the agent is `~/.headlong/app/.identities/<name>/`
+with the root trajectory at `trajectories/*-root/trajectory.jsonl` and the
+thinker logs under `run/logs/`.
+
+## Stopping and uninstalling
+
+`ada stop` pauses the mind (the thinkers) and `ada start` resumes it. If
+something is running away, `headlong-killall` stops every Headlong process on
+the machine (dispatchers, thinker steps, shellm runs, the dashboard);
+`headlong-killall --dry-run` shows what it would stop.
+
+To see what Headlong has on a machine and what is running (read-only, works
+even when nothing is on PATH):
+
+```bash
+curl -fsSL https://headlong.ai/status.sh | bash
+```
+
+To remove Headlong from the machine:
+
+```bash
+curl -fsSL https://headlong.ai/uninstall.sh | bash
+```
+
+(or `./uninstall.sh` / `./install.sh --uninstall` from a checkout). It shows
+what is running and what it will remove, asks once, stops every Headlong
+process, and deletes what the installer put in place. Your agent's
+identities (memories, trajectory) are moved to
+`~/headlong-identities-backup-<date>/` unless you say to delete them.
+`--dry-run` shows the plan without changing anything; `--yes` skips the
+prompts (for scripts); `uninstall.sh --help` lists the rest. If you
+installed from your own clone with `./install.sh`, the clone and the
+identities inside it are left alone.
+
+By hand, the installer touches these places, and removing them uninstalls Headlong:
+
+- `~/.headlong/` — the state home: `.env` (your API key), `status.json`,
+logs, and, for the one-liner, the checkout itself in `~/.headlong/app/`.
+Identities live inside the checkout at `<app>/.identities/`, so this is
+also where your agent's memories and trajectory are. Copy that directory
+first if you want to keep them.
+- `~/.local/bin/` — one symlink (or copy) per tool, plus a symlink named
+after each identity (`ada`) that points at `persona`. `ls -l
+~/.local/bin | grep -i headlong` finds them.
+- `~/.skills/core-skills/` and `~/.headlong-thinkers/` — the bundled
+skills and thinker templates.
+- A `PATH` line the installer offered to add to your shell rc file
+(`~/.zshrc` or `~/.bashrc`).
+
+Run `headlong-killall` first so nothing is writing while you delete. For the
+Docker variant, `docker rm -f headlong` removes the container and everything
+in it.
+### docs/RELEASING.md
+# Releasing
+
+How to cut a tagged release on GitHub before an announcement goes live.
+This is a playbook, not automation: every step is a command a person runs.
+
+## Why tag at all
+
+An announcement points people at the repo. Without a tag, "the thing we
+announced" is whatever `main` happens to be when they look, and it moves
+the moment anyone merges. A tag fixes that:
+
+- Readers and bug reports can name the exact version they tried.
+- The install one-liner can be pinned to the tag, so a later change to
+`main` cannot break the command in the blog post.
+- The GitHub Releases page gives the announcement a stable link with notes.
+- If something lands on `main` after the tag that we regret, the tag is
+the known-good point to compare against or roll back to.
+
+This is the normal practice for an open source launch: tag, write release
+notes, then announce. The tag is cheap and can be deleted if needed.
+
+## Naming
+
+Use SemVer with a `v` prefix: `v0.1.0`. The manifests already say 0.1.0
+(`web/pyproject.toml`, `slack/pyproject.toml`, `telegram/pyproject.toml`,
+`tui/headlong/Cargo.toml`), so the first tag matches them. Below 1.0
+signals "early, expect change", which is honest for a launch. Later
+releases bump the middle number for features and the last for fixes.
+
+There is no CHANGELOG file yet. Release notes live on the GitHub release;
+start a `CHANGELOG.md` only if releases become regular.
+
+## Before tagging: checklist
+
+Work through this on the commit you intend to tag. Do not tag until every
+line is true.
+
+1. CI is green on that commit (`gh run list --limit 3`). Note that CI runs
+on pushes to `main` and on PRs, not on tags, so the green run is the one
+for the commit itself.
+2. Audel's box is deployed to the same commit and healthy
+(`SHELLM_TF_STACK=terraform-slack deploy/scripts/status` shows the SHA).
+Announcing a version that differs from what the live demo runs invites
+confusion.
+3. The secret scan is clean and the two keys it found still live (SerpAPI,
+NewsAPI, from the root commit `.env`) have been revoked. Tagging makes
+history easier to browse, not harder. If the history purge of that
+`.env` is ever going to happen, do it before the first tag, because a
+rewrite after tagging invalidates the tag.
+4. README numbers and claims match the announcement draft (line count,
+install steps, model names). The install one-liner in the README works
+from a clean machine: `tests/smoke_install.sh` covers both modes, and a
+real run in a fresh container is the final proof.
+5. The working tree is clean and `main` is pushed. The tag should point at
+a commit that exists on GitHub.
+6. Decide what the announcement links to: the repo (floating), the tag
+(fixed), or both. Recommendation: link the repo for browsing and pin the
+install command to the tag.
+
+## Cutting the release
+
+Nick runs these (Claude drafts, Nick commits and pushes, as usual).
+
+1. Pick the commit and create an annotated tag on it:
+
+git tag -a v0.1.0 <sha> -m "Headlong v0.1.0: first public release"
+git push origin v0.1.0
+
+An annotated tag (`-a`) records who tagged and when, and GitHub treats
+it as the release's own object. A lightweight tag works too, but the
+annotated one is the convention.
+
+2. Write release notes by hand. `gh release create --generate-notes` would
+list every commit since the beginning of time (there is no earlier tag),
+which is noise. Keep notes short and aimed at a newcomer:
+
+- one paragraph on what Headlong is (reuse the README pitch)
+- the install command, pinned to the tag (see below)
+- three to six highlights worth knowing on day one
+- known limitations and the supported platforms (macOS, Ubuntu)
+- credits and the license
+
+Save them to a file, for example `/tmp/notes-v0.1.0.md`.
+
+3. Create the release as a draft, so it can be reviewed and published at
+the moment the announcement goes live:
+
+gh release create v0.1.0 --draft --title "Headlong v0.1.0" \
+--notes-file /tmp/notes-v0.1.0.md
+
+No binary assets are needed: the project installs from source. The Rust
+TUI is built on the user's machine by `install.sh` when `cargo` exists.
+
+4. Verify from the outside, as a reader would:
+
+gh release view v0.1.0
+git clone --branch v0.1.0 https://github.com/laude-institute/headlong.git /tmp/hl-v0.1.0
+cd /tmp/hl-v0.1.0 && bash tests/smoke_install.sh
+
+A clone by tag works because `git clone --branch` accepts tags, which is
+also how the installer pin below works.
+
+5. Publish when the announcement goes out:
+
+gh release edit v0.1.0 --draft=false
+
+Publishing marks it "Latest" on the repo page.
+
+## Pinning the install command to the tag
+
+`install.sh` reads `HEADLONG_BRANCH` and passes it to `git clone --branch`,
+so a tag works without code changes:
+
+curl -fsSL https://raw.githubusercontent.com/laude-institute/headlong/v0.1.0/install.sh \
+| HEADLONG_BRANCH=v0.1.0 bash
+
+Both parts matter: the URL fetches the installer from the tag, and the
+variable makes it clone the tag. Keep the unpinned `main` command in the
+README for people who want the latest; use the pinned one in the
+announcement and release notes so that text stays true.
+
+One caveat: with a pinned clone, `install.sh` later runs
+`git pull --ff-only origin v0.1.0` on updates, which stays on the tag. That
+is the intended meaning of pinning. Users who want to follow `main` rerun
+the unpinned command.
+
+## After the announcement
+
+- Watch issues and the CI runs for a day; fixes land on `main` as usual.
+- If a fix is urgent for announced users, tag `v0.1.1` with the same
+playbook and update the release notes' install line.
+- Consider adding `tags: ['v*']` to the CI `push` trigger if tags should
+get their own CI run. Not needed for the first release since the tag
+points at an already-green `main` commit.
+
+## If something goes wrong
+
+- Wrong commit tagged, release still a draft: `gh release delete v0.1.0`
+and `git push --delete origin v0.1.0`, then `git tag -d v0.1.0` locally,
+and tag again. Nobody saw it.
+- Wrong commit tagged, release already published: do not move the tag.
+Moving a published tag breaks everyone who already cloned it. Cut
+`v0.1.1` on the right commit and say so in its notes.
+- Announcement went out before the tag: tag the commit that was `main` at
+announce time (`git log --until="<time>" -1 main`) so the tag still
+means "what we announced".
+
+## Open decisions before the first tag
+
+- Revoke the two live keys from the secret scan (SerpAPI, NewsAPI) and
+decide on the `.env` history purge. Both are easier before a tag exists.
+- Whether the announcement pins the install command to `v0.1.0` or keeps
+the `main` one-liner. Recommendation above: pin in the announcement, keep
+`main` in the README.
+### docs/shellm.md
+# shellm — the RLM engine
+
+shellm is a CLI implementation of [Recursive Language Models
+(RLM)](https://alexzhang13.github.io/blog/2025/rlm/) in bash: an agent
+that thinks by writing shell commands, running them, and iterating until
+it has an answer. This page is the reference for using it directly as a
+tool. For the framework built on top of it, see the
+[README](../README.md).
+
+## Quick start
+
+```bash
+# Set your API key
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Run it
+shellm what is the mass of jupiter in kilograms
+
+# Pipe data in
+cat dataset.csv | shellm summarize this data and find outliers
+
+# Pass files
+shellm -f paper.pdf -f notes.txt compare these documents
+
+# Quotes are optional for inline context
+shellm research the latest advances in protein folding and write a summary
+```
+
+## How it works
+
+shellm runs a loop:
+
+1. Sends your context to an LLM with a system prompt that says "write bash code"
+2. The LLM responds with a ` ```bash ` code block
+3. shellm executes the code (in Docker if available, locally otherwise)
+4. Output streams back to the LLM as the next message
+5. Repeat until the code sets `FINAL="answer"` or hits max iterations
+
+The LLM has full shell access. It can curl APIs, parse data with jq, write Python scripts, call itself recursively, install packages — whatever it takes to solve the task. There is one tool, and it is bash.
+
+### What you see
+
+shellm streams everything live. Commands show in cyan, output in dim:
+
+```
+▶ Iteration 1 — calling claude-opus-4-7...
+▶ Executing bash (12 lines):
+curl -s "https://api.example.com/data" | jq '.results'
+...
+$ curl -s 'https://api.example.com/data'
+$ jq '.results'
+│ {"count": 42, "items": [...]}
+$ FINAL="Found 42 results"
+Exit 0
+
+▶ Final answer received
+Found 42 results
+```
+
+If a command hangs (waiting for interactive input), the inactivity watchdog kills it after `SHELLM_INACTIVITY_TIMEOUT` seconds (default 30) and gives the LLM structured feedback on what went wrong. Blocks that are waiting on a nested `shellm` run get a longer limit, see [Interactive command handling](#interactive-command-handling).
+
+### Completion signals
+
+The LLM signals it has an answer by setting one of these in its bash code:
+
+```bash
+# Short answer
+FINAL="The answer is 42"
+
+# Long answer from a file
+echo "detailed report..." > report.txt
+FINAL_FILE=report.txt
+```
+
+shellm captures the value and prints it to stdout. Everything else (progress, commands, debug) goes to stderr, so you can pipe the final answer:
+
+```bash
+shellm -f data.csv compute the average > result.txt
+```
+
+### Context
+
+There are three ways to pass context:
+
+**Inline** — everything after the flags is your context (quotes optional):
+
+```bash
+shellm explain why the sky is blue
+shellm "explain why the sky is blue" # same thing
+```
+
+**Files** — use `-f` one or more times. Contents become `$FILE_CONTEXT1`, `$FILE_CONTEXT2`, etc:
+
+```bash
+shellm -f data.json analyze this
+shellm -f chapter1.txt -f chapter2.txt compare these chapters
+```
+
+**Stdin** — piped data becomes `$CONTEXT`:
+
+```bash
+curl https://example.com | shellm what is this page about
+git diff | shellm review this diff for bugs
+```
+
+These can be combined:
+
+```bash
+cat errors.log | shellm -f config.yaml diagnose why the service is failing
+```
+
+### Nested calls
+
+Code generated by shellm can call shellm itself:
+
+**
+
+## File tree (first 400 of 406 paths)
+.github/workflows/ci.yml
+.gitignore
+.gitleaks.toml
+AGENTS.md
+LICENSE
+README.md
+bin/README.md
+bin/chat
+bin/context
+bin/focus
+bin/glob
+bin/llm
+bin/mem
+bin/put
+bin/recap
+bin/shellm
+bin/shellm-docker
+bin/skills
+bin/sub
+bin/thinkers
+bin/traj
+bin/view
+deploy/DEPLOY.md
+deploy/MIGRATIONS.md
+deploy/README.md
+deploy/SECURITY.md
+deploy/audit-headlong-signals.rules
+deploy/bootstrap-slack-identity.sh
+deploy/headlong-slack-agent.service
+deploy/headlong-slack-bridge.service
+deploy/headlong-telegram-bridge.service
+deploy/headlong-thinkers-alert@.service
+deploy/headlong-thinkers@.service
+deploy/headlong-thinkersctl
+deploy/headlong-web.service
+deploy/migrate-units.sh
+deploy/scripts/audel-commits
+deploy/scripts/audel-export
+deploy/scripts/audel-metrics
+deploy/scripts/audel-metrics-render.py
+deploy/scripts/audel-rlm
+deploy/scripts/audel-rlm-extract.py
+deploy/scripts/audel-stash
+deploy/scripts/audel-usage
+deploy/scripts/audel-usage-render.py
+deploy/scripts/env-push
+deploy/scripts/lib.sh
+deploy/scripts/pull
+deploy/scripts/rebuild
+deploy/scripts/run
+deploy/scripts/shell
+deploy/scripts/start
+deploy/scripts/status
+deploy/scripts/stop
+deploy/scripts/telegram-env
+deploy/scripts/update
+deploy/scripts/watch
+deploy/setup.sh
+deploy/slack-persona.md
+deploy/sudoers-headlong-thinkers
+deploy/terraform-slack/.gitignore
+deploy/terraform-slack/README.md
+deploy/terraform-slack/alerting.tf
+deploy/terraform-slack/aws-policy.json
+deploy/terraform-slack/env.sh.example
+deploy/terraform-slack/envrc.example
+deploy/terraform-slack/lambda/slack_alert.py
+deploy/terraform-slack/main.tf
+deploy/terraform-slack/outputs.tf
+deploy/terraform-slack/terraform.tfvars.example
+deploy/terraform-slack/user_data.sh.tpl
+deploy/terraform-slack/variables.tf
+deploy/terraform/.gitignore
+deploy/terraform/README.md
+deploy/terraform/aws-policy.json
+deploy/terraform/env.sh.example
+deploy/terraform/envrc.example
+deploy/terraform/main.tf
+deploy/terraform/outputs.tf
+deploy/terraform/terraform.tfvars.example
+deploy/terraform/user_data.sh.tpl
+deploy/terraform/variables.tf
+deploy/thinkers-death-alert.sh
+deploy/thinkers-failure-alert.sh
+deploy/thinkers-service.sh
+deploy/update.sh
+design/README.md
+design/THINKERS_spec.md
+design/agent-native-docs.md
+design/context_assembly.md
+design/headlong.md
+design/macos_client.md
+design/model-resolution.md
+design/monolith_backoff.md
+design/monolith_run_health.md
+design/monolith_thinker.md
+design/porting-shelly-to-be-headlong-like.md
+design/providers.md
+design/recap.md
+design/responder_thinker.md
+design/thinkers_revamp_plan.md
+design/tiered_memory.md
+design/trajectory_spec.md
+design/unified_progressive_resolution_memory.md
+docs/README.md
+docs/RELEASING.md
+docs/install.md
+docs/shellm.md
+identities/README.md
+identities/starter-persona.md
+install.sh
+macos/README.md
+macos/Shellm/Info.plist
+macos/Shellm/Makefile
+macos/Shellm/main.swift
+philosophy.md
+skills/README.md
+skills/chat/SKILL.md
+skills/file-tools/SKILL.md
+skills/goals/SKILL.md
+skills/googleworkspace/SKILL.md
+skills/mem/SKILL.md
+skills/obsidian/SKILL.md
+skills/shellm/SKILL.md
+skills/skill-author/SKILL.md
+skills/slack/SKILL.md
+skills/telegram/SKILL.md
+skills/web-research/SKILL.md
+slack/.gitignore
+slack/PLAYBOOK.md
+slack/README.md
+slack/manifest.json
+slack/pyproject.toml
+slack/slack.json
+slack/src/headlong_slack/__init__.py
+slack/src/headlong_slack/cli.py
+slack/src/headlong_slack/config.py
+slack/src/headlong_slack/inbound.py
+slack/src/headlong_slack/mindlog.py
+slack/src/headlong_slack/naming.py
+slack/src/headlong_slack/outbound.py
+slack/src/headlong_slack/slackfmt.py
+slack/src/headlong_slack/state.py
+slack/tests/test_config.py
+slack/tests/test_mindlog.py
+slack/tests/test_naming.py
+slack/tests/test_outbound.py
+slack/tests/test_slackfmt.py
+slack/uv.lock
+status.sh
+telegram/.gitignore
+telegram/README.md
+telegram/pyproject.toml
+telegram/src/headlong_telegram/__init__.py
+telegram/src/headlong_telegram/allowlist.py
+telegram/src/headlong_telegram/api.py
+telegram/src/headlong_telegram/cli.py
+telegram/src/headlong_telegram/config.py
+telegram/src/headlong_telegram/inbound.py
+telegram/src/headlong_telegram/mindlog.py
+telegram/src/headlong_telegram/naming.py
+telegram/src/headlong_telegram/outbound.py
+telegram/src/headlong_telegram/state.py
+telegram/src/headlong_telegram/tgfmt.py
+telegram/tests/test_allowlist.py
+telegram/tests/test_api.py
+telegram/tests/test_config.py
+telegram/tests/test_inbound.py
+telegram/tests/test_naming.py
+telegram/tests/test_outbound.py
+telegram/tests/test_tgfmt.py
+telegram/uv.lock
+terminal_bench2_eval/README.md
+terminal_bench2_eval/failure_analysis.md
+terminal_bench2_eval/harbor_assets/run_full_eval.sh
+terminal_bench2_eval/harbor_assets/run_headlong_eval.sh
+terminal_bench2_eval/harbor_assets/shellm_prompt.j2
+terminal_bench2_eval/harbor_headlong_agent.py
+terminal_bench2_eval/harbor_headlong_environment.py
+terminal_bench2_eval/harbor_shellm_agent.py
+terminal_bench2_eval/headlong_tbench2_report.md
+terminal_bench2_eval/headlong_tbench2_report_v2.md
+terminal_bench2_eval/tbench2_report.md
+tests/README.md
+tests/fixtures/basic/trajectory.jsonl
+tests/fixtures/blobs/blobs/b1.stdout
+tests/fixtures/blobs/blobs/b2.stderr
+tests/fixtures/blobs/trajectory.jsonl
+tests/fixtures/empty/trajectory.jsonl
+tests/fixtures/junk/trajectory.jsonl
+tests/fixtures/multibyte/trajectory.jsonl
+tests/golden/budget_basic.out
+tests/golden/default_basic.out
+tests/golden/default_junk.out
+tests/golden/elnone_basic.out
+tests/golden/headtail_basic.out
+tests/golden/pin_basic.out
+tests/golden/prod_basic.out
+tests/golden/prod_blobs.out
+tests/golden/prod_empty.out
+tests/golden/prod_junk.out
+tests/golden/prod_multibyte.out
+tests/golden/trunc_basic.out
+tests/golden/trunc_blobs.out
+tests/golden/trunc_multibyte.out
+tests/run-all.sh
+tests/smoke_install.sh
+tests/test_bridge_env.sh
+tests/test_broker_compose_containment.sh
+tests/test_context.sh
+tests/test_explore_report_argv.sh
+tests/test_identity_export_import.sh
+tests/test_identity_sync_thinkers.sh
+tests/test_inactivity_beacon.sh
+tests/test_install_secret_argv.sh
+tests/test_key_var_resolution.sh
+tests/test_llm_adapter.sh
+tests/test_llm_openai_compatible.sh
+tests/test_llm_provider_env.sh
+tests/test_llm_retry.sh
+tests/test_mem_frontmatter.sh
+tests/test_monolith_backoff.sh
+tests/test_persona_bugreport.sh
+tests/test_prompt_file.sh
+tests/test_recap.sh
+tests/test_recap_context_upgrade.sh
+tests/test_recap_render_cache.sh
+tests/test_redact_sensitive.sh
+tests/test_responder_idempotency.sh
+tests/test_retrieval_thinker.sh
+tests/test_sandbox_gate.sh
+tests/test_sandbox_symlink_mounts.sh
+tests/test_shellm_empty_response_retry.sh
+tests/test_shellm_mount_coverage.sh
+tests/test_shellm_retry_feedback.sh
+tests/test_status.sh
+tests/test_thinker_env_fallback.sh
+tests/test_thinker_set_coupling.sh
+tests/test_thinkers_drain.sh
+tests/test_thinkers_pending.sh
+tests/test_thinkers_wake_at.sh
+tests/test_uninstall.sh
+tests/test_unit_name_couplings.sh
+tests/test_var_secrets.sh
+thinkers/README.md
+thinkers/_lib/common.sh
+thinkers/monolith/prompt.md
+thinkers/monolith/step
+thinkers/monolith/subscriptions.jsonl
+thinkers/responder/step
+thinkers/responder/subscriptions.jsonl
+thinkers/retrieval/build-index.sh
+thinkers/retrieval/disabled
+thinkers/retrieval/prompt.md
+thinkers/retrieval/step
+thinkers/retrieval/stopwords
+thinkers/retrieval/subscriptions.jsonl
+tools/README.md
+tools/headlong-init
+tools/headlong-killall
+tools/headlong-slack-bridge
+tools/headlong-telegram-bridge
+tools/headlong-web
+tools/identity
+tools/persona
+tools/pr-committee
+tools/shellm-docker-broker
+tools/shellm-explore
+tui/README.md
+tui/headlong/.gitignore
+tui/headlong/Cargo.lock
+tui/headlong/Cargo.toml
+tui/headlong/src/main.rs
+uninstall.sh
+web/README.md
+web/design/data-model.md
+web/design/future-work.md
+web/design/overview.md
+web/pyproject.toml
+web/src/headlong_web/__init__.py
+web/src/headlong_web/activity.py
+web/src/headlong_web/chat.py
+web/src/headlong_web/cli.py
+web/src/headlong_web/control.py
+web/src/headlong_web/discovery.py
+web/src/headlong_web/env.py
+web/src/headlong_web/envfile.py
+web/src/headlong_web/health.py
+web/src/headlong_web/liveness.py
+web/src/headlong_web/llm_health.py
+web/src/headlong_web/logs.py
+web/src/headlong_web/memories.py
+web/src/headlong_web/openrouter.py
+web/src/headlong_web/push.py
+web/src/headlong_web/safety.py
+web/src/headlong_web/search.py
+web/src/headlong_web/server.py
+web/src/headlong_web/thinker_sync.py
+web/src/headlong_web/thinkers.py
+web/src/headlong_web/trajectory.py
+web/src/headlong_web/tree.py
+web/src/headlong_web/usage.py
+web/tests/conftest.py
+web/tests/test_activity_api.py
+web/tests/test_chat_api.py
+web/tests/test_discovery_symlinks.py
+web/tests/test_dispatch_log.py
+web/tests/test_health_api.py
+web/tests/test_import_export.py
+web/tests/test_llm_health.py
+web/tests/test_memories_api.py
+web/tests/test_mindlog_search.py
+web/tests/test_openrouter.py
+web/tests/test_push_api.py
+web/tests/test_recap_api.py
+web/tests/test_self_update.py
+web/tests/test_thinker_sync.py
+web/tests/test_thinkers_and_control.py
+web/tests/test_trajectory.py
+web/tests/test_trajectory_cache.py
+web/tests/test_tree_and_safety.py
+web/tests/test_usage_api.py
+web/uv.lock
+web/viewer/app/app.css
+web/viewer/app/components/activity-badge.tsx
+web/viewer/app/components/blob-output.tsx
+web/viewer/app/components/expandable-text.tsx
+web/viewer/app/components/follow-pin.tsx
+web/viewer/app/components/fork-tree.tsx
+web/viewer/app/components/identity-tabs.tsx
+web/viewer/app/components/live-badge.tsx
+web/viewer/app/components/mindlog-search.tsx
+web/viewer/app/components/model-config.tsx
+web/viewer/app/components/navbar.tsx
+web/viewer/app/components/push-bell.tsx
+web/viewer/app/components/run-group.tsx
+web/viewer/app/components/step-card.tsx
+web/viewer/app/components/step-header.tsx
+web/viewer/app/components/stream.tsx
+web/viewer/app/components/thinker-controls.tsx
+web/viewer/app/components/timeline-bar.tsx
+web/viewer/app/components/timeline-detail.tsx
+web/viewer/app/components/timeline-view.test.tsx
+web/viewer/app/components/timeline-view.tsx
+web/viewer/app/components/ui/badge.tsx
+web/viewer/app/components/ui/button.tsx
+web/viewer/app/components/ui/card.tsx
+web/viewer/app/components/ui/checkbox.tsx
+web/viewer/app/components/ui/code-block.tsx
+web/viewer/app/components/ui/collapsible.tsx
+web/viewer/app/components/ui/copy-button.tsx
+web/viewer/app/components/ui/empty.tsx
+web/viewer/app/components/ui/input.tsx
+web/viewer/app/components/ui/loading-dots.tsx
+web/viewer/app/components/ui/markdown.tsx
+web/viewer/app/components/ui/scroll-area.tsx
+web/viewer/app/components/ui/select.tsx
+web/viewer/app/components/ui/table.tsx
+web/viewer/app/components/ui/tabs.tsx
+web/viewer/app/components/ui/textarea.tsx
+web/viewer/app/components/ui/tooltip.tsx
+web/viewer/app/hooks/use-autosize-textarea.ts
+web/viewer/app/lib/api.ts
+web/viewer/app/lib/highlighter.tsx
+web/viewer/app/lib/mindlog2-model.ts
+web/viewer/app/lib/pwa.ts
+web/viewer/app/lib/step-colors.ts
+web/viewer/app/lib/timeline-model.ts
+web/viewer/app/lib/traj-context.ts
+web/viewer/app/lib/types.ts
+web/viewer/app/lib/use-mindlog.ts
+web/viewer/app/lib/utils.ts
+web/viewer/app/root.tsx
+web/viewer/app/routes.ts
+web/viewer/app/routes/chat.test.tsx
+web/viewer/app/routes/chat.tsx
+web/viewer/app/routes/config.tsx
+web/viewer/app/routes/health.tsx
+web/viewer/app/routes/home.tsx
+web/viewer/app/routes/identity.tsx
+web/viewer/app/routes/memories.tsx
+web/viewer/app/routes/mindlog2.tsx
+web/viewer/app/routes/recap.tsx
+web/viewer/app/routes/sub-traj.tsx
+web/viewer/app/routes/talk-chat.tsx
+web/viewer/app/routes/talk.tsx
+web/viewer/app/routes/thinkers.tsx
+web/viewer/app/routes/timeline.tsx
+web/viewer/app/routes/usage.tsx
+web/viewer/bun.lock
+web/viewer/components.json
+web/viewer/package.json
+web/viewer/public/favicon.ico
+web/viewer/public/fonts/GoogleSansCode-VariableFont_wght.ttf
+web/viewer/public/fonts/OFL.txt
+web/viewer/public/icons/apple-touch-icon.png
+web/viewer/public/icons/badge-96.png
+web/viewer/public/icons/icon-192.png
+web/viewer/public/icons/icon-512-maskable.png
+web/viewer/public/icons/icon-512.png

@@ -1,0 +1,550 @@
+record_id: arxiv:2309.00986
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2309.00986
+fetched_title: ModelScope-Agent: Building Y our Customizable Agent System with Open-source Large Language Models
+fetched_at: 2026-09-18T19:00:16Z
+
+ModelScope-Agent: Building Y our Customizable Agent System with
+Open-source Large Language Models
+Chenliang Li, Hehong Chen, Ming Yan ∗, Weizhou Shen, Haiyang Xu, Zhikai Wu
+Zhicheng Zhang, Wenmeng Zhou, Yingda Chen, Chen Cheng, Hongzhu Shi
+Ji Zhang, Fei Huang, Jingren Zhou
+DAMO Academy, Alibaba Group, China
+Abstract
+Large language models (LLMs) have recently
+demonstrated remarkable capabilities to com-
+prehend human intentions, engage in reason-
+ing, and design planning-like behavior. To
+further unleash the power of LLMs to accom-
+plish complex tasks, there is a growing trend to
+build agent framework that equips LLMs, such
+as ChatGPT, with tool-use abilities to connect
+with massive external APIs.
+In this work, we introduce ModelScope-Agent,
+a general and customizable agent framework
+for real-world applications, based on open-
+source LLMs as controllers. It provides a user-
+friendly system library, with customizable en-
+gine design to support model training on mul-
+tiple open-source LLMs, while also enabling
+seamless integration with both model APIs and
+common APIs in a unified way. To equip
+the LLMs with tool-use abilities, a compre-
+hensive framework has been proposed span-
+ning over tool-use data collection, tool retrieval,
+tool registration, memory control, customized
+model training, and evaluation for practical
+real-world applications. Finally, we showcase
+ModelScopeGPT, a real-world intelligent as-
+sistant of ModelScope Community based on
+the ModelScope-Agent framework, which is
+able to connect open-source LLMs with more
+than 1000 public AI models and localized
+community knowledge in ModelScope. The
+ModelScope-Agent library1 and online demo2
+are now publicly available.
+1 Introduction
+Large language models (OpenAI, 2022, 2023;
+Touvron et al., 2023; Chowdhery et al., 2022)
+have gradually become common AI assistants
+that demonstrate great potential in comprehend-
+ing human intentions, performing complex rea-
+soning tasks, and enabling content creation. De-
+∗Corresponding author: <ym119608@alibaba-inc.com>
+1https://github.com/modelscope/modelscope-agent
+2https://modelscope.cn/studios/damo/ModelScopeGPT/summary
+spite the rapid advancements of open-source LLMs,
+e.g., LLaMA (Touvron et al., 2023) and Chat-
+GLM (THUDM, 2023), they still remain limited
+in performing complex tasks, such as following
+user instructions to use external tools and capture
+up-to-date information.
+To further unleash the power of LLMs for real-
+world practical applications, a rising trend of cur-
+rent research (Schick et al., 2023; Shen et al., 2023;
+Yang et al., 2023; Qin et al., 2023; Patil et al., 2023)
+begins to enable LLMs with tool-use abilities to-
+wards building an AI Agent. These include Hug-
+gingGPT (Shen et al., 2023), Visual-ChatGPT (Wu
+et al., 2023) and Gorilla (Patil et al., 2023) for
+connecting with HuggingFace models, ToolAl-
+paca (Tang et al., 2023) and ToolLLaMA (Qin et al.,
+2023) for using massive common APIs such as
+weather forecast and search engine. These methods
+either directly rely on closed-source counterparts
+like ChatGPT or focus on certain types of API tools.
+Recently, there have also been public releases of
+AI agents, such as Auto-GPT 3, LangChain4 and
+Transformers Agent (Huggingface, 2023), which
+enable LLMs, such as ChatGPT or GPT-4, to use
+tools and solve complex AI tasks. However, these
+agents are mainly built with closed-source LLMs
+and how to build a customizable agent system with
+open-source LLMs remains largely unexplored.
+In this work, we present ModelScope-Agent, a
+general and customizable agent system for real-
+world applications, based on open-source LLMs
+as controllers. ModelScope5 is a public ML com-
+munity, which seeks to bring together the most ad-
+vanced machine learning models from the AI com-
+munity, and streamlines the process of leveraging
+AI models in real-world applications. ModelScope-
+Agent provides a flexible and user-friendly sys-
+tem library, with customizable engine design to
+3https://github.com/Significant-Gravitas/Auto-GPT
+4https://github.com/langchain-ai/langchain
+5https://modelscope.cn/models
+arXiv:2309.00986v1 [cs.CL] 2 Sep 2023
+
+support model training on multiple open-source
+LLMs, while also enabling seamless integration
+with both model APIs and common APIs in a uni-
+fied way. It features an LLM-centric system de-
+sign, which includes open-source LLMs as core
+controller, and further interact with a tool-use mod-
+ule and a memory module to accomplish complex
+tasks. At the core of ModelScope-Agent , the li-
+brary supports flexible selection and training on var-
+ious open-source LLMs, such as LLaMA (Touvron
+et al., 2023), ChatGLM (THUDM, 2023), Chat-
+PLUG (Tian et al., 2023) and other customized
+LLMs in ModelScope. For tool use, ModelScope-
+Agent provides a default tool library, which sup-
+ports diverse AI model APIs across NLP, CV , Au-
+dio and Multi-model fields, as well as massive com-
+mon APIs such as search engine. It also supports
+registering new self-defined API plugins and auto-
+matic API retrieval from the large tool library. It is
+easy for users to customize their most appropriate
+LLMs, local API tools and functions to develop
+real-world applications. Moreover, a memory mod-
+ule is also introduced to better store and manage the
+system message, user history, in-context examples,
+tool message and localized knowledge.
+To enable the open-source LLMs to better con-
+trol the whole agent system, we further propose
+a comprehensive framework of tool-use data col-
+lection, customized model training, evaluation and
+deployment. Notably, we release a comprehen-
+sive tool-enhanced dataset MSAgent-Bench, which
+consists of 598k dialogues with various API cat-
+egories, multi-turn API calls, API-Oriented QA,
+and API-Agnostic instructions in both English and
+Chinese. A simple training strategy of Weighted
+LM, that enhances the training of generation of
+API name and parameters, is used to better ensure
+the correctness of API calls. Besides, an evalua-
+tion framework is also supported in our library to
+examine the tool-use abilities of the trained mod-
+els in different aspects. Furthermore, we applied
+ModelScope-Agent in a real-world application of
+ModelScope Community namely ModelScopeGPT,
+which is able to connect open-source LLMs with
+more than 1000 public AI models and access lo-
+calized community knowledge in ModelScope for
+community QA.
+To summarize, ModelScope-Agent is a general
+and customizable agent system designed for devel-
+opers to harness the power of open-source LLMs.
+The library targets the following goals:
+• Agent based on Open-Source LLMs: the con-
+troller of ModelScope-Agent can be flexibly
+selected from open-source LLMs that are opti-
+mized through our agent training framework.
+• Support and Customization of Diverse Tools:
+Dozens of diverse model APIs and common
+APIs are given by default. The library sup-
+ports registering new self-defined APIs and
+automatic API retrieval from the toolset.
+• Customizable of Applications: ModelScope-
+Agent can be flexibly applied in various in-
+dustry applications. The agent and training
+framework are documented describing its us-
+age, construction and optimization.
+ModelScope-Agent is in continual development
+by the engineers at ModelScope and is released
+under an Apache 2.0 license. Full documentation
+is available through the project website.
+2 The ModelScope Agent
+ModelScope-Agent is designed to facilitate devel-
+opers in building customizable agent systems based
+on open-source LLMs. The overall system architec-
+ture is shown in Figure 1. It includes open-source
+LLMs as controller, a tool-use module and a mem-
+ory module to interact with. Given human instruc-
+tion, the Agent, which adopts the selected LLM as
+the controller, will automatically plan tasks, selec-
+tively uses tools, leverage knowledge in memory,
+and finally provides helpful responses to users.
+2.1 LLMs as Brain
+LLMs serve as the brain of the agent, responsible
+for planning and decomposing user requests, se-
+lectively calling tools, performing retrieval, and
+integrating all the information from previous steps
+to generate the final response. In order to make it
+easier for users to customize the agent with their
+own LLMs, we have added support for various
+open-source LLMs by default, such as LLaMA,
+ChatGLM and ChatPLUG, which have been op-
+timized through our tool learning pipeline. The
+details of training strategy and tool-use datasets
+can be referred to Section 3. ModelScope-Agent
+has integrated the LLM inference pipeline of the
+ModelScope community, and replacing LLMs can
+be done by simply setting the model_name and
+model_config. In model_config, the model_id,
+model_revision, and model parameter settings such
+as max sequence length, should be configured.
+
+Figure 1: The overall system architecture of ModelScope-Agent.
+# LLM config " cfg_file "
+from modelscope . utils . config import Config
+model_cfg = Config . from_file ( cfg_file )
+llm = LocalLLM ( model_name , model_cfg )
+Furthermore, the ModelScope-Agent also pro-
+vides a standard way to integrate new LLM. Users
+can add their own LLMs, by integrating the LLM
+pipeline into ModelScope. After that, the agent can
+select the new LLMs for training and inference.
+2.2 Tool Use
+Tool Library The tool library is used to config-
+ure and manage various collections of APIs used in
+the agent. ModelScope-Agent can support a wide
+range of both common APIs such as search APIs,
+and AI model APIs across NLP, CV , Audio and
+Multi-modal models in ModelScope and Hugging-
+Face. Each tool API consists of the API name, de-
+scription, parameters and request functions. Users
+can easily choose and configure proper APIs in
+the library to build their own agent. The default
+APIs supported in the library can be referred to
+Appendix A.1.
+# tool default config file " default_file "
+tool_cfg = Config . from_file ( default_file )
+Register and Customize New Tool The agent
+allows users to register and customize new tools,
+while also supporting quick integration of newly
+registered tools into the agent, enabling LLMs to
+selectively use the additional self-defined tools for
+specific applications. This can be simply done
+by inheriting from a base class, namely Tool, and
+defining a new CustomTool with the API-related
+schema of API name, description, parameters, and
+request functions. More details about CustomTool
+can be referred in Appendix A.2.
+from mod elscope_ agent . tools import Tool
+class CustomTool ( Tool ):
+# logic added here
+# refer example in Appendix A .2
+tool_list = { ’ customo - tool ’: CustomTool ()}
+Tool Retrieval and Execution Due to the large
+amount of tool APIs in the tool library, a tool
+retrieval module is further introduced to recom-
+mend appropriate APIs for each instruction prompt.
+Specifically, we use the dense vector retrieval
+method based on the unified multilingual text-
+embedding API 6. We vectorize both the text de-
+scriptions of the APIs and the instruction prompt
+using the text-embedding API. The top-3 most rel-
+evant APIs with the highest vector product scores
+are selected for tool use. As a result, the schema
+information of the retrieved APIs will be concate-
+nated with other system prompts in the subsequent
+memory module and sent to LLMs as input. With
+the concatenated instruction prompt, the LLMs will
+plan and generate the API request, which will be
+executed by the agent. The agent will then return
+the results to the LLMs for continuous generation.
+2.3 Memory Control
+The memory module is used to retrieve, and assem-
+ble a series of contextual information as input to the
+LLMs. It consists of a knowledge retrieval submod-
+ule and a prompt generator submodule, which are
+responsible for external knowledge retrieval and
+instruction prompt generation, respectively.
+6https://help.aliyun.com/zh/dashscope/getting-started-1
+
+Knowledge Retrieval It enables the agent to
+get access to up-to-date and localized information
+related with query prompt, thereby augmenting
+LLMs with dynamic and domain-specific knowl-
+edge. We follow the same dense vector retrieval
+method as the previous tool retrieval module, and
+support large-scale knowledge retrieval from local-
+ized document corpus. Similarly, it allows users
+to customize by changing to other open-source re-
+trieval frameworks.
+Prompt Generator The prompt generator is used
+to assemble all available contextual information
+such as system prompt, API schema, retrieved
+knowledge, conversation history, and few-shot ex-
+amples. According to the type of user query and
+the maximum length of the LLM, the users can
+selectively choose proper contextual information
+and assemble the required input to the LLM. In our
+agent, the prompt generator needs to be defined
+before the agent is constructed.
+2.4 Agent Pipeline
+In summary, we build the agent by combining all
+the modules: LLM controller, tool-use module, and
+memory module. With agent.run, the agent can ef-
+ficiently execute and complete the instruction in
+a one-step generation. First, the agent retrieves
+query-related tools through the tool retrieval and
+combines the retrieved API schema with other con-
+textual prompts in memory module, to construct
+a new instruction prompt. Then, the agent sends
+this new prompt to the LLM, who plans whether
+and which API to call and generate an API request.
+Next, the agent will execute the selected API with
+the extracted API parameters and return the API
+results to the LLMs, which will continue to plan
+whether to call other APIs. If another API call
+is needed, the process is repeated, otherwise, the
+LLMs generate the final response and the agent
+returns the final result to the user.
+agent = AgentExecutor ( llm , tool_cfg ,
+a d d i t i o n a l _ t o o l _ l i s t = tool_list )
+agent . run ( " Draw a logo image of agent " )
+3 Training
+3.1 Dataset
+To facilitate building an agent with the ability
+to use tools while upholding an optimal level of
+user engagement, we release a comprehensive tool
+dataset, MSAgent-Bench7, utilizing ChatGPT syn-
+thetic data and the existing instruction-following
+datasets. Our released dataset encompasses 598k
+dialogues. Table 1 outlines the key differences
+between the released dataset and other public avail-
+able tool learning datasets, while the data distribu-
+tion of our dataset is illustrated in Figure 2. As
+demonstrated in the Table and Figure, we have
+made certain efforts to construct a comprehensive
+dataset which enables the effective training of an
+agent:
+Multilingual: We collect instances in both Chi-
+nese and English, ensuring that the trained agent is
+capable of functioning in both languages.
+Various API Categories: Our dataset supports
+Common APIs that have been registered by users
+or applied through online API platforms, as well as
+model APIs that can call neural models.
+Multi Turn Dialog: In real-life scenarios, agents
+may need to request more specific clarification
+from users to complete a task or receive additional
+instructions after completing a previous task. Our
+dataset accounts for these scenarios and supports
+multi-turn user-agent interactions when using tools.
+API-Oriented QA: An effective agent should pos-
+sess knowledge of APIs. Our dataset incorporates
+API document QA tasks and task planning tasks
+which requires agents to offer appropriate sugges-
+tions to users on how to use various APIs to solve
+complex tasks.
+API-Agnostic Instructions: To enhance the
+agent’s ability to follow common instructions and
+increase user engagement, we have incorporated
+both Chinese and English API-agnostic instructions
+within our dataset. These instructions place greater
+emphasis on the agent’s inherent capabilities rather
+than reliance on API invocation.
+The data was collected by prompting ChatGPT
+(gpt-3.5-turbo) to generate instructions, API re-
+quests, and answers based on the API calling re-
+sults, more details can be accessed in Appendix D.
+3.2 Model Training
+We use the MSAgent-Bench to fine-tune multi-
+ple open-source LLMs, including LLaMA (Tou-
+vron et al., 2023), Qwen (QwenLM, 2023), Chat-
+PLUG (Tian et al., 2023) etc. We train all the open-
+source LLMs in a multi-round conversation mode
+and concatenate all the prompts and answers. Com-
+7https://modelscope.cn/datasets/damo/MSAgent-
+Bench/summary
+
+Dataset Language Instance Type # Instances API type A vg. Turn A vg. Step
+API-Bank (Li et al., 2023) English Tool Use 264 Common API 3.27 1.92
+ToolAlpaca (Tang et al., 2023) English Tool Use 3.9 K Common API 1 1.66
+Gorilla (Patil et al., 2023) English Tool Use 16.4 k Model API 1 1
+GPT4Tools (Yang et al., 2023) English Tool Use 71.4 K Model API 1 1
+ToolBench (Qin et al., 2023) English Tool Use 26.9 K Common API 1 4.1
+MSAgent-Bench (ours) English + Chinese Tool Use + Common Chat 598 K Common API + Model API 1.52 1.31
+Table 1: The statistics of MSAgent-Bench and other existing tool learning datasets.
+MSAgent-
+Bench
+Model API
+• Text-to-Image
+• Text-to-Video
+• Text-to-Audio
+• Translation
+• Image Chat
+• Universal IE
+…
+Common API
+• Weather
+• Web Search
+• Calculator
+• Map
+…
+API-Agnostic Instructions
+• Story Generation
+• Open QA
+• Code
+• Chit Chat
+• Paraphrase
+• STEM
+• Role Play
+…
+API-Oriented QA
+• Document QA
+• Task Planning
+…
+Figure 2: The instance types and distribution of our collected MSAgent-Bench.
+pared to common instruction tuning data, the tool
+learning samples focus more heavily on the accu-
+racy of tool selection and API parameter prediction.
+Therefore, we propose a simple training strategy,
+Weighted LM, which enhances the training of gen-
+eration of API name and parameters, while zero-
+out the loss of tokens from the user prompt and the
+tool execution. More details can be be referred to
+Appendix B.3.
+kwargs = dict ( model = model , ...)
+trainer : Ep oc hB as edT ra in er = build_trainer
+( name = args . trainer , default_args = kwargs )
+trainer . train ()
+4 Evaluation
+Our evaluation system, MSAgent-Eval, comprises
+two modules: an automatic evaluation framework
+which comprehensively evaluates API usability of
+the agents, and a human evaluation framework im-
+plemented by an agent arena which reflects the
+preferences of human users.
+4.1 Automatic Evaluation Framework
+In automatic evaluation, we mainly focus on eval-
+uating agent’s ability to generate accurate API re-
+quest and the proper answers according to the API
+calling results. Specifically, we use the action ex-
+actly match score (Action EM) which measures
+whether the agent uses the correct API as the ref-
+erence gold API, and the ROUGE-L score which
+measures the similarity between the generated re-
+sponse and the gold answer. Additionally, we intro-
+duce a novel metric called Argument F1 for fully
+evaluating the quality of API requests. To com-
+pute Argument F1, we categorize the arguments in
+agent’s API request into two cases, namely Half
+match (HM) and Full match (FM), representing
+correct argument but with wrong value and correct
+argument with correct value, respectively. Suppose
+the gold argument number in the API is|A|, and
+the number of arguments in the agents API request
+is|A∗|, we compute the new Recall and Precision
+as follows:
+R = (0.5× # HM + # FM)/|A| (1)
+P = (0.5× # HM + # FM)/|A∗| (2)
+and the final argument F1 is computed as:
+F 1 = 2( R∗ P )/(R + P ). (3)
+A sample code for the automated evaluation of
+agents is provided below:
+from t o o l _ a g e n t _ f i n e t u n e import evaluation
+EM , F1 , ROUGE = evaluation ( refs , preds )
+Expert annotators were engaged to annotate the
+evaluation instances, with the task of providing
+diverse instructions, manually documenting cor-
+rect API calling requests, and writing appropriate
+responses. The statistics of our currently assem-
+bled test data is in Appendix B.1, and the auto-
+matic evaluation scores of our trained agents can
+
+(a) ModelScope Intelligent Assistant
+(b) Register and Use New Tools on Alibaba Cloud
+Figure 3: Demo cases of ModelScopeGPT based on ModelScope-Agent .
+be found in Appendix B.2. We also guarantee the
+users to upload their own annotated test examples
+to accurately evaluate the performance of agents in
+customized scenarios.
+4.2 Human Evaluation with Agent Arena
+Inspired by the Arena for ChatBots (Zheng et al.,
+2023), we have built an accessible Agent Arena 8
+that allows users to furnish instructions to two
+anonymous agents, based on the provided APIs.
+Subsequently, users have the opportunity to vote
+on which Agent performs better in tackling the in-
+struction with the given APIs. In accordance with
+the framework presented by Zheng et al. (2023),
+we adopt a system of ELO ratings and leaderboard
+maintenance for the participating Agents.
+5 Usage Example of ModelScopeGPT
+In this section, we showcase a successful
+application of ModelScope Community, Mod-
+elScopeGPT9, based on our ModelScope-Agent.
+ModelScope Intelligent Assistant Based on
+ModelScope-Agent , we have developed an intel-
+ligent assistant for the ModelScope Community,
+namely ModelScopeGPT. It uses LLMs as a con-
+troller to connect dozens of domain-specific AI
+models in the ModelScope open-source community,
+covering NLP, CV , Audio, and Multi-Modal fields.
+To make the pipeline more practical, we have in-
+cluded API retrieval and knowledge retrieval tool to
+automatically select proper APIs and get access to
+the local ModelScope knowledge. As shown in Fig-
+ure 3a, ModelScopeGPT can support API calls in
+multi-turn conversations and generate correct API
+8https://modelscope.cn/studios/LLMZOO/Chinese-
+Arena/summary
+9https://modelscope.cn/studios/damo/ModelScopeGPT
+/summary
+call parameters using information from previous
+conversations. More cases can refer to Appendix C.
+As a result, ModelScopeGPT has achieved a total
+request number of over 170k from 40k user visits
+within one month after its release.
+Register and Use New Tools Another key fea-
+ture of an agent is its generalization capability to
+unseen APIs. This allows users to quickly register
+their own APIs and customize their specific applica-
+tions. Therefore, we test the generalization ability
+of ModelScopeGPT by applying it to an Alibaba
+Cloud application scenario. As shown in Figure 3b,
+we first found an API for renewing an ECS in-
+stance on Alibaba Cloud. Then, we registered the
+API schema defined in the tool library to the agent.
+Finally, we entered the prompt "Please help me re-
+new an ECS..." in the demo. The agent generated a
+request through planning, selected the appropriate
+API, called the API to renew the instance success-
+fully, and provided a reply to inform the user that
+the renewal was completed. This test demonstrates
+that the open-source LLM optimized based on the
+released API dataset has a strong generalization
+ability towards unseen APIs.
+6 Conclusion
+ModelScope-Agent aims to facilitate building AI
+Agent applications and research based on open-
+source LLMs by providing a general and customiz-
+able agent framework covering flexible system de-
+sign, data collection, model training, evaluation
+and usage example in real-world application. It
+provides an open-source, community-driven library
+towards AI Agent learning and best practices for
+building an agent system with open-source LLMs.
+We hope ModelScope-Agent can help pave the way
+towards a new era of AI Agent.
+
+Ethics Statement
+Intended Use. ModelScope-Agent is designed
+to facilitate building AI Agent applications and
+research based on open-source LLMs, by providing
+a general and customizable agent system.
+Potential Misuse. Although we have only trained
+with the tool-use datasets and gone through certain
+data filtering rules, it is still possible that the cus-
+tomized model may generate some biased, fake,
+and unsafe information. Our agent framework also
+provides users with the freedom to select proper
+LLMs and upload their own clean data for training.
+It is also important to design specific methods to
+improve the safety of the agent framework in the
+future.

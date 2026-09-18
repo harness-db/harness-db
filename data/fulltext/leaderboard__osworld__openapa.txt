@@ -1,0 +1,968 @@
+record_id: leaderboard:osworld:openapa
+source_used: github_repo
+fetched_url: https://github.com/laiye-ai/open-apa/tree/147b98491f0ea0af0bad88f43ce4565ac20b52d6
+fetched_title: laiye-ai/open-apa
+fetched_at: 2026-09-18T19:08:15Z
+
+# laiye-ai/open-apa
+ref: commit:main 147b98491f0ea0af0bad88f43ce4565ac20b52d6 2026-05-20
+description: Open APA (Open Agentic Process Automation) is built on top of our first-place performance in the OSWorld Benchmark. It provides a practical and extensible framework for building computer use agents that can reliably execute long-horizon, real-world tasks across applications, interfaces, and workflows.
+topics: 
+
+## README (README.md)
+[🇨🇳 简体中文](./README.zh-CN.md)
+
+<h1 align="center">OpenAPA</h1>
+
+<p align="center">
+Open Agentic Process Automation (Open APA) is a practical and extensible framework for building computer use agents that can reliably execute long-horizon, real-world tasks across applications, interfaces, and workflows. Built on top of our first-place performance in the OSWorld Benchmark.
+</p>
+
+<p align="center">
+<a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT"></a>
+<img src="https://img.shields.io/badge/Python->=3.8-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/Platform-Cross--Platform-lightgrey?style=flat-square" alt="Platform">
+</p>
+
+---
+
+## Overview
+
+OpenAPA (Open Agentic Process Automation) is a cross-platform Computer-Use Agent. Built upon the architectural principles of **Agent-S (Large Multimodal Agents for the Browser and Desktop)**, it combines the perception and reasoning capabilities of Large Multimodal Models (LMMs) to achieve automated execution of complex GUI tasks. This report elaborates on the technical implementation of OpenAPA across five dimensions: knowledge acquisition, knowledge sharing, advance planning, session pruning, and multi-agent coordination.
+
+## Key Features
+
+- **Cross-Platform**: Supports Windows, macOS, and Linux out of the box.
+- **Pluggable LLM Backend**: Easily switch between OpenAI, Anthropic, Gemini, and local models.
+- **Robust Grounding**: Utilizes a specialized Grounding Agent for pixel-perfect UI interactions, eliminating reliance on brittle HTML/DOM structures.
+- **State-of-the-Art Benchmark Performance**: Core architecture powers top-tier performance on the rigorous OSWorld benchmark.
+
+## System Architecture
+
+```mermaid
+graph TD
+%% Main Flow
+User([User Task / Instruction]) --> KlickAgent["KlickAgent (Main Orchestrator)"]
+
+subgraph "OpenAPA Core Architecture"
+subgraph "KlickAgent Loop"
+Reflection["1. Reflection<br>(Analyze previous step & current screenshot)"]
+Decision["2. Decision Making<br>(Determine next action based on reflection & history)"]
+Reflection --> Decision
+end
+KlickAgent -.-> Reflection
+
+%% Executor acts as the central hub for dispatching
+KlickExecutor["KlickExecutor<br>(Action Dispatcher & Executor)"]
+
+%% Agents Layer
+subgraph "Specialized Agents"
+CodeAgent["CodeAgent<br>(Planning & Coding)"]
+GroundingAgent["GroundingAgent<br>(Visual Localization)"]
+end
+
+%% LLM Layer
+subgraph "LMM Engine Layer"
+MainLMM(("Main Model<br>(e.g., Gemini)"))
+GroundingLMM(("Grounding Model<br>(e.g., Doubao-seed)"))
+end
+end
+
+%% Environment
+Environment["OS / Application GUI"]
+
+%% Connections
+Decision -- "3. Passes action to executor" --> KlickExecutor
+KlickExecutor -- "4a. If action is Code: Delegates task" --> CodeAgent
+CodeAgent -- "Returns execution result" --> KlickExecutor
+KlickExecutor -- "4b. If action is UI: Queries Coordinates" --> GroundingAgent
+GroundingAgent -- "Returns (x,y)" --> KlickExecutor
+
+%% Model connections
+Reflection -. "Analyze" .-> MainLMM
+Decision -. "Planning" .-> MainLMM
+CodeAgent -. "Reasoning" .-> MainLMM
+GroundingAgent -. "Vision" .-> GroundingLMM
+
+%% Execution Loop
+KlickExecutor -- "5. exec() pyautogui/<br>OS commands" --> Environment
+Environment -- "6. New Screenshot /<br>Observation" --> Reflection
+```
+
+## Core Technology Implementation
+
+- **Knowledge Acquisition and Sharing**: To eliminate Large Multimodal Model (LMM) hallucinations, the system transforms reliance on internal model knowledge into active external acquisition. Acquired knowledge is persisted within a global runtime context and shared across different agents and multiple steps through prompt injection, ensuring a closed-loop consistency.
+- **Advance Planning**: The system introduces a hierarchical planning architecture. During the task initiation phase, a specialized planning engine generates high-level execution plans focusing on "goals" rather than "action details." Throughout execution, a reflection mechanism dynamically updates plan progress based on real-time trajectories and adjusts subsequent steps based on environmental feedback, preventing the agent from deviating during long-sequence tasks.
+- **Session Pruning**: Addressing the "token explosion" in long sessions, the session management module implements automated context management. A "sliding window" strategy is used to dynamically retain core reasoning trajectories and recent high-resolution screenshots. Simultaneously, a token-budget-based pruning logic prioritizes system instructions and the latest observations, significantly reducing API costs while boosting inference response speed and model instruction-following performance.
+- **Agent Coordination**: OpenAPA establishes a clear collaborative pipeline emphasizing complementary roles between agents. In scenarios such as Office suites or complex Web interactions—where pure code execution struggle to drive intricate GUI logic—the **Code-Agent** focuses on high-performance data processing (e.g., cleaning, transformation, and calculation), while the **UI-Agent** handles high-level visual element localization, complex workflow orchestration, and interactive operations. The two collaborate through a "delegate-execute-verify" loop: any results from code execution must be visually confirmed by the UI agent. This "Data to Code, Operation to UI" division of labor, combined with closed-loop verification, greatly enhances the robustness of complex tasks.
+
+## Quick Start
+
+### Installation
+
+```bash
+git clone https://github.com/laiye-ai/open-apa.git
+cd open-apa
+pip install -r requirements.txt
+pip install -e .
+```
+
+### Running an Agent locally
+
+To run and test the OpenAPA agent locally on your machine, you can use the built-in `klick_runner.py` script. This serves as an entry point for standalone tasks.
+
+**1. Configuration**
+
+> **IMPORTANT:** OpenAPA relies heavily on visual observation of the desktop environment. You **MUST** use Large Multimodal Models (LMMs) that support vision (e.g., GPT-4o, Claude 3.5 Sonnet, Gemini 1.5/2.0 Pro) for the Main Agent. Standard text-only models will not work.
+
+Before running tasks, configure your API keys and models in `conf/conf.yaml`:
+
+```yaml
+# Model Configuration (Main reasoning & planning)
+model:
+engine_type: "openai" # e.g., openai, anthropic, gemini
+model: "gemini" # The model name
+base_url: "https://..." # API endpoint
+api_key: "your_api_key" # Your API Key
+
+# Grounding Configuration (Vision & coordinate alignment)
+grounding:
+engine_type: "openai"
+model: "doubao-seed-1-8-251228"
+base_url: "https://..."
+api_key: "your_api_key"
+```
+
+**2. Customizing and Running Tasks**
+The `klick_runner.py` script contains a built-in `task_list` in its `if __name__ == "__main__":` block. By default, it runs a test task (e.g., opening Notepad, typing text, and saving).
+
+To test your own tasks:
+1. Open `scripts/klick_runner.py`.
+2. Locate the `task_list` array at the bottom of the file.
+3. Modify or add a task dictionary with your natural language instruction:
+```python
+{
+'task': "Open Chrome, search for the weather in Tokyo today, and take a screenshot.",
+'output_dir': os.path.join(os.getcwd(), "test_outputs/my-custom-task/"),
+'max_steps': 15
+}
+```
+4. Change the `test_idx` variable to point to your new task in the array.
+5. Run the script:
+```bash
+python scripts/klick_runner.py
+```
+The agent's reasoning logs and step-by-step screenshots will be saved to the specified `output_dir`.
+
+### Using the `openapa` CLI
+
+After `pip install -e .` the package exposes an `openapa` command for running tasks without editing source files.
+
+**1. First-time setup — interactive config wizard**
+
+```bash
+openapa config init # writes ~/.openapa/conf.yaml
+```
+
+The wizard walks through every field (main model, grounding model, screenshot, runner defaults) and validates each entry. Press Enter to accept the default in parens; `api_key` input is hidden via `getpass`.
+
+Other config commands:
+
+```bash
+openapa config show # print active config (api_key masked)
+openapa config set model.api_key sk-xxx # update one field, comments preserved
+openapa config unset screenshot.height
+openapa config check # ping main + grounding models
+```
+
+Config search order (first hit wins): `-c <path>` → `$OPENAPA_CONFIG` → `~/.openapa/conf.yaml`. CWD-relative `./conf/conf.yaml` is intentionally **not** auto-loaded; pass `-c conf/conf.yaml` if you want a project-local file.
+
+`openapa config set/unset` and the attachment extractors below need a few extra packages:
+
+```bash
+pip install -r requirements-cli.txt # ruamel.yaml, pypdf, python-docx, openpyxl
+```
+
+**2. Run a single task**
+
+```bash
+# inline
+openapa run "Open Notepad and type Hello"
+
+# from a long text file (multi-line / multilingual ok)
+openapa run -f tasks/long_task.txt
+
+# explicit log directory + step cap
+openapa run "..." -o test_outputs/foo -n 50
+
+# preview without calling the LLM
+openapa run "..." --dry-run
+```
+
+Outputs land in `test_outputs/run_<timestamp>/` by default — `runner.log`, `step_*.png` screenshots, and `llm_call_log.jsonl`. Exit code: `0` = task DONE, `1` = FAIL or hit max-steps, `2` = config/usage error, `3` = runtime error.
+
+**3. Tasks with attachments (PDF/DOCX/XLSX/images)**
+
+Create a YAML manifest:
+
+```yaml
+# tasks/with_attachments.yaml
+name: reimbursement
+instruction: |
+Submit a reimbursement form on the company portal.
+Use the attached invoice PDFs and payment screenshots.
+attachments:
+- path: ./files/invoice_01.pdf # text-extracted, inlined into instruction
+- path: ./files/payment_01.jpg # image, sent multimodally to the plan LMM
+label: payment screenshot #1
+- path: ./files/invoice_02.pdf
+- path: ./files/payment_02.jpg
+max_steps: 100
+```
+
+```bash
+openapa run -m tasks/with_attachments.yaml
+```
+
+Images go to the planning LMM as multimodal content; PDF / DOCX / XLSX / text files are extracted to plain text and inlined into the instruction inside `<<<attachment ...>>> ... <<<end attachment>>>` blocks.
+
+**4. Batch runs**
+
+```yaml
+# tasks/regression.yaml
+tasks:
+- name: notepad-hello
+instruction: Open Notepad, type 'Hello', save as test.txt
+max_steps: 20
+- name: image-rearrange
+instruction: Divide tilearray.png on desktop into three vertical sections...
+max_steps: 20
+```
+
+```bash
+openapa batch tasks/regression.yaml -o test_outputs/regression --continue-on-error
+```
+
+Each subtask gets its own `<output_base>/<name>/` directory; a `batch_summary.json` is written at the root.
+
+**5. Pre-run setup code (`prepare_code`)**
+
+A manifest may include Python snippets that run before the agent starts (e.g. to launch an app). Because they're `exec()`'d, the CLI requires explicit opt-in:
+
+```yaml
+prepare_code:
+- inline: |
+import pyautogui, time
+pyautogui.hotkey('win'); time.sleep(1)
+pyautogui.write('notepad'); pyautogui.press('enter')
+- path: ./prepare/extra_setup.py
+```
+
+```bash
+openapa run -m tasks/with_prepare.yaml --allow-prepare
+```
+
+Without `--allow-prepare` the run exits with code 2 and an explanatory message.
+
+**6. Useful flags reference**
+
+| Flag | Where | Purpose |
+| --- | --- | --- |
+| `-c, --config` | run / batch / config | Override config file path |
+| `-o, --log-output-dir` | run | Where logs/screenshots go |
+| `-n, --max-steps` | run | Cap agent iterations |
+| `-f, --task-file` | run | Read task text from file (or `-` for stdin) |
+| `-m, --manifest` | run | Structured YAML/JSON task spec |
+| `-p, --prepare` | run | Extra prepare-code file (repeatable) |
+| `--allow-prepare` | run / batch | Permit `exec()` of prepare code |
+| `--keep-output` | run / batch | Don't wipe the output dir |
+| `--dry-run` | run / batch | Resolve config + attachments, skip LLM |
+| `--only NAMES` | batch | Only run named subtasks (csv) |
+| `--continue-on-error` | batch | Keep going after a failed subtask |
+
+## Directory Structure
+
+```text
+open-apa/
+├── agent_core/ # Core multi-agent framework
+│ ├── agents/ # Agent implementations (Klick, Code, Grounding)
+│ ├── cli/ # `openapa` CLI: argparse entry, commands, task loader, attachments
+│ ├── common/ # Shared utilities and checkers
+│ ├── lmms/ # Language Model API wrappers (OpenAI, Anthropic, Gemini)
+│ ├── observer/ # Runtime and logging context
+│ └── runner.py # Library API: run_klick_agent_task end-to-end
+├── benchmark_test/ # Benchmark integration scripts
+│ └── osworld_setup/ # OSWorld evaluation runners
+├── conf/ # Configuration files
+│ └── conf.yaml # Model and runtime configurations
+├── scripts/ # Execution entry points
+│ └── klick_runner.py # Main script to run OpenAPA tasks
+├── tools/ # Auxiliary tools and analyzers
+│ └── osworld_replay/ # Scripts for replaying OSWorld trajectories
+├── setup.py # Package installation script
+├── requirements.txt # Core Python dependencies
+└── requirements-cli.txt # Optional CLI deps (attachment extractors, ruamel.yaml)
+```
+
+## OSWorld Benchmark Performance
+
+OpenAPA was evaluated on the OSWorld benchmark using a subset of 361 tasks (excluding Google Drive tasks). The core architecture achieved top-tier performance across a wide range of applications.
+
+**Models Evaluated:**
+- **Main Agent & Code Agent:** `gemini-3.1-pro-preview`
+- **Grounding Model:** `doubao-seed-1-8-251228`
+
+**Overall Performance:**
+- **Total score:** 282.8 / 361
+- **Average score:** 78.34%
+
+**Score Breakdown by Domain:**
+
+| Domain | Score | Total Tasks |
+| :--- | :---: | :---: |
+| Chrome | 32.96 | 46 |
+| GIMP | 22.0 | 26 |
+| LibreOffice Calc | 44.0 | 47 |
+| LibreOffice Impress | 38.96 | 47 |
+| LibreOffice Writer | 17.0 | 23 |
+| Multi Apps | 61.14 | 93 |
+| OS | 20.0 | 24 |
+| Thunderbird | 12.0 | 15 |
+| VLC | 15.75 | 17 |
+| VS Code | 19.0 | 23 |
+
+### OSWorld Integration
+
+OpenAPA integrates seamlessly with the [OSWorld benchmark](https://github.com/xlang-ai/OSWorld) to evaluate computer-use agents in a realistic OS environment.
+
+#### Reproduction Steps
+
+**1. Prepare OSWorld Environment**
+First, ensure you have the OSWorld repository cloned and its Docker environment configured according to their official instructions.
+
+```bash
+git clone https://github.com/xlang-ai/OSWorld.git
+cd OSWorld
+# Follow OSWorld's setup instructions for Docker environments
+```
+
+**2. Install OpenAPA**
+```bash
+cd /path/to/open-apa
+pip install -r requirements.txt
+pip install -e .
+```
+
+**3. Synchronize Integration Scripts**
+Copy the customized OpenAPA execution scripts into the OSWorld root directory:
+```bash
+cp benchmark_test/osworld_setup/lib_run_single.py /path/to/OSWorld/
+cp benchmark_test/osworld_setup/run.py /path/to/OSWorld/
+```
+
+**4. Run the Evaluation**
+Navigate to your OSWorld directory and execute the benchmark. Make sure to replace the API keys and endpoints with your own.
+
+```bash
+cd /path/to/OSWorld
+python run.py \
+--provider_name docker \
+--headless \
+--num_envs 1 \
+--max_steps 100 \
+--domain "all" \
+--test_all_meta_path evaluation_examples/test_nogdrive.json \
+--model_provider "gemini" \
+--model "gemini-3.1-pro-preview" \
+--model_url "https://your-model-api-endpoint/v1" \
+--model_api_key "your_gemini_api_key" \
+--model_temperature 1.0 \
+--ground_provider "openai" \
+--ground_model "doubao-seed-1-8-251228" \
+--ground_url "https://your-grounding-api-endpoint/v3" \
+--ground_api_key "your_doubao_api_key" \
+--grounding_width 1000 \
+--grounding_height 1000 \
+--sleep_after_execution 3 \
+--result_dir "result-OpenAPA"
+```
+
+> **Note:** The `--grounding_width` and `--grounding_height` arguments must be configured to match the optimal resolution required by the specific grounding model you are utilizing.
+
+**5. View Evaluation Results**
+OpenAPA provides a dedicated web dashboard to analyze the evaluation trajectories, LLM reasoning processes, and token/time consumption.
+
+```bash
+cd /path/to/open-apa
+python tools/osworld_result_viewer/app.py --result-dir /path/to/OSWorld/result-OpenAPA --port 8089
+```
+
+Once the server is running, open your browser and navigate to `http://localhost:8089` to explore the detailed task playback and dashboard.
+
+## docs (first 20000 chars of 1 files)
+### docs/cli_design.md
+# Open APA CLI 工具设计文档
+
+## 1. 背景与目标
+
+当前 [scripts/klick_runner.py](../scripts/klick_runner.py) 提供了一个完整的 `KlickAgent` 调用流程，但它把任务列表硬编码在 `__main__` 块里，每次切换/新增任务都需要改源码。
+
+本设计的目标：**封装一个独立的命令行工具，让用户在不改源码的前提下，用一条命令运行任意单个或多个任务，并支持配置覆盖、前置代码、自定义日志目录等常见需求。**
+
+## 2. 范围
+
+### 2.1 In scope
+- 单任务执行（任务文本直接传入或读自文件）。
+- 多任务批量执行（任务清单 YAML/JSON）。
+- 配置文件路径覆盖。
+- 输出目录、最大步数、前置代码可配置。
+- 通过 `pip install -e .` 后注册为可执行命令。
+
+### 2.2 Out of scope（本期不做）
+- 任务并发执行（KlickAgent 直接操控本机鼠标键盘，并发会冲突）。
+- 远程任务派发 / 任务队列。
+- 交互式 REPL。
+- 修改 KlickAgent 内部行为或新增 agent 能力。
+
+## 3. 用户使用场景
+
+| 场景 | 命令示例 |
+| --- | --- |
+| 跑一个简单任务 | `openapa run "Open Notepad and type hello"` |
+| 指定日志输出目录和最大步数（不指定则使用默认值） | `openapa run "..." -o test_outputs/foo -n 50` |
+| 从文件读取长任务描述（包含中文/多行） | `openapa run -f tasks/task_11.txt` |
+| 使用非默认配置 | `openapa run "..." -c conf/conf_anthropic.yaml` |
+| 先执行准备代码（启动 notepad），再跑任务 | `openapa run "..." --prepare prepare/open_notepad.py` |
+| 批量跑多个任务 | `openapa batch tasks/regression.yaml` |
+| 生成默认配置模板 | `openapa config init` |
+| 修改配置中的某项 | `openapa config set model.api_key sk-xxxx` |
+| 验证配置可用 | `openapa config check` |
+
+## 4. CLI 接口设计
+
+### 4.1 入口命令
+
+通过 `setup.py` 的 `entry_points` 注册：
+
+```python
+entry_points={
+'console_scripts': [
+'openapa = agent_core.cli.main:main',
+],
+},
+```
+
+命令名取 `openapa`（与包名一致，易记）。
+
+### 4.2 子命令总览
+
+```
+openapa <subcommand> [options]
+
+子命令：
+run 运行单个任务
+batch 运行任务清单中的多个任务
+config 配置相关操作（check/show）
+version 打印版本号
+```
+
+### 4.3 `openapa run` 参数
+
+| 参数 | 短参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `task` (positional) | — | str | — | 任务描述文本。与 `--task-file` 互斥。 |
+| `--task-file` | `-f` | path | — | 从文件读取任务描述（UTF-8）。 |
+| `--log-output-dir` | `-o` | path | `test_outputs/run_<timestamp>` | 日志输出目录（同时存放 `runner.log`、`step_*.png` 截图、`llm_call_log.jsonl`）。未指定时自动生成带时间戳的默认目录，不会覆盖已有运行记录。 |
+| `--max-steps` | `-n` | int | 取 `runner.max_steps`（缺省 `30`） | Agent 最大迭代步数。优先级：命令行 > 配置文件 `runner.max_steps` > 内置兜底 `30`。 |
+| `--config` | `-c` | path | `conf/conf.yaml` | 模型配置文件路径。 |
+| `--prepare` | `-p` | path (repeatable) | — | 前置 Python 代码文件，按顺序 `exec`，每段间隔 2s。可重复指定。 |
+| `--keep-output` | — | flag | `False` | 不清空已存在的日志输出目录（默认会 `rmtree`，与现行 runner 行为一致）。 |
+| `--log-level` | — | enum | `INFO` | 控制台日志级别：`DEBUG`/`INFO`/`WARNING`/`ERROR`。 |
+| `--dry-run` | — | flag | `False` | 只加载配置 + 截图，不真正调用 LLM，用于本地连通性自测。 |
+
+退出码：
+- `0` — 任务标记 DONE。
+- `1` — 任务标记 FAIL 或达到 max_steps 未完成。
+- `2` — 配置/参数错误（CLI usage error）。
+- `3` — 运行期未捕获异常。
+
+### 4.4 `openapa batch` 参数
+
+| 参数 | 短参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `task_list` (positional) | — | path | — | 任务清单文件（YAML 或 JSON）。 |
+| `--output-base` | `-o` | path | `test_outputs/` | 当清单中未指定 `output_dir` 时，使用 `<output-base>/<task_name>/`。 |
+| `--config` | `-c` | path | `conf/conf.yaml` | 模型配置文件路径。 |
+| `--continue-on-error` | — | flag | `False` | 单任务失败不中断，继续后续任务。默认遇错即停。 |
+| `--only` | — | str (csv) | — | 仅运行指定 `name` 的子任务，用逗号分隔。 |
+
+batch 任务清单格式（YAML，与现有硬编码 `task_list` 字段对齐）：
+
+```yaml
+tasks:
+- name: notepad-hello
+task: "Open Notepad, type 'Hello Klick Agent', and save it to the desktop as 'test.txt'"
+max_steps: 20
+output_dir: test_outputs/task-01/ # 可选；缺省时用 output_base/name
+prepare_code:
+- path: prepare/open_notepad.py
+- inline: |
+import pyautogui
+pyautogui.hotkey('ctrl', 's')
+
+- name: image-rearrange
+task: |
+Divide my image tilearray.png ...
+max_steps: 20
+```
+
+字段说明：
+- `name`：必填，唯一标识，用于日志/筛选。
+- `task`：必填，任务描述。
+- `max_steps`：可选。优先级：清单条目 > `--max-steps` 命令行 > 配置文件 `runner.max_steps` > 内置兜底 `30`。
+- `output_dir`：可选，未填则用 `<output-base>/<name>/`。
+- `prepare_code`：可选，列表，元素可为 `{path: "..."}` 或 `{inline: "..."}`。
+
+### 4.5 `openapa config` 子命令
+
+| 命令 | 行为 |
+| --- | --- |
+| `openapa config show [-c path]` | 打印加载到的 model/grounding/screenshot/runner 字段（脱敏 api_key）。 |
+| `openapa config check [-c path]` | 加载配置 + 调一次 main 模型和 grounding 模型，确认连通性，返回总结。 |
+| `openapa config init [-c path] [--force]` | 在 `path`（默认 `conf/conf.yaml`）写入一份带注释的模板。若目标已存在则报错退出，除非 `--force`。 |
+| `openapa config set <dotted.key> <value> [-c path]` | 按点分路径修改单个字段，写回 YAML，保留其他字段与注释。 |
+| `openapa config unset <dotted.key> [-c path]` | 删除单个字段。 |
+
+`set` / `unset` 细节：
+
+- **路径语法**：点分，例如 `model.api_key`、`grounding.base_url`、`screenshot.width`。仅支持映射键，不支持列表索引（YAML 里这两节都是 map，足够用）。
+- **值解析**：先尝试当作 YAML 标量解析（`true`/`false`/`null`/数字/带引号字符串），失败则按字符串处理。这样 `--set screenshot.width 1920` 能存成 int，`--set model.api_key sk-xxx` 直接存字符串。
+- **保留注释**：使用 `ruamel.yaml`（round-trip 模式）读写，避免 PyYAML `safe_dump` 把现有 [conf/conf.yaml](../conf/conf.yaml) 里那几行 `#` 注释吃掉。**新增依赖** → 加入 §8.7 / `requirements-cli.txt`：`ruamel.yaml>=0.18,<0.19`。
+- **api_key 的特殊处理**：`show` 默认脱敏（仅显示首 4 末 4 字符）；`set model.api_key xxx` 时若 stdout 是 TTY，给一句提示"该值已写入明文 YAML，注意权限"，并把文件权限收紧到 `0600`（Windows 跳过 chmod，仅打印提示）。
+- **退出码**：路径不存在或值非法 → 2；写盘失败 → 3；成功 → 0。
+- **示例**：
+
+```bash
+openapa config set model.api_key sk-xxxx
+openapa config set model.engine_type anthropic
+openapa config set grounding.grounding_width 1280
+openapa config set screenshot.width 1920
+openapa config set runner.max_steps 50
+openapa config unset screenshot.height
+```
+
+### 4.6 `conf.yaml` 目标 schema
+
+在现有三段（`model` / `grounding` / `screenshot`）基础上新增 `runner` 段：
+
+```yaml
+# 现有字段保持不变
+model:
+engine_type: openai
+model: gemini-3.1-pro-preview
+base_url: https://vip.dmxapi.com/v1
+api_key: sk-xxxx
+temperature: 1.0
+
+grounding:
+engine_type: openai
+model: doubao-seed-1-8-251228
+base_url: https://ark.cn-beijing.volces.com/api/v3
+api_key: xxxx
+grounding_width: 1000
+grounding_height: 1000
+
+screenshot:
+# width: 1920
+# height: 1080
+
+# 新增：runner 级默认值，被命令行参数覆盖
+runner:
+max_steps: 30 # openapa run / batch 子任务的兜底步数
+# 预留：后续可加 default_log_output_base, default_log_level 等
+```
+
+字段语义：
+
+- `runner.max_steps`：整数，>=1。仅在命令行 `--max-steps` 与 batch 清单 `max_steps` 均未指定时生效。缺省值兜底 30（与现行 `klick_runner.py` 一致）。
+- 兼容性：旧 `conf.yaml` 不含 `runner:` 段 → `load_model_config` 返回 `runner_config={}`，行为与本期前完全相同。
+
+`openapa config init` 生成的模板包含整段 `runner:`（带注释）。
+
+### 4.7 `openapa version`
+
+打印当前包版本（读自 `agent_core.__version__`，本期新加该常量）。
+
+## 5. 内部架构
+
+```
+agent_core/
+cli/
+__init__.py
+main.py # argparse 顶层入口，分发子命令
+commands/
+__init__.py
+run.py # openapa run
+batch.py # openapa batch
+config.py # openapa config show / check
+task_loader.py # YAML/JSON 任务清单解析 + 校验
+prepare.py # 加载并执行 prepare 代码（path / inline）
+logging_setup.py # 把 klick_runner.py 里的 logging 配置抽出来复用
+agents/... # 现有不变
+scripts/
+klick_runner.py # 保留为示例脚本，内部改为 thin wrapper 调用 cli.commands.run
+```
+
+### 5.1 复用现有代码
+
+`run_klick_agent_task` 已经是合适的入口，CLI 直接调用，不重写。要做的小改造：
+
+1. **抽出 logging 初始化** — 当前 `run_klick_agent_task` 内部直接配置 root logger，CLI 多次调用会产生重复 handler。把这段挪到 `cli/logging_setup.py` 的 `configure_logging(output_dir, level)`，由 CLI 在入口处调用一次；`run_klick_agent_task` 改成可选传入 `setup_logging: bool = True` 以保持向后兼容。
+2. **新增 `__version__`** — 在 `agent_core/__init__.py` 加 `__version__ = "0.1.0"`，与 `setup.py` 中保持一致（理想情况是 `setup.py` 反过来读它，本期不做）。
+3. **`load_model_config` 多吐一个键** — 在 [scripts/klick_runner.py:21-32](../scripts/klick_runner.py#L21-L32) 的返回字典里追加 `'runner_config': config_data.get('runner') or {}`，把新增的 `runner.*` 段透出。CLI 在解析参数时按"命令行 > runner_config > 兜底"顺序解析 `max_steps`（以及未来可能加的 `default_log_output_base`）。`run_klick_agent_task` 自身仍接收已解析好的 `max_steps: int`，不感知 YAML。
+
+### 5.2 模块职责
+
+- **`cli/main.py`**：`argparse` + subparsers，把 `argparse.Namespace` 交给具体 command。
+- **`cli/commands/run.py`**：参数 → 调 `prepare.run_prepare(...)` → 调 `run_klick_agent_task(...)` → 根据 history 末态决定退出码。
+- **`cli/commands/batch.py`**：`task_loader.load(...)` → 遍历，每个任务委托给 `commands/run.py` 的内部函数 `_execute_single(...)`。
+- **`cli/task_loader.py`**：用 `PyYAML` 读 YAML（`.yaml`/`.yml`），用 `json` 读 `.json`；做字段校验，返回 `List[TaskSpec]`（`@dataclass`）。
+- **`cli/prepare.py`**：把现有 `for code in prepare_code: exec(code); time.sleep(2)` 的逻辑搬过来，并支持读文件。
+
+### 5.3 与现有 `klick_runner.py` 的关系
+
+- 不删除 `scripts/klick_runner.py`，保留作为"内嵌任务列表的 demo 脚本"。
+- 把 `run_klick_agent_task` 视为公共 API，仍放在 `scripts/klick_runner.py`（或迁到 `agent_core/runner.py` —— 见 §8 待决策点）。
+
+## 6. 退出码与错误处理
+
+| 出口 | 退出码 |
+| --- | --- |
+| Agent 主动 DONE | 0 |
+| Agent 主动 FAIL | 1 |
+| 超过 max_steps 未 DONE | 1 |
+| 配置/CLI 参数错 | 2 |
+| KlickAgent 抛出未捕获异常 | 3 |
+
+`batch` 命令的退出码：
+- 全部成功：0
+- 任一失败且未加 `--continue-on-error`：失败任务的退出码
+- 加了 `--continue-on-error`：所有任务都跑完，只要有失败就返回 1，附带打印失败子任务列表。
+
+## 7. 端到端样例
+
+### 7.1 单任务
+
+```bash
+# 安装
+pip install -e .
+
+# 运行
+openapa run "Open Notepad and type Hello" \
+-o test_outputs/hello \
+-n 20 \
+--prepare prepare/launch_notepad.py
+```
+
+输出：
+```
+2026-05-20 10:11:12 - [SCREEN] - klick_runner - INFO - Screen size: 1920x1080
+2026-05-20 10:11:12 - [SCREEN] - klick_runner - INFO - [*] Initializing KlickAgent for task: Open Notepad...
+2026-05-20 10:11:14 - [SCREEN] - klick_runner - INFO - [---------- Step 1 / 20 ----------]
+...
+2026-05-20 10:12:30 - [SCREEN] - klick_runner - INFO - [+] Task marked as DONE by agent!
+==================================================
+TASK FINISHED - USAGE SUMMARY
+...
+```
+
+### 7.2 批量
+
+`tasks/regression.yaml`：见 §4.4 示例。
+
+```bash
+openapa batch tasks/regression.yaml -o test_outputs/regression-2026-05-20 --continue-on-error
+```
+
+每个子任务有独立的 `runner.log` + `step_*.png` + `llm_call_log.jsonl`，根目录额外生成 `batch_summary.json`：
+
+```json
+{
+"started_at": "2026-05-20T10:00:00",
+"finished_at": "2026-05-20T10:35:00",
+"results": [
+{"name": "notepad-hello", "status": "done", "steps": 7, "exit_code": 0},
+{"name": "image-rearrange", "status": "fail", "steps": 20, "exit_code": 1}
+]
+}
+```
+
+## 8. 长任务描述与多模态附件支持
+
+任务描述可能很长、可能引用截图/PDF/Word/Excel 等多种附件。本节专门展开。
+
+### 8.1 三类输入形态
+
+| 形态 | 触发方式 | 适合什么 |
+| --- | --- | --- |
+| **inline 文本** | `openapa run "任务文本"` | 一句话任务 |
+| **纯文本文件** | `openapa run -f task.txt` | 几十行、纯文字的中长任务 |
+| **结构化任务清单（manifest）** | `openapa run -m task.yaml` 或 batch 清单中的单条任务 | 文本 + 多个图片/文档附件 |
+
+三种形态最终都被规范化成同一个内部数据结构 `TaskSpec`：
+
+```python
+@dataclass
+class TaskAttachment:
+path: Path # 附件本地路径
+kind: Literal['image', 'text', 'auto'] # auto 时按后缀名推断
+label: Optional[str] = None # 给 LLM 看的标签，缺省用文件名
+
+@dataclass
+class TaskSpec:
+instruction: str # 主任务描述（纯文本）
+attachments: List[TaskAttachment] = [] # 0..N 个附件
+name: Optional[str] = None
+max_steps: int = 30
+output_dir: Optional[Path] = None
+prepare_code: List[PrepareStep] = []
+```
+
+### 8.2 Manifest 文件格式
+
+YAML（推荐）或 JSON，单任务的 manifest 长这样：
+
+```yaml
+# task.yaml
+name: ekuaibao-reimbursement
+instruction: |
+请在易快报上帮我提交一份报销单。
+……（任意长的多行文本，保留缩进/换行/中文）
+
+报销凭证见附件：海外发票 PDF 与对应的支付截图。
+
+attachments:
+- path: ./attachments/invoice_01.pdf # 文档，CLI 会抽取文本内嵌
+- path: ./attachments/payment_01.jpg # 图片，CLI 作为多模态送给 plan LMM
+label: 支付截图 #1
+- path: ./attachments/invoice_02.pdf
+- path: ./attachments/payment_02.jpg
+label: 支付截图 #2
+
+max_steps: 400
+prepare_code:
+- inline: |
+import webbrowser
+webbrowser.open('https://wx2.ekuaibao.com/...')
+```
+
+batch 清单里的每条任务支持同样的字段（顶层换成 `tasks:` 列表）。
+
+### 8.3 附件的处理策略（核心设计）
+
+不同附件类型走不同路径：
+
+| 附件类型 | 后缀 | 处理 | 进入 LLM 的形式 |
+| --- | --- | --- | --- |
+| 图片 | `.png .jpg .jpeg .webp .gif .bmp` | 不抽文本，直接走多模态 | 作为 image content 附在 task plan 首轮 user 消息 |
+| PDF | `.pdf` | CLI 用 `pypdf` 抽文本 | 文本以 `<<<attachment label=... type=pdf>>>...<<<end>>>` 块嵌入 instruction |
+| Word | `.docx` | `python-docx` 抽文本 | 同上 |
+| Excel | `.xlsx .xls` | `openpyxl` 抽成 TSV 文本 | 同上 |
+| 纯文本 | `.txt .md .csv .json .yaml .log` | 直接读 | 同上 |
+| 其他 | * | 报错，提示用户显式标 `kind: text` 或 `kind: image` | — |
+
+降级策略：若所需提取库未安装（如 `pypdf`），CLI 给出 actionable 错误并退出码 2，不静默 fallback。
+
+### 8.4 注入位置：为什么不能放进 system prompt
+
+参见 [klick_agent.py:184](../agent_core/agents/klick_agent.py#L184)：
+
+```python
+generate_action_system_prompt = generate_action_system_prompt.replace('TASK_DESCRIPTION', self.task_instruction)
+```
+
+系统提示是纯字符串，**没法承载图片**。同时 reflection prompt 也是 f-string 拼接（[klick_agent.py:190-196](../agent_core/agents/klick_agent.py#L190-L196)）。
+
+因此：
+
+- **抽取后的文档文本** → 直接合并进 `instruction`，三处系统提示都能受益。
+- **图片** → 不进 system prompt，而是改 [klick_agent.py:45-63](../agent_core/agents/klick_agent.py#L45-L63) `_generate_task_plan`，让 plan LMM 的首轮 user 消息携带图片。Plan LMM 看到的有限上下文足以让它在 plan 文本中"复述"对图片的理解，后续的 generate_action / reflection 通过 plan 间接获得图片信息。
+
+### 8.5 对 `KlickAgent` 的最小侵入式改造
+
+仅改两处，保持向后兼容：
+
+1. `initialize_agent` 签名扩展：
+
+```python
+def initialize_agent(
+self,
+task_instruction: str,
+obs: Dict,
+task_image_attachments: Optional[List[str]] = None, # NEW
+):
+```
+
+旧调用方（`klick_runner.py`、OSWorld 集成）不传 → 行为不变。
+
+2. `_generate_task_plan` 透传图片：
+
+```python
+def _generate_task_plan(self, obs, task_image_attachments=None):
+text_content = f"Task Description: {self.task_instruction}"
+self.task_plan_lmm.add_message(
+role='user',
+text_content=text_content,
+image_content=task_image_attachments or None,
+)
+...
+```
+
+不动 `LMMSession`、不动 system prompt 模板、不动 OSWorld 适配层。
+
+### 8.6 文档抽取的实现细节
+
+新增模块 `agent_core/cli/attachments.py`，导出：
+
+```python
+def load_attachment(att: TaskAttachment) -> AttachmentLoaded:
+"""Return either {'image_path': str} or {'text_block': str}."""
+```
+
+抽取规范：
+
+- PDF：按页拼接，每页前加 `--- page N ---` 分隔符。空白过多页跳过。
+- DOCX：按段落拼接，保留 heading 层级标记（`# `, `## `）。
+- XLSX：按 sheet → TSV，每 sheet 前加 `--- sheet "<name>" ---`。
+- 截断：单附件抽取后超过 `OPEN_APA_MAX_ATTACHMENT_CHARS`（默认 20000）字符则截断并在末尾追加 `[... truncated, original NNN chars]`，避免一不留神撑爆 prompt。
+
+抽取后的 text_block 拼装到 `instruction`：
+
+```
+原始 instruction
+…………
+
+<<<attachment label="invoice_01.pdf" type=pdf>>>
+（抽出的文本）
+<<<end attachment>>>
+
+<<<attachment label="invoice_02.pdf" type=pdf>>>
+…
+<<<end attachment>>>
+```
+
+图片附件只透传 path 列表，不动 instruction 文本（但 CLI 会在 instruction 末尾补一行 `(See N attached image(s): label1, label2, …)`，提示模型注意有图）。
+
+### 8.7 依赖增量
+
+`requirements.txt` 增加（且都给上限版本，避免无意升级）：
+
+```
+pypdf>=4.0,<6.0
+python-docx>=1.1,<2.0
+openpyxl>=3.1,<4.0
+```
+
+可选放进 `requirements-cli.txt`，CLI 在首次需要时给出 actionable 提示，避免没用 CLI 的用户被强行安装。倾向后者。
+
+### 8.8 stdin 与超长文本
+
+- `-f -` 表示从 stdin 读取（兼容 Unix 习惯，便于 `cat task.txt | openapa run -f -`）。
+- 全部读取走 UTF-8；不设字符上限，仅记录字符数到日志。
+
+### 8.9 安全与隐私
+
+- 附件路径解析时做 **realpath**，禁止 `..` 穿越到 manifest 文件所在目录之外，除非用户用绝对路径——绝对路径默认放行，但日志里清晰打印每个被加载的文件，便于审计。
+- 不上传 / 不缓存到任何 CLI 持有的目录；图片只走 LLM 调用，文档抽取的文本只进内存。
+
+## 9. 待决策点（请确认）
+
+1. **命令名**：`openapa` vs `klick` vs `klick-runner`？文档暂用 `openapa`，与项目名一致。
+2. **`run_klick_agent_task` 的位置**：是否把它从 `scripts/klick_runner.py` 迁到 `agent_core/runner.py`（让它真正成为库 API），或者保持原位让 CLI `from scripts.klick_runner import ...`？后者会让 CLI 依赖 `scripts/`，不太干净；推荐前者。
+3. **prepare_code 的安全模型**：当前 `exec()` 任意 Python 代码，等同于完全信任输入。是否需要在 CLI 层加 `--allow-prepare` 这种确认开关，避免误跑 untrusted YAML？我倾向加一个，默认禁止 prepare，明确开启才允许。
+4. **`--dry-run` 的具体语义**：本期是"加载配置 + 截图 + 初始化 agent 后立即退出"，不调 LLM；还是"调一次 LLM 拿到第一步动作但不执行"？前者更安全，后者更能验证端到端。推荐前者。
+5. **是否暴露引擎/模型字段的命令行 override**（例如 `--main-model gpt-4o`）？本期 **不做**，保持配置走 YAML，避免参数爆炸；若需快速切换，复制多个 conf 文件即可。
+6. **附件抽取依赖的安装方式**：放进主 `requirements.txt`（开箱即用，但所有用户被迫装上），还是单独 `requirements-cli.txt` + 首次使用时 actionable 报错（最小依赖）？倾向后者。
+7. **图片附件是否也注入到 reflection / generate_action 的首轮 user 消息**：本期 §8 设计只注入到 plan LMM，依赖 plan 把图片信息"翻译"进文本计划里。要不要更激进地把图片同时塞进 generate_action 的首轮以便 agent 自己也能直接看图？激进派会消耗更多 token，且与现有 `num_images=2` 的窗口策略可能挤掉真实截图。倾向**只给 plan**。
+8. **附件大小/数量上限**：单附件抽取后字符数 20000（§8.6 默认），单任务附件总数是否设硬上限？建议默认 16 个，超出报错；可被 `OPEN_APA_MAX_ATTACHMENTS` 覆盖。
+
+## 10. 工作量估计与里程碑
+
+| 阶段 | 内容 | 估时 |
+| --- | --- | --- |
+| M1 | logging 抽离 + `agent_core/runner.py` 迁移 + 单元测试 | 0.5d |
+| M2 | `openapa run`（含 inline / `-f` / `-m`）+ `version` | 0.5d |
+| M3 | 附件子系统：`task_loader` + `attachments.py` + `KlickAgent` 双处小改造 | 1d |
+| M4 | `openapa batch` + prepare loader | 0.5d |
+| M5 | `openapa config show/check/init/set/unset`（含 `ruamel.yaml` round-trip 写回） | 0.5d |
+| M6 | 文档（README 一节）+ 端到端冒烟 + 附件 fixture 测试 | 0.5d |
+| 合计 | | ~3.5d |
+
+## 11. 风险与缓解
+
+| 风险 | 缓解 |
+| --- | --- |
+| logging 在反复调用时重复输出 | logging 初始化挪到 CLI 入口，只做一次；`run_klick_agent_task` 加开关。 |
+| YAML 中 inline 代码包含特殊字符（`\n` 反斜杠等） | 用 `|` block scalar；测试覆盖 Windows 路径。 |
+| Windows 控制台编码 | 强制以 `utf-8` 读写文件；console 输出依赖现有 `console_handler`（沿用即可）。 |
+| 任务串跑时上一任务残留窗口影响下一任务 | 不在本期解决，文档里提示用户用 `prepare_code` 自行清理。 |
+
+---
+
+**确认这版设计后，请回复我以下三点的偏好（§8 中的 1/2/3），我就开始按里程碑 M1 起步实现。**
+
+## File tree (first 54 of 54 paths)
+.gitignore
+LICENSE
+README.md
+README.zh-CN.md
+agent_core/__init__.py
+agent_core/agents/__init__.py
+agent_core/agents/code_agent.py
+agent_core/agents/executor_preset_code.py
+agent_core/agents/grounding_agent.py
+agent_core/agents/klick_agent.py
+agent_core/agents/klick_executor.py
+agent_core/agents/system_prompts.py
+agent_core/cli/commands/batch.py
+agent_core/cli/commands/config.py
+agent_core/cli/commands/run.py
+agent_core/cli/config_path.py
+agent_core/cli/logging_setup.py
+agent_core/cli/main.py
+agent_core/cli/prepare.py
+agent_core/cli/task_loader.py
+agent_core/common/__init__.py
+agent_core/common/checkers.py
+agent_core/common/common_utils.py
+agent_core/lmms/__init__.py
+agent_core/lmms/engines.py
+agent_core/lmms/session.py
+agent_core/observer/__init__.py
+agent_core/observer/runtime.py
+agent_core/runner.py
+benchmark_test/osworld_setup/README.md
+benchmark_test/osworld_setup/lib_run_single.py
+benchmark_test/osworld_setup/run.py
+conf/conf.yaml
+docs/cli_design.md
+requirements-cli.txt
+requirements.txt
+scripts/klick_runner.py
+setup.py
+tools/mark_pic.py
+tools/osworld_replay/lib_replay_single.py
+tools/osworld_replay/run_replay.py
+tools/osworld_replay/task-actions.md
+tools/osworld_result_viewer/README.md
+tools/osworld_result_viewer/app.py
+tools/osworld_result_viewer/extractor.py
+tools/osworld_result_viewer/requirements.txt
+tools/osworld_result_viewer/requirements_and_plan.md
+tools/osworld_result_viewer/static/css/styles.css
+tools/osworld_result_viewer/static/index.html
+tools/osworld_result_viewer/static/js/main.js
+tools/osworld_result_viewer/static/js/task.js
+tools/osworld_result_viewer/static/task.html
+tools/stat_osworld.py
+tools/test_llm_engine.py

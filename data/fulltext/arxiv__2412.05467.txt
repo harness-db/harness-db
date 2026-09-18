@@ -1,0 +1,819 @@
+record_id: arxiv:2412.05467
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2412.05467
+fetched_title: The BrowserGym Ecosystem for Web Agent Research
+fetched_at: 2026-09-18T18:59:48Z
+
+The BrowserGym Ecosystem for Web Agent Research
+Thibault Le Sellier De Chezelles∗123 Maxime Gasse∗123 Alexandre Lacoste∗1
+Core contributors:
+Alexandre Drouin12 Massimo Caccia1
+Léo Boisvert123 Megh Thakkar12 T om Marty27 Rim Assouel27 Sahar Omidi Shayegan125
+Benchmark contributors:
+Lawrence Keunho Jang4 Xing Han Lù 25 Ori Y oran6 Dehan Kong8 F rank F. Xu4
+Affiliated advisors:
+Siva Reddy125 Quentin Cappart23 Graham Neubig4 Ruslan Salakhutdinov4 Nicolas Chapados123
+Lead:
+Maxime Gasse123 Alexandre Lacoste1
+1ServiceNow Research2Mila 3Polytechnique Montréal
+4Carnegie Mellon University 5McGill University 6T el Aviv University7Université de Montréal8iMean AI
+Abstract
+The BrowserGym ecosystem addresses the growing need for efficient evaluation and benchmarking
+of web agents, particularly those leveraging automation and Large Language Models (LLMs) for
+web interaction tasks. Many existing benchmarks suffer from fragmentation and inconsistent evalu-
+ationmethodologies, makingitchallengingtoachievereliablecomparisonsandreproducibleresults.
+In an earlier work, Drouin et al. (2024) introduced BrowserGym which aims to solve this by pro-
+viding a unified, gym-like environment with well-defined observation and action spaces, facilitating
+standardized evaluation across diverse benchmarks. We propose an extended BrowserGym-based
+ecosystem for web agent research, which unifies existing benchmarks from the literature and
+includes AgentLab, a complementary framework that aids in agent creation, testing, and analysis.
+Our proposed ecosystem offers flexibility for integrating new benchmarks while ensuring consistent
+evaluation and comprehensive experiment management. This standardized approach seeks to
+reduce the time and complexity of developing web agents, supporting more reliable comparisons
+and facilitating in-depth analysis of agent behaviors, and could result in more adaptable, capable
+agents, ultimately accelerating innovation in LLM-driven automation. As a supporting evidence,
+we conduct the first large-scale, multi-benchmark web agent experiment and compare the per-
+formance of 6 state-of-the-art LLMs across 6 popular web agent benchmarks made available in
+BrowserGym. Among other findings, our results highlight a large discrepancy between OpenAI
+and Anthropic’s latests models, with Claude-3.5-Sonnet leading the way on almost all benchmarks,
+except on vision-related tasks where GPT-4o is superior. Despite these advancements, our results
+emphasize that building robust and efficient web agents remains a significant challenge, due to
+the inherent complexity of real-world web environments and the limitations of current models.
+1 Introduction
+In recent years, the emergence of powerful large language models (LLMs) and vision-language models (VLMs)
+(OpenAI, 2024a; Anthropic, 2024a; Meta, 2024) has led to a revolution in the field of conversational assistants,
+otherwise known as chatbots. Since then, the capabilities of these traditional, chat-only assistants have been
+expanded to include running search queries on the web, reading user documents, executing sand-boxed code, and
+∗Equal contribution.
+1
+arXiv:2412.05467v4 [cs.LG] 28 Feb 2025
+
+generatingimages. Ofparticularinterestinthisworkisthecapabilityforconversationalassistantstoperformactions
+in a web browser on behalf of the user, by directly manipulating its human-facing graphical user interface (UI).
+Many everyday tasks we perform on the web are simple, yet repetitive and time-consuming. Filling out redundant
+administrative forms, visiting e-commerce websites in search of the best deal, or manually synchronizing different
+calendars are all tedious tasks that involve multi-step execution. Having autonomous web assistants that can follow
+instructionsandexecutesuchtasksonourbehalfwouldempoweruserstofocusonhigher-level, higher-valuedecisions
+instead. They also represent a great opportunity to improve digital accessibility, by helping visually or otherwise
+impaired users who may find certain websites difficult to navigate. Lastly, assistants acting through a UI offer
+interpretability, since users can visually verify what the agent does on the screen, along with a wide compatibility,
+bypassing the need to develop specific application programming interfaces (APIs) to adapt existing software for the
+agenticera. WealsonotethatwebagentresearchisconvenientlyaccessibletoLLMsduetothetextualmodalityofthe
+UI, although most research on planning and reasoning with web agents is likely to translate to pixel-based UI agents.
+Efﬁcient Parallel Experiments
+
+Uniﬁed
+LeaderBoard
+Xray
+Analyse your agent
+using a custom UI
+Dataset
+Share agent traces
+for a collective
+dataset
+Reproducibility
+Your Agent
+Dynamic
+Prompting
+Uniﬁed
+LLM API
+* blue components
+are part of AgentLab
+WebArena
+MiniWoB
+Mind2Web-live
+VisualWebArena
+AssistantBench
+WebLinx
+Figure 1: Overview of the ecosystem, including AgentLab, BrowserGym, and the web agent benchmarks.
+The field of web agents has been particularly active in the last few years. Most recent works focus on evaluating the
+capabilities of state-of-the-art LLMs / VLMs at solving tasks of varying difficulty, which has led to an abundance
+of new web agent benchmarks (Zhou et al., 2024b; Koh et al., 2024a; Lù et al., 2024; Drouin et al., 2024; He et al.,
+2024; Boisvert et al., 2024; Yoran et al., 2024; Pan et al., 2024). Unfortunately, with this multitude of contributions
+also comes a multitude of diverging codes for evaluating web agents, which yields research silos with inconsistent
+practices and incompatible implementations. This fragmentation is detrimental to the fair comparison of existing
+web agent implementations across benchmarks, which compounds the cumbersome process of installing diverse
+setups, adapting data formats, and manually incorporating agents into each separate benchmark.
+In this paper, we introduce the BrowserGym ecosystem, highlighted in Figure 1, which is meant to provide an
+open, easy-to-use, and extensible framework to accelerate the field of web agent research.1 It consists of AgentLab,
+which offers the tooling for building web agents and running large-scale experiments, and a unified collection of
+web agent benchmarks exposed through BrowserGym (Drouin et al., 2024), which provides the standard interface
+for web tasks and web agents. In its philosophy, the BrowserGym ecosystem intends to address the three following
+1It is important to note that this work is meant to provide a research framework, not a consumer product.
+2
+
+use cases: a) the design of new web agents, and their straightforward evaluation on a wide range of existing
+benchmarks; b) the design of new benchmarks, and the straightforward evaluation of existing web agents on them;
+c) the comparison of different models (LLMs / VLMs) in their ability to solve web agent tasks, by switching
+the backbone model in a state-of-the-art web agent implementation.
+We summarize our contributions as follows:
+• We expand the existingBrowserGym2 library from Drouin et al. (2024) (Section 3), and we provide a
+unification of existing benchmarks(Section 4) proposed by the scientific community in BrowserGym,
+ranging from MiniWoB(++) (Shi et al., 2017; Liu et al., 2018) to more recent benchmarks such as
+AssistantBench (Yoran et al., 2024) and VisualWebArena (Koh et al., 2024a). Despite their differences,
+all benchmarks are made available through the same, unified BrowserGym interface.
+• We introduceAgentLab3 (Section 5), a set of tools to simplify parallel large-scale experimentation
+with agents over BrowserGym in a reproducible manner. It also comes with AgentXRay, a visual tool
+to introspect the behavior of agents on individual tasks. Finally, it provides reusable building blocks
+to accelerate the development of new agents.
+• We conduct the first, large-scaleweb agent experiment (Section 6) showcasing the BrowserGym
+ecosystem. We compare the performance of six state-of-the-art LLMs / VLMs from the GPT-4 (OpenAI,
+2024a), Claude 3.5 (Anthropic, 2024a) and Llama 3.1 families (Meta, 2024) across all web agent
+benchmarks available in BrowserGym. Among others, these results highlight an impressive performance
+for the new Claude-3.5-Sonnet model, which reaches an unprecedented success rate of 39.1% on the
+WorkArena L2 benchmark, to be compared with 8.5% for GPT-4o (2nd place). These results serve as
+first entries to theBrowserGym leaderboard.4
+2 Background and Related Works
+The field of autonomous agents has long been a major research interest both in academia and industry, with
+a recent surge in LLM-based agents (Wang et al., 2024a), motivated by the emergence of reasoning and planning
+capabilities in LLMs (Huang et al., 2024b; Wang et al., 2024c). While a large body of work focuses on software
+control via APIs (Yang et al., 2023a; Hao et al., 2024; Du et al., 2024), another line of research focuses on
+automating human-like interactions, by directly manipulating UIs on mobile devices (Li et al., 2020; Rawles et al.,
+2023; 2024), desktops (Xie et al., 2024; Bonatti et al., 2024), and websites (Furuta et al., 2023; Gur et al., 2023a;
+Kim et al., 2023; Drouin et al., 2024; Lù et al., 2024). This last category encompasses the field ofweb agents,
+which can automate software interaction even in environments without APIs, improve human productivity, and
+provide accessibility for users with disabilities. Next, we provide an overview of the recent literature related to
+web agents, which we divide into two parts: web agent benchmarks and web agent implementations.
+2.1 Web Agent Benchmarks
+Given the rapid pace of improvement in the field of Artificial Intelligence (AI), web agent benchmarks have
+been consistently evolving to evaluate more and more complex capabilities. Early benchmarks such as MiniWoB
+and MiniWoB++ (Shi et al., 2017; Liu et al., 2018) established foundational metrics for evaluating basic web
+interactions like form filling and button clicking in controlled environments. WebShop (Yao et al., 2022a) later
+introduced complex e-commerce scenarios, requiring agents to navigate product catalogs while considering user
+preferences and constraints. Mind2Web (Deng et al., 2023) further expanded this scope and released a dataset
+of over 2,000 human traces collected from open-ended tasks across 137 real-world websites, along with a structured
+approach to evaluate multi-step interactions to develop and evaluate generalist web agents. WebVoyager (He
+et al., 2024) proposed a live, online benchmark for evaluating web agents on real-world tasks from 15 popular
+websites. WebCanvas (Pan et al., 2024) later extended Mind2Web from a static dataset to an online benchmark
+called Mind2Web-Live, by proposing a key-node evaluation mechanism for web agents.
+2https://github.com/ServiceNow/BrowserGym
+3https://github.com/ServiceNow/AgentLab
+4https://huggingface.co/spaces/ServiceNow/browsergym-leaderboard
+3
+
+WebArena (Zhou et al., 2024b), along with its counterparts VisualWebArena (Koh et al., 2024a) and VideoWeb-
+Arena (Jang et al., 2024), brought innovation by testing agents on live websites rather than simulated environments.
+This approach evaluated agents’ abilities to handle real-world variability in website design and the dynamic nature
+of the content. VisualWebArena specifically addressed the role of visual understanding in modern web interfaces by
+introducing evaluation tasks that require interpreting and manipulating visual content across e-commerce websites,
+including product image comparison, visual search, and spatial reasoning about interface layouts. WebLINX (Lù
+et al., 2024) focuses on the instruction-following abilities of agents and provides a dataset of over 100k human inter-
+actions across 155 real-world websites. Building in the same direction, AssistantBench (Yoran et al., 2024) presents
+214 realistic tasks requiring agents to navigate multiple websites to gather and synthesize information. MMInA
+(Zhang et al., 2024b) extends this further with 1,050 multimodal tasks that require agents to navigate between
+multiple websites, specifically evaluating their ability to handle both visual and textual information across naturally
+compositional tasks. In the same vein, GAIA (Mialon et al., 2023) proposes another question-answering benchmark
+that requires agents to navigate and combine information from diverse sources of the web to find the correct answer.
+While these benchmarks focus on everyday websites, WorkArena and WorkArena++ (Drouin et al., 2024; Boisvert
+et al., 2024) introduced the first benchmark for web agents in the enterprise software setting, evaluating on
+common knowledge work tasks following realistic workflow. CRMArena (Huang et al., 2024a) proposes nine
+customer service tasks distributed across three personas: service agent, analyst, and manager, designed to evaluate
+the abilities of AI agents in CRM systems.
+Broader evaluation frameworks like AgentBench (Liu et al., 2023b), AndroidWorld (Rawles et al., 2024), OS
+World (Xie et al., 2024), and Windows Agent Arena (Bonatti et al., 2024) incorporate web tasks as part of a more
+general agentic environment, providing insights into more general agent capabilities. These benchmarks explore
+the intersection of web, desktop, and mobile interfaces, recognizing the increasingly blurred boundaries between
+user interfaces. Addressing the need for safety evaluation, ST-WebAgentBench (Levy et al., 2024) introduces
+the first benchmark specifically focused on assessing web agents’ compliance with organizational policies and safety
+requirements in enterprise settings.
+2.2 Web Agent Implementations
+Due to their immense potential, there has been a substantial effort in developing web agents. These agents differ
+in how they interact with the web environment, the backbone models, and the goal they aim to achieve, among
+others. Popular approaches either interact directly with HTML elements (Nakano et al., 2022; Deng et al., 2023;
+Gur et al., 2023b; 2024) or leverage vision-language models (Liu et al., 2023a; OpenAI, 2024a; Anthropic, 2024a;
+Meta, 2024), by grounding screenshots to web elements (He et al., 2024; Furuta et al., 2024; Zheng et al., 2024a;
+Koh et al., 2024a; Kil et al., 2024) or directly at the pixel-level (Shaw et al., 2023; Cheng et al., 2024; Gou et al.,
+2024). Beyond interaction methods, researchers have also explored ways to enhance agent reasoning capabilities
+through prompting or tuning. Previous works suggested specialized prompting (Sridhar et al., 2023; Zheng et al.,
+2024c; Sarch et al., 2024; Chi et al., 2024), planning and search architectures (Zhou et al., 2024a; Yoran et al., 2024;
+Zhang et al., 2024a; Gu et al., 2024; Koh et al., 2024b), and training methods (Gur et al., 2019; Nakano et al.,
+2022; Humphreys et al., 2022; Chen et al., 2023; Putta et al., 2024; Sodhi et al., 2024) to improve performance.
+Due to the recent success of LLM-based agents and the challenging reasoning required, agents often use prompting
+techniques such as chain-of-thought (Wei et al., 2023), tree-of-thought (Yao et al., 2023), ReAct (Yao et al., 2022b),
+and RCI (Kim et al., 2023). Wang et al. (2024a) provides a survey of LM-based agents.
+Other works focus on introducing frameworks for web agent development, by simplifying access to evaluation
+datasets (Lhoest et al., 2021; UK AI Safety Institute, 2024; Ma et al., 2024), agent development (Xie et al.,
+2023), and interaction with live websites (Pan et al., 2024; Zheng et al., 2024b). It is thus important to
+focus on standardizing web agents research, aiming to simplify future work, and introducing research best
+practices—standard evaluation with statistical power across benchmarks, simple ecosystem-growth enabling
+open-source research, and reproducible experiments at scale. Such a framework is needed not only for the
+development of the next generation of open-source web agents but also for general tasks that require web access,
+including the development of autonomous coding agents (Wang et al., 2024b). To address those important points,
+we developed BrowserGym and AgentLab, which we describe in detail in the subsequent sections.
+4
+
+3 BrowserGym
+BrowserGym provides a unified interface for web agents, i.e., conversational assistants that can use a web browser
+as a tool. As showcased in Figure 2, both the user and the agent have access to a chat where they can exchange
+messages, and a browser in which they can perform actions, such as typing text, clicking buttons, or opening
+tabs. The user typically writes instructions in the chat, and the agent tries to follow them by navigating across
+pages, performing UI actions, extracting information, and writing back messages in the chat.
+Figure 2: A rendered BrowserGym environment, with the chat on the left and the web browser on the right.
+Implementation From the agent’s perspective, this interaction loop can be conceptualized as a Partially
+Observable Markov Decision Process (POMDP), where the environment (chat and browser) provides the current
+observation and reward, and the agent produces the next action. BrowserGym environments follow the standard
+OpenAI Gym API (Brockman et al., 2016)(Towers et al., 2024) and are made available in Python through the
+gymnasium5 interface (Figure 3). Internally, BrowserGym relies on the Chromium6 browser and the Playwright7
+library to automate browser interactions.
+Agent Environment
+action (at)
+observation (ot), reward (rt)
+import gymnasium as gym
+# environment creation
+env = gym.make("browsergym/miniwob.choose-list")
+# interaction loop
+obs, info = env.reset()
+while True:
+action = ... # agent reasoning is performed here
+obs, reward, terminated, truncated, info = env.step(action)
+if terminated or truncated: break
+Figure 3: The BrowserGym interaction loop: (left) theoretical model, (right) concrete Python API.
+3.1 Extensive Observation Space
+BrowserGym provides a rich observation space, with its main components being the task’s goal (or chat history),
+the list of open tabs, and the current page’s content.
+Structured page description BrowserGym provides the raw DOM (Document Object Model; Web Hypertext
+Application Technology Working Group, 2024) and the AXTree (accessibility tree; World Wide Web Consortium,
+5https://gymnasium.farama.org/
+6https://www.chromium.org/Home/
+7https://playwright.dev/python/
+5
+
+(a) Raw screenshot
+(b) Set-of-Marks prompting (Y ang et al., 2023b)
+<form action="/sv/18838" bid="167" class="vote">...
+<button bid="169" title="Upvote" type="submit"
+value="1">...</button>↪→
+<span bid="174" class="vote__net-score"
+data-vote-target="score">↪→
+17705
+</span>...
+<button bid="179" title="Downvote" type="submit"
+value="-1">...</button>↪→
+</form>
+(c) HTML
+[167] Section '', visible
+[169] button 'Upvote', clickable, visible
+StaticText '17705'
+[179] button 'Downvote', clickable, visible
+(d) AXT ree (Zhou et al., 2024b)
+Figure 4: Different visual and text representations of the current page from BrowserGym.
+2017) as structured representations of the current page, which are extracted using the Chrome Developer Protocol
+(CDP). They are both provided as-is (dom_object, axtree_object) with only minimal alterations such as the
+injection of unique identifier attribute (bid, see next paragraph). It is then left for the web agent implementation
+to decide how to further process and format these observations, for example by filtering irrelevant elements
+or attributes and converting the DOM or AXTree to a suitable text format for LLM-based text agents (see
+Figures 4c and 4d). Utility functions that convert these objects to basic text representation are also provided,
+for implementing simple agents quickly.
+Extra element properties BrowserGym enriches each HTML element in the current webpage with
+extra information to facilitate web agent interactions. One key property is the BrowserGym ID (bid), a
+uniquely-generated, element-wise identifier injected into the page’s DOM and AXTree, allowing for unambiguous
+interaction with the elements of the page. To add information about the visual rendering of the page, BrowserGym
+also provides for each element its bounding box coordinates (bbox) in the form of a(left, top, width, height)
+4-tuple, as well as its visibility ratio8 (visibility) in the form of a scalar between 0 and 1. Finally, BrowserGym
+also provides a Set-of-Marks boolean indicator (set_of_marks) reproduced from He et al. (2024), which indicates
+if an element’s bounding box should be overlayed on the screenshot to enable Set-of-Marks prompting (Yang
+et al., 2023b; He et al., 2024). (see Figures 4a and 4b).
+Screenshot WhiletheDOM,AXTree,andextraelementpropertiesprovidearichdescriptionofthepage’scontent,
+they do not give the full picture of how the page is being rendered in the browser, i.e., overlapping elements, back-
+ground colors, image contents, fonts, etc. Therefore, BrowserGym also provides the rawscreenshot of the current
+page as part of the observation, in the form of an RGB image. Again, it is up to the agent implementation to decide
+how to process and use this visual information. Note that thebbox coordinates in the extra element properties map
+exactlytopixelcoordinatesinthescreenshot, whichmakesitextremelyeasyforagentstooverlaytheboundingboxes
+andidentifiersofrelevantelementsonthescreenshotasinSet-of-Markprompting(Yangetal.,2023b;Heetal.,2024).
+Open tabs In BrowserGym, tasks can use multiple tabs if needed. While the main focus is on the current
+page (screenshot and page description), agents are also made aware of all the open browser pages, which include
+tabs and pop-up windows. BrowserGym’s observations therefore include a list of all the pages’ URLs and
+titles (open_pages_urls, open_pages_titles), as well as an index to distinguish the currently active page
+(active_page_index).
+8https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
+6
+
+Goal and chat messages In BrowserGym web agents can extract the user instructions in two ways, either
+explicitly from the task goal (goal_object) or implicitly from the chat (chat_messages). Both consist of a list of
+text and/or image messages. This duality is offered to facilitate compatibility with legacy web agent and web task
+implementations, which do not account for an interactive chat in their design. Note however that BrowserGym
+will always inject the goal of a non-interactive task in the chat to mimic user interaction, but will not inject further
+chat messages received during a task execution back into the goal. While, to this date, all web agent benchmarks
+in the literature are non-interactive, it is preferable to implement web agents usingchat_messages, at the very
+least to be able to record live, interactive demos.
+Error feedback Finally, BrowserGym observations always include the error message of the last executed
+action, if any (last_action_error). Typical errors include trying to interact with an element that is hidden
+or deactivated, which results in a Playwright exception with an error message. Such exceptions do not break
+the interaction loop but are instead captured, and are sent back to the agent as part of the next observation.
+This immediate negative feedback gives web agents a chance to quickly self-correct in the next step (See Figure 5).
+TimeoutError: Locator.click: Timeout 500ms exceeded.
+Call log:
+waiting for get_by_test_id("241")
+- locator resolved to <input bid="241" name="btnK" tabindex="0"
+role="button" type="submit" class="gNO89b" value="Google
+Search" ... />
+↪→
+↪→
+- attempting click action
+- waiting for element to be visible, enabled and stable
+- ...
+- <div class="mus_il">... intercepts pointer events
+Figure 5: Example of an agent trying to click on the "Google Search" button, hidden behind the auto-complete menu.
+This action results in a Playwright error that is returned in the next observation’slast_action_errorfield.
+# locate and click the upvote button with Playwright
+button = page.locator("form").filter(has_text="17705")
+.get_by_role("button").first↪→
+button.click()
+# or, do it in Javascript
+page.evaluate("document.querySelectorAll('form')\
+.find(form => form.textContent.includes("17705"))\
+.querySelector('button').click();")
+# send a chat message
+send_message_to_user("The\"Upvote\" button has been clicked")
+(a) Raw Python code
+# click using bid
+click("169")
+# or, focus and press enter
+press("169", "Enter")
+# or, click using coordinates
+mouse_click(x=121, y=197)
+# send a chat message
+send_msg_to_user("The\"Upvote\" button has been clicked")
+(b) High-level primitives
+Figure 6: Different BrowserGym actions for clicking the “Upvote” button of the first post in Figure 4. While raw Python
+code (a) enables expressive actions using Playwright or Javascript, it often relies on some knowledge of the page’s HTML
+structure. Using BrowserGym’s high-level action primitives (b) is more restrictive but offers more control over what the
+agent can do and how it should interact with the browser.
+3.2 Expandable Action Space
+The fundamental action space of BrowserGym is raw executable Python code (Figure 6a). Agents have
+access to a Playwright page object along with two functions send_message_to_user(text)and re-
+port_infeasible(reason). These respectively allow agents to interact with the browser, and the chat, and
+terminate the task. This design choice offers a powerful, unrestricted action space for researchers to play with,
+but also exposes web agent users to vulnerabilities and safety risks due to the possibility of executing arbitrary,
+untrusted code. To mitigate this, BrowserGym offers a control mechanism to further restrict the action space
+available to web agents, through the use of anaction_mappingfunction.
+Action mapping In BrowserGym, users can instantiate environments with an optionalaction_mapping
+function, which the environment uses to convert input actions into executable Python code. It is then easy to
+7
+
+define and experiment with new, custom action spaces in BrowserGym, for example by allowing a pre-defined
+list of actions in JSON or in command-line format, which are parsed and converted to safe, trusted Python code.
+In case of a conversion error (e.g., parsing errors), any Exception message raised byaction_mapping()is caught
+and fed back to the agent as an error feedback.
+High-level action set By default, BrowserGym environments use a pre-defined action mapping (Figure 6b),
+which converts a set of high-level action primitives in the form of function calls into actual Playwright code to
+be executed. An exhaustive list of these primitives can be found in Appendix A, Table 3. The resulting action
+set is encapsulated in theHighLevelActionSetclass, which provides ato_python_code()method for the
+environment (the action mapping), and adescribe()method for the agent, which builds a textual description
+of the available high-level primitives and how to use them (Appendix A, Figure 10).
+3.3 Extensibility: create your own task
+class MyNewTask(AbstractBrowserTask):
+def setup(self, page):
+page.goto("http://google.com")
+return "Which year was einstein born?"
+def validate(self, page, chat_messages):
+# stop after first answer
+done = chat_messages[-1]["role"] == "assistant"
+reward = "1879" in chat_messages[-1]["message"]
+message = "That 's correct" if reward else ""
+return reward, done, message
+register_task("mynewtask", MyNewTask)
+# available as a gym environment
+env = gym.make("browsergym/mynewtask")
+Figure 7: Pseudo-code for creating a simple web task in BrowserGym, and the corresponding rendering.
+BrowserGym minimizes the effort needed for practitioners to implement new web tasks. Doing so only requires
+writing the logic of the task, which takes the form of asetup() and a validate() method.
+• SetupStarting from a blankpage object, this method must bring the browser to the starting point of
+the task, and return the goal the web agent must achieve. This will typically involve logging into a system,
+creatingdataentriesifneeded,andnavigatingtoatask-specificstartingURL.Then,themethodmustreturn
+a goal which can either be a raw string as in Figure 7 or a list of OpenAI-style messages9 that can include
+text and images, to allow for vision-conditioned goals (e.g., “Find a pair of shoes that look like this image”).
+• V alidateCalled after each agent action is executed, this method must check whether the agent has
+completed the task. It has access to the current state of the browser through the activepage, as well as
+the history ofchat_messageswhich contains all previous user and assistant messages. Typical validation
+steps involve looking at the content of the current page, searching for database entries and updates,
+or reading assistant messages in the chat in search of a correct answer. At the end, this method must
+produce a scalarreward for the agent, a booleandone flag that indicates task termination, and an
+optional message to be added to the chat, to simulate user interaction.
+4 Unification of Web Agent Benchmarks
+We bring 3 new web agent benchmarks to BrowserGym, namely WebLINX (Lù et al., 2024), VisualWebArena (Koh
+et al., 2024a) and AssistantBench (Yoran et al., 2024). With these, BrowserGym currently supports six popular
+web agent benchmarks, listed in Table 1. Each benchmark consists of a set of BrowserGym tasks, accessible as
+a BrowserGym environment through the gymnasium interface (Figure 8). Any task from any of these benchmarks
+9https://platform.openai.com/docs/api-reference/messages
+8
+
+T able 1:Overview of the Web Agent benchmarks currently available in BrowserGym. To quantify the task diversity, we
+report the number of task templates and their seed diversity, e.g. in WorkArena, some task templates can have thousands of
+different configurations. On the other hand tasks in, e.g., WebArena are deterministic.
+Benchmark # T ask
+T emplates
+Seed
+Diversity Max Steps Multi-T ab W eb Backend Reference
+MiniWoB(++) 125 medium 10 no self-hosted pages Shi et al. (2017)
+Liu et al. (2018)
+WebArena 812 none 30 yes self-hosted docker Zhou et al. (2024b)
+VisualWebArena 910 none 30 yes self-hosted docker Koh et al. (2024a)
+WorkArena L1 33 high 30 no ServiceNow demo instance Drouin et al. (2024)
+WorkArena L2 341 high 50 yes ServiceNow demo instance Boisvert et al. (2024)
+WorkArena L3 341 high 50 yes ServiceNow demo instance Boisvert et al. (2024)
+WebLINX 31586 none 1 no none (static dataset) Lù et al. (2024)
+Assistant Bench 214 none 30 yes world wide web Yoran et al. (2024)
+can then be executed using the same code base, through the same observation/action API, and any web agent
+implemented for one benchmark can readily be evaluated on another.10 The advantages are the following:
+• Breaking silos. Unifying benchmarks encourages the development of general-purpose web agents. While
+benchmark-specific solutions have their own merit (Kim et al., 2023; Sodhi et al., 2024) and correspond
+to real use cases (e.g., a company developing a web agent for an internal website), we believe that the
+pursuit of generic solutions is more likely to bring long-term, impactful innovation.
+• Accelerating research. Proposing a unified interface for web agents will also encourage the development
+of new, compatible benchmarks, stimulate progress in the field, and accelerate research. For example, a new
+BrowserGym-compatible security benchmark could easily evaluate all existing web agent implementations,
+without the need to spend time and effort adapting agent codes.
+• Reducing noise. By evaluating across benchmarks, practitioners can collect stronger statistical signals for
+testing design choices and scientific hypotheses. Does using screenshots improve the performance of web
+agents? Is LLM-A a better web agent than LLM-B? Evaluating on a single benchmark with its own biases
+and specificities only provides a partial answer, while cross-benchmark evaluation gives a wider picture.
+gym.make("browsergym/miniwob.number-checkboxes")
+gym.make("browsergym/webarena.399")
+Figure 8: Two tasks from the MiniWoB and WebArena benchmarks, accessible through the same API.
+T ask coverage Benchmarks currently available in BrowserGym cover a broad range of tasks that involve
+manipulating synthetic UIs (MiniWoB), performing everyday tasks on replicas of real-world shopping, social media,
+and software development platforms (WebArena, VisualWebArena), executing realistic workflows on an enterprise
+10BrowserGym also suggests a unified API for agent creation which streamlines implementation efforts (Section 5.5).
+9
+
+platform (WorkArena), running time-consuming searches on the open web (AssistantBench), and replicating
+human interaction traces (WebLINX). For a detailed presentation of each of these benchmarks, we refer the reader
+to Appendix B. Additional benchmarks currently considered for integration include GAIA (Mialon et al., 2023),
+WebVoyager (He et al., 2024), WebShop (Yao et al., 2022a) and Mind2Web-live (Pan et al., 2024).
+Metadata Each BrowserGym benchmark comes with its own metadata, which lists all the available tasks along
+with their benchmark-specific attributes. For example, the metadata of WorkArena (Drouin et al., 2024; Boisvert
+et al., 2024) contains the level and the category of each task, which is useful for analyzing the performance of web
+agents on specific subsets of tasks. The metadata also proposes a default train/test split for each benchmark, and
+an optional dependency graph between tasks, which indicates a (partial) order in which tasks should be executed
+to avoid inconsistencies when evaluating agents (e.g., for the WebArena (Zhou et al., 2024b) and VisualWebArena
+(Koh et al., 2024a) benchmarks).
+Suggested evaluation parameters Ontopofthemetadata,eachBrowserGymbenchmarkhasitsownsuggested
+action set, suggested number of seeds per task, and suggested maximum number of steps to be used for evaluation.
+These suggested parameters are not mandatory but provide a preferred way to evaluate web agents on each
+benchmark, following the recommendations of the benchmark authors. For example, the MiniWoB(++) benchmark
+(Shi et al., 2017; Liu et al., 2018) is not intended to be used in a multiple tab setting, hence does not need the
+new_tab() or close_tab()action primitives. The AssistantBench benchmark (Yoran et al., 2024) on the other
+hand does not implement task randomization, hence does not need to be evaluated with more than one seed per task.
+Backend preparation Some benchmarks require resetting the backend web server to a specific state before
+the next agent can be evaluated on it. It is the case for WebArena and VisualWebArena, which require restoring
+docker containers to their initial state so that any alteration performed by a previous agent (e.g., changing the
+user’s bio description) is wiped off for the next agent to start in a clean, fresh server state. BrowserGym automates
+this step with a convenienceprepare_backend()routine, which checks the backend configuration (server URL,
+credentials, etc.) and runs any required reset or setup automatically.
+5 AgentLab
+As depicted in Figure 1, AgentLab is a set of tools to simplify experimenting with agents over BrowserGym. In
+the high-level API, we define theStudyobject to organize the experiments across multiple agents on a benchmark.
+The study is materialized on disk and can be launched to run in parallel across multiple processes (Section 5.2).
+Once a study is completed it can be examined using AgentXRay (Section 5.3), a custom UI made to introspect the
+behavior of agents on individual steps of each task in the study. Due to the challenges of reproducing experiments
+in dynamic environments, we also implement capabilities to help reproducibility (Section 5.4). Finally, we also
+provide building blocks to simplify creating new agents (Section 5.5).
+5.1 Launching experiments
+Once an agent is implemented (See section 5.5), it can be evaluated by creating aStudyobject and running it:
+study = make_study(
+benchmark="miniwob", # or "webarena", "workarena_l1" ...
+agent_args=[AGENT_4o_MINI],
+)
+study.run(n_jobs=5)
+Study objects are in charge of setting up the experiment and running and saving the reproducibility checks.
+They also manage the relaunching of failed experiments. In such a broad range of environments, it is frequent
+to experience system failures such as a server not responding, edge-case bugs in third party libraries, or rate
+limits from LLM servers. Thus, it is crucial to be able to relaunch failed experiments. The methodStudy.run
+is designed to relaunch up to 3 times the failed tasks, but a manual relaunch can also be done as follows:
+10
+
+study = Study.load("/path/to/your/study/dir")
+study.find_incomplete(include_errors=True)
+study.run()
+5.2 Parallel experiments
+Evaluating a single agent on a benchmark with a reasonable number of seeds per task yields several hundred
+episodes. When exploring multiple agent configurations this can lead to several thousand episodes in a single
+study. Hence, it is crucial to parallelize efficiently the execution of these episodes.
+We use a multiprocess approach with the possibility to useray(Moritz et al., 2018) orjoblib11 as a backend. Since
+most of the compute requirements are outsourced to servers (LLM API, TGI server, or web server), the actual com-
+pute requirement of the job is relatively small and we can launch up to 20 tasks in parallel on a single laptop or even
+50–100 tasks on a server machine with many CPU cores and large memory. With such parallelization, the rate limits
+of API-based LLMs are usually the bottleneck. If more parallelism is required,raycan connect multiple machines
+into a single pool of workers. We refer the reader to Appendix G for further details regarding hardware and runtime.
+T ask dependencies Benchmarks like (Visual)WebArena have task dependencies to ensure that the execution of
+a task will not corrupt the instance and prevent it from properly solving other tasks. Theraybackend is capable
+of handling such dependencies,12 but unfortunately this also greatly limits the potential parallelism to 2–4 tasks
+in parallel for the (Visual)WebArena benchmarks. Also, if the study is created throughmake_study, AgentLab
+ensures the sequential execution of all agents in the study with a proper instance reset between each evaluation.
+5.3 AgentXRay
+To facilitate deeper analysis of agent behavior, AgentLab includes AgentXRay (not be confused with theray
+parallel backend), a Gradio-based13 interface for diving deep into the logged traces. A visual example of this
+interface is shown in Figure 9. After selecting the trace of interest AgentXRay displays the profiling, the goal,
+the different parts of the observation, the action taken, and the prompts, providing a comprehensive view of
+the agent’s decisions and interactions. This interface allows users to visualize the step-by-step decision-making
+process of an agent, helping them gain valuable insights and refine their agent for better performance. This is
+particularly useful for identifying areas where the agent may be struggling, as it allows researchers to pinpoint
+the exact moment when an incorrect or suboptimal decision is made.
+5.4 Reproducibility
+Several factors can influence the reproducibility of results in the context of evaluating agents on dynamic
+benchmarks. Having a framework robust to the noisy nature of web tasks is necessary. We first discuss core factors
+that can lead to discrepancies in web agent evaluations and then present the corresponding crucial features that
+AgentLab implements to mitigate these discrepancies.
+5.4.1 Factors affecting reproducibility
+Software version Different versions of Playwright or any package in the software stack could influence the
+behavior of the benchmark or the agent. Fixing package versions can help, but it would prevent bug fixes, security
+updates, and new features.
+API-based LLMs silently changing Even for a fixed version, a commercial LLM may be updated, for
+example, to incorporate the latest web knowledge.
+Live websites Agents that interact with live web content are subject to frequent changes in website design,
+content availability, and default language settings, which can vary across countries or regions. Websites may
+11https://github.com/joblib/joblib
+12joblib cannot handle dependency graphs.
+13https://www.gradio.app
+11
+
+Figure 9: Visual rendering of AgentLab’s XRay interface. AgentXRay serves as a powerful analysis tool to inspect and
+work on BrowserGym agents.
+12
+
+update layouts, navigation, or features without notice, disrupting an agent’s performance. Additionally, reliance
+on dynamic or frequently updated sites introduces unpredictability, as content and structure can shift over time,
+making consistent evaluation more challenging.
+Stochastic Agents LLMs are non-deterministic, but this is less concerning since it is independent and identically
+distributed (IID) noise, and setting the temperature of the LLM to 0 can reduce most stochasticity.
+Non-deterministic tasks Similarly, many tasks contain some level of stochasticity. However, changes should
+be minimal for a fixed seed.
+5.4.2 Reproducibility Features
+Standard observation and action space One core feature of BrowserGym is to provide a standardized
+observation and action space. While it allows for customization, each benchmark is defined with its own default
+action space. Similarly, the observation space of agents in AgentLab comes with a default way to represent the
+DOM, the AXTree, and other components.
+Package versions The Study class contains a dictionary of information about reproducibility, including
+benchmark version, package version, commit hash, os version, and time stamp. By keeping track of these variables,
+one can isolate package versions, interactions, or system effects that can impact the performance.
+Reproducibility Journal A call to study.append_to_journal()automatically uploads your results to
+reproducibility_journal.csv. The goal of this journal is to keep a detailed track of previous results. As
+mentioned in Section 5.4.1, because of API changes or instance changes, results can vary overtime. This makes
+it easier to populate a large number of reference points. The journal aims to track changes and log enough
+information to allow anyone to reproduce as closely as possible an experiment. It stores information such as agent
+name, BrowserGym and AgentLab version, benchmark name and metadata, experiment performances, etc.
+Reproduced results in the leaderboard For experiments that are reproducible, we encourage users to try
+to reproduce the results and upload them to the leaderboard. There is a special column containing information
+about all reproduced results of an agent on a benchmark. It is displayed as a range of scores alongside the original
+score on the leaderboard. The leaderboard, together with the Reproducibility Journal, helps monitor changes
+in benchmarks over time and serves as a source of motivation for the community.
+ReproducibilityAgent The base agentGenericAgent(detailed in section 6) comes along with an agent called
+ReproducibilityAgent. Running the latter on an existing study generated fromGenericAgentwill re-execute
+the same action sequence on the same task seeds. A visual diff of the two prompts is then displayed in the
+AgentInfo HTML tab of AgentXray. The user can inspect what changes occurred between the two executions.
+While the two executions may diverge rapidly if there are some differences at the start of the episode, the diffs
+between the first few steps are typically insightful on what has changed since the last execution. This allows one
+to monitor the modifications in live benchmarks that may be subject to changes over time.
+5.5 Extensibility: create your own agent
+At the core, BrowserGym and AgentLab are designed to have a minimalist API for implementing new agents.
+Only a few key components need to be implemented in theAgentclass:
+class MyAgent(bgym.Agent):
+def __init__(self):
+# define an action_set to decode actions
+self.action_set = bgym.HighLevelActionSet()
+def get_action(self, obs):
+# the core of the agent reasoning goes here
+return action, agent_info
+The main part is theget_actionmethod, where one implements the agent’s logic. It returns an action as a string
+to be interpreted by BrowserGym, based on the chosenaction_set. The get_actionmethod can also return
+agent_info,anobjectoftype AgentInfocontainingvariousinformationsforlaterinspectionoftheagent’sbehavior.
+13
+
+AgentArgs On top of coding an agent, the user is also responsible for codingAgentArgs. This is essentially
+a data structure which themake_agentfunction uses for instantiating an agent. Doing so makes it easy and
+reliable to pickle experiment information to disk or send it across processes. AgentLab also provides a few other
+methods for better integration with the framework. For example:
+@dataclass
+class MyAgentArgs(agentlab.AgentArgs):
+use_chain_of_thought: bool = True
+use_html: bool = False
+def make_agent(self): -> bgym.Agent
+return MyAgent(self.use_chain_of_thought, self.use_html)
+def set_benchmark(self, benchmark):
+# Optional method to set benchmark-specific flags
+if "miniwob" in benchmark.name:
+self.use_html = True
+Once this is implemented, the user can evaluate their agent as presented in Section 5.1.Note: the class definition of
+e.g., MyAgentArgsneedstobesavedinamodulethatcanbeimportedfromthe $PYTHONPATHforproperunpickling.
+Dynamic Prompting While most modern LLMs can digest more than100,000 tokens, AXTree can still
+be larger than100,000 tokens, with the raw HTML/DOM counting more than1,000,000 tokens. Additionally,
+research projects fine-tuning open-source LLMs are often limited to very small context lengths, e.g.,8,000. To
+manage this, our prompting tools are designed to fit the prompt to the desired length without having to naively
+truncate the prompt from the end, which would almost always cut crucial information such as examples. This
+is done using theDynamicPromptingclass, where the user can easily configure which part of the BrowserGym
+observation space should be included in the prompt. Next, the length of the prompt is dynamically shrunk to
+fit a desired size. Thefit_tokenmethod iteratively calls the shrink method recursively on each component of
+the prompt. Default shrinking strategies are implemented, such as reducing the number of previous steps included
+in the history, or truncating the page from the bottom. Users can also implement their own shrinking strategies.
+See Figure 11 for a simple example agent using dynamic prompting.
+5.6 Extensibility: Plug your own LLM / VLM
+AgentLab also offers a base class for LLMs. This allows users to plug their models into any existing agent by just
+sub-classing our objects. More precisely, we provide aBaseModelArgsclass, to configure and log LLM information,
+as well as instantiating the model, and aAbstractChatModelclass, which just needs a__call__method defined
+to query the LLM. AgentLab comes with different model objects readily available, such as a class for OpenAI
+models, Azure OpenAI models, or OpenRouter14 models. Using our chat model classes allows us to add some
+useful tools such as a cost and token tracker that can automatically be added to theAgentInfo.
+6 Experiments
+This section showcases large-scale experimentation that leverages the BrowserGym ecosystem and evaluates the
+capabilities of several modern LLMs and VLMs in performing web tasks. We focus on two objectives:
+• First, showcasing how AgentLab, integrated with BrowserGym, facilitates the creation and management
+of experiments with web agents.
+• Second, assessing the current performance levels of various state-of-the-art models in tackling these
+benchmarks.
+The results of this experiment provide an interesting overview of the strengths and limitations of the evaluated
+models, offering insights into axes where they require improvements. The results are consolidated into an online
+leaderboard, allowing for comparisons and updates as new models and benchmarks emerge.
+14https://openrouter.ai/
+14
+
+6.1 Setup
+We evaluate AgentLab’s default agent,GenericAgent, on all available benchmarks in the BrowserGym ecosystem.
+GenericAgentemploys a modular prompting mechanism that allows it to utilize various tools, such as Chain-of-
+Thought (CoT) reasoning, screenshots with Set-of-Marks (SoM), a memory mechanism, self-criticism, and in-context
+examples to enhance its responses. The configuration determines both the agent’s behavior and the observation
+format, including options like using HTML or AXTree representations, retaining a history of observations and past
+actions, incorporating screenshots or Set-of-Marks images, or displaying additional HTML information from the
+page. The ExampleAgentshown in Figure 11 in the Appendix gives a simplified overview of ourGenericAgent.
+Along with this dynamic prompting feature,GenericAgentimplements a retry functionality to overcome LLM
+side issues or parsing errors. In the case of a parsing error, the LLM is re-prompted and gets 4 attempts to
+produce a parsable answer. After 4 consecutive parsing errors, the task is considered a failure.
+Our experiments use the same agent configuration as the WorkArena++ benchmark (Boisvert et al., 2024), with
+the addition of theuse_think_historysetting which gives the agent access to its entire chain-of-thought history
+throughout its execution, similarly to Putta et al. (2024). Intuitively, this allows the agent to remember previous
+interactions and outcomes, and make more informed and consistent decisions. An example of a resulting prompt
+is showcased in Appendix C.
+We evaluate AgentLab’sGenericAgentusing a representative subset of state-of-the-art large language models,
+which includes:
+• GPT-4oand GPT-4o Mini (OpenAI, 2024a) using the Azure OpenAI API, as some of the best models
+available on the market. We use respectively checkpoints2024-08-06and 2024-07-18.
+• o1 Mini (OpenAI, 2024b) using the OpenRouter API, to test out the performances of test-time
+reasoning-focused models. We use the2024-09-12checkpoint for this model.
+• Claude 3.5 Sonnet(Anthropic, 2024a) using the OpenRouter API, as the best-performing model on
+our benchmarks. We use the2024-10-22checkpoint, most recent to this day.
+• Llama-3.170B and 405B (Meta, 2024) using the OpenRouter API, as representatives of the open-weights
+LLM community, to assess their performance relative to their proprietary counterparts and identify
+improvement axes.
+As our evaluation metric, we use the task success rate, i.e. the percentage of tasks that were successfully completed
+by the agent, and compute the standard error (σ/
+√
+N). We evaluate our agent with all the previously mentioned
+LLMs, on all benchmarks, with some exceptions. On WorkArena L3, except for Claude, we report results obtained
+in Boisvert et al. (2024) as they are similar agents and we have strong expectations that the score would not change,
+leading to significant resource savings. On VisualWebArena, we only run the LLMs that support multi-modal inputs.
+Out of fairness between models, we do not use visual inputs for the other benchmarks, as they do not require it.
+Table 5 in the Appendix shows the settings used for each benchmark and the number of evaluation tasks for
+each. Indeed the number of tasks (or episodes) depends on the number of seeds (MiniWob, WorkArena L1), or
+the split used. We use the test splits for WebLINX and AssistantBench. Finally, WorkArena L2 and L3 offer
+their own curricula, amounting to 235 tasks each.
+6.2 Results
+We present the results obtained using various open-source and closed-source LLMs asGenericAgents across
+standard web agent benchmarks in Table 2. We observe that Claude obtains the best performance across the
+majority of the benchmarks, with o1-Mini falling second. Claude surprisingly improves substantially over the
+previously unsolved WorkArena-L2 benchmark and obtains an average task success rate of 39.1%. One explanation
+for this impressive result could be Claude’s specific training for computer use (Anthropic, 2024b), which bears
+a close resemblance to using a web browser. We also observe that Llama-3.1 70B obtains very close performance to
+GPT-4o Mini, and Llama-3.1-405B surpasses GPT-4o-Mini significantly on numerous benchmarks. While beaten
+15
+
+on most complex reasoning benchmarks, 405B still obtains more than decent performances overall, which comes
+as a promising omen for the open-source community.
+We also observe an improvement in performance for GPT-4o compared to the performance measured by Boisvert
+et al. (2024), which goes from23.5% to 31.4% on WebArena, and from3.8% to 8.5% on WorkArena L2. Since they
+were using a very similar web agent implementation but an older model checkpoint, this suggests that the reasoning
+capabilities of GPT-4o have greatly increased thanks to the additional training performed for this new checkpoint.
+Another option to explain this improvement might be the public availability of those benchmarks and their support,
+meaningpartsoftheircontentmightnowbeintegratedintosomeformintheLLMpre-training/fine-tuningdatasets.
+One interesting point is that our agent seems to underperform on AssistantBench, a web-based question-answering
+benchmark. Our best agent attains a score of6.9%, which is a very low score compared to the current high score
+of 27% on the AssistantBench leaderboard. Our agent is not specifically optimized for information retrieval tasks,
+which are the primary focus of the AssistantBench benchmark. Instead, our API and agent are designed to be
+broadly applicable across a wide range of web-based tasks, prioritizing generality over specialization.
+6.3 Errors
+When evaluating AI agents, errors can generally be classified into a few broad categories.Navigation Errorsoccur
+whentheagentstrugglestolocatethecorrectpageorinformation, oftenduetopoorsearchqueriesornavigationmis-
+takes. F orm Handling Errorsinvolve incorrect data entry, such as formatting issues or failure to recognize submis-
+sion failures.T ask Understanding Errorsarise when an agent misinterprets unclear instructions, leading to irrele-
+vant or incorrect actions.Stuck Behaviorhappens when an agent repeats the same failing action without adapting
+tothesituation. Information Extraction F ailuresoccurwhentheagentsuccessfullynavigatestotherightlocation
+but fails to correctly extract, interpret, or return the necessary data. Finally,External Errorsstem from technical
+issues such as API failures, network errors, or system crashes that hinder the agent’s performance. While these cate-
+gories are not definitive, they offer a useful framework for diagnosing weaknesses and improving AI agent reliability.
+Given the scale of our experiments, we only provide a qualitative overview of the errors encountered by the agent.
+However, we release the full traces of our experiments and let to the reader the possibility to skim through the
+data using AgentXRay. Appendix H showcases a detailed description of the trace from two models on the same
+task. This succinct analysis suggests that Claude exhibits a degree of robustness, as it is able to recover from
+past errors. Future work will focus on conducting a deeper analysis of Web Agent errors and developing automated
+methods for such evaluations.
+7 Discussion
+In this work, we introduced the BrowserGym ecosystem, which contributes to the standardization of web agent
+research by providing a unified environment for evaluating web agents. We make our contribution available as
+T able 2:Results of a full round of experimentation on the unified benchmark ecosystem. The # Ep. column indicates the
+number of evaluation episodes per benchmark, which depends on the number of tasks and seeds used (See Appendix E for
+details). For budget reasons, grayed-out values (0.0) indicate skipped evaluations for the least-performing models on the
+hardest benchmark (WorkArena L3). The table also shows the total cost (USD) and average step per episode for the overall
+best-performing model, Claude 3.5 Sonnet. Costs for each LLM are given in Appendix F along with API cost details.
+Benchmark # Ep. Claude-3.5 GPT-4o GPT-4o Lama-3.1 Lama-3.1 o1 Mini Claude-3.5-Sonnet
+-Sonnet Mini 70B 405B Cost ($) Steps
+MiniW oB 625 69.8±1.8 63.8±1.9 56.6±2.0 57.6±2.0 64.6±1.9 67.8±1.9 23.11 3.7
+W orkArena L1 330 56.4±2.7 45.5±2.7 27.0±2.4 27.9±2.5 43.3±2.7 56.7±2.7 100.03 9.0
+W orkArena L2 235 39.1±3.2 8.5±1.8 1.3±0.7 2.1±0.9 7.2±1.7 14.9±2.3 299.44 33.8
+W orkArena L3 235 0.4±0.4 0.0±0.0 0.0±0.0 0.0±0.0 0.0±0.0 0.0±0.0 191.50 25.0
+W ebLINX 2,650 13.7±0.6 12.5±0.6 11.6±0.6 8.9±0.5 7.9±0.5 12.5±0.6 104.62 1.0
+W ebArena 812 36.2±1.7 31.4±1.6 17.4±1.3 18.4±1.4 24.0±1.5 28.6±1.6 138.76 6.8
+VisualW ebArena 910 21.0±1.3 26.7±1.5 16.9±1.2 - - - 134.69 4.7
+AssistantBench 181 5.2±1.5 4.8±2.4 2.1±1.0 2.8±1.1 3.9±1.0 6.9±2.2 37.33 7.5
+16
+
+two easy-to-use Python packages, BrowserGym and AgentLab. The first provides a unified platform exposing
+all existing web agent benchmarks under the same interface, and is designed to facilitate the addition of
+new benchmarks. AgentLab, on the other hand, provides a complementary interface and set of tools for the
+implementation and evaluation of web agents, with a set of flexible web agent implementations, an expandable
+LLM / VLM API, reproducibility features, trace analysis tools, as well as an online leaderboard.
+To showcase our main contribution, we conducted the first large-scale empirical evaluation of a representative set
+of state-of-the-art LLM / VLM models on six popular web agent benchmarks, using AgentLab and BrowserGym.
+While running such an experiment using the original, fragmented benchmark codes would be extremely cumbersome,
+BrowserGym makes all of them accessible through the same interface and allows for large-scale, unified experiments
+in a single code base with AgentLab. By fostering reproducibility and facilitating consistent benchmarks, the
+BrowserGym ecosystem lays the groundwork for more dependable and insightful evaluations of web agent
+capabilities, thus accelerating the advancement of LLM-driven automation.
+7.1 Limitations
+Reproducibility Despite our efforts to improve reproducibility, stochasticity, and external factors remain
+significant challenges. Localization differences, such as time zones, default languages, and geographic settings,
+can lead to inconsistent agent behaviors when interacting with live websites. Additionally, variations in operating
+systems and browsers can affect how web pages are rendered, impacting the uniformity of results. The presence of
+dynamic elements, such as advertisements, adds to non-determinism, leading agents to face different environments
+during repeated tasks, which affects their consistency. Addressing these challenges is essential for reliable and
+repeatable benchmarks in web agent research.
+Risks Letting an autonomous agent act on the world-wide-web on a human’s behalf can have consequences,
+and prove to be problematic on benchmarks that require an open-web access (AssistantBench, soon GAIA). This
+is currently mitigated in BrowserGym via URL protection (MiniWoB, WorkArena, WebArena / VisualWebArena),
+plus a warning notice on BrowserGym and AgentLab’s landing pages.
+Robot detection Robot detection mechanisms significantly limit web agents, especially for open-web tasks.
+Websites use techniques like CAPTCHA, IP rate limiting, and behavior analysis to block automated agents,
+preventing them from completing tasks effectively. This limits the ability of agents to interact freely with web
+environments and reduces the scope of tasks that can be automated. AssistantBench is the only benchmark
+impacted by those issues so far in BrowserGym, as it uses the open web as its information retrieval tool.
+Agent collisions The widespread use of databases on the web means that many tasks involve updating records
+and modifying entries. When multiple agents operate simultaneously, they can interfere with each other, especially
+when executing tasks that alter the same database entries. For example, if two agents add an item to their cart
+concurrently, they may unintentionally update each other’s cart, leading to inconsistent outcomes. This issue
+is particularly problematic in environments like WebArena and VisualWebArena, where a single virtual machine
+is used for each agent. As a result, only one agent can be run at a time on these benchmarks, significantly slowing
+down the evaluation process.
+Synchronous interactions Another limitation is the sync loop mechanism used to manage interactions within
+the browser environment. For example, when agents need to perform multiple actions in quick succession, the
+sync loop may not keep up, leading to delays and reduced efficiency. This can result in performance bottlenecks,
+especially for complex tasks requiring rapid, sequential actions.
+7.2 Avenue for Future Work
+To further develop the field, several areas require attention. One promising direction is improvingsafety
+mechanisms for web agents. Currently, safety evaluation in web agent benchmarks, including ensuring agents’
+compliance with data privacy and safety policies, as well as their resilience to malicious interactions, is underexplored.
+The development of secure environments is crucial for adopting web agents in enterprise or sensitive applications.
+17
+
+Another avenue for future work involves the creation of real-time web agents capable of interacting with live
+environments at speeds comparable to human users. This necessitates improvements in both latency reduction
+and real-time decision-making, which would enhance the applicability of web agents in dynamic settings, such
+as customer service or rapid data retrieval.
+The potential for smaller, yet efficient LLMs is also an important focus. Developing smaller models that retain the
+ability to understand and reason through complex web interactions would lower computational demands, making
+web automation more accessible and sustainable. This aligns with efforts to increase the efficiency of LLM-based
+agents, particularly for real-world deployment where computational resources may be constrained.
+In addition, enhancing reactivity through the use of computer-level vision-language models (VLMs) can provide
+agents with a more nuanced understanding of the visual context on web pages. Current models often lack the
+capability to fully interpret complex visual layouts or graphical information, limiting their interaction fidelity with
+certain websites. Integrated models like Anthropic’s computer use model could make web agents more versatile
+and capable of handling tasks that require both visual reasoning and textual inputs.
+Another direction is to leverage inference time scaling, optimizing it specifically for web tasks and web agents.
+This could involve making better use of the model’s self-reflection capabilities to further improve task performance,
+adapting dynamically to various complexities encountered during web navigation, and efficiently managing
+resources to reduce latency. By tailoring these improvements, web agents can become more effective at real-time,
+adaptive decision-making, ultimately enhancing user experiences and broadening their applicability.
+AsBrowserGymsavesandlogseverypieceofinformationseeninitsexperiments,itcouldserveasavaluablecollection
+tool for finetuning models. This collected data could be utilized to further refine agent behaviors, improve model
+performance on specific web tasks, and create efficient agents capable of handling complex scenarios more efficiently.
+8 Broader Impact
+The development of more general UI-based agents holds the potential to significantly transform how work is
+performed on computers. These agents promise to automate tasks at an unprecedented pace, with reduced costs,
+and with a broader and deeper scope of expertise. While current benchmarks demonstrate that this level of
+sophistication has not yet been achieved, the rapid pace of advancements in the field suggests that such a future
+may not be far off. This progress could unlock immense economic value but is also likely to result in substantial
+and rapid job displacement, presenting a critical societal challenge.
+AI safety must be central to this emerging agentic revolution. Presently, jailbreaking a large language model
+(LLM) might only expose knowledge already available on the web. However, as agents become more sophisticated,
+vulnerabilities such as prompt-injection attacks could be exploited to leak sensitive company information, authorize
+unwanted transactions, or cause other unintended harm. The widespread deployment of agents at scale will create
+enormous financial incentives for malicious actors to develop targeted attacks that uncover and exploit weaknesses
+in these systems.
+The rise of UI-based agents also introduces new challenges and considerations regarding digital advertising. As
+these agents navigate the web autonomously, their interactions with dynamic ad content could disrupt existing
+advertising models, impacting both advertisers and publishers. Unlike human users, agents are unlikely to engage
+with ads in traditional ways, which may lead to shifts in how ad impressions, clicks, and conversions are measured
+and monetized. Additionally, the ability of agents to filter, block, or bypass advertisements could create conflicts
+with current web monetization strategies. To maintain a fair and functional digital ecosystem, actors from both
+sides should explore standardized approaches for handling ad-related content in a way that balances automation
+efficiency with the sustainability of online advertisement business models.
+As these technologies evolve, society must proactively address the accompanying challenges by establishing robust
+policies and frameworks. Rapid action will be essential to ensure that the benefits of these advancements are
+maximized while minimizing potential risks and harm.

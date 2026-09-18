@@ -1,0 +1,572 @@
+record_id: arxiv:2506.11060
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2506.11060
+fetched_title: Code Researcher : D EEP RESEARCH AGENT FOR LARGE SYSTEMS CODE AND COMMIT HISTORY
+fetched_at: 2026-09-18T19:00:57Z
+
+Preprint
+Code Researcher : D EEP RESEARCH AGENT FOR
+LARGE SYSTEMS CODE AND COMMIT HISTORY
+Ramneet Singh∗ Sathvik Joel∗ Abhav Mehrotra Nalin Wadhwa
+Ramakrishna B Bairi Aditya Kanade Nagarajan Natarajan
+Microsoft Research
+{ramneet2001,ksjoe30,abhavm1,nalin.wadhwa02}@gmail.com
+{ram.bairi,kanadeaditya,nagarajan.natarajan}@microsoft.com
+Filtered Context Memory
+Crash Report
+Analysis Trajectory
+Write the results of actions to memory
+Generate the patch
+Filter the contents
+of memory
+Take multiple
+actions to discover
+more information
+if enough context is
+gathered
+then go to step
+else reason over the
+memory using strategiesCrash Report
+Crash Report
+Rich development
+history
+Crash reproducing script
+FailureSuccess
+Codebase
+Global interactions
+Large and complex
+Crash Report
+Noisy
+Multiple
+stack traces
+Ambiguous
+Reasoning Strategies
+Causal analysis over historic commits
+Chasing control and data flow chains
+Searching patterns and anti-patterns
+Actions
+search_code(regex)
+search_definition(sym)
+search_commits(regex)
+Context
+Memory
+Code
+snippets
+Past
+commits
+Symbol
+definitions
+Analysis
+Patch
+Synthesis
+12
+3
+4
+4
+5
+Validation
+Inputs
+Figure 1: Code Researcher conducts deep research over code in three phases: (1) Starting with
+the codebase and crash report as input, the ANALYSIS phase performs multi-step reasoning about
+semantics, patterns, and commit history of code. It gathers context in a memory. (2) The SYNTHESIS
+phase filters the contents of the memory to keep relevant context and generates a patch. (3) The
+VALIDATION phase uses external tools to validate the patch.
+ABSTRACT
+Large Language Model (LLM)-based coding agents have shown promising results
+on coding benchmarks, but their effectiveness on systems code remains underex-
+plored. Due to the size and complexities of systems code, making changes to a
+systems codebase requires researching about many pieces of context, derived from
+the large codebase and its massive commit history,before making changes. Inspired
+by the recent progress on deep research agents, we design the first deep research
+agent for code, called Code Researcher , and apply it to the problem of generating
+patches to mitigate crashes reported in systems code. Code Researcher performs
+multi-step reasoning about semantics, patterns, and commit history of code to
+retrieve all relevant context from the codebase and its commit history. We evaluate
+Code Researcher on kBenchSyz (Mathai et al., 2024), a benchmark of Linux kernel
+crashes, and show that it significantly outperforms strong baselines, achieving a
+crash-resolution rate (CRR) of 48%, compared to 31.5% by SWE-agent (Yang
+et al., 2024) and 31% by Agentless (Xia et al., 2024), using OpenAI’s GPT-4o
+model. Scaling up sampling budget to 10 trajectories increases Code Researcher ’s
+CRR to 54%. Code Researcher is also robust to model choices, reaching 67% with
+the newer Gemini 2.5-Flash model. Through another experiment on an open-source
+multimedia software, we show the generalizability of Code Researcher and also
+conduct ablations. Our experiments highlight the importance of global context
+gathering and multi-faceted reasoning for large codebases.
+∗Equal contribution
+1
+arXiv:2506.11060v2 [cs.SE] 20 May 2026
+
+Preprint
+1 I NTRODUCTION
+Automating coding using Large Language Models (LLMs) and LLM-based agents is a very active area
+of research. Popular benchmarks like LiveCodeBench (Jain et al., 2024) and SWE-bench (Jimenez
+et al., 2024) respectively test coding abilities on standalone competitive coding problems and GitHub
+issues over library or application code. Despite the demonstrated progress of coding agents on these
+benchmarks, they are yet to scale to complex tasks over an important class of code, systems code.
+Systems code powers critical and foundational software like operating systems, networking stacks,
+cloud infrastructure and system utilities. Systems codebases have multiple dimensions of complexity.
+Firstly, they are very large, with thousands of files and millions of lines of code. Secondly, systems
+code often interfaces directly with the hardware and is performance critical. This results in complex
+low-level code (involving pointer manipulations, compile-time macros, etc.) in languages like C/C++,
+and global interactions between different parts of the codebase for concurrency, memory management,
+maintenance of data-structure invariants, etc. Finally, foundational systems codebases have rich
+development histories spanning years or even decades, containing contributions by thousands of
+developers, which are important references on legacy design decisions and code changes.
+We consider the problem of generating patches to mitigate crashes reported in systems code. This is a
+uniquely challenging setting, as opposed to the SWE-bench (Jimenez et al., 2024) like setting tackled
+by many prior works (Yang et al., 2024; Jain et al., 2025; Ouyang et al., 2025) using LLMs and SLMs
+in coding agents. SWE-bench contains human-written issue descriptions from moderately-sized
+codebases, which explain the nature of the bug and might indicate which files are likely relevant.
+Coding agents (Yang et al., 2024; Wang et al., 2025) are designed to take advantage of this and
+quickly navigate the repository to reach the buggy files. In fact, an Agentless (Xia et al., 2024)
+approach, which has a simpler, fixed workflow of localizing the files to edit followed by repair,
+performs competitively on SWE-bench. These approaches do not expend much efforts in gathering
+codebase-wide, global context. In our setting, the bugs are described by stack traces which are devoid
+of natural language hints and contain a much larger number of files and functions than an issue
+description. Due to the nature of crash reports and the complex global interactions in large systems
+codebases, multi-step reasoning and context gathering become important.
+Automating such complex tasks in systems codebases requires a different type of agents, agents
+that can research about many pieces of context, derived automatically from the large codebase
+and its massive commit history,before making changes. Recently, deep research agents have been
+developed to solve complex, knowledge-intensive problems that require careful context gathering
+and multi-step reasoning, before synthesizing the answer. The agents and techniques have mostly
+focused on long-form document generation or complex question-answering over web contents (Shao
+et al., 2024; OpenAI, 2025b; Google, 2025a; Perplexity, 2025; Li et al., 2025; Wu et al., 2025b) and
+enterprise data (Anthropic, 2025; Microsoft, 2025). Inspired by these advances, we propose the first
+deep research agent for code, called Code Researcher , and apply it to the problem of generating
+patches for mitigating crashes reported in systems code.
+As shown in Figure 1, Code Researcher works in three phases: (1) ANALYSIS : Starting with the
+crash report and the codebase, this phase performs multi-step reasoning over semantics, patterns, and
+commit history of code. The “Reasoning Strategies” block shows the reasoning strategies used. Each
+reasoning step is followed by invocations of tools (labeled “Actions” in Figure 1) to gather context
+over the codebase and its commit history. The information gathered is stored in a context memory
+and when the agent is able to conclude that it has gathered sufficient context, it moves to the next
+phase. (2) SYNTHESIS : The SYNTHESIS phase uses the crash report, the context memory, and the
+reasoning trace of the ANALYSIS phase to filter out irrelevant memory contents. Then, it generates
+patches, which may edit one or more buggy code snippets from memory, possibly spread across
+multiple files. (3) VALIDATION : Finally, the VALIDATION phase checks if the generated patches
+prevent the crash from occurring using external tools. A successful patch is presented to the user.
+We evaluate the effectiveness of Code Researcher on the kBenchSyz benchmark (Mathai et al.,
+2024), containing 279 Linux kernel crashes detected by the Syzkaller fuzzer (Google, 2025b). This
+benchmark is challenging because the Linux kernel (Torvalds, 1991) is a canonical example of
+a systems codebase with complex low-level code and massive size ( 75K files and 28M lines of
+code), and has rich development history. Code Researcher resolves 48% of crashes using GPT-4o
+and 5 sampled patches, significantly outperforming the two strong and popular baselines of SWE-
+2
+
+Preprint
+agent (Yang et al., 2024) (31.5%) and Agentless (Xia et al., 2024) ( 31%) in the same setting (and
+customized for the kernel crash resolution task). A concurrent work, CrashFixer (Mathai et al., 2025),
+explores a simpler setting where the agent is provided the ground-truth buggy files to edit (theassisted
+setting), whereas, Code Researcher takes only the crash report as input (the unassisted setting).
+Code Researcher benefits from scaling inference compute, reaching 54% with pass@10, and is
+robust to the choice of model, resolving 67% of crashes with the newer Gemini 2.5-Flash LLM.
+It gathers context of high coverage and quality, exploring about 10 files per trajectory compared
+to a much smaller number 1.33 of files explored by SWE-agent. We demonstrate the importance
+of causal analysis over historical commits, a novel feature of Code Researcher . To ensure that
+the proposed patches do not break existing functionality, we run Linux kernel unit tests on Code
+Researcher’s crash-resolving patches. Though expensive to run, this provides additional validation
+beyond the crash-reproduction testing in kBenchSyz. We give evidence of the generalizability of
+Code Researcher by experimenting on an open-source multimedia software, FFmpeg (FFmpeg, 2025),
+where it resolves 7/10 crashes tested.
+In summary, we make the following main contributions:
+(1) We design the first deep research agent for code, Code Researcher , capable of handling large
+systems code and resolving crashes. Recognizing the importance of commit history in systems code,
+we equip the agent with a tool to efficiently search over commit histories.
+(2) We evaluate Code Researcher on the challenging kBenchSyz benchmark (Mathai et al., 2024)
+and achieve a crash resolution rate of 54%, outperforming strong baselines and showing robust
+performance across model choices, reaching 67% with the newer Gemini 2.5-Flash model. We also
+demonstrate its generalizability through experiments on a multimedia software, FFmpeg.
+(3) Through a comprehensive evaluation, we show (i) how our deep research agent outperforms
+agents that do not focus on gathering relevant context, (ii) that this advantage persists even if the
+existing SOTA agent is given higher inference-time compute, and (iii) that reasoning models improve
+performance significantly if given well-researched context. We thoroughly validateCode Researcher’s
+crash-resolving patches using the Linux kernel unit test-suite in addition to the validation setup in
+kBenchSyz, providing confidence that they do not break existing functionality. Further ablations
+show the importance of (i) causal analysis over historical commits and (ii) memory filtering.
+2 R ELATED WORK
+The LLM-powered software development subfield has produced several coding agents (Yang et al.,
+2024; Xia et al., 2024; Wang et al., 2025; Zhang et al., 2024; Wadhwa et al., 2024), predominantly
+evaluated on SWE-bench (Jimenez et al., 2024). SWE-bench focuses on GitHub issues from small to
+medium-sized Python repositories. However, systems code, the focus of our work, presents unique
+challenges. We highlight and contrast key related work in this context. A related, but orthogonal line
+of exploration is long context reasoning. But it has its own challenges, as discussed in Appendix F.
+Coding agents Agents like SWE-agent (Yang et al., 2024) or OpenHands (Wang et al., 2025) use
+a single ReAct-style (Yao et al., 2023) loop endowed with shell commands or specialized tools for
+file navigation and editing. However, they tend to explore a small number of files per bug, without
+gathering and reasoning over the relevant codebase-wide context. AutoCodeRover (Zhang et al.,
+2024) uses tools based on program structure to traverse the codebase (albeit limited to Python code).
+It performs explicit localization of the functions/classes to edit using these tools, and those are later
+repaired. Code Researcher does not explicitly localize the functions to edit; instead it gathers relevant
+context for patch generation and decides what to edit in the SYNTHESIS phase. Some recent coding
+agents construct a dependency graph of the repository (Ouyang et al., 2025; Chen et al., 2025), which
+they then explore using approaches like MCTS (Ma et al., 2025). However, such agents are (1) limited
+to Python code and (2) scale very poorly, making it impractical to use on codebases of the scale of
+the Linux kernel. Code Researcher instead uses simple and scalable tooling to handle such codebases
+easily. Code Researcher is also the first agent to use causal analysis over historical commits; this is
+critical to handling subtle bugs introduced by code evolution in long-lived systems codebases.
+Deep research agents Deep research is a fast emerging subfield in agentic AI (Microsoft, 2025;
+OpenAI, 2025b; Google, 2025a; Perplexity, 2025), to tackle complex, knowledge-intensive tasks, that
+can take hours or days even for experts. Academic work so far has focussed on long-form document
+generation (Godbole et al., 2024; Shao et al., 2024), scientific literature review (Wu et al., 2025b;
+3
+
+Preprint
+Gottweis et al., 2025), and complex question-answering (Li et al., 2025; Wu et al., 2025a) based
+on the web corpus. The key challenges in deep research for such complex tasks include (a) intent
+disambiguation, (b) exploring multiple solution paths (breadth of exploration), (c) deep exploration
+(iterative tool interactions and reasoning), and (d) grounding (ensuring that the claims in the response
+are properly attributed). Most of the aforementioned challenges also apply to our setting. To the best
+of our knowledge, our work is the first to design and evaluate a deep research strategy for complex
+bug resolution in large codebases. Most recently, OpenAI’s Deep Research model has been integrated
+with GitHub repos for report generation and QA over codebases (OpenAI, 2025a). However, (a) it
+does not support agentic tasks like bug fixing, and (b) their indexing technique does not scale to very
+large codebases like the Linux kernel, whereas we use scalable tools for search.
+Automated kernel bug detection and repair Prior work for detecting Linux kernel bugs includes
+various types of sanitizers, e.g., Kernel Address Sanitizer (KASAN) (Google, 2025a), and the
+Syzkaller kernel fuzzer (Google, 2025b), an unsupervised coverage-guided fuzzer that tries to find
+inputs to crash the kernel. Code Researcher, complementary to this, generates patches from crash
+reports. We use some traditional software engineering concepts like deviant pattern detection (Engler
+et al., 2001) and reachability analysis (Nielson et al., 2015), but leverage LLMs to scale to large
+codebases. As noted earlier, CrashFixer (Mathai et al., 2025) targets Linux kernel crashes but assumes
+that buggy files are known a priori. This assumption is unrealistic for large codebases like the Linux
+kernel. In contrast, Code Researcher autonomously locates buggy files using general search tools.
+3 D ESIGN OF Code Researcher
+Large systems codebases, owing to their critical nature, undergo strict code development and review-
+ing practices by expert developers. The bugs that still sneak in are subtle and involve violations of
+global invariants (e.g., a data structure should be accessed only after acquiring a lock) and coding
+conventions (e.g., use of a specific macro to allocate memory), and unintended side effects caused
+by past changes. To fix such bugs, an agent needs to gather sufficient context from the codebase
+and its commit history, before generating hypotheses about the cause of a bug and attempt to fix it.
+With this insight, we design our deep research agent, Code Researcher . As shown in Figure 1, Code
+Researcher comprises of three phases: (1) ANALYSIS , (2) SYNTHESIS and (3) VALIDATION . We
+present the key details of our design in this section and complement it with implementation details in
+Appendix B. We also explain an example trajectory of Code Researcher in Appendix C.
+3.1 A NALYSIS PHASE
+The ANALYSIS phase of Code Researcher is responsible for performing deep research to understand
+the cause of a reported crash. We equip this phase with (a) actions to efficiently search over the
+codebase and the commit history and (b) reasoning strategies for code. At each step, the actions taken
+so far along with their results are stored in a context memory, which is used to construct the prompt.
+3.1.1 A CTIONS TO SEARCH OVER CODEBASE AND COMMIT HISTORY
+We support the following actions: (1)search_definition(sym): To search for the definition(s)
+of the specified symbol, which can be the name of a function, struct, global constant, union or macro
+and so on. It can be optionally passed a file name to limit the search. (2) search_code(regex):
+To search the codebase for matches to the specified regular expression. This is a simple yet powerful
+tool, which can be used for searching for any coding pattern such as call to a function, dereferences
+to a pointer, assignment to a variable and so on. (3) search_commits(regex): To search for
+matches to a regular expression over commit messages and diffs associated with the commits. The
+regular expression offers expressiveness, e.g., to search for occurrence of a term (“memory leak”) in
+the commit messages or coding patterns in code changes (diffs). In addition, the agent can invoke (4)
+done to indicate that it has finished the ANALYSIS phase and (5) close_definition(sym):
+To remove the definition of a symbol from the memory if the symbol is deemed irrelevant to the task.
+3.1.2 R EASONING STRATEGIES FOR CODE
+We ask the agent to explore the codebase to figure out the root cause of a crash and gather sufficient
+context to propose a fix. We induce the following reasoning strategies through prompting to guide
+4
+
+Preprint
+the exploration of the codebase and its commit history. As shown in Figure 1, each reasoning step is
+followed by one or more actions. Additionally, we present the agent with a simple scratchpad, where
+it can add important discoveries for future reference.
+Chasing control and data flow chainsThe control flow (Nielson et al., 2015) of a code snippet refers
+to the functions that are called and the branches in it, including conditional statements, loops, gotos
+and even conditional compilation macros. Given a crash report and some code, the agent is asked to
+reason about control flow to understand how execution flows between different functions and how it
+leads to the crash. Similarly, data flow (Nielson et al., 2015) refers to how the values of variables
+get passed to different functions and how one variable is used to define another. So the agent should
+also reason about how data flows in the code. As a result of this reasoning, the agent may invoke
+a search_definition(sym) action to search for the definition of sym if it suspects that sym
+may have something to do with the buggy behavior and needs more information aboutsym to confirm
+or dispel the suspicion. It can also use other actions as suitable, e.g., search_code(x\s*=) to
+look for assignments to a variable named x, with \s* indicating zero or more whitespaces.
+Searching for patterns and anti-patterns Traditional software engineering literature thinks of bugs
+as anomalies – patterns of code that are deviant (Engler et al., 2001). It follows that, to diagnose
+and understand a bug, one can find frequent patterns in the repository and check if a given piece of
+code deviates from it. Code Researcher reasons about which behavior is common or “normal” and
+which code snippets look anomalous. It can perform a search_code(regex) action to search
+for these patterns and anti-patterns using regular expressions. A classic case is checking a pointer
+for null value after allocation. If the agent notices a missing null check for ptr, it can perform
+search_code(if\s*\(ptr==NULL\)) to search for null checks throughout the codebase on
+ptr. Similarly, it can perform search_code(ptr\s*=.*alloc\(.*\)) to search for all
+allocations to ptr to verify whether other parts of the codebase typically perform a null check or not.
+Causal analysis over historical commits An interesting and challenging aspect of a codebase
+that has been in development for a long time, as many foundational systems codebases have, is
+the rich history of commits. Because of continuous development, it is likely that a new bug has
+some past commits that can prove helpful in understanding or solving it. Indeed, developers often
+reference other commits when they come up with patches. Code Researcher reasons about how
+the codebase has evolved and how that evolution is related to the crash report. It can issue a
+search_commits(regex) action to search over past commit messages and diffs. For instance,
+the regular expression handle->size|crypto_fun\( matches commits that add or remove a
+handle->size access, or a call to crypto_fun.
+Iterative process of deep research As shown in Figure 1, in each reasoning step, Code Researcher
+is asked to decide if it has acquired sufficient context to understand and solve the crash. If yes, it
+moves to the next phase of synthesizing the patch (Section 3.2). Initially, the context is empty and it
+starts its reasoning process by analyzing the contents of the stack trace and the diagnostic information
+provided as input. At each step, the agent evaluates the context accrued so far and decides which
+lines of exploration to extend by issuing multiple search actions simultaneously.
+3.2 S YNTHESIS AND VALIDATION PHASES
+The contents of memory and the reasoning trace of theANALYSIS phase are passed to the SYNTHESIS
+phase, along with the crash report. The ANALYSIS phase has the flexibility to follow multiple paths of
+inquiry simultaneously. It can thus end up collecting information that does not turn out to be relevant,
+which also happens when a human does research on some topic. In large codebases, this irrelevant
+information can be quite large and can overwhelm the prompt. Thus, the SYNTHESIS phase first
+filters the memory and discards (action, result) pairs that are deemed irrelevant to the task of fixing
+the crash. The agent then uses the filtered information to generate a hypothesis about the nature of
+the bug and a potential remedy, and the corresponding patch. Finally, in the VALIDATION phase, the
+patch is applied to the codebase, and the codebase is compiled. The reproducer program that had
+originally caused a crash is run. If the crash is reproduced, the patch is rejected. If not, it is accepted.
+5
+
+Preprint
+4 E XPERIMENTAL SETUP
+Benchmarks We use a thoroughly validated, reproducible subset of 200 instances from the
+kBenchSyz benchmark (Mathai et al., 2024) of 279 Linux kernel crashes found by the Syzkaller
+fuzzer (Google, 2025b). Each instance in the benchmark consists of (1) a reproducer file, containing
+the user-space program that triggers the crash, (2) the ground-truth commit that fixed the bug, and (3)
+the crash report at the parent commit of the fix commit (we run all tools at this parent commit). To
+show generalizability, we also evaluated Code Researcher on 10 recent crashes of an open-source
+multimedia software, FFmpeg (FFmpeg, 2025). More details about the kBenchSyz benchmark and
+the FFmpeg dataset are in Appendix G and Appendix D respectively.
+Evaluation metrics We compute Pass@k (P@k) defined as P@k = 1, if applying at least one of the
+k candidate patches generated by the tool prevents the crash, or P@k = 0 otherwise. We report (1)
+Crash Resolution Rate (CRR) which is average P@k, (2) average recall, i.e., the fraction of files
+modified in the ground-truth commit (the ground-truth buggy files) in the set of files edited by the
+agent, averaged over the k candidate patches, and (3) the percentage of candidate patches where All,
+Any or None of the ground-truth buggy files are edited. When a tool does not produce a patch (e.g.,
+it runs out of LLM call budget), the set of edited files is assumed to be empty. All the metrics are
+averaged over the 200 instances in the benchmark.
+Baselines We evaluate Code Researcher in the unassisted setting (i.e., the ground-truth buggy files
+that are part of the fix commits are not divulged to the tool) and compare it against the following
+baselines: (1) o1 (OpenAI, 2024b) and GPT-4o(OpenAI, 2024a) in the assisted setting, i.e., we give
+the ground-truth files that are part of the fix commits and the crash report as input. We prompt the
+model to generate a hypothesis about the crash’s cause and a patch. (2) o1 and GPT-4o in the stack
+context setting, where we give the contents of the files mentioned in the crash report as input besides
+the crash report. (3) SWE-agent 1.0 (Yang et al., 2024), a SOTA coding agent on the SWE-bench
+benchmark, in the unassisted setting. For fairness, we add a Linux kernel-specific example trajectory
+and background about the kernel to its prompts. We sample k (for Pass@k) SWE-agent trajectories
+independently using a temperature of 0.6. (4) Agentless (Xia et al., 2024), another top coding agent
+on the SWE-bench benchmark that uses a fixed workflow of localization followed by repair,in the
+unassisted setting. We add background about the kernel to its prompts and sample k (for Pass@k)
+patches using the same LLM (GPT-4o) as Code Researcher and SWE-agent. (5) CrashFixer (Mathai
+et al., 2025), state-of-the-art agent for Linux kernel crash resolution, in the assisted setting, as it
+directly uses the ground-truth files to generate patches. If a patch fails to build or crashes with the
+ground-truth reproducer, it iteratively refines it using the respective error messages. We report their
+results with the Gemini 1.5-Pro-002 model (v. 2024-09-24) and more recent results with the Gemini
+2.5-Pro model (v. 2025-06-17).
+Implementation, hyperparameters We employ GPT-4o (v. 2024-08-06) for Code Researcher and
+for the competing tools. We also experiment with o1 (v. 2024-12-17) in the SYNTHESIS phase
+of Code Researcher , and, to show that Code Researcher ’s design is not tied to the OpenAI family
+of models, the newer Gemini 2.5-Flash (v. 2025-06-17) for both the ANALYSIS and SYNTHESIS
+phases. All our experiments have a context length limit of 50K tokens. In the ANALYSIS phase,
+we use a temperature of 0.6 and independently sample k trajectories. For the SYNTHESIS phase,
+we sample with increasing temperatures (0, 0.3, 0.6) until the agent produces a correctly-formatted
+patch, with a maximum of 3 attempts. We allow all tools a budget of at most max calls LLM calls to
+generate a single patch. Please refer to Appendix G for details about the crash reproduction setup,
+the prompts, the compute resources and the configurations for Code Researcher and the baselines.
+5 E XPERIMENTAL RESULTS
+We evaluate Code Researcher across six dimensions. First, we compare its crash resolution ability
+against state-of-the-art coding agents and baselines. We then analyze the context gathering capabilities
+of different tools by studying (a) whether they are able to find the files that need to be edited, and (b)
+the coverage and quality of additional global context gathered. Then, we assess the impact of two
+design choices, historical commit analysis and context filtering, on Code Researcher ’s performance.
+Finally, we further validateCode Researcher’s crash-resolving patches with unit tests and a qualitative
+analysis, and show its generalizability to another codebase.
+6
+
+Preprint
+Table 1: Crash resolution rate (CRR) for different tools on the kBenchSyz benchmark (200 bugs).
+LLMs used by the tools are in parentheses.∗Results are from Mathai et al. (2025), out of 279 bugs.
+Setting Tool Max calls P@k CRR (%)
+Assisted
+GPT-4o 1 P@5 36 .00
+o1 1 P@5 51 .00
+CrashFixer (Gemini 1.5 Pro-002)∗ ≥ 4 P@16 49 .22∗
+CrashFixer (Gemini 2.5 Pro) ≥ 4 P@16 70.00
+Stack context GPT-4o 1 P@5 29 .50
+o1 1 P@5 40.00
+Unassisted
+Agentless (GPT-4o) 4 P@5 31 .00
+SWE-agent (GPT-4o) 15 P@5 31 .50
+Code Researcher (GPT-4o) 15 P@5 48 .00
+Code Researcher (GPT-4o + o1) 15 P@5 58 .00
+Code Researcher (Gemini 2.5-Flash) 15 P@5 67.00
+Unassisted
++ Scaled
+SWE-agent (GPT-4o) 30 P@5 32 .00
+Code Researcher (GPT-4o) 30 P@5 47 .50
+SWE-agent (GPT-4o) 15 P@10 37 .50
+Code Researcher (GPT-4o) 15 P@10 54.00
+5.1 RQ1: H OW EFFECTIVE ARE DIFFERENT TOOLS AT RESOLVING LINUX KERNEL CRASHES ?
+Our main results are presented in Table 1, organized by setting, namely, assisted, stack context,
+unassisted, and unassisted + test-time scaled (Section 4).
+1) The assisted setting baselines show strong performance, but under unrealistic assumptions.
+Given the ground-truth buggy files, LLMs like GPT-4o (CRR of 36%) are quite capable of resolving
+crashes. A reasoning model like o1 is significantly better (CRR of 51%). Adding iterative feedback
+from the compiler and the crash reproduction setup, CrashFixer achieves 49.22% CRR with an older
+Gemini model and 70% CRR with a newer Gemini reasoning model using P@16 with at least 4 max
+calls.
+2) The stack context setting reveals the difficulty of the practical unassisted setting. The
+assumption that an oracle can tell us exactly which files need to be edited is impractical. The gap
+between the assisted (idealistic) setting and the practical unassisted setting is highlighted by the simple
+but effective stack context setting where models are given the contents of all the files mentioned
+in the crash report (truncated to the context length limit). This is a strong baseline because all the
+ground-truth buggy files are present in the crash report for 74.50% crashes in our dataset. o1 achieves
+a CRR of 40%, which is impressive, but 11% lower than its performance in the assisted setting.
+3) Code Researcher consistently outperforms baselines in the unassisted setting. Fixing the LLM
+as GPT-4o, Code Researcher achieves a CRR of 48%, significantly outperforming the SWE-agent
+and Agentless baselines, both the stack context baselines, and even the assisted GPT-4o baseline.
+This indicates that the context gathered by Code Researcher is much more effective than giving file
+contents based on the crash report, or using multi-step hierarchical localization (as done by Agentless),
+and is even better than directly giving all the contents of the files to be edited. The context gathered
+by GPT-4o during ANALYSIS can be better utilized by the reasoning model o1 during SYNTHESIS ,
+increasing Code Researcher ’s CRR to 58%. This further increases to 67% using the newer (albeit
+not as advanced as Gemini 2.5-Pro) model, Gemini 2.5-Flash, for both phases, indicating that Code
+Researcher’s design is not tied to a specific LLM family.
+4) Increasing the number of trajectories helps, while making them longer does not. We examine
+how scaling the total inference budget (max calls× num trajectories k) impacts the performance of
+Code Researcher and SWE-agent. Doubling the max calls budget, i.e., making the trajectories of
+the agents longer, has a negligible effect on the CRR, whereas increasing the number of trajectories
+sampled improves SWE-agent’s CRR to 37.50% and Code Researcher (GPT-4o)’s CRR to 54.00%.
+7
+
+Preprint
+Table 2: Average recall and All/Any/None percentages (metrics defined in Section 4) for different
+tools. LLMs used by the tools are in parentheses.
+Setting Tool Max
+calls P@k Avg.
+Recall
+All/Any/None
+(%)
+Stack context GPT-4o 1 P@5 0.46 42 .5/7.8/49.7
+o1 1 P@5 0 .43 39 .7/7.7/52.6
+Unassisted
+Agentless (GPT-4o) 4 P@5 0 .49 46 .4/7.7/45.9
+SWE-agent (GPT-4o) 15 P@5 0 .37 35 .1/5.6/59.3
+Code Researcher (GPT-4o) 15 P@5 0 .51 48 .2/7.8/44.0
+Code Researcher (GPT-4o + o1) 15 P@5 0 .53 49 .9/7.6/42.4
+Code Researcher (Gemini 2.5-Flash) 15 P@5 0.56 52 .1/9.7/38.2
+Unassisted
++ Scaled
+SWE-agent (GPT-4o) 30 P@5 0 .40 37 .9/6.4/55.7
+Code Researcher (GPT-4o) 30 P@5 0.53 49 .5/8.0/42.5
+SWE-agent (GPT-4o) 15 P@10 0 .36 34 .3/5.5/60.2
+Code Researcher (GPT-4o) 15 P@10 0 .51 47 .8/7.5/44.7
+0 10 20 30 40 50
+Unique files opened (clipped at 50)
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Cumulative normalized
+count of crashes
+SWE-agent
+CodeResearcher
+SWE-agent Avg: 1.9
+CodeResearcher Avg: 29.1
+Figure 2: Files explored for each crash (summed over 5 trajectories).
+5.2 RQ2: D O THE TOOL -EDITED FILES MATCH THOSE MODIFIED IN DEVELOPER FIXES ?
+The information needed by a developer to fix a crash can be divided into (1) the code to be edited and
+(2) additional context. We study (1) here by examining whether tools edit the same files as developers,
+and study (2) in the next section. Since buggy files are already provided in the assisted setting, we
+focus on the stack context and unassisted settings. Full results appear in Table 2.
+Code Researcher achieves the highest recall across all baselines, editing all ground-truth buggy
+files in nearly half of candidate patches and at least one in another∼ 8%. “Recall” here measures
+the fraction of ground-truth files in those edited, not merely explored, making it notable that Code
+Researcher edits on average only 1.1 files while exploring 10 (Section 5.3). Agentless attains recall
+comparable to Code Researcher and much higher than SWE-agent, but resolves far fewer crashes.
+This contrast underscores the importance of the global context gathered by Code Researcher,
+beyond just the code being edited. Finally, scaling test-time compute (via increasing max calls or
+P@k) for Code Researcher and SWE-agent preserves the overlap between edited and ground-truth
+files, and using the newer Gemini 2.5-Flash for Code Researcher further improves its overlap.
+5.3 RQ3: H OW EFFECTIVE IS CONTEXT GATHERING FOR RESOLVING KERNEL CRASHES ?
+From Tables 1 and 2, Code Researcher (GPT-4o) significantly outperforms baselines that do not
+gather additional context but have high recall. This shows that gathering global context (instead of
+just localizing the code to edit) can drastically improve kernel crash resolution. Agentless, which does
+not gather any context, performs poorly, while SWE-agent does gather context from the codebase,
+yet it performs much worse than Code Researcher . Below, we investigate this further:
+1) Coverage of the context gathered: Figure 2 shows the distribution of the number of unique files
+read across the 5 trajectories by Code Researcher and SWE-Agent (GPT-4o, P@5, 15 max calls).
+Code Researcher performs deep research over the codebase, reading 29.13 unique files across 5
+8
+
+Preprint
+top-level directories on average for each crash. In stark contrast, SWE-agent reads only 1.91 files
+on average for each crash. When averaged by trajectory, Code Researcher explores 10 unique files
+compared to only 1.33 files explored by SWE-agent.
+2) Overlap with developer-referenced context: We use LLM-as-judge to determine the overlap
+of the context gathered by Code Researcher (GPT-4o) and SWE-agent with the context mentioned
+by the developer in the fix commit message (details in Appendix I). This context overlap is 54.18%
+(over candidate patches) for SWE-agent compared to 63.7% for Code Researcher, suggesting that
+Code Researcher does a much better job of identifying relevant context that the developer explicitly
+relied on when making the fix.
+3) Context quality when both edit all the ground-truth modified files: To isolate the impact of the
+gathered context, we consider the subset of 90 crashes, where both Code Researcher and SWE-agent
+(using the same GPT-4o model) editall the ground-truth files inat least one candidate patchgenerated
+by each tool. We can thus attribute their success (or failure) on this subset to the context gathered.
+Code Researcher resolves 55/90 = 61 .10% of crashes in this subset, while SWE-agent resolves
+only 34/90 = 37 .78% (discounting crash-resolving patches from each tool that do not edit all the
+ground-truth files). Taken together, the three observations show that not only doesCode Researcher
+gather more context than SWE-agent, it also gathers higher quality context.
+5.4 RQ4: H OW IMPORTANT ARE HISTORICAL COMMIT ANALYSIS AND CONTEXT FILTERING ?
+Commit history analysis Code Researcher is the first agent to explicitly leverage the rich devel-
+opment history of codebases. In this ablation, we run it without the search_commits action
+on the set of 96 bugs that were successfully resolved by Code Researcher (GPT-4o, Pass@5, 15
+max calls). Table 3 (Appendix A) shows that removing the search_commits action leads to a
+10% drop in the crash resolution rate, and decreases the ability to edit the ground-truth modified
+files. This highlights that the search_commits action plays a crucial role in context gathering
+and localization. Notably, for the example in Appendix H, we also observe that Code Researcher
+navigates to the same buggy commit that originally introduced the bug being repaired.
+Context filtering As mentioned in Section 3.2, the ANALYSIS phase often gathers large amounts of
+irrelevant context, especially in big codebases like the Linux kernel. The SYNTHESIS phase filters
+this memory before synthesizing a patch. We provide two pieces of evidence for the importance of
+this filtering. First, the average memory length (capped at 50K) across all Code Researcher (GPT-4o,
+P@5, 15 max calls) trajectories dropped from 21, 557 tokens to 7, 797 tokens after filtering. Since
+irrelevant tokens hurt LLM reasoning, this reduction should help performance. Second, in an ablation
+on 20 randomly sampled crashes (10 resolved, 10 unresolved), disabling filtering reduced resolved
+crashes from 10 to 8, average recall from 0.41 to 0.35, and All/Any/None from 34.0/16.0/50.0 to
+29.0/15.0/56.0. This shows the importance of filtering in Code Researcher ’s performance.
+5.5 RQ5: H OW ROBUST ARE Code Researcher ’S PATCHES ?
+Kernel unit tests In addition to extensive testing (for 10 minutes on 4 machines with 8 parallel
+processes) for crash-resolution per the kBenchSyz setup, we run kernel unit tests to check if the pro-
+posed patches break existing functionality. For each of the 116 crashes resolved by Code Researcher
+(GPT-4o+o1, P@5, 15 max calls), we selected one crash-resolving patch and ran KUnit (Linux, 2025)
+tests on it. For a total of 28 crashes, either KUnit was not present in the kernel source code version on
+which the crash was reported or it did not support the required setup. For the remaining 88 crashes,
+all the KUnit tests had a status of either PASS or SKIP (some hardware-specific tests are skipped
+depending on the machine requirements). On average, only∼ 13 tests were skipped for a patch while
+∼ 210 tests were passed with no unit test failures reported.
+Qualitative analysis While perusing the crash-resolving patches, we came across the following
+types of patches. Examples for each category (with explanations) are in Listings 1-4, Appendix J.
+(1) Accurate patches correctly identify and fix the root cause of the crash, closely resembling
+the developer solution. (2) Overspecialized patches successfully prevent the crash but may be
+overspecialized. (3) Incomplete patches correctly identify the problem area and approach, but may
+not be complete. They provide debugging insights and could accelerate the path to a proper fix. (4)
+Inaccurate patches offer a plausible way to resolve the crash, but differ from the developer fix.
+9
+
+Preprint
+5.6 RQ6: D OES Code Researcher GENERALIZE TO OTHER SYSTEMS CODEBASES ?
+To demonstrate thatCode Researcher generalizes with a little effort to other codebases, we experiment
+with crash resolution in the FFmpeg (FFmpeg, 2025) codebase, a leading open-source multimedia
+framework. We build a small dataset of 10 recent security-related crash vulnerabilities (which
+are assigned the top priority) reported by OSS-Fuzz (Google), an automated fuzzing service for
+open-source projects. Full details of the codebase, dataset construction, and reproduction steps are
+given in Appendix D. We run Code Researcher with the same core prompts as for the Linux kernel.
+In the unassisted setting ( ANALYSIS with GPT-4o, SYNTHESIS with o1, max calls = 15), Code
+Researcher resolves 7 of 10 crashes at Pass@1. It achieves an average recall of 0.78, editing all
+the ground-truth files in 7 crashes and none in 2 (excluding one case without a known fix). While
+FFmpeg crashes are typically not as complex as Linux kernel crashes, our results show that Code
+Researcher’s techniques generalize easily and effectively to other systems codebases.
+6 C ONCLUSIONS , LIMITATIONS , AND FUTURE WORK
+In this work, we extend coding agents to deep research scenarios arising in resolving complex issues
+in large systems codebases. We (a) leverage the rich development history in the codebases (commits),
+and (b) design effective deep exploration strategies for gathering the rich context often needed to
+root-cause and patch code crashes. We establish state-of-the-art results on the latest and challenging
+benchmark of Linux kernel crashes, thoroughly validate our results, perform ablations, and show
+the generalizability of our approach. Our work currently targets the crash resolution problem, but
+there are other equally important problems faced by systems software such as slow response times,
+excessive resource usage and flakiness. It remains to be seen if our deep research strategy could be
+applied to these scenarios. Deep research for code is a new subfield of agentic AI and we intend to
+explore novel usecases and strategies beyond the ones presented in the paper.

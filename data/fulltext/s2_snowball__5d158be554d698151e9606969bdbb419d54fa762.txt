@@ -1,0 +1,559 @@
+record_id: s2_snowball:5d158be554d698151e9606969bdbb419d54fa762
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2507.15887
+fetched_title: AlgoTune: Can Language Models Speed Up General-Purpose Numerical Programs?
+fetched_at: 2026-09-18T19:01:07Z
+
+AlgoTune: Can Language Models Speed Up
+General-Purpose Numerical Programs?
+Ori Press1 Brandon Amos3 Haoyu Zhao2 Yikai Wu2 Samuel K. Ainsworth
+Dominik Krupke4 Patrick Kidger5 Touqir Sajed6 Bartolomeo Stellato2
+Jisun Park2,7 Nathanael Bosch1 Eli Meril8 Albert Steppi9
+Arman Zharmagambetov3 Fangzhao Zhang10 David Pérez–Piñeiro11 Alberto Mercurio12
+Ni Zhan2 Talor Abramovich8 Kilian Lieret2 Hanlin Zhang13
+Shirley Huang13 Matthias Bethge1 Ofir Press2
+1 Tübingen AI Center, University of Tübingen 2 Princeton University 3 Meta (FAIR)
+4 TU Braunschweig 5 Cradle Bio 6 LG Electronics Canada
+7 Seoul National University 8 Tel Aviv University 9 Quansight PBC
+10 Stanford University 11 Norwegian University of Science and Technology 12 EPFL 13 Harvard
+University
+Abstract
+Despite progress in language model (LM) capabilities, evaluations have thus far
+focused on models’ performance on tasks that humans have previously solved,
+including in programming (Jimenez et al., 2024) and mathematics (Glazer et al.,
+2024). We therefore propose testing models’ ability to design and implement algo-
+rithms in an open-ended benchmark: We task LMs with writing code that efficiently
+solves computationally challenging problems in computer science, physics, and
+mathematics. Our AlgoTune benchmark consists of 154 coding tasks collected
+from domain experts and a framework for validating and timing LM-synthesized
+solution code, which is compared to reference implementations from popular open-
+source packages. In addition, we develop a baseline LM agent, AlgoTuner, and
+evaluate its performance across a suite of frontier models. AlgoTuner uses a simple,
+budgeted loop that edits code, compiles and runs it, profiles performance, verifies
+correctness on tests, and selects the fastest valid version. AlgoTuner achieves an
+average 1.72× speedup against our reference solvers, which use libraries such as
+SciPy, sk-learn and CVXPY . However, we find that current models fail to discover
+algorithmic innovations, instead preferring surface-level optimizations. We hope
+that AlgoTune catalyzes the development of LM agents exhibiting creative problem
+solving beyond state-of-the-art human performance.
+1 Introduction
+Language models have become increasingly capable at tasks in programming and mathematics (Liu
+et al., 2024; Anthropic, 2025a; Google DeepMind, 2025). But the research community has mostly
+focused on studying their ability to write simple standalone functions from scratch, as in Hu-
+manEval (Chen et al., 2021), MBPP (Austin et al., 2021), LiveCodeBench (Jain et al., 2024), and Aider
+Polyglot (Gauthier, 2024); or to fix bugs in existing software libraries, as in SWE-bench (Jimenez
+et al., 2024).
+These benchmarks challenge AI systems with problems that have previously been solved by humans.
+For example, SWE-bench tasks consist of fixing historical bugs on GitHub, all of which have been
+fixed. HumanEval and the similar followups task LMs with reproducing human-written code based
+on given descriptions.
+39th Conference on Neural Information Processing Systems (NeurIPS 2025) Track on Datasets and Benchmarks.
+arXiv:2507.15887v4 [cs.SE] 24 Oct 2025
+
+Optimize the Code Compare to BaselinePick a Task
+AlgoTune
+Testing Suitenumpy.qr
+
+python.gzip
+
+networkx.pagerank
+Language
+Model
+Time Generated Code
+Reference: 154 tasks including: Generated: Score:
+1 2 3
+105.5ms
+
+99.4ms
+
+49.7ms
+75.6ms
+
+99.4ms
+
+1.6ms
+1.4x
+
+30x
+1x
+
+Figure 1: AlgoTune challenges LMs to optimize 154 numerical functions, including QR Decompo-
+sition, gzip Compression and PageRank. We score LMs based on how much faster their generated
+code is than reference solvers. For concrete examples, see §4.2.
+But what if AI could go beyond what has already been done? What if AI systems could take optimized
+code from a popular Python library like Numpy (Harris et al., 2020), SciPy (Virtanen et al., 2020) or
+NetworkX (Hagberg et al., 2008) and make it ever faster?
+To measure this, we introduce AlgoTune, a benchmark designed to assess the ability of LM systems
+to optimize the runtime of 154 functions in a wide variety of domains including Math (Cholesky
+factorization, Matrix exponential), Science (The FitzHugh–Nagumo ordinary differential equations,
+Heat Equation), Computer Science (SHA256 hashing, Graph Isomorphism, KD Tree Construction,
+gzip compression), and Machine Learning (Lasso regression, Kalman filters).
+Existing code benchmarks contain tasks that have a binary outcome: the model either solves the task
+at hand – programming a specified function or fixing a bug – or it fails to do so. In AlgoTune, we
+score systems based on the speed of their synthesized code relative to a reference implementation, a
+metric with no absolute upper bound. We argue that AlgoTune narrows the gap between benchmark
+objectives and real-world goals: success on this benchmark could translate to tangible performance
+gains in widely used numerical libraries.
+To improve the speed of a reference function, language models can utilize a variety of techniques,
+including implementing faster algorithms or rewriting the code in a lower-level language like C.
+Finding a faster algorithm may in some cases involve searching in the existing literature: one of
+our tasks uses SciPy’sspatial.kd_tree, which uses the algorithm from Maneewongvatana and
+Mount (1999), but more recent works such as Muja and Lowe (2014) have proposed faster algorithms.
+In other cases, optimizing the given reference algorithm might require the LM to discover a novel
+approach.
+In addition to our benchmark, we propose an LM agent, AlgoTuner, that iteratively develops efficient
+code for AlgoTune tasks. To enable writing efficient code, we equip AlgoTuner with tools including
+Cython (Behnel et al., 2011) and Numba (Lam et al., 2015) (see Appendix D for the complete list).
+When running on o4-mini-high, AlgoTuner is able to optimize code for 59.7% of the AlgoTune tasks,
+yielding an AlgoTune score of 1.72×. As we show in §4, these speedups are minor surface-level
+optimizations. We did not observe AlgoTuner finding any novel algorithmic improvements across
+any of the LMs tested.
+Our contributions are threefold: 1) a benchmark that challenges LMs to optimize 154 functions in a
+wide variety of domains, including functions from popular open-source repositories, 2) a test suite
+that allows for robustly testing and timing AI-synthesized code for correctness, and 3) the AlgoTuner
+agent that can iteratively attempt to optimize a given function using any frontier LM.
+Concurrently, KernelBench (Ouyang et al., 2025) challenges LMs to develop CUDA GPU ker-
+nels, evaluated on their speed. They focus on narrow, specific PyTorch operations such as
+Matmul_Add_Swish_Tanh_GELU_Hardtanh or neural network blocks such asEfficientNetB2,
+whereas AlgoTune contains a range of numerical functions across a wide array of domains.
+We hypothesize that further work in this direction may lead to a future in which LMs are used to
+autonomously write highly-optimized code, potentially via novel algorithmic discovery. Our software
+2
+
+makes this process simple: users enter a function of interest, write an input data generator and output
+verifier, and get back an optimized version of their code.
+2 The AlgoTune Benchmark
+This section defines the benchmark scope (domains, taxonomy, and design principles) (§2.1), explains
+task construction (generators, reference solvers, verifiers, and QA) (§2.2), and details the evaluation
+protocol (instance sizing, timing, metrics, splits, and budget) (§2.3). Together, these subsections
+specify how tasks are generated, how correctness and speedups are measured, and how results can be
+reproduced.
+2.1 Benchmark Scope
+The AlgoTune benchmark consists of 154 tasks, challenging AI systems to write performant code
+for a variety of numerical and scientific problems, such as Graph Coloring, Spectral Clustering, and
+the Wasserstein distance function. We score an AI system based on how much faster its generated
+implementations are relative to our reference implementations. Our reference implementations use
+functions from popular libraries such as NumPy (Harris et al., 2020), SciPy (Virtanen et al., 2020),
+and NetworkX (Hagberg et al., 2008).
+AlgoTune’s test suite includes a solution verifier that runs an AI-generated implementation on a
+held-out test set of inputs to ensure correctness, and a runtime profiler that measures the wall-clock
+execution time of the code. The AI system’s score for each task is the multiple of how much faster
+the synthesized code is than the reference implementation on the test input set.
+Where possible, our reference implementations are simply calls to functions from popular Python
+packages because 1) these repositories contain extensive test suites, increasing confidence in the
+reference implementation correctness and 2) their popularity makes it so that further optimizations to
+these functions may have a direct real-world impact.
+Data Contamination. Most existing benchmarks consist of a test set of questions and answers, and
+if this set leaks into training data, it causes the resulting LM to perform well on the test set without
+extrapolating to novel, real-world queries (Dong et al., 2024). AlgoTune bypasses this issue by not
+having answers. Instead we rely on reference solvers that are already publicly known and which we
+also include in the prompt shown to agents solving AlgoTune tasks.
+Can functions in popular Python repositories be sped up? NumPy (Harris et al., 2020), SciPy
+(Virtanen et al., 2020) and NetworkX (Hagberg et al., 2008) are three popular Python libraries
+we use for many reference solvers in AlgoTune. They contain highly efficient code that has been
+developed by thousands of contributors. Given this, it may seem unlikely that significant performance
+improvements are possible in these libraries. However, Appendix E presents a sample of merged pull
+requests from the past two years in the above repositories. The runtime benchmark results presented
+in those pull requests show performance improvements that range from 2.7x speedups, to over 600x
+speedups. Even in highly optimized libraries substantial performance headroom remains.
+Benchmark construction. To build our benchmark, we recruited 21 contributors, both committers
+to the software packages used in AlgoTune, as well as academics who contributed tasks from their
+field of expertise. Contributors were asked to submit reference solvers, input data generators and
+solution verifiers. Each submitted task was then reviewed by two other contributors. The AlgoTune
+test set consists of 154 tasks in 13 categories (see Appendix A for the full list of tasks). This is
+comparable to previous benchmarks including HumanEval (Chen et al., 2021), Bamboogle (Press
+et al., 2022), and Plot2Code (Wu et al., 2024), which contain 164, 125, and 132 tasks respectively.
+Unlike previous benchmarks, where every task instance can either be solved or not, since every
+task in AlgoTune can always be further optimized, we believe that our 154 tasks provide a suitable
+environment to benchmark LMs. In addition, we provide a development set intended for use in agent
+prototyping. Our development set consists of 5 tasks.
+3
+
+Implement a solution
+verifier to validate
+LM-generated code
+outputs
+2Given a task,
+implement an input
+generation method
+and provide a solver
+3 Use AlgoTune’s test
+suite to confirm that the
+task implementation
+is valid.
+1
+Figure 2: The task collection pipeline for AlgoTune. We define an input generation method and
+solver for each task, along with a solution verifier. Automatic tests are then executed to check the
+validity of the task’s implementation.
+2.2 Task Implementation
+Each task in the benchmark comprises of a text file with the task description and an example
+input/output pair. In addition, each task includes a Python class which implements the following
+three methods:
+• generate_problem(n, random_seed): The input generator produces a problem in-
+stance parameterized by the problem sizen and a random seed. Generators are expected
+to produce problem instances that take longer to solve as n increases (as in Ziogas et al.
+(2021)). For example, in QR decomposition the matrix produced bygenerate_problem
+is of sizen×n, and in the graph coloring task, 5n is the number of edges in the graph that
+is produced.
+• solve(problem): The reference solver takes a generated problem instance and computes
+its solution. We use this as the performance reference against which speedups are calculated.
+Whenever possible, we prefer solvers that are direct wrappers of functions from popular
+open-source Python libraries, such as NumPy, SciPy, CVXPY , sk-learn and NetworkX.
+• is_solution(problem, proposed_solution): The solution verifier validates an
+LM-proposed solution for the given problem instance, returning a boolean value.
+We automatically validate each contributed AlgoTune task in two ways. First, we confirm that as the
+input sizen grows the solver’s runtime increases. Second, we check that for every task, when picking
+a few input samples from the development set, running the solver with different random seeds still
+produces outputs accepted by the verifier. We observed this test catching subtle issues in verifiers.
+For example, we found that in problems that have multiple valid solutions this test can catch verifiers
+that only accept one possible solution.
+Table 1 shows an overview of the categories of tasks in AlgoTune and the packages the reference
+solvers use. AlgoTune contains a diverse set of tasks covering mathematics, computer science and
+physics. For illustrative purposes, we list four example tasks here:
+• gzip_compression: Compress data, such that when decompressed it matches the input
+data exactly and the compressed data’s size is less than or equal to the size of input data
+when compressed with Python’s built-in gzip function.
+• chacha_encryption: Encrypt a given plaintext using ChaCha20-Poly1305 with a pro-
+vided key, nonce, and optional associated data (AAD).
+• graph_isomorphism: Given two isomorphic undirected graphsG1 andG2, find a map-
+pingf between their nodes such that adjacency is preserved. Meaning, if nodesu andv are
+connected inG1, then nodesf (u) andf (v) must be connected inG2.
+• discrete_log: Given a prime numberp, a generatorg, and a valueh, compute the discrete
+logarithmx such that:gx≡h (mod p) .
+The Importance of the Problem Input Distribution. The hardness of optimizing each task is
+dependent not only on the task itself but also on the input data distribution. Therefore, when building
+the benchmark, we had to focus not only on finding a wide variety of challenging tasks, but also on
+finding an input problem distribution for each task that is representative of real-world, non-trivial
+inputs for the solvers. This helps ensure that the LM-synthesized solver is not overly specialized
+to a narrow set of problems. For example, in the Lasso task (Tibshirani, 1996), a narrowly-defined
+4
+
+Table 1: AlgoTune consists of 154 tasks from 13 categories. This table shows which packages are used in the
+reference solvers in each category. Note that a reference solver can use multiple packages.
+Category Task Count Top 3 Packages
+Used in Reference Solvers Example Task
+Matrix Operations 29 numpy (29), scipy (13), ast (1) cholesky_factorization
+Convex Optimization 28 numpy (28), cvxpy (23), scipy (2) aircraft_wing_design
+Discrete Optimization 19 ortools (13), pysat (4), numpy (4) btsp
+Graphs 16 numpy (14), networkx (9), scipy (5) articulation_points
+Signal Processing 13 scipy (13), numpy (13) affine_transform_2d
+Differential Equation 12 scipy (12), numpy (12) ode_brusselator
+Statistics 9 numpy (9), scipy (6), sklearn (4) correlate2d_full_fill
+Nonconvex Optimization 6 numpy (6), sklearn (3), hdbscan (1) clustering_outliers
+Numerical Methods 6 numpy (6), scipy (4) cumulative_simpson_1d
+Cryptography 5 cryptography (3), hmac (3), sympy (2) aes_gcm_encryption
+Computational Geometry 4 numpy (4), scipy (3), faiss (1) convex_hull
+Control 4 numpy (4), cvxpy (2), scipy (2) feedback_controller_design
+Misc. 3 numpy (3), hmac (1), mpmath (1) base64_encoding
+data distribution could lead to the optimal regressor to always being the same (for example, with
+a slope of 1), and the LM-synthesized solver could exploit this by hard-coding the solution to that
+value rather than solving the problem from scratch.
+The Importance of Writing Complete Tests. During development of the AlgoTune infrastructure,
+we found that sometimes an LM would find what appeared to be substantially more efficient code
+for a certain task, but upon manual inspection it would turn out to be a solution that passed our tests
+by finding a loophole and without actually solving the given task. This is analogous to the reward
+hacking phenomenon observed in reinforcement learning (Amodei et al., 2016). For example, in an
+initial version of our vector quantization solution verifier, we only tested whether the quantization
+was valid, but did not check whether the quantization error was optimal. This led to an LM generating
+a fast, trivial, and suboptimal quantization. We fixed this by adding an optimality test in the solution
+verifier.
+Do the AlgoTune reference functions have to have “optimal” runtime? Benchmarks play a few
+roles in the current research landscape, including 1) allowing for comparison between different LMs
+and 2) tracking the progress of the field over time. Both of these are possible with AlgoTune, even if
+the reference solvers for each task are not “optimal”. Since new algorithmic and coding innovations
+are published constantly, it would be unmanageable to try and maintain a library of 154 solvers that
+are all state-of-the-art in their domain, both in terms of using the best-known algorithm and in terms of
+implementing that algorithm in the lowest-level and most efficient way (using Numba or C bindings
+for Python with Cython). Therefore, we prioritize correctness in our reference implementations,
+which leads us to source the reference solvers from widely-used Python libraries.
+2.3 Evaluation Protocol
+Agents are allowed to browse online resources while developing code for the tasks in AlgoTune.
+Agents are also allowed to execute code, and iterate freely on the provided development set of inputs
+for each task (which, of course, is different from the test inputs that we use to determine the final
+speedup score on each task). We also allow agents to write code that requires compilation, and
+we exclude the compilation time from runtime timing measurements (we allow up to 2 minutes of
+compilation time per task).
+Evaluation. For each task, we pick a problem sizen such that the task takes our reference solver
+100ms to solve on one CPU core, similar to the setup in Ziogas et al. (2021). As in Ziogas et al.,
+due to memory constraints, for a few tasks we use a lower time target (Appendix H reports timing
+information for each task). To compute a model’s score on a given task, we first run its generated
+code on the test input instances. If the task verifier deems all outputs valid, we assign the model a
+speedup score: the ratio between reference code runtime and LM code runtime over the test inputs.
+Solutions that yield invalid outputs or that have a speedup of under 1× are assigned a speedup of 1×.
+The overall AlgoTune score for a specific model is the harmonic mean of its scores on all tasks. We
+5
+
+use the harmonic mean since it is appropriate for averaging speed-up ratios (Smith, 1988; Eeckhout,
+2024).
+To reliably measure runtime, we do the following in each candidate solver’s evaluation: for each
+problem instance, we first run an untimed warmup run, as is common practice in code benchmark-
+ing (Georges et al., 2007; Blackburn et al., 2008). This is then followed by one timed measurement.
+This is repeated 10 times, of which only the minimum time is kept (Arnold et al., 2000). Timing for
+each run is captured usingtime.perf_counter_ns. We run all measurements on an AMD EPYC
+9454 CPU with 14GB of memory.
+We note that the choice of problem sizen can result in different optimal algorithms, as is the case in
+matrix multiplication (Smirnov, 2013). Due to budget constraints, we pick a specific problem size for
+each task, but we emphasize that AlgoTune can operate on arbitrary problem sizes.
+3 The AlgoTuner Agent
+In order to evaluate the frontier LMs on our benchmark, we adopt a SWE-Agent like setup (Yang
+et al., 2024) wherein the model interacts with a computer environment to iteratively edit code and
+receive feedback while attempting to optimize an AlgoTune solver.
+To get feedback on the current solver performance, we allow the agent to run its code on a development
+set of inputs for the task, after which we send back timing information and statistics regarding how
+many instances were solved correctly or timed out. We evaluate all LMs with a fixed budget of $1 for
+each task. The agent continuously queries the LM to improve its solution until the budget runs out, at
+which point we submit its best code (as judged by its runtime on the development examples). The
+score we assign the agent is its speedup over the reference implementation on a held-out test set of
+inputs for the given task. If this computation results in a score that is less than 1, we assign the agent
+a mercy score of 1.
+In addition to the packages used in the reference solvers, AlgoTuner can also use a variety of Python
+packages, including: Cython (Behnel et al., 2011), Numba (Lam et al., 2015), and Dask (Rocklin,
+2015). For a complete list of packages available to the agent, see Appendix D.
+We also implement commands for the agent that are specific to code optimization:profile allows
+the agent to use a profiler to see which parts of the code take the most time, and reference runs
+the reference solver on a given input and reports back the output and runtime. See Appendix B for
+further details of the agent setup, prompt, and commands.
+4 Results
+We run AlgoTuner using four frontier LMs through the LiteLLM library (BerriAI, 2025):
+o4-mini-high (OpenAI, 2025),Claude Opus 4 20250514 (Anthropic, 2025b),Gemini 2.5
+Pro (Google DeepMind, 2025), and DeepSeek R1 0528 (Guo et al., 2025). In all cases where
+applicable, the highest thinking setting was used. We present our results in Table 2, showing that
+models are able to optimize our reference solvers somewhat, with o4-mini achieving an AlgoTune
+score of 1.72×, which is the harmonic mean of its speedup ratios across all tasks, with tasks for which
+the model cannot find a quicker solver given a speedup of 1×. Our analysis shows that these speedups
+are mostly surface level, simple optimizations, and do not represent any algorithmic innovations.
+Table 2: AlgoTuner scores for each LM, with a budget of $1 for each task. Speedup is calculated as
+the harmonic mean of the speedups across tasks.
+o4-mini R1 Gemini 2.5 Pro Claude Opus 4
+AlgoTune Score 1.72× 1.70× 1.51× 1.33×
+4.1 Quantitative Analysis
+Figure 3 shows how agent-generated code scores on AlgoTune (on the development set of input
+problems) at intermediate budget checkpoints. Both o4-mini-high and R1 achieve better scores after
+6
+
+$0.2 $0.4 $0.6 $0.8 $1.0
+Budget
+1.2
+1.4
+1.6
+1.8AlgoTune Score
+o4-mini
+R1
+Claude Opus 4
+Gemini 2.5 Pro
+Figure 3: AlgoTune scores (on the development
+set of input problems) across all tasks, during the
+running of AlgoTuner, for intermediate budget
+splits, up to the total budget of $1.
+Table 3: The top packages added or removed by
+o4-mini’s optimized solvers (compared to those
+used by the reference solvers), across all 92 tasks
+it sped up, ranked by absolute change.
+Package Reference LM
+Generated ∆
+numba 1 25 +24
+scipy 61 67 +6
+ecos 0 2 +2
+faiss 2 4 +2
+pysat 4 1 -3
+hmac 4 0 -4
+sklearn 9 5 -4
+networkx 12 2 -10
+numpy 132 118 -14
+cvxpy 27 10 -17
+spending $0.1, than Claude Opus 4 and Gemini 2.5 Pro achieve after spending the full budget. In
+Table 3, we show packages used by o4-mini-high on the 59.7% of tasks where it managed to get a
+speedup of at least 1.1×, and how those packages differ from the packages used by the reference
+solvers. We can see that it frequently used Numba to write efficient solvers, and that it frequently
+rewrote solvers that used NetworkX, CVXPY and OR-Tools to remove those dependencies. For
+additional quantitative analysis, see §C.
+4.2 Qualitative Analysis
+Manually reviewing AlgoTuner’s synthesized solvers shows that its optimizations are mostly surface-
+level. We go over a few of the different optimization patterns used by AlgoTuner below:
+Using a Better Implementation. In several tasks, AlgoTuner replaces the refer-
+ence implementation with a call to a specialized, more efficient function. For ex-
+ample, in feedback_controller_design, instead of using CVXPY , a call to
+scipy.linalg.solve_discrete_are is made (see Fig. 4), and in the lyapunov_stability
+task, instead of CVXPY the optimized code callsscipy.linalg.solve_discrete_lyapunov.
+Better Library Usage. In several tasks, the default usage of a library (e.g., operations or parameters
+of a function call) are swapped for more optimized ones in the optimized code. This is done without
+significantly changing the algorithmic structure of the solution. In psd_cone_projection, the
+optimized code uses the same level of abstraction as the reference, but with more efficient usage of
+NumPy (see Fig. 5).
+Rewriting Using Low-Level Operations. Ingraph_isomorphism, instead of using NetworkX
+objects, AlgoTuner’s code works on adjacency lists and runs a single Weisfeiler–Lehman (Sher-
+vashidze et al., 2011) pass, resulting in far fewer recursive calls than the NetworkX implementation.
+This results in a 52x speedup. In communicability, AlgoTuner’s solver uses BLAS operations
+instead of pure Python, which leads to a speedup of more than 142x. In ode_hodgkinhuxley,
+AlgoTuner’s code uses a Numba kernel instead of the reference’s SciPy call, achieving a 112x
+speedup. In another case, the reference solution uses SciPy’s stats.wasserstein_distance,
+which incurs Python overhead and extra work each call; AlgoTuner’s code compiles a Numba kernel
+that streams once over the data, so after a one-time JIT compilation it runs at near-C speed, leading to
+a speedup of more than 4x (see Fig. 6).
+Failure Analysis. We next present a few examples of AlgoTuner failing to optimize code.
+In the svm task, our reference solver formulates the SVM as a convex program and then solves it
+using CVXPY . AlgoTuner with o4-mini, Claude Opus 4, and R1 reach the same implementation,
+7
+
+import cvxpy as cp
+def solve(A, B):
+n, m = A.shape[0], B.shape[1]
+Q = cp.Variable((n, n), symmetric=
+True)
+L = cp.Variable((m, n))
+cons = [
+cp.bmat([
+[Q, Q @ A.T + L.T @ B.T],
+[A @ Q + B @ L, Q]
+]) >> np.eye(2 * n),
+Q >> np.eye(n),
+]
+obj = cp.Minimize(0)
+prob = cp.Problem(obj, cons)
+prob.solve()
+K = L.value @ np.linalg.inv(Q.value)
+P = np.linalg.inv(Q.value)
+return P, K
+from scipy.linalg import
+solve_discrete_are
+def solve(A, B):
+n, m = A.shape[0], B.shape[1]
+Q = np.eye(n)
+R = np.eye(m)
+P = solve_discrete_are(A, B, Q, R)
+PB = P.dot(B)
+S = R + PB.T.dot(B)
+N = PB.T.dot(A)
+K = -np.linalg.solve(S, N)
+return P, K
+Figure 4: Left: Our feedback controller task starts with a reference CVXPY implementation solving
+an SDP formulation. Right: AlgoTuner with o4-mini improves upon the runtime by a factor of 81 by
+rewriting it to use SciPy’s discrete algebraic Ricatti equation (DARE) solver.
+def solve(A):
+eigvals, eigvecs = np.linalg.eig(A)
+eigvals = np.maximum(eigvals, 0)
+E = np.diag(eigvals)
+X = eigvecs @ E @ eigvecs.T
+return X
+def solve(A):
+eigvals, eigvecs = np.linalg.eigh(A
+)
+eigvals[eigvals < 0] = 0
+X = (eigvecs * eigvals) @ eigvecs.T
+return X
+Figure 5: Left: Our original code for a PSD cone projection of a symmetric matrix projects the
+eigenvalues to be non-negative. Right: AlgoTuner with Claude Opus 4 improves the code by a factor
+of 8 by 1) using a symmetric eigendecomposition, and 2) not forming the eigenvalue matrix and
+instead applying them directly to the eigenvectors.
+which results in no speedup. Gemini 2.5 Pro is not able to come up with a solver that produces valid
+results for every test instance.
+In thelasso task, our reference solver uses scikit-learn’s optimizedlinear_model.Lasso, while
+AlgoTuner with Claude Opus 4 wrote a Lasso regressor using pure Python and Numba. This resulted
+in code that ran at 0.33x the time of the reference solver, and the agent was unable to improve on this
+due to reaching the budget limit.
+5 Related Work
+Program synthesis, the automatic generation of programs subject to input constraints, is a long-
+standing problem in computer science and has been previously referred to as a “holy grail” of the
+field (Gulwani et al., 2017). Predating modern language models, a variety of approaches have been
+applied to the problem including constraint satisfaction (Torlak and Bodík, 2013; Solar-Lezama,
+2008), statistical methods (Raychev et al., 2014), and enumerative search (Alur et al., 2015). We
+especially note that Massalin (1987) introduced the concept of “superoptimization,” the problem of
+finding the fastest possible compilation of source program to a target language. We direct readers
+to Gulwani et al. (2017); David and Kroening (2017) for a general survey and Allamanis et al. (2018)
+for machine learning methods specifically.
+Recent benchmarks challenge LMs in real-world problem solving, from fixing software bugs to
+answering medical questions (Jimenez et al., 2024; Arora et al., 2025). Prior work using LMs for
+code generation has focused on challenging the LMs to program specific functions, measuring only
+correctness but not speed (Chen et al., 2021; Nijkamp et al., 2022; Li et al., 2022; Fried et al., 2022;
+8
+
+from scipy.stats import
+wasserstein_distance
+def solve(u, v):
+domain = list(range(1, u.shape[0]+1))
+return wasserstein_distance(
+domain, domain, u, v)
+@numba.njit(cache=True, fastmath=True)
+def wass(u,v):
+cumulative_diff, total_distance =
+0.0, 0.0
+for i in range(n - 1):
+cumulative_diff += u[i] - v[i]
+total_distance += abs(
+cumulative_diff)
+return total_distance
+def solve(u, v):
+return wass(u, v)
+Figure 6: Left: Our reference implementation for the 1D Wasserstein task calls into SciPy’s function.
+Right: AlgoTuner with Gemini 2.5 Pro improves the performance by a factor of 4 by writing Numba-
+jitted code for the difference between the CDFs of the distributions.
+Cassano et al., 2023; Li et al., 2023; Liu et al., 2023; Tian et al., 2024; Jiang et al., 2024). In AlgoTune
+we check for correctness but score models based on the speed of their generated code.
+Recent works (Shypula et al., 2023; Qiu et al., 2024; Huang et al., 2024; Coignion et al., 2024;
+Waghjale et al., 2024; Du et al., 2024) have proposed benchmarks that challenge LMs to make
+LeetCode and coding competition-style code more efficient. However, the tasks in AlgoTune provide
+a wider and more realistic range of optimization challenges. In the future, optimizations found on
+AlgoTune could directly lead to functions in popular open source projects such as Numpy, SciPy and
+NetworkX becoming faster.
+Misra (2024) showed that current state-of-the-art LMs struggle to optimize code, echoing findings
+from (Qiu et al., 2024; Huang et al., 2024). Concurrently with our work, Ouyang et al. (2025) task
+LMs with optimizing GPU kernel code for neural networks. AlgoTune contains tasks in many varied
+domains and does not just focus on deep learning functions. Other concurrent works, including Fan
+et al. (2023); Romera-Paredes et al. (2024); Imajuku et al. (2025); Chen et al. (2025); Sun et al.
+(2025); Novikov et al. (2025); Tang et al. (2025) present benchmarks and AI systems that optimize
+the solution quality of problems in computer science and math (for example, finding the shortest
+traveling salesman path in a graph). In AlgoTune, we instead focus on making functions run faster
+while meeting a solution quality threshold. AlgoTune also consists of a wider variety of problems,
+including popular algorithms that have not been previously used in benchmarks, such as those for
+encryption (AES GSM, ChaCha), compression (gzip) and hashing (SHA-256). A final concurrent
+work, Shetty et al. (2025), challenges LMs to optimize the runtime of functions in popular Python
+repositories including NumPy, pandas and Pydantic. Our approach complements their work since
+we focus on implementing end-to-end algorithms from a wide variety of domains, whereas their
+benchmark focuses on isolated functions from machine learning, data science and image processing
+repositories.
+In addition to being used to directly write efficient code, LMs are also being used to reduce compiled
+code size (Italiano and Cummins, 2024), and in general to make compilers more efficient (Cummins
+et al., 2024a;b). This provides an orthogonal approach, which in the future could be combined with
+AlgoTuner-style optimizations to lead to further speedups.
+Agents also struggle in tasks outside the code debugging and efficiency domains. ScienceAgent-
+Bench (Chen et al., 2024) showed that agents struggle with data-analysis and simulation challenges.
+ML engineering benchmarks like ML-Dev-Bench (Padigela et al., 2025) and MLE-bench (Chan et al.,
+2024) demonstrate that agents struggle with complex debugging and creative model improvements,
+rarely matching expert performance.
+6 Limitations and Future Work
+Our benchmark consists of algorithmic tasks that have well-defined solvers, input data generators, and
+solution verifiers, which must be written and checked manually. Future work could enable optimizing
+systems for which data generators and verifiers are hard or impossible to write, such as a web server
+or an operating system.
+9
+
+As mentioned in §2, we verify solutions on a fixed set of test inputs. Shortcomings in the test input
+distribution or in verifier completeness leave open the possibility for incorrect LM-synthesized code
+that passes tests. Future work could use formal verification to better verify LM-synthesized code, but
+this introduces constraints on programming language applicability and in some cases may require
+proof construction. In our experience, manual inspection of LM-generated code was sufficient to
+identify such potential issues.
+7 Conclusion
+AlgoTune introduces a benchmark where LMs are tasked with optimizing code in a wide range of
+domains. Along with a comprehensive benchmark suite consisting of 154 tasks, AlgoTune provides
+infrastructure for verifying and timing LM-generated candidate solutions, which makes arbitrary
+numerical function optimization streamlined and easy to deploy.
+We showed that our AlgoTuner agent can frequently optimize the functions in AlgoTune. Paired
+with four frontier LMs, AlgoTuner is able to provide surface level optimizations but is not able to
+come up with novel algorithms. Future work could deploy AlgoTune on other platforms, including
+GPUs/TPUs and distributed systems, with only minimal code changes. We hope that our work leads
+to LM systems that enable development of highly efficient code in a wide variety of domains, leading
+to scientific progress.
+Acknowledgments
+We thank David Alvarez-Melis and Matthias Kümmerer for their valuable feedback and fruitful
+discussions. Meta was involved only in an advisory role. All experimentation and data processing,
+including the use of open source models and datasets, was conducted at the University of Tübingen
+and Princeton University. The authors acknowledge support by the state of Baden-Württemberg
+through bwHPC. The authors thank the International Max Planck Research School for Intelligent
+Systems (IMPRS-IS) for supporting Ori Press and Nathanael Bosch. MB is a member of the Machine
+Learning Cluster of Excellence, funded by the Deutsche Forschungsgemeinschaft (DFG, German
+Research Foundation) under Germany’s Excellence Strategy – EXC number 2064/1 – Project number
+390727645 and acknowledges support by the German Research Foundation (DFG): SFB 1233, Robust
+Vision: Inference Principles and Neural Mechanisms, TP 4, Project No: 276693517. He further
+acknowledges financial support from Open Philanthropy Foundation funded by the Good Ventures
+Foundation. This work was supported by the Tübingen AI Center.

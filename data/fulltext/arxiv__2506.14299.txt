@@ -1,0 +1,690 @@
+record_id: arxiv:2506.14299
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2506.14299
+fetched_title: ADRD : LLM-D RIVEN AUTONOMOUS DRIVING BASED ON RULE -BASED DECISION SYSTEMS
+fetched_at: 2026-09-18T19:00:45Z
+
+arXiv:2506.14299v1 [cs.AI] 17 Jun 2025
+ADRD : LLM-D RIVEN AUTONOMOUS DRIVING BASED ON
+RULE -BASED DECISION SYSTEMS
+Fanzhi Zeng
+∗
+Siqi Wang
+∗
+zengfz21@mails.tsinghua.edu.cn wang-sq24@mails.tsinghua.edu.cn
+Chuzhao Zhu Li Li
+†
+zhucz21@mails.tsinghua.edu.cn li-li@mail.tsinghua.edu.cn
+ABSTRACT
+How to construct an interpretable autonomous driving decision-making system has become a focal
+point in academic research. In this study, we propose a novel approach that leverages large lan-
+guage models (LLMs) to generate executable, rule-based decision systems to address this challenge.
+Specifically, harnessing the strong reasoning and programming capabilities of LLMs, we introduce
+the ADRD(LLM-Driven Autonomous Driving Based on Rule-based Decision Systems) framework,
+which integrates three core modules: the Information Module, the Agents Module, and the Testing
+Module. The framework operates by first aggregating contextual driving scenario information through
+the Information Module, then utilizing the Agents Module to generate rule-based driving tactics.
+These tactics are iteratively refined through continuous interaction with the Testing Module. Extensive
+experimental evaluations demonstrate that ADRD exhibits superior performance in autonomous driv-
+ing decision tasks. Compared to traditional reinforcement learning approaches and the most advanced
+LLM-based methods, ADRD shows significant advantages in terms of interpretability, response speed,
+and driving performance. These results highlight the framework’s ability to achieve comprehensive
+and accurate understanding of complex driving scenarios, and underscore the promising future of
+transparent, rule-based decision systems that are easily modifiable and broadly applicable. To the
+best of our knowledge, this is the first work that integrates large language models with rule-based
+systems for autonomous driving decision-making, and our findings validate its potential for real-world
+deployment.
+1 Introduction
+The rapid development of autonomous driving technology has placed increasingly higher demands on the interpretability
+of decision-making systems. Achieving a "white-box" autonomous driving decision model, where the internal logic
+of the decision-making process is transparent and comprehensible to humans, has become a focal research direction
+in academia[1, 2, 3, 4, 5]. In recent years, with the advancement of deep learning, neural network-based decision
+systems have emerged as the dominant approach in autonomous driving due to their data-driven nature and ease of
+learning. However, such systems typically rely heavily on training data, leading to a sharp decline in performance when
+encountering out-of-distribution driving scenarios. Moreover, these models are often over-parameterized, making their
+decision logic difficult to interpret and challenging to modify or debug by domain experts when suboptimal performance
+occurs.
+Rule-based decision systems, on the other hand, hold significant value in the field of interpretable autonomous driving
+due to their intrinsic transparency and modifiability. By defining explicit rules to guide vehicle behavior, these models
+offer strong traceability and explainability. Nevertheless, traditional rule-based systems are highly dependent on expert
+knowledge, resulting in high development costs and limited adaptability to complex and dynamic traffic environments.
+Furthermore, their structural characteristics make it difficult to integrate data-driven learning methods, thereby hindering
+*Co-first author
+†Corresponding author
+
+automated improvement as new scenarios emerge, and making the construction of high-complexity rule-based models
+prohibitively expensive.
+Recently, the emergence of large language models (LLMs)[6, 7, 8, 9, 10] opens up new possibilities for rule-based
+autonomous driving decision-making. Trained on vast corpora, LLMs exhibit extensive world knowledge and strong
+reasoning capabilities, enabling them to automatically generate logically coherent rule sets without human intervention.
+This capability offers a novel pathway toward building highly interpretable, rule-based decision models. Although some
+LLM-based approaches for interpretable autonomous driving decisions have been proposed[2, 3, 4, 5], they remain
+largely model-centric, which introduces several key limitations:
+Low response efficiency: Most existing methods operate by generating a single decision based on a
+single-frame input, resulting in slow overall response times that fail to meet the strict real-time re-
+quirements of autonomous driving systems. Additionally, this local perspective limits comprehensive
+scene understanding and unified modeling.
+Poor tactic flexibility: Even though some methods can produce interpretable decision-making
+processes, their underlying mechanism remains data-driven fine-tuning, which lacks high-level
+abstraction of driving scenarios. Consequently, such tactics struggle to generalize effectively to novel
+or extreme driving situations. Moreover, despite the availability of interpretable outputs, researchers
+still find it difficult to directly modify the driving policy model to meet diverse requirements.
+To address these challenges, we propose a novel framework ADRD(LLM-Driven Autonomous Driving Based on
+Rule-based Decision Systems) that leverages large language models to automatically generate rule-based driving
+policies, aiming to achieve efficient, interpretable, and robust decision-making in autonomous driving. Decision trees,
+as a classical rule-based model, naturally offer both interpretability and fast inference speed, making them well-suited
+for various driving scenarios. Their structured representation also facilitates policy transfer and modification. Therefore,
+in this work, we adopt decision trees as the concrete implementation of our rule-based autonomous driving system.
+Specifically, our framework consists of three core modules: the Planner, the Coder, and the Summarizer, forming a
+closed-loop agent system. First, the Planner generates high-level strategic descriptions based on the input driving
+scenario description, predefined rules, and vehicle state. Then, the Coder translates these descriptions into executable
+decision tree code. Finally, after simulation validation, failure cases are fed into the Summarizer module for iterative
+optimization of the tactic, which is then fed back to the Planner. Notably, we use executable code as the medium
+for interaction between the decision tree and the driving environment, a design choice whose advantages have been
+demonstrated in [11, 12, 13].
+We evaluate the performance of ADRD on highway-env, a popular autonomous driving simulation platform. Extensive
+experimental results demonstrate that ADRD exhibits strong generalization and robustness across multiple typical
+driving scenarios. Compared to traditional knowledge-driven approaches and modern data-driven reinforcement
+learning methods, ADRD achieves significant improvements in decision-making performance, response efficiency, and
+interpretability, highlighting its great potential for deployment in real-world autonomous driving systems.
+This paper is organized as follows: Section 2 reviews related work; Section 3 presents the detailed framework design
+of ADRD; Section 4 reports experimental results under different driving scenarios and parameter settings, along
+with comparisons against baseline methods; and Section 5 concludes the paper. Our code is publicly available at
+https://github.com/bjbcjwsq/ADRD.
+2 Related Works
+Rule-Based Decision Systems: Rule-based decision systems make decisions using explicitly defined rules, which
+endows them with strong interpretability and modifiability. Classic rule-based decision algorithms include rule
+engines[14], expert systems[15], and fuzzy logic[16]. Among these, decision trees[17, 18, 19] represent a canonical
+approach to rule-based decision modeling. They recursively partition a dataset into smaller subsets to construct a
+tree-like structure used for decision-making or prediction. Each internal node represents a test on a specific feature,
+while each leaf node corresponds to a final class label or output value. This hierarchical structure offers high
+transparency and interpretability. Traditionally, the construction of decision trees has been approached through two
+main paradigms: knowledge-driven methods—primarily relying on human experts—and data-driven approaches, such
+as classical machine learning algorithms like CART[20] and ID3[21]. However, these conventional methods suffer
+from several limitations, including heavy dependence on expert experience, susceptibility to expert bias, and sensitivity
+to training data, all of which pose significant challenges when applying decision trees to modern complex systems.
+Recent advances in large language models (LLMs), however, have opened up new possibilities for knowledge-driven
+decision tree construction. For example, [12] have used large models to generate decision trees for zero-sum games in
+2
+
+Scenario
+Information
+Vehicle
+Information Driving Rules
+Driving Scenario
+Planner
+Prompt generator
+System message
+Past plans and advice
+Driving Targets
+LLM
+Tactics decoder
+CoT prompt
+Textual
+Driving
+Tactics
+Coder
+Prompt generator
+LLM
+Codes decoder
+CoT prompt
+Executable Codes
+(Rule-based Decision System)
+Summarizer
+Prompt generator
+System message
+Collision Reports
+Past plans
+LLM
+CoT prompt
+There are 4 lanes in total. The
+width for each lane is 4 meters,
+...
+The ego vehicle is driving at 25m/
+s at the left-most lane, with one
+vehicle on its left
+…
+You should prioritize overtaking
+from the left side instead of the
+right side
+...
+System message
+Past codes and advice
+Textual Tactics
+Past codes
+Textual
+response
+Advice decoder
+Textual Advices
+Agents Module
+Textual
+response
+Textual
+response
+Information Module
+Specific Decision
+ADRD Pipeline
+Def on_step(observation):
+"""
+Choose the best driving action based
+on the current observation.
+Meta Actions: "LANE_LEFT",
+"IDLE", "LANE_RIGHT", "FASTER",
+"SLOWER"
+"""
+
+# judge mode
+def judge_mode(obs):
+...
+mode = judge_mode(observation)
+
+# get vehicles' status
+ego_status = observation["ego"]
+surround_status =
+observation["others"]
+# Tactic 1: Decelaration Mode
+if mode["in_emergency_mode"]:
+…
+# Tactic 2: Lane Change Decision
+if mode["in_lanechange_mode"]:
+…
+# Tactic 3: Normal Driving Mode
+if mode["in_lanechange_mode"]:
+…
+return
+ADRD Trainig
+Generate
+Figure 1: Overall Stucture of ADRD.
+StarCraft, preliminarily validating the feasibility of this paradigm. Further work [13] combined LLM-generated decision
+trees with reinforcement learning, enabling co-evolution between RL agents and LLMs through mutual interaction.
+These emerging studies highlight the promising potential of using LLM-generated decision trees for interpretable
+decision-making.
+Code Generation for Decision-Making Using Large Language Models: In tasks involving the construction of
+decision trees using large models, the generated decision trees are typically returned as Python code blocks[12, 13].
+This implies a significant demand on the coding and reasoning capabilities of large language models. Recently, large
+language models have made remarkable progress in code generation. For instance, Codex[ 22] based on GPT-3[8]
+and PyCodeGPT[23] based on GPT-Neo[24], have been trained on large-scale, high-quality code datasets crawled
+from the web, enabling them to outperform general-purpose language models on specialized code generation tasks.
+Additionally, several recent studies have explored the advantages of using executable code as a unified action space for
+LLM agents. For instance, the CodeAct[11] framework proposes using executable Python code as the primary form of
+decision-making and demonstrates its superiority over traditional formats such as JSON or plain text. This successful
+case suggests that having large models generate executable code as part of the action space offers a promising direction
+for decision-making in complex systems like autonomous vehicles.
+Interpretable Autonomous Driving Decisions: Interpretable autonomous driving decisions aim to break open the black
+box of decision models so that humans can understand the underlying logic of decisions. This is crucial for improving
+transparency, trustworthiness, and the ethical and legal analysis of autonomous systems. Before the advent of large
+language models, interpretable autonomous driving decisions were typically achieved through methods such as decision
+tree construction or imitation learning[25]. While these approaches allowed models to provide rudimentary explanations
+for their decisions, their explanatory power was limited by weak semantic understanding. With the emergence of large
+language models, detailed comprehension of driving decisions has become possible. For example, Dilu[3] designed a
+closed-loop decision agent composed of memory, reasoning, and reflection modules by modeling the thinking process
+of human drivers, achieving efficient scene understanding and driving decisions without model fine-tuning. Other
+works, such as DriveGPT4[5], adopted multimodal fine-tuning to allow language models to simultaneously generate
+both driving decisions and corresponding textual explanations. However, these works still focus primarily on individual
+scenarios without considering the overarching logical principles of driving. This narrow perspective limits both their
+response efficiency and their ability to understand macro-level features across similar driving scenarios.
+3
+
+3 Methodology
+In this section, we present a comprehensive overview of theADRD framework and detailed implementation of each
+submodule within the Agents Module. The overall architecture ofADRD, as shown in Figure 1, consists of three primary
+modules: Information Module, Agents Module, and Testing Module. These modules are responsible for constructing
+an initial driving information set, analyzing and reasoning about driving decision logic, and conducting testing and
+feedback, respectively. Among them, the Agents Module is the core of ADRD and is further divided into Planner,
+Coder, and Summarizer, which are responsible for generating preliminary driving tactics, converting these tactics
+into executable Python code, and improving driving tactics based on simulation failure results, respectively. Through a
+well-designed prompt engineering framework, ADRD can continuously refine its decision tree while maintaining safe
+driving and good interpretability. In the following, we employ decision trees as the concrete implementation of the
+rule-based decision system.
+3.1 Overview
+We first introduce the training process and pipeline of ADRD. For the training process of ADRD, at the beginning,
+the Information Module converts scenario information, vehicle information, and driving rules into natural language
+text understandable by LLMs. Driving environment and vehicle information comes from the vehicle’s environmental
+observations; in this paper, we assume it to be highly abstracted environmental features such as the number and width of
+lanes, the position and speed of the ego-vehicle, etc. Driving rules come from predefined traffic regulations, establishing
+a basic understanding of driving ethics for LLMs. A specific output example of the Information Module is shown
+in Figure 2, enabling the LLM to initially grasp the macroscopic understanding of the driving scenario, laying the
+foundation for comprehension, reasoning, and decision tree construction in the Agents Module.
+Information Module A specific output example
+EGO VEHICLE STATUS
+There are 4 lanes in total and the ego vehicle is driving in
+lane 3, which is the rightmost lane. Its current speed is
+approximately 20.92 m/s (vx: 20.92 m/s, vy: 0.00 m/s). The
+vehicle's heading direction is represented by cos_h: 1.00 and
+sin_h: 0.00. The speed limit ranges from 20 m/s to 40 m/s.
+Each lane is 4 meters wide.
+OBSERVED OTHER VEHICLES STATUS
+- VEHICLES ON THE SAME LANE
+There are 2 vehicles in the same lane as the ego vehicle.
+Vehicle 1 is ahead of the ego vehicle at a distance of 29.61
+meters. It is moving slower than the ego vehicle with a
+relative speed of 0.26 m/s. Its lateral position is 0.00 meters
+from the ego vehicle.
+Vehicle 2 is ahead of the ego vehicle at a distance of 101.39
+meters. It is moving faster than the ego vehicle with a
+relative speed of 1.39 m/s. Its lateral position is 0.00 meters
+from the ego vehicle.
+- VEHICLES ON THE LEFT LANE
+...
+- VEHICLES ON THE RIGHT LANE
+There is no right lane.
+No vehicles detected.
+Scenario information:
+{
+"environment_status": {
+"lane_count": env_config["lanes_count"],
+"lane_width": 4
+},
+}
+Driving rules:
+"Motor vehicles driving on the road shall not exceed
+the maximum speed indicated by speed limit signs...",
+...
+Vehicle information:
+{
+"ego_vehicle_status": {
+"lane_id": ...,
+"current_speed": ...,
+"current_heading": ...,
+"speed_range": ...,
+},
+"observed_vehicles": ...
+}
+Figure 2: specific Output Example of the Information Module.
+The refined information from the Information Module is then fed into the Agents Module. This module is the core
+component of ADRD, where the Planner, Coder, and Summarizer collaborate effectively. They not only ensure robust
+forward reasoning in the decision tree but also improve it based on failed interactions, achieving effective closed-loop
+iteration. Specifically, first, the Planner generates preliminary driving tactics based on textual descriptions of the
+driving scenario and predefined driving targets (e.g., conservative and safe driving or efficient and fast driving). Second,
+4
+
+the Coder translates the detailed driving tactic description from the Planner into executable Python code suitable for
+a specific simulation environment. This code is deployed into real or simulated driving environments for validation.
+Finally, the Summarizer evaluates the tactics generated by the Planner and the code produced by the Coder based on
+collision reports from the testing module, identifies potential issues, and provides detailed improvement suggestions
+for both modules. By iterating through this closed-loop control process repeatedly, the Agents Module continually
+enhances its understanding and control capabilities in driving scenarios, resulting in increasingly better-performing
+decision trees.
+For the pipeline of ADRD, ADRD takes the driving information extracted by theInformation Module from the driving
+environment and feeds it into the well-trained rule-based decision system to generate specific driving decisions. These
+decisions are then executed in the driving environment to interact with the current scene and obtain the next frame of
+the driving scenario. This process continues in a loop until the preset maximum driving time is reached or a hazardous
+driving event occurs.
+Next, we will detail how each of the three expert sub-modules in the Agents Module operates.
+3.2 Planner
+During the generation of the driving behavior decision tree, the Planner primarily assumes the roles of cognition,
+reasoning, and planning. Compared to directly generating executable decision tree Python code from environmental
+information, the Planner alleviates some cognitive and reasoning pressure by first generating human-readable textual
+driving tactics before producing executable code. This not only improves the explainability of the decision tree
+formation process but also contributes to enhancing its performance.
+The prompt generator for the Planner consists of three components: system prompts, driving targets, and past plans
+along with advice for improvement. The system prompts describe the Planner’s role within the agent group and specify
+a standardized output format. The driving targets define the desired driving style, such as conservative or aggressive, for
+which the Planner should construct the decision tree. Historical planning records and improvement suggestions are
+optional inputs that, when provided, serve as references to help the Planner generate more refined and robust driving
+tactics. By synthesizing all this information, the Planner analyzes the current driving scenario and proposes a set of
+driving tactics most relevant to the situation. For each tactic, the Planner defines its name, usage conditions, priority,
+and detailed execution, facilitating the Coder’s understanding of how to integrate these tactics into a coherent and
+unified decision tree. Take the tactic named "Active Lane Change Operation" as an example. The execution process
+of this tactic is:
+1. Evaluate the distance and closing speed of the preceding vehicle. When the distance is significantly
+less than the safe distance and the rate of closure is rapid (usage condition):
+1.a First, check whether there is sufficient space in the adjacent lane to complete the lane
+change operation. If the ego-vehicle is not in the leftmost lane, prioritize changing to the
+left lane; otherwise, consider the right lane.
+1.b Second, assess the safety of the lane change to the adjacent lane, considering vehicle
+speeds and other potential hazards.
+1.c If the target lane meets safety conditions, execute the lane change immediately.
+2. If the lane change conditions are not met, fall back to deceleration operations (refer to the tactic
+"Conservative Deceleration") (priority).
+Generating human-readable, interpretable tactics offers several key advantages. First, it enables human experts to
+understand the intermediate process by which large language models (LLMs) generate decision trees. More importantly,
+it allows for direct modification of the tactic content, facilitating alignment with real-world driving requirements.
+Second, this approach can fully leverage the pre-trained knowledge and common-sense reasoning capabilities of LLMs,
+ensuring that the generated driving policies are grounded in human-like understanding and behavior. Figure 3 illustrates
+a comparison between the driving tactics generated by a reinforcement learning (RL) algorithm and those produced by
+an LLM in a particular high-speed driving scenario. Although both tactics achieve relatively high safety rewards, the
+RL-generated policy chooses to switch to the more hazardous fourth lane, abandoning the relatively safer third lane,
+which is inconsistent with normal human driving behavior. Moreover, due to the black-box nature of neural network-
+based policies, it is difficult for human experts to directly adjust the learned parameters to correct such undesirable
+behaviors. In contrast, the LLM-generated tactic not only aligns naturally with human driving conventions—choosing
+to follow traffic more safely in the appropriate lane, but also remains easily interpretable and modifiable by human
+experts. These results demonstrate that ADRD effectively overcomes the limitations of traditional decision-making
+5
+
+methods, particularly their lack of transparency and difficulty in manual correction. Detailed examples of prompts are
+available in Appendix A.1.
+Policy of ADRD
+Policy of PPO
+Figure 3: Policy of PPO vs Policy of ADRD.
+3.3 Coder
+The main responsibility of the Coder is to generate executable Python functions for the simulation environment based
+on textual driving tactics generated by the Planner. The Coder relies on the strong code-writing capabilities of current
+LLMs, as numerous studies have demonstrated the promising applications of LLM-generated code as an action space.
+The Coder’s prompt generator also comprises three components: system prompts, textual driving tactic descriptions,
+and past code along with improvement suggestions. System prompts define the Coder’s role and standardized output
+format within the agent group, including detailed descriptions of variable meanings and formats in the observation
+space to ensure the generated code can be decoded programmatically. The textual driving tactic descriptions come
+from the Planner’s output, while past code and improvement suggestions originate from the Summarizer, similar
+to the Planner. Based on this information, the Coder generates executable Python code—in particular, as a Python
+function taking observations as input, which is fed into the simulation environment for interaction. This output format
+facilitates the integration of textual driving tactics into the simulation environment for controlling the ego-vehicle,
+greatly simplifying the self-iteration process of ADRD. Detailed prompt examples are provided in Appendix A.2.
+Figure 4 further visualizes a converged driving tactic function as a decision tree structure, making it easy for human
+experts to read, analyze, and identify potential logical vulnerabilities. This significantly enhances the reliability and
+transparency of intermediate steps in autonomous driving decisions. Notably, by incorporating different constraints
+into the prompts of the Planner and Coder, such as "driving style descriptions", ADRD can generate decision trees of
+varying complexity, a topic discussed in detail in the "Experiments" section.
+3.4 Summerizer
+Although the Planner and Coder have completed the initial construction of the autonomous driving decision tree, to
+ensure the decision tree is reliably usable in driving environments, appropriate regulatory and feedback mechanisms
+must be introduced to safeguard driving efficiency and safety—this is the primary function of the Summarizer. The
+Summarizer’s prompt generator includes three components: system prompts, collision reports, and corresponding deci-
+sion tree code implementations. System prompts describe the responsibilities of the Summarizer, namely identifying
+whether errors reside in the driving tactic itself generated by the Planner or in the Python code implementation by the
+Coder. Collision reports are formatted by the Testing Module and include historical trajectories of the ego-vehicle
+and surrounding vehicles over the past T time steps, serving as reference data for the LLM to infer collision causes
+and map them to problems in driving tactics and executable codes. The driving tactics and corresponding decision tree
+6
+
+codes were generated by the Planner and Coder in the previous iteration step, assisting the LLM in locating issues and
+generating recommendations for improvement in the respective modules.
+Designing the Summarizer as an independent unit rather than integrating it into the Planner and Coder modules offers
+several advantages: first, it avoids requiring both modules to reflect after every collision, saving training time costs and
+computational resources for LLM inference; second, it promotes specialization among different modules, effectively
+reducing the complexity faced by the LLM in handling individual tasks, lowering inference load, and improving LLM
+performance on both single and overall tasks. Among the three sub-modules in the Agents Module, the Summarizer
+undertakes the majority of cognitive and reasoning tasks, serving as the core component enabling ADRD’s self-iterative
+evolution. Detailed prompt examples are available in Appendix A.3.
+Start
+(Parse observation data)
+Hazard Detected Ahead?
+Is Left Lane Available & Safe?
+Yes
+Is Current Lane Clear?
+(No vehicle within safety gap)
+No
+Is Right Lane Available & Safe?
+No
+Action: LANE_LEFT
+Yes
+Can Slow Down Safely?
+(Speed >= Safe Minimum)
+No
+Action: LANE_RIGHT
+Yes
+Action: SLOWER
+Yes
+Action: IDLE
+No
+Are Adjacent Lanes Unobstructed?
+Yes
+Action: IDLE
+No
+Below Target Speed?
+(And within max speed)
+Yes
+No
+Action: FASTER
+Yes No
+Figure 4: A converged decision tree generated by ADRD. To concisely illustrate the key structure of the decision tree,
+some specific numerical values have been omitted. For a more detailed version of the decision trees, please refer to the
+Experiment section.
+4 Experiments
+4.1 Settings and Baselines
+We conduct experiments using the highway-v0 scenario from the highway-env environment. This scenario simulates
+an autonomous driving environment on a highway, which we use to compare the performance ofADRD with several
+baseline autonomous driving decision-making methods. The baselines include PPO-CLIP[26], a representative algorithm
+in the field of reinforcement learning (RL), and Dilu[3], a knowledge-driven decision-making method based on large
+language models. Among all the methods evaluated on highway-env, DiLu demonstrates the best decision-making
+performance, to the best of our knowledge.
+In all autonomous driving policies, we adopt the discrete action space provided by highway-v0 as the set of possible
+driving decisions for the ego vehicle. These actions include:
+• Maintain current speed and lane ( IDLE),
+• Decelerate ( SLOWER),
+• Accelerate ( FASTER),
+• Change lane to the left ( LANE_LEFT),
+7
+
+• Change lane to the right ( LANE_RIGHT).
+The decision-making frequency is set to 1Hz. For speed control, there are five speed levels: 20m/s, 25m/s, 30m/s, 35m/s,
+and 40m/s. Executing acceleration or deceleration actions allows the ego vehicle to shift between these speed levels.
+If the vehicle is already at the lowest or highest speed level, further deceleration or acceleration has no effect on its speed.
+PPO-CLIP
+We employ PPO-CLIP as a representative RL baseline. PPO-CLIP is a widely used policy gradient algorithm in deep
+reinforcement learning. Its core idea is to introduce a "trust region" during policy updates, limiting the divergence
+between the new and old policies to prevent training instability. This method offers advantages such as parameter
+insensitivity, ease of tuning, and high sample efficiency. The exact form of its objective function is detailed in the
+original paper [26], and is omitted here for brevity.
+In our experimental setup, the observation space includes state information from the ego vehicle and up to 7 of the
+nearest surrounding vehicles, including their positions, velocities, and headings. The policy network consists of a
+two-layer multi-layer perceptron (MLP), with each layer containing 128 neurons. The learning rate is set to 3× 10−4,
+and the model is trained for a total of 90,000 action steps. This configuration enables PPO-CLIP to serve effectively as
+a representative of traditional RL-based autonomous driving decision methods, allowing us to compare its performance
+with that of ADRD and Dilu.
+Both Dilu and ADRD are trained using OpenAI’s o3-mini[27] model, which is specifically designed to offer fast and
+cost-effective reasoning capabilities, excelling particularly in tasks related to programming, mathematics, and science.
+Dilu
+We select Dilu as a representative autonomous driving decision method leveraging large language models. Dilu
+simulates the learning process of human drivers through three core modules:
+• Memory Module: Stores historical driving experiences,
+• Reasoning Module: Combines the current driving context with a subset of relevant past experiences to
+generate decisions,
+• Reflection Module: Evaluates the safety of decisions and updates the memory bank to improve future behavior.
+In our experiments, we configure Dilu to use the 3 most relevant memory entries for each decision-making step. That is,
+at every time step, Dilu refers to the 3 historical experiences most similar to the current driving situation to assist in
+reasoning and decision-making.
+4.2 Main Results
+For the three methods mentioned in Section 4.1, we evaluate their performance across three driving scenarios with
+varying levels of difficulty: specifically, a 4-lane environment with a vehicle density of 2.00, a 5-lane environment with
+a density of 2.50, and a 6-lane environment with a density of 3.00, representing normal, hard, and extreme driving
+conditions, respectively. The density parameter is provided internally by highway-env and reflects the number of
+vehicles per unit length of lane.
+For each method, we measure two key metrics: the average safe driving time(seconds) over 20 different randomized
+scenarios, and the average inference time per decision (seconds per command). These metrics capture the driving
+performance and decision-making efficiency of different autonomous driving approaches, respectively.
+It should be noted that both PPO and ADRD perform inference on two Intel(R) Xeon(R) Platinum 8374B CPUs. For
+PPO, the inference time corresponds to the forward pass of its policy network, while for ADRD, it depends on the
+complexity of the executable Python functions. DiLu, on the other hand, requires calling OpenAI’s o3-mini model for
+each decision, and its inference time mainly comes from the response speed of the LLM.
+The results of the three methods are presented in Table 1. It can be seen that, across all three driving scenarios, ADRD
+not only achieves the longest average safe driving times among all methods but also demonstrates the fastest inference
+speed. Notably, PPO performs the worst in terms of driving performance despite being trained for 90,000 driving
+frames, which is much more than the other two methods, highlighting the limitations of reinforcement learning-based
+data-driven approaches in autonomous driving decision-making.
+8
+
+Table 1: Comparison of Average Driving Time and Control Efficiency under Different Scenario Settings
+Density Lane Number Method Average Driving Time (s) ↑ Control Efficiency (s/command)↓
+PPO [26] 10.90 2.0× 10−4
+2.00(Normal) 4 DiLu [3] 23.00 14.33
+ADRD 25.15 <1.0 × 10−6
+PPO [26] 8.60 2.0× 10−4
+2.50(Hard) 5 DiLu [3] 16.00 12.42
+ADRD 16.75 <1.0 × 10−6
+PPO [26] 5.50 2.0× 10−4
+3.00(Extreme) 6 DiLu [3] 10.10 12.67
+ADRD 13.55 <1.0 × 10−6
+4.3 Impact of Different Driving Styles and Driving Scenario Difficulty on Decision Tree Structure
+We further investigate how driving styles and scenario difficulty influence the structure of decision trees. Figure 6
+compares the decision trees generated under prompt settings for conservative and aggressive driving styles, using a
+fixed environment configuration of 4 lanes with a vehicle density of 2.00. It can be observed that the decision tree
+corresponding to the conservative driving style is relatively shallow and structurally simple, whereas the one for the
+aggressive style exhibits greater depth and structural complexity. This is because, under the aggressive tactic, the large
+language model actively seeks ways to complete the driving task as efficiently and quickly as possible, which increases
+the likelihood of accidents. As a result, the model engages in more nuanced reasoning about the driving environment,
+generating a richer set of conditional nodes to handle extreme or complex driving situations.
+Start
+(Parse observation data)
+Extract Ego V ehicle & Environment Data
+Define Safety Parameters
+(safe_gap, conservative_gap, robust_gap, reaction_time)
+Evaluate Current Lane Safety
+Hazard Detected?
+Increase degradation_counter
+Yes
+Update degradation_counter
+No
+degradation_counter >= HYSTERESIS_THRESHOLD?
+Try Lane Change
+Yes
+Fallback to SLOWER
+No
+Try Left Lane Change
+Left Available & Safe
+Try Right Lane Change
+Right Available & Safe
+Can Slow Down Safely?
+(Speed >= Min Speed)
+Action: LANE_LEFT Action: LANE_RIGHT Action: SLOWER
+Yes
+Action: IDLE
+No
+Longitudinal Control Decision
+Gap < safe_gap or predicted_gap < safe_gap?
+Decelerate if Possible
+Yes
+Accelerate if Safe
+No
+Final Action: IDLE
+Figure 5: Decision Trees Obtained from Conservative Policies
+Furthermore, we analyze how varying levels of driving scenario difficulty affect the structure of the decision trees. To
+amplify structural differences across scenarios, we use the aggressive driving tactic and conduct experiments under
+9
+
+Start: Initialize Global States
+Extract Ego & Environment Data
+Is maneuver_state active?
+maneuver_state != None
+Yes
+Return "IDLE"
+No
+Ego Lane == Target Lane
+Reset Confirmations
+Is overtake_state active?
+overtake_state != None
+Yes
+Merge-back Logic
+Original Lane < Current Lane
+Safe to Change (Left)?
+Original Lane > Current Lane
+Safe to Change (Right)?
+safe_to_change(left_lane, DEF_FRONT, DEF_REAR)
+merge_back_confirm["left"] += 1
+Yes
+merge_back_confirm["left"] >= 2
+Return "LANE_LEFT"
+Yes
+Reset merge_back_confirm["left"]
+No
+ego_speed + 5 <= max_speed
+safe_to_change(right_lane, DEF_FRONT, DEF_REAR)
+merge_back_confirm["right"] += 1
+Yes
+merge_back_confirm["right"] >= 2
+Return "LANE_RIGHT"
+Yes
+Reset merge_back_confirm["right"]
+No
+Return "FASTER"
+Yes
+Return "IDLE"
+No
+time_gap < EMERGENCY_TIME or
+(relative_speed >= 5.0 and time_gap < AGGRESSIVE_TIME)
+Emergency Condition Detected
+Yes
+time_gap < AGGRESSIVE_TIME and relative_speed > 2.0
+No
+ego_lane > 0 and safe_to_change(left_lane, AGGR_FRONT, AGGR_REAR) ego_lane < lane_count-1 and safe_to_change(right_lane, AGGR_FRONT, AGGR_REAR)
+Return "LANE_LEFT"
+Yes
+ego_speed - 5 >= min_speed
+No
+Return "LANE_RIGHT"
+YesNo
+Return "SLOWER"
+Yes
+Return "IDLE"
+No
+Aggressive Overtake Needed
+Yes
+time_gap < WARN_TIME
+No
+confirm_threshold = 1 if time_gap < EMERGENCY_TIME else 2
+ego_lane > 0 and safe_to_change(left_lane, AGGR_FRONT, AGGR_REAR) ego_lane < lane_count-1 and safe_to_change(right_lane, AGGR_FRONT, AGGR_REAR)
+lane_change_confirm["left"] += 1
+Yes
+lane_change_confirm["left"] >= confirm_threshold
+Return "LANE_LEFT"
+Yes
+Reset lane_change_confirm["left"]
+No
+Return "IDLE"
+lane_change_confirm["right"] += 1
+Yes
+lane_change_confirm["right"] >= confirm_threshold
+Return "LANE_RIGHT"
+Yes
+Reset lane_change_confirm["right"]
+No
+Marginal Warning Condition
+Yes
+gap_current >= SAFE_ACCEL_GAP or closest_vehicle is None
+No
+ego_lane > 0 and safe_to_change(left_lane, AGGR_FRONT, AGGR_REAR) ego_lane < lane_count-1 and safe_to_change(right_lane, AGGR_FRONT, AGGR_REAR)
+lane_change_confirm["left"] += 1
+Yes
+lane_change_confirm["left"] >= 2
+Return "LANE_LEFT"
+Yes
+Reset lane_change_confirm["left"]
+No
+ego_speed - 5 >= min_speed
+lane_change_confirm["right"] += 1
+Yes
+lane_change_confirm["right"] >= 2
+Return "LANE_RIGHT"
+Yes
+Reset lane_change_confirm["right"]
+No
+Return "SLOWER"
+Yes
+Return "IDLE"
+No
+ego_speed + 5 <= max_speed
+Return "FASTER"
+Yes
+Return "IDLE"
+No
+time_gap < WARN_TIME and ego_speed - 5 >= min_speed
+Return "SLOWER"
+Yes
+Return "IDLE"
+No
+Return "IDLE"
+Figure 6: Decision Trees Obtained from Aggressive Policies
+configurations of 4 lanes with vehicle densities of 0.75, 1.00, and 1.25. A relatively lower vehicle density is selected to
+ensure that the learned policies remain largely collision-free during training. The structural parameters of the resulting
+decision trees are summarized in Table 2. We observe that as the difficulty of the driving scenario increases, the decision
+trees produced by ADRD become progressively more complex. Notably, when the vehicle density reaches 1.25, the
+depth of the decision tree sharply increases to 34. This indicates that as driving conditions become more challenging,
+the large language model must make finer distinctions among different traffic situations in order to generate decisions
+that are both safe and consistent with the aggressive driving target.
+Table 2: Summary of decision tree characteristics under different vehicle densities.
+Vehicle Density Number of Nodes Number of Branches Decision Tree Depth
+Low (0.75) 49 56 10
+Medium (1.00) 61 60 12
+High (1.25) 65 68 34
+5 Conclusion
+In this paper, we explore the use of large language models to generate decision trees for autonomous driving decision-
+making. We model each component involved in the task of autonomous driving decision tree generation and propose
+the ADRD framework, which consists of the Information Module, the Agents Module, and the Testing Module. This
+framework integrates multi-source information such as driving scenarios and traffic regulations, enabling the generation
+of effective decision trees for autonomous driving. Moreover, ADRD supports iterative improvement of these decision
+trees through automated testing and refinement.
+Extensive experimental results demonstrate thatADRD outperforms not only traditional reinforcement learning methods
+but also Dilu, a knowledge-driven approach that previously achieved state-of-the-art performance on highway-env.
+ADRD enables autonomous driving decisions that are high-performing, fast in response, and highly interpretable.
+Furthermore, it exhibits a general and comprehensive understanding of driving scenarios, generating flexible and easily
+modifiable decision trees, thereby showing great potential for application in real-world autonomous driving systems.

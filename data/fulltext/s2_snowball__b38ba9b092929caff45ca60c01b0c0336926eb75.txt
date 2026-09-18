@@ -1,0 +1,1753 @@
+record_id: s2_snowball:b38ba9b092929caff45ca60c01b0c0336926eb75
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2603.20986
+fetched_title: AutoMOOSE: An Agentic AI for Autonomous Phase-Field Simulation
+fetched_at: 2026-09-18T19:00:04Z
+
+AutoMOOSE: An Agentic AI for Autonomous Phase-Field
+Simulation
+Sukriti Manna1,2,∗ Henry Chan2 Subramanian K. R. S. Sankaranarayanan1,2,∗
+1Department of Mechanical and Industrial Engineering, University of Illinois Chicago, Chicago, IL 60607, USA
+2Center for Nanoscale Materials, Argonne National Laboratory, Lemont, IL 60439, USA
+∗Correspondence:smanna@anl.gov,skrssank@anl.gov
+Abstract
+Phase-field modeling links thermodynamics and kinetics to microstructural evolution, but using
+multiphysics frameworks such as MOOSE requires substantial expertise to construct valid inputs,
+manage simulation campaigns, diagnose failures, and validate results. We introduceAutoMOOSE,
+an open-source multi-agent framework that orchestrates the complete simulation lifecycle from a
+single natural-language prompt. Six specialized agents — Architect, Input Writer, Runner, Reviewer,
+Visualization agent, and a physics-grounded Skeptic — generate, execute, analyze, and adversarially
+test simulations against conservation laws, asymptotic limits, and scaling relations. We validate
+AutoMOOSE in two distinct phase-field domains: non-conserved copper grain growth governed by
+Allen–Cahn dynamics and conserved Fe–Cr spinodal decomposition governed by Cahn–Hilliard
+dynamics. On a prospectively specified 25-task grain-growth benchmark spanning temperature, grain
+count, resolution, and model formulation, AutoMOOSE generates syntactically valid inputs for all
+25 tasks, produces completed simulations with measurable coarsening in 19, and delivers 15 results
+that satisfy Burke–Turnbull kinetics (R2≥0.90 ) and survive Skeptic falsification. The unsuccessful
+cases are traced to two identifiable generator defects. An ensemble of 1000 simulations recovers
+the prescribed activation energy to within 1% after finite-size extrapolation (Q∞ = 0.228 eV versus
+0.230 eV). In the conserved domain, an agent-generated, CALPHAD-based Fe–Cr simulation limits
+relative mass drift to 6.3×10 −6, dissipates free energy to a stable plateau, and evolves toward
+the equilibrium tie-line. Controlled ablations show that the full pipeline converts stochastic raw
+generation — 3–7 successful tasks out of 8 across repeated trials — into consistent success of 8
+out of 8. AutoMOOSE therefore provides a practical route from natural-language specification to
+reproducible, physics-validated phase-field simulation campaigns.
+Keywords:agentic AI · large language models · multiphysics simulation · phase-field modeling · physics-based
+verification · scientific workflow automation
+1 Introduction
+Microstructure governs the properties of structural and functional materials: grain size controls yield strength and creep
+resistance in metallic alloys, domain topology determines the switching efficiency of ferroelectrics, and precipitate
+morphology sets the coarsening kinetics of superalloys [1–3]. Because microstructure emerges from processing his-
+tory, predicting its evolution is central to materials discovery and design. Phase-field methods provide precisely this
+predictive capability — a thermodynamically consistent framework for modeling grain growth, spinodal decompo-
+sition, solidification, and ferroelectric domain dynamics — and have become a widely used approach to mesoscale
+microstructure simulation [4, 5]. Among the platforms that have made these methods accessible at scale, the Multi-
+physics Object-Oriented Simulation Environment (MOOSE) provides a modular finite-element architecture, scalability
+from workstations to leadership-class high-performance computing (HPC) systems, and a broad, active community of
+materials scientists and engineers [6, 7].
+Yet the power of these frameworks comes at a steep practical price: translating a scientific objective into an executable
+phase-field model demands simultaneous expertise in thermodynamics, kinetic equations, numerical discretization,
+arXiv:2603.20986v2 [cs.AI] 7 Aug 2026
+
+nonlinear solvers, and platform-specific input syntax [ 6, 8]. Even a standard grain-growth simulation in MOOSE
+requires tightly coupled specifications for meshing, order-parameter initialization, free-energy and evolution kernels,
+boundary conditions, solver controls, and adaptive time integration, often exceeding one hundred lines of interdependent
+syntax [5, 9]. An error in any one of these components can produce an input-parsing failure, solver divergence,
+or — most insidiously — a numerically completed simulation that violates the intended physics. This last failure
+mode connects the expertise barrier to a deeper reproducibility problem: differences in spatial resolution, solver
+tolerances, initial conditions, or undocumented parameter choices can alter quantitative results without any visible sign
+of error [10, 11], and the absence of structured workflows impedes the systematic generation of simulation datasets
+needed to build processing–microstructure–property databases [2].
+These barriers are not unique to the mesoscale, and agentic AI systems have recently begun to dismantle their
+counterparts at other scales of materials modeling. At the atomistic scale, large language model (LLM)-driven
+agents have been applied to interatomic-potential development, automated density-functional-theory workflows, and
+autonomous molecular design [12–14]; at the continuum scale, emerging systems have explored agent-assisted finite-
+element meshing and topology optimization [ 15, 16]. Underpinning both is a broader body of work showing that
+tool-using agents can decompose natural-language objectives, generate executable artifacts, inspect intermediate outputs,
+and revise their actions using external feedback [17–20] — capabilities that map directly onto the workflow friction
+described above. Mesoscale phase-field modeling, however — despite sitting at the intersection of thermodynamic
+theory, numerical methods, and processing-scale phenomena — has received comparatively little attention from such
+systems. Nor would input generation alone close the gap: a plausible input file does not establish that a simulation
+implements the requested physics, completes successfully, or produces physically admissible results. The unresolved
+challenge is therefore not whether an LLM can draft a phase-field input, but whether agentic scaffolding can convert
+stochastic model output into reproducible simulations whose physical validity is quantitatively tested.
+Here we introduceAutoMOOSE, an open-source agentic framework built to meet exactly this challenge: it orchestrates
+the full MOOSE simulation lifecycle — from natural-language prompt to physics-tested result — through a six-agent
+pipeline of Architect, Input Writer, Runner, Reviewer, Visualization agent, and a physics-grounded Skeptic, running on
+a model-agnostic language-model backend (Section 2.1). Along this pipeline, the agents parse user intent, generate
+validated MOOSE input files, execute parallel parameter sweeps, and screen runs for successful execution; the Skeptic
+then — critically — adversarially tests each completed result against conservation laws, asymptotic limits, and scaling
+relations, classifying it as credible only if it survives falsification. This scientific core is wrapped in an extensible
+engineering shell: a modular plugin architecture separates physics-specific logic from the orchestration layer, so new
+phase-field formulations can be added without modifying shared infrastructure, while a Model Context Protocol (MCP)
+server [21] exposes the complete workflow as ten structured tools for integration with MCP-compatible clients and
+composability with external optimization pipelines. Finally, every run produces a self-documenting directory recording
+inputs, outputs, execution metadata, and validation decisions — structured provenance that supports reproducibility and
+alignment with FAIR (Findable, Accessible, Interoperable, Reusable) data principles [11].
+To test whether this architecture delivers on the challenge, we validate AutoMOOSE in two phase-field domains with
+complementary physics: non-conserved copper grain growth governed by Allen–Cahn dynamics and conserved Fe–Cr
+spinodal decomposition governed by Cahn–Hilliard dynamics. In the first domain, on a prospectively specified 25-task
+grain-growth benchmark with machine-checkable success gates, AutoMOOSE generates syntactically valid inputs for
+all 25 tasks, produces completed simulations with measurable coarsening in 19, and delivers 15 fully credible results —
+those satisfying all pre-specified physical-validity criteria and surviving Skeptic falsification (Section 3) — with the
+unsuccessful cases traced to two identifiable generator defects. Scaling beyond the benchmark, an ensemble campaign
+of 1000 simulations recovers the prescribed activation energy to within 1% after finite-size extrapolation. In the second
+domain, an agent-generated Cahn–Hilliard simulation exhibits a relative mass drift of6.3×10−6, monotonic free-energy
+dissipation, and evolution toward the equilibrium tie-line. Finally, a controlled ablation isolates the contribution of the
+scaffolding itself: raw single-model generation succeeds on only 3–7 of 8 tasks across repeated trials, whereas the full
+pipeline succeeds on all 8 in every trial — direct evidence that the agentic layer, not the underlying model alone, is
+what renders the workflow reproducible.
+The remainder of this paper is organized as follows. Section 2.1 describes the AutoMOOSE software design, including
+the phase-field models, the six-agent pipeline, the plugin architecture, and the benchmark specification. Section 3
+presents validation results across both physics domains, the ensemble campaign, the ablation study, and Skeptic
+falsification as methodology. Sections 4 and 5 discuss limitations, future directions, and an outlook on agentic AI for
+computational materials science.
+2
+
+2 Computational Methods and Software Design
+2.1 Phase-Field Model for Grain Growth
+Phase-field models represent discrete crystallographic orientations as continuous order parameters, so that grain
+boundary migration emerges from free-energy minimization rather than explicit interface tracking — circumventing
+the topological challenges of sharp-interface methods while capturing curvature-driven coarsening, Zener pinning,
+solute drag [3, 22], and the many-grain topology changes of microstructure evolution. Among these formulations,
+AutoMOOSE is demonstrated on the multiphase Allen–Cahn model of Moelanset al.[ 5], which serves as the
+representative physics throughout Sections 2.2–2.7. This first demonstration targets non-conserved dynamics, in which
+the order parameters evolve to minimize free energy without a conservation constraint; the extension to conserved
+Cahn–Hilliard dynamics — Fe–Cr spinodal decomposition, where composition is a conserved field — follows in
+Section 2.10. We establish the model here because the agent pipeline translates each physical quantity introduced
+below directly into a MOOSE input construct, and the closing consistency check of this section becomes the pipeline’s
+end-to-end validation target.
+In the Moelans formulation, each graini is represented by an order parameterηi (i= 1,...,N op) equal to unity inside
+the grain and zero elsewhere, with boundaries identified by the overlap of neighboring order parameters. Each ηi
+evolves by the Allen–Cahn equation,
+∂ηi
+∂t =−L(T) δF
+δηi
+,(1)
+whereL(T)is the temperature-dependent kinetic coefficient andFthe total free energy,
+F=
+Z
+V
+
+floc(η) + κ
+2
+NopX
+i=1
+|∇ηi|2
+
+dV,(2)
+with the local free energy density in the Moelans form [5],
+floc =µ
+
+X
+i
+η4
+i
+4 − η2
+i
+2
+
++γ
+X
+i
+X
+j>i
+η2
+i η2
+j + 1
+4
+
+,(3)
+whereµ is the free energy weight andγ= 1.5 enforces symmetric interfacial profiles. Together, these terms encode the
+physics of coarsening: the double wells stabilize bulk grain regions (ηi∈{0,1} ), the cross-coupling term penalizes
+overlap between neighboring order parameters, and the ratio of gradient to local energy sets the diffuse interface width
+wGB, which the computational mesh must resolve (h≤w GB/4).
+The model coefficients{L,µ,κ} appearing in these equations are not directly measurable; assuming isotropic grain
+boundary properties, they map onto three quantities that are — grain boundary energy σ, interface widthwGB, and
+mobilityM GB — through [5]
+L= 4M GB
+3w GB
+, µ= 6σ
+wGB
+, κ= 3
+4σw GB.(4)
+This mapping is central to AutoMOOSE: the user specifies{σ,w GB,M GB}, and the Input Writer agent (f2) computes
+{L,µ,κ} analytically via Eq. (4), eliminating a common source of error in hand-authored inputs (Section 2.4).
+Temperature enters the model through the mobility, which carries an Arrhenius dependence,
+MGB(T) =M 0 exp
+
+− Q
+kBT
+
+,(5)
+with pre-exponential mobilityM0, activation energyQ, and Boltzmann constantkB; through Eq. (4),L(T) inherits the
+same dependence.
+This Arrhenius input has a directly observable consequence in the coarsening kinetics, quantified through the grain
+countN(t) tracked by the MOOSE GrainTracker algorithm. In two dimensions, the grain coarsening law [23] gives
+1
+N(t)− 1
+N0
+= ˜k(T)t,(6)
+whereN0 =N(0) and the rate constant ˜k(T) is extracted from the slope of N−1(t) againstt. Because ˜k(T)∝
+MGB(T), it follows the same Arrhenius form,
+˜k(T) = ˜k0 exp
+
+− Q
+kBT
+
+,(7)
+3
+
+User
+Prompt
+natural
+language
+Cognitive layer
+f2.Input writer
+Writes validated
+MOOSE .i file
+Meshing
+Materials
+VariablesPostprocessors
+Kernels
+Executioners
+Execution layer
+f3. Runner
+Launches
+MOOSE;
+streams
+solver log
+f4. Reviewer
+Checks run
+completion
+Recovery
+Module
+Bounded parameter
+correction; timestep;
+mesh; integration window
+Solver
+failer
+Result
+2
+3
+Epistemic
+layer
+f6. Skeptic
+Tests physics
+invariants;
+credible or
+falsified
+credible
+6
+f5.
+Visualization
+Coarsening
+kinetics;
+Arrhenius fit
+5
+4
+Forward path
+Credible results
+Recovery loop
+a
+b
+c d
+e
+f
+f1.
+Architect
+structures
+simulation
+plan
+1
+Falsified
+Regenerate
+via f2
+Figure 1:AutoMOOSE agentic pipeline.Six model-agnostic language-model agents ( f1–f6), organized into a
+cognitive, an execution, and an epistemic layer, transform a natural-language prompt into a completed and physics-
+tested MOOSE phase-field simulation. In thecognitive layer, theArchitect( f1) parses the user prompt into the
+structured simulation planP (Eq. (9)), encoding the physics model, mesh geometry, solver tolerances, and sweep
+parameters; theInput Writer( f2), a compound agent, then coordinates six sub-agents in strict dependency order
+— (a) Meshing, (b) Variables, (c) Kernels, (d) Materials, (e) Postprocessors, and (f) Executioner — to render a
+validated MOOSE .i input file via the plugin registry (Section 2.9). In theexecution layer, theRunner( f3) launches
+MOOSE and streams the solver log; theReviewer( f4) screens each run for completion, distinguishing genuine
+solver breakdown from transient adaptive-timestep events (Section 2.6); and theVisualizationagent ( f5) extracts the
+coarsening kinetics and performs the Arrhenius analysis from CSV postprocessor output (Section 2.7). In theepistemic
+layer, theSkeptic( f6) adversarially tests each completed run against falsifiable physics invariants and classifies it as
+credible or falsified (Section 2.8); only credible runs enter campaign-level analysis. Recovery is triggered on two paths:
+a run that fails to complete is diagnosed from its solver-log signatures, and a completed run falsified for a correctable
+cause is diagnosed from the Skeptic’s verdict; either routes to the recovery module, which applies a bounded, logged
+correction (timestep, mesh, or integration window; at most three attempts) and re-enters the pipeline at the Input Writer
+(Section 3.7). Black arrows: forward path; green arrows: credible results; red arrows: recovery loop.
+so the activation energy governing the microscopic mobility in Eq.(5) reappears as the slope of a macroscopic Arrhenius
+plot. SinceQ is a user-specified input, the value recovered by fitting Eq. (7) to a simulated temperature sweep must
+match it — the closed-loop consistency check anticipated above, exercised in Section 3.6.
+2.2 Overview of Agentic Workflow
+Building on the phase-field model established in Section 2.1, AutoMOOSE realizes the simulation workflow through a
+modular, agent-based orchestration framework that operates entirely at the workflow layer — interpreting user intent,
+constructing MOOSE inputs that encode Eqs. (1)–(4), managing execution, monitoring for failures, and extracting
+quantitative results — without requiring the user to write a single line of MOOSE syntax. Six specialized large language
+model agents implement this pipeline (Fig. 1), each carrying a physics-aware system prompt reproduced in full in
+Supplementary Section S1. The agents themselves are model-agnostic: they are routed through a provider-independent
+client, and the results reported here use Claude Opus 4.8 and Claude Sonnet 4.6, with a self-hosted open-weights model
+also verified end-to-end (Table 1) [21].
+What the agents exchange, and in what order, admits a compact formal description: the pipeline is a sequential
+composition of agent functions,
+S=f 6◦f 5◦f 4◦f 3◦f 2◦f 1(U),(8)
+4
+
+Table 1: AutoMOOSE runs on interchangeable backends. The same agent pipeline drives a grain-growth task end-to-end
+under both a closed-weights frontier model and a self-hosted open-weights model; switching backends requires only a
+configuration change, so the framework does not depend on any single provider’s availability.
+Backend Weights Hosting Pipeline (end-to-end)
+Claude Sonnet 4.6 Closed Provider API completes
+Qwen2.5-32B-Instruct Open Self-hosted (Perlmutter, vLLM, 4×A100) completes
+whereU denotes the natural-language user intent and each agent fi :P i−1→P i progressively enriches a shared
+simulation plan,
+P=
+
+Ω, h,M,B,θ solver,θ run,O
+
+,(9)
+encoding the domain Ω, mesh spacing h, physical modelM (which stores the measurable set {σ,w GB,M GB} of
+Section 2.1), boundary conditionsB, solver tolerances θsolver, runtime parameters θrun, and requested outputsO. The
+plan is thus the single shared state object of the pipeline: eachfi reads the fields it requires, writes the fields it produces,
+and hands the enriched plan to the next stage, so no inter-agent messaging is needed beyond this structured handoff
+(managed by the FastAPI backend [24]).
+Reading Eq. (8) left to right, the six agents group naturally into three functional layers, indicated by the colored
+frames in Fig. 1. Thecognitive layer(Architect f1, Input Writerf2) interprets user intent and constructs a validated
+MOOSE input file encoding Eqs. (1)–(4). Theexecution layer(Runner f3, Reviewerf4, Visualizationf5) manages
+simulation execution, screens each run for successful completion, and extracts the kinetic observablesN(t) and ˜k(T)
+of Eqs. (6)–(7). Theepistemic layer(Skeptic f6) adversarially tests each completed run against the physical laws it
+must satisfy, classifying it as credible only if it survives falsification (Section 2.8). This separation of concerns serves
+the pipeline at both ends: input-construction errors are caught in the cognitive layer before they propagate into costly
+simulation runs, and the credibility verdict is kept independent of the machinery that produced the result.
+These layers come together when a task traverses the pipeline (Fig. 1). The Architect (f1) parses the user prompt into
+the simulation planP, from which the Input Writer (f2) — a compound agent coordinating six sub-agents in strict
+dependency order — renders a validated MOOSE .i input file. The Runner (f3) launches MOOSE, streams the solver
+log, and records whether the run reaches its target integration time; the Reviewer (f4), a completion-aware execution
+screen, then determines whether the run executed successfully, distinguishing genuine solver breakdown from transient
+adaptive-timestep events that recover and complete. For every completed run, the Visualization agent (f5) extracts
+the coarsening kinetics and performs the Arrhenius analysis, and the Skeptic (f6) independently subjects the result
+to falsification against its physical invariants. Only runs that both complete execution and survive falsification enter
+campaign-level analysis; this verification arc operates without user intervention and is detailed in Sections 2.6 and 2.8.
+With the workflow now in view end to end, the following subsections examine each agent in turn (Sections 2.3–2.7),
+followed by the plugin architecture that makes the framework physics-agnostic (Section 2.9) and the Model Context
+Protocol interface that enables headless operation (Section 2.11).
+2.3 Architect Agent
+The Architect agentf1 is the entry point of the pipeline, receiving the raw natural-language user intentU and producing
+a fully resolved simulation planP (Eq. (9)) as a structured JSON object. It is called once per user request and its output
+is passed directly to the Input Writerf 2.
+f1 is responsible for five parsing tasks: identifying the physics formulation (GBEvolution or LinearizedInterface),
+the spatial dimension (2D QUAD4 or 3D HEX8), the boundary conditions (periodic or Dirichlet), the sweep intent
+(detecting whether the user specifies multiple values for any sweepable parameter such asT , grain_num, orQ, and
+extracting the corresponding sweep range Θ), and the solver strategy (adaptive timestepping and AMR on or off). These
+five items map directly onto the components ofP: task 1 populatesM; tasks 2–3 populate Ω andB; task 4 populates
+θr withΘ; task 5 populatesθ s.
+A strict JSON-only output constraint is enforced in the system prompt: the FastAPI backend parses the re-
+sponse with json.loads() and raises a structured error on any prose, preventing silent propagation of am-
+biguous plans to f2. When the requested physics is not supported by any registered plugin, f1 returns
+{"formulation":"stub","error":"unsupported_physics"}, which the backend surfaces to the user with a
+list of available plugins rather than attempting input generation. The complete system prompt for f1 is reproduced
+verbatim in Supplementary Section S1.1.
+5
+
+2.4 Input Writer Agent
+The Input Writer agentf2 receives the simulation planP from the Architect and produces a complete, syntax-validated
+MOOSE .i input file. Rather than delegating this task to a single monolithic prompt,f2 is implemented as a compound
+agent (Fig. 1) that coordinates six sequential sub-agents, each responsible for one logical block group of the input file.
+This decomposition mirrors the physical dependency structure of MOOSE [6], which forms a directed acyclic graph
+(DAG): each sub-agent executes only after all blocks it depends on are complete, following the topological order
+[Mesh]≺[GlobalParams]≺[Variables]≺[Kernels]
+≺[Materials]≺[Postprocessors]≺[Executioner], (10)
+where≺denotes topological precedence.
+Three dependencies in this ordering are worth making explicit. First, op_num declared in [GlobalParams] propagates
+into every downstream block referencingηi, so it must be fixed before kernels, materials, or postprocessors are written.
+Second, GrainTracker in [UserObjects] requires both variable declarations and material definitions, placing it
+last among the physics blocks. Third, the solver tolerances ϵnl andϵl written into [Executioner] are drawn from
+θsolver⊂P — the same values the Reviewer agent uses to classify convergence failures at runtime (Section 2.6) —
+ensuring consistency between the input file and the error-diagnosis logic. Table 2 summarises each sub-agent, its owned
+blocks, key parameters, and upstream dependencies.
+Table 2:Input Writer sub-agents and MOOSE block responsibilities.The six sub-agents of f2 generate the MOOSE
+.i input file in the topological order of Eq. (10). TheDepends oncolumn lists upstream fields that must be available
+before each sub-agent executes.
+Sub-agent MOOSE blocks Key parameters set Depends on
+(a)Mesh[Mesh]n x/ny/nz, Lx/Ly/Lz,
+elem_type (QUAD4 or
+HEX8), parallel_type;
+enforcesh≤w GB/4
+Ω,h,dimfromP
+(b)Variables[GlobalParams] ,
+[Variables], [ICs],
+[AuxVariables]
+op_num, ηi fields, V oronoi
+or Random IC;bound_value
+(LinearizedInterface)
+nx,n y from(a)
+(c)Kernels[Kernels],[AuxKernels] GrainGrowth or
+GrainGrowthLinearizedInterface
+module [ 7]; BndsCalcAux,
+FeatureFloodCountAux
+op_num,η i from(b)
+(d)Materials[Materials] ,
+[UserObjects]
+L, µ, κ via Eq. (4) [5]
+(GBEvolution)
+or parsed L/κ/µ
+(LinearizedInterface);
+PolycrystalVoronoi,
+GrainTracker
+{σ,w GB,M 0,Q} from
+M; mesh from(a)
+(e)Postprocessors[Postprocessors] TimestepSize , NumDOFs,
+NumElements
+Variables from(b),
+UserObjects from(d)
+(f)Executioner[Executioner] , [BCs],
+[Adaptivity],[Outputs]
+PJFNK [25], bdf2,
+IterationAdaptiveDT,
+ϵnl, ϵl, periodic BCs, AMR,
+CSV
+θsolver,θ run fromP
+Beyond parameter transcription, three sub-agents encode physics directly into the input file. The Mesh sub-agent(a)
+selects QUAD4 elements for 2D and HEX8 for 3D, and enforces the interface-resolution constrainth≤w GB/4 derived
+from Eq. (2), raising a configuration error before any file is written if the mesh would under-resolve the diffuse
+interface. The Materials sub-agent(d)branches on formulation: for GBEvolution it computes{L,µ,κ} analytically
+via Eq. (4) from the user-specified set{σ,w GB,M 0,Q,T} [26]; for LinearizedInterface it derivesL andκ from
+the same physically grounded copper parameters{MGB,σ,w GB} and adds a bound_value constraint that stabilizes
+the linearized free energy at coarse mesh resolution. (An earlier version of this branch emitted placeholder material
+constants rather than the copper parameters used by the GBEvolution path; this defect, surfaced by the benchmark
+and falsified by the Skeptic, is corrected as described in Section 2.13.) The Postprocessors sub-agent(e)registers
+GrainTracker exclusively in [UserObjects] rather than [Postprocessors] — a distinction that proved critical
+6
+
+during failure recovery (Section 3.7) — and configures TimestepSize, NumDOFs, and NumElements as the primary
+CSV observables from which the Visualization agent extractsN(t)(Eq. (6)).
+Two additional design choices promote reproducibility and flexibility. The initial condition type is independently
+selectable: Voronoi initializes grains via PolycrystalVoronoi with a fixed random seed, ensuring bit-for-bit
+reproducibility across runs; Random uses PolycrystalRandomIC with random_type = discrete for more natural
+initial microstructures without a fixed grain count. For V oronoi ICs, the coloring algorithm is selectable betweenjp
+(Jones–Plassmann [27], recommended forN grains >op_num) andbt(backtracking, requiresN grains =op_num).
+Once all six sub-agents complete their blocks, the assembled .i file undergoes a final syntax validation pass checking
+block completeness, parameter types, and cross-reference consistency; only a file that passes this check is forwarded
+to the Runner agent. In the grain growth benchmark, agent-generated input files achieved 9/10 exact block matches
+against an expert-authored reference atT= 450 K, with a relative error in the kinetic rate constant of ∆˜k/˜k= 0.30 %
+(Section 3.4).
+2.5 Runner Agent
+Once the Input Writer has produced a validated .i file, the Runner agentf3 takes sole responsibility for simulation
+execution, output organization, and provenance recording (Fig. 1). It is the only agent that interacts directly with the
+MOOSE executable and the only one that writes files to disk.
+2.5.1 Execution and parallelism
+Run directory (self-documenting)
+20260303_143022__grain_growth__T450_n20
+grain_growth.i
+grain_growth.csv
+grain_growth.e (Exodus/Nemesis)
+run.log
+metadata.json
+Figure 2:AutoMOOSE run directory structure.
+Each run directory is timestamped and self-contained,
+comprising: grain_growth.i (complete MOOSE
+input file), grain_growth.csv (tabulated grain
+count time series N(t), Eq. (6)), run.log (full
+solver stdout), metadata.json (structured prove-
+nance record encoding all simulation parameters, exe-
+cutable path, hostname, MPI configuration, and wall-
+clock duration), and record.json (run status and
+parsed kinetics metrics). Any run can be exactly repro-
+duced by executing the MOOSE command (Eq. (11))
+from within this directory, satisfying FAIR data prin-
+ciples by construction [11].
+For each simulation case,f3 launches MOOSE as a managed
+subprocess,
+mpiexec -nN MPI phase_field-opt -i sim.i,(11)
+whereNMPI≥1 is drawn from θrun⊂P . For temperature
+sweep requests,f3 expands the parameter range Θ ={T i}n
+i=1
+populated by the Architect into n independent simulation in-
+stances{Pi}n
+i=1, each assigned a unique run identifier, and
+dispatches them as concurrent threads. The total sweep wall-
+clock time is therefore
+Tsweep = max
+i∈{1,...,n}
+Ti,(12)
+rather than the serial sumP
+iTi, yielding an approximatelyn-
+fold reduction in elapsed time relative to sequential execution.
+2.5.2 Run directory and provenance
+Before launching each case,f3 creates a timestamped run di-
+rectory and copies the validated .i file into it, ensuring that
+every run is self-contained from the moment it starts — even
+a mid-run crash leaves a recoverable directory. On completion,
+the directory contains five files (Fig. 2): sim.i (full MOOSE
+input), output.csv (grain count time series N(t), Eq. (6)),
+run.log (full solver stdout), metadata.json (provenance
+record encoding all fields ofPi, the MOOSE executable path,
+hostname, MPI rank count, random seed, and wall-clock du-
+rationTi), and record.json (run status and parsed metrics,
+updated incrementally during execution). Any run can be ex-
+actly reproduced by executing Eq. (11) from within its directory, without reference to any external state — directly
+satisfying the reproducibility and FAIR data requirements discussed in Section 2.2 [11].
+2.5.3 Live monitoring and exit routing
+While MOOSE executes, f3 streams solver stdout to the live log panel in real time, enabling the user to monitor
+convergence without polling. On exit,f3 inspects the process exit code and routes control accordingly: a non-zero exit
+code triggers handoff to the Reviewer agent (Section 2.6), while a zero exit code passesoutput.csv directly to the
+Visualization agent (Section 2.7). This binary routing implements the failure and success paths shown in Fig. 1, and is
+the junction at which the pipeline’s completion-aware verification screen is engaged.
+7
+
+2.6 Reviewer Agent
+When Runner (f3) reports the outcome of a MOOSE invocation, control passes to the Reviewer agentf4, a completion-
+aware execution screen. Its role is operational, not epistemic: it determines whether the runexecuted successfully,
+distinguishing a genuine solver breakdown from the transient adaptive-timestep events — linear-solve cutbacks that
+recover and complete — that are a normal part of robust nonlinear solves. A run that reaches its requested integration
+time is admitted as executed; a run that aborts or fails to advance in time is flagged as a failed execution. Judgement
+about whether an executed run isphysically credibleis deferred entirely to the Skeptic (Section 2.8); the Reviewer only
+asks whether there is a completed result to assess.
+2.6.1 Execution screening
+f4 evaluates the solver state against the tolerances stored in θsolver⊂P , which were written into [Executioner]
+by sub-agent(f)of the Input Writer (Section 2.4). The two primary convergence criteria are the nonlinear residual at
+Newton iterationk,
+
+R(k)
+
+2 < ϵnl,(13)
+and the linear (Krylov) residual within each Newton step,
+
+r(k)
+
+2 < ϵl,(14)
+where R(k) is the global finite-element residual assembled from the Allen–Cahn weak form (Eq. (1)) and r(k) is the
+Krylov linear system residual. A persistently large∥R(k)∥2 indicates that the current order parameter field{ηi} has not
+minimized the free energyF (Eq. (2)) at the prescribed timestep, directly connecting the numerical failure criterion
+to the phase-field physics of Section 2.1. Crucially, f4 reads the completion state from the MOOSE log rather than
+from the exit code alone: a log reporting Finished Executing denotes a valid completion even when transient
+DIVERGED_ITS warnings appear earlier from adaptive-timestep cutbacks, which prevents normal solver behaviour from
+being misread as fatal failure.
+2.6.2 Closed-loop recovery module
+The pipeline is paired with a closed-loop recovery module ( recovery.py) that acts on failures with a recognized,
+correctable signature. The module’s diagnosis draws on two sources: a run that fails to complete is classified directly
+from real solver-log signatures (non-finite residuals, convergence-failure messages), while a run that completes but
+is falsified by the Skeptic is classified from the physics verdict itself, mapping each violated invariant to a candidate
+cause (Section 2.8). Each diagnosis triggers a bounded parameter-level correction; for solver divergence, the primary
+response is initial-timestep cutback,
+∆t(k+1)
+0 =α∆t (k)
+0 , α= 0.5,(15)
+floored at a minimum step, together with a stepwise tightening of the adaptive-cutback factor. The physical rationale
+is that a smaller ∆t reduces the per-step increment ∆ηi, keeping the Newton iterate within the basin of convergence
+of the free-energy landscape defined byfloc (Eq. (3)). Other diagnoses map to their own bounded edits — extending
+the integration window when the asymptotic regime is not reached, refining the mesh when non-physical nucleation
+is flagged — and every correction is capped, logged, and limited to three attempts per task. The corrected input is
+regenerated and re-executed through the standard pipeline with no shortcut: a corrected run is classified as credible
+only if it independently completes execution and survives Skeptic falsification, so recovery cannot promote a run past
+any gate of Section 2.2. Two safeguards bound the module’s action. First, its completion classifier is defensive and
+validated against real run logs: a run whose log reports completion, or that reached its target integration time, is never
+“corrected” on the basis of a stale status: running record in its metadata. Second, corrections that do not apply
+in a given configuration — for example, a spatial-resolution parameter that is meaningless in a two-dimensional run
+— are suppressed. Failures with no recognized signature, or tasks whose correction budget is exhausted, fall outside
+this bounded envelope and are flagged to the user rather than silently reported. We report the recovery module as
+implemented and component-validated; its quantitative behaviour on real failure logs is described in Section 3.7.
+2.7 Visualization Agent
+With convergence confirmed by a zero exit code from Runner (f3), the Visualization agentf5 completes the pipeline by
+extracting quantitative observables, fitting the grain growth kinetics model established in Section 2.1, and returning both
+numerical results and a natural-language interpretation to the user — closing the loop from natural-language prompt to
+publication-ready analysis.
+8
+
+2.7.1 Observable extraction and kinetics fitting
+f5 calls the plugin’s parse_results() contract function to extract the grain count time series N(t) from the
+output.csv file produced by GrainTracker (sub-agent(e), Section 2.4). f5 then fits N(t) to the grain coars-
+ening law (Eq. (6)) by linear regression ofN−1(t) againstt [28], extracting the macroscopic rate constant ˜k(T) for
+each temperatureT i∈Θ. Fit quality is quantified by the coefficient of determination,
+R2 = 1−
+P
+i
+
+Ni− ˆNi
+2
+P
+i
+
+Ni− ¯N
+2,(16)
+whereNi are the GrainTracker grain counts, ˆNi are the model predictions from Eq. (6), and ¯N is the temporal mean.
+2.7.2 Arrhenius regression and consistency check
+Once{˜k(Ti)}n
+i=1 are obtained across the temperature sweep, f5 performs Arrhenius regression by fitting Eq. (7) to
+recover the activation energyQfit and pre-exponential factor ˜k0. As established in Section 2.1, Qfit must equal the
+activation energyQ originally specified by the user in M⊂P , providing a closed-loop consistency check of the
+full pipeline (Eq. (8)). In the grain growth benchmark, f5 recoveredQfit = 0.296 eV against the specified value of
+Q= 0.23 eV , withR2 = 0.90 –0.95 atT≥600 K; the suppressed kinetics at T= 300 K are consistent with the
+Arrhenius reduction ofL(T)at low temperature (Eq. (5)), in agreement with the Burke–Turnbull framework [29].
+2.7.3 Narrated output
+Beyond numerical metrics, f5 generates a structured natural-language interpretation of the results, grounding the
+kinetics findings in the phase-field model of Section 2.1 and identifying physically notable features — such as the
+suppression of coarsening kinetics at low temperature. This narrated output is reproduced verbatim in Section 3.10.
+2.8 Skeptic Agent
+The Skeptic agentf6 is the framework’s verification stage. It addresses a failure mode that the Reviewer (f4) cannot: a
+simulation may run to completion and produce well-formed output, yet still bephysicallywrong. Whereas f4 asks an
+operational question — did the run execute? —f6 asks an epistemic one: should the result be believed? This reframes
+the final stage of the pipeline from parsing tofalsification, and is a core methodological contribution of the agentic
+design: the system does not merely generate and execute a simulation, it adversarially tests its own output against the
+physical laws the result must obey.
+Given a completed run,f6 applies a battery of physics-grounded falsification tests, each a hypothesis that the result
+must satisfy if it is physically valid. A test that failsfalsifiesthe run; a run that survives all tests is reported as credible.
+Crucially, each test is paired with a diagnosis that maps the failure to a likely physical or numerical cause, providing
+the reasoning needed for remediation. The battery is physics-specific: the dispatcher routes each run to the invariants
+appropriate to its governing equations.
+2.8.1 Grain-growth invariants
+For the non-conserved Allen–Cahn dynamics of grain growth, the per-run battery comprises four invariants.Numerical
+integrity (T5):the run must reach its target integration time without fatal solver breakdown; reaching the requested
+end_time is treated as decisive evidence of numerical validity, and transient adaptive-timestep events (linear-solve
+cutbacks) that recover and complete are not failures, whereas an application abort or a solve that never advances in time
+is.Monotonicity (T1):the grain count must be non-increasing over time; a sustained increase indicates non-physical
+spontaneous nucleation or a grain-tracker artifact.Asymptotic consistency (T2):the initial grain count must match the
+requested number of seeds, confirming correct initial-condition generation.Parabolic scaling (T3):the microstructure
+must obey the Burke–Turnbull coarsening law, N−1(t) linear in t with a positive rate constant and coefficient of
+determinationR2≥0.90 (Eq. (6)). A fifth, cross-run invariant tests Arrhenius consistency over a temperature sweep
+(T4): the rate constants ˜k(T) must increase monotonically with temperature and yield a linear ln ˜k versus 1/T relation
+(R2≥0.90), from which the activation energy is recovered (Eq. (7)).
+2.8.2 Conserved-dynamics invariants
+For the conserved Cahn–Hilliard dynamics of spinodal decomposition, the invariants areexactphysical laws, which
+makes them stronger falsification tests than the kinetics-based grain-growth checks.Mass conservation ( S1):the
+9
+
+integral of the conserved composition must remain constant to within a numerical tolerance (relative drift≤10−5), as
+required by the Cahn–Hilliard conservation law.Free-energy dissipation (S2):the total free energy must show a net
+decrease consistent with the gradient-flow structure of the dynamics; transient step-wise increases are admitted only if
+they remain within numerical round-off, and a sustained increase beyond tolerance falsifies the run.Phase separation
+(S3):the composition field must separate toward the two-phase equilibrium tie-line, with the extreme compositions
+approaching the equilibrium phase concentrations.
+2.8.3 Verdict, diagnosis, and recovery
+A run is reported as credible only if it survives every applicable invariant; otherwise it is flagged as falsified, annotated
+with the specific invariants violated and a diagnosis localizing the likely cause (for example, an unconverged or
+non-conservative solve for a mass-conservation failure, or an integration window too short for the asymptotic regime
+for a parabolic-scaling failure). The Skeptic itself only detects and falsifies; it never repairs. Building on its diagnoses,
+however, we implement a closed-loop recovery module (recovery.py) that consumes the Skeptic’s verdict and, for
+the subset of failures attributable to time-step divergence, maps the diagnosis to a bounded parameter-level correction —
+a reduced initial time step and a tightened adaptive cutback — and regenerates and re-executes the simulation through
+the standard pipeline. The module is completion-aware and validated against real run logs: completed runs are never
+“corrected,” divergences that make no time advance are recognized and routed to correction, and a corrected run is
+reported valid only if it independently passes the Skeptic. Failures rooted in formulation or spatial resolution rather
+than time-stepping fall outside this envelope and are flagged rather than forced. By flagging runs that lie outside the
+validated envelope — rather than silently reporting their metrics — the Skeptic ensures that only physically credible
+results enter the downstream analysis.
+2.9 Plugin Architecture
+A core design principle of AutoMOOSE is that the six-agent orchestration pipeline is entirely physics-agnostic. The
+connection between the agents and the underlying MOOSE physics is mediated by aplugin contract— a minimal
+two-function interface that any physics module must implement — allowing new simulation types to be integrated
+without modifying the shared agent infrastructure.
+2.9.1 Plugin contract
+Each plugin implements exactly two functions. generate_input(**params)→str receives the fields of
+M⊂P and returns a complete MOOSE .i input file as a string; it is called by the Input Writer (Section 2.4).
+parse_results(csv_data: dict)→dict receives the parsed CSV content as a dictionary of time-series arrays
+and returns a structured dictionary of observables — grain count trajectoryN(t), rate constant ˜k, goodness-of-fitR2,
+peak DOF count, and wall-clock statistics — and is called by the Visualization agent (Section 2.7). This two-function
+contract is the complete boundary between the physics-specific and physics-agnostic layers: the agent pipeline reads
+from and writes toP without direct knowledge of any MOOSE block or physical model, as all physics-specific logic is
+encapsulated within the plugin.
+2.9.2 Plugin metadata
+Each plugin additionally exposes a PLUGIN metadata dictionary that the framework uses for UI population, agent
+configuration, and sweep orchestration. The metadata registers: a human-readable label; the executable_key pointing
+to the correct MOOSE binary; a params dictionary of configurable parameters with default values; apresets library of
+named parameter configurations; a sweepable list of parameters available for parallel sweep dispatch; a result_keys
+list identifying the CSV columns to track; and a system_prompt string that specializes the Architect agent’s physics
+knowledge for this formulation. This self-describing design means the UI, the Architect’s intent-parsing logic, and
+the sweep dispatcher are all populated automatically from plugin metadata, with no hardcoded assumptions about any
+specific physics module.
+2.9.3 Grain growth plugin
+The grain growth plugin is the first fully-implemented plugin in AutoMOOSE. It supports two Allen–Cahn formulations
+(Section 2.1), two IC types, 2D and 3D geometries, and seven named presets spanning from a lightweight 2D test (10
+grains, 12×12 mesh) to a production 3D HPC configuration (6000 grains,1803 mesh, 32 MPI ranks, checkpoint output,
+and a Terminator that halts execution when the grain count falls below a user-specified threshold). GBEvolution
+uses the multi-order-parameter Allen–Cahn model [5] with{L,µ,κ} computed analytically from{σ,w GB,M 0,Q,T}
+via Eq. (4). LinearizedInterface employs a linearized formulation [30] that produces sharper interfaces at coarser
+10
+
+Architect
+agent Simulation plan
+run_id
+Input params
+sim.i content
+Input
+writer
+agent
+run_id.mpi.sim.i path
+status.exit_code
+Runner
+agent
+run_id .error type
+Corrected params
+Reviewer
+agent
+viz_id
+Physical quantity
+Visualization
+agent
+User intentJSON response
+Claude
+Desktop
+Claude
+Code
+Custom Script CI/CD Pipeline
+MCP Clients
+plugin_id query
+Plugin list . Params
+.sweepable
+Plugin
+Registry
+run_id . n_lines
+Stdout . total_lines
+Simulation
+logs
+run_id query
+status . Duration
+Run
+Status
+Health query
+status . Executables
+fpund
+Health
+check
+HTTP RESTJSON
+response
+AutoMOOSE
+MCP Server
+FastAPI Backend
+Localhost:8000 . uvicorn server:app
+Agent
+Pipeline
+Plugin
+Registry
+MOOSE
+Engine
+httpx :8000
+stdio stdio
+HTTP/SSE . Port 8001 HTTP/SSE . Port 8001
+(Orchestrator)
+Skeptic
+agent
+verdict {credible | falsified}
+completed run + run_id
+Figure 3:Model Context Protocol server architecture of AutoMOOSE.The MCP server (port 8001, center)
+acts as the central orchestration hub between external LLM clients and the internal agent pipelineS (Eq. (8)).Top:
+four supported client entry points — Claude Desktop, Claude Code, custom scripts, and CI/CD pipelines — all
+communicating via HTTP and Server-Sent Events (SSE) on port 8001.Left:the AutoMOOSE agent pipeline forms
+the core intelligence layer; black arrows denote control flow (requests and commands) and red arrows denote data
+flow (JSON responses, .i file content, run identifiers, and verification verdicts). Execution outcomes return through
+the verification stages (the Reviewer’s completion screen and the Skeptic’s falsification); on a recoverable divergence,
+the closed-loop recovery module re-enters the pipeline with a bounded correction (Section 3.7).Right:four backend
+resource endpoints — Plugin Registry, Simulation Logs, Run Status, and Health Check — each mapped to one or more
+of the ten registered MCP tools (Table 3).Bottom:the FastAPI backend (port 8000) comprises three internal modules —
+Agent Pipeline, Plugin Registry, and MOOSE Engine — accessed by the MCP server over HTTP REST.
+meshes, preferred for large-scale 3D runs. For 3D geometries, the plugin automatically switches to HEX8 elements,
+parallel_type = distributed, and Nemesis-format parallel output withPerfGraphOutputfor HPC profiling.
+2.9.4 Plugin registry and extensibility
+Plugins are loaded dynamically at runtime from the plugins/ directory by plugin_registry.py, which scans for
+Python modules implementing the two-function contract and registers them by name. A new physics module requires
+only two functions, a PLUGIN metadata dictionary, and a physics-specific system prompt; the orchestration layer, agent
+pipeline, MCP server, and UI require no changes. Beyond the grain-growth plugin, a second plugin — Spinodal
+Decomposition (conserved Cahn–Hilliard [31]) — is fully implemented and validated end-to-end on a realistic Fe–Cr
+alloy (Sections 2.10 and 3.3), demonstrating that the framework generalizes across the non-conserved and conserved
+dynamics. Two further plugins — Ferroelectric Switching (Landau–Ginzburg–Devonshire [ 32]) and Solidification
+(Allen–Cahn dendritic [33]) — are currently registered as stubs and will be fully implemented in subsequent releases.
+2.10 Spinodal Decomposition: Model and Fe–Cr Validation
+To demonstrate that the framework generalizes beyond non-conserved dynamics, a second plugin
+(plugins/spinodal/plugin.py) implements spinodal decomposition via the conserved Cahn–Hilliard equation.
+11
+
+Unlike grain growth, the order parameter here is a conserved composition field c, which imposes an exact
+mass-conservation law and changes the governing dynamics from Allen–Cahn to Cahn–Hilliard. The plugin uses the
+split form, evolving the compositionctogether with a chemical potentialw,
+∂c
+∂t =∇·
+
+M∇w
+
+, w= ∂floc
+∂c −κ c∇2c,(17)
+whereM(c) is the interdiffusion mobility,floc(c) the local free-energy density, andκc the gradient-energy coefficient.
+The plugin is validated on a realistic alloy system: Fe–Cr spinodal decomposition at 500 ◦C, the phase separation
+underlying the 475–500◦C embrittlement of ferritic steels, with equilibrium compositions of 23.6 and 82.3 mol% Cr.
+The local free energy and mobility use the CALPHAD (CALculation of PHAse Diagrams) free-energy parameterization
+for Fe–Cr, with the local free energy expressed as
+floc(c) =Ac+B(1−c) +Cclnc+D(1−c) ln(1−c)
++Ec(1−c) +Fc(1−c)(2c−1) +Gc(1−c)(2c−1) 2, (18)
+with coefficientsA–G and unit-conversion factors as given in the generated input (Supplementary Section S8), and
+a concentration-dependent mobility M(c) of the same fitted form. The coefficients place the initial composition
+c0 = 0.4677inside the spinodal (linearly unstable,f ′′
+loc <0) region, so the alloy decomposes spontaneously.
+From a single natural-language specification, the agent generates the complete split Cahn–Hilliard input, run on a
+25×25 nm2 periodic domain (100×100QUAD4 elements) with an initial condition ofc0 = 0.4677 perturbed by uniform
+random noise of amplitude0.02 to seed the instability, and the total free energy (bulk plus gradient) accumulated through
+a TotalFreeEnergy auxiliary field. The run is scored by the Skeptic against the conserved-dynamics invariantsS1–S3
+of Section 2.8; the validation outcome is reported in Section 3.3.
+2.11 Model Context Protocol Interface
+Building on the agent pipeline described in Sections 2.3–2.9, AutoMOOSE additionally exposes the full workflowS
+(Eq. (8)) as a Model Context Protocol (MCP) server layer (Fig. 3), enabling headless operation from Claude Desktop,
+Claude Code, or any MCP-compatible client without requiring the browser-based interface [ 21]. From the client’s
+perspective, triggering a simulation is equivalent to invoking Eq.(8) remotely: the client specifies user intentU as a tool
+argument, and the MCP server coordinatesf1 throughf6 sequentially, returning the completed planPi and extracted
+metrics as a structured JSON response.
+2.11.1 Server architecture
+The MCP server acts as the central orchestration hub, coordinating agents, plugins, and the execution backend through
+a unified JSON-based data flow (Fig. 3). It is implemented in Python using Starlette/uvicorn and listens on port 8001,
+while the FastAPI [24] simulation backend runs independently on port 8000. This decoupled topology allows the MCP
+layer to be replaced or extended without modifying either the agent logic or the MOOSE execution environment. Two
+transport modes are supported: stdio transport, in which the server process is spawned as a child of the orchestrator
+and communicates over standard input/output streams (used by Claude Desktop), and SSE transport, which exposes a
+persistent HTTP endpoint for remote clients, CI/CD pipelines, and custom scripts. Both modes expose an identical
+surface of ten tools enumerated in Table 3.
+2.11.2 Data flow and tool schemas
+All communication through the MCP server follows a consistent two-channel pattern (Fig. 3): black arrows denote
+control flow — requests, commands, and queries — while red arrows denote data flow — JSON responses, .i file
+content, run identifiers, and corrected parameters. Each tool is registered with a JSON Schema describing its input
+parameters and return type, which the LLM agent receives at context initialization via the MCPinitialize handshake.
+Tool schemas are the sole mechanism by which agents discover available capabilities: no hard-coded tool names appear
+in agent prompts, so adding a new tool to the registry automatically makes it available to any agent whose system
+prompt grants permission to call it. Tools are divided into two permission classes (Table 3): read-only tools (†) available
+to all agents for querying state, and execution tools (‡) that launch or modify simulation processes, accessible only to
+the Runner agentf 3 under the orchestrator’s permission policy.
+2.11.3 Backend resource endpoints
+The right side of Fig. 3 shows four backend resource endpoints that the MCP server queries on behalf of agents. The
+Plugin Registrystores reusable simulation modules and is queried via plugin identifier and parameter lists, underpinning
+12
+
+the generate_input and get_results tools that map directly onto the two-function plugin contract (Section 2.9).
+Simulation Logsprovide solver stdout and execution traces, accessed via get_log_tail to enable the Reviewer agent
+f4 to inspect MOOSE diagnostics without direct filesystem access.Run Statustracks job state and wall-clock duration,
+queried by get_run_status using a unique run_id assigned at dispatch.Health Checkvalidates system executables
+and environment readiness, exposed viahealth_checkbefore any simulation is launched.
+2.11.4 Verification arc
+A key architectural feature visible in Fig. 3 is the verification arc that follows execution: from Runner ( f3) to the
+Reviewer (f4) completion screen, and then to the Skeptic (f6) falsification stage. Whenf3 reports a run outcome, the
+MCP server routes the log tof4, which determines whether the run executed to completion; every completed run is
+then passed tof6, which tests it against the physics invariants it must satisfy. Only runs that both execute and survive
+falsification are reported to the client, and divergence-class failures may additionally be routed to the bounded recovery
+module (Section 2.6). This verification arc, rather than a simple launch-and-return, is what distinguishes AutoMOOSE
+from a simulation launcher.
+2.11.5 Headless operation and composability
+The MCP interface enables two usage patterns not supported by the chat frontend. First,headless operation: an external
+agent or script can drive the complete AutoMOOSE pipeline — constructing a parameter sweep, dispatching runs,
+polling status, and retrieving results — entirely through structured tool calls, with no human in the loop and no browser
+session required. This is the natural mode for integration with automated materials discovery pipelines, active learning
+loops, or high-throughput screening workflows. Second,tool composability: because MCP tools are first-class objects
+in the Claude API tool-use protocol, an orchestrating agent can interleave AutoMOOSE tool calls with calls to other
+MCP servers — for example, querying a crystallographic database, retrieving CALPHAD thermodynamic data, or
+writing results to a laboratory notebook — within a single reasoning context.
+Table 3:MCP tools exposed by the AutoMOOSE server.Tools marked (†) are available to all agents; tools marked (‡)
+execute or modify simulation state and are accessible only to the Runner agentf3 under the orchestrator’s permission
+policy. Full argument schemas are given in Table S3 (Supplementary Information).
+Tool Class Description
+health_check†Verify server and backend availability
+list_plugins†Enumerate registered plugins and their status
+generate_input†Render a MOOSE.ifile via the plugin registry
+run_simulation‡Launch a single MOOSE job; return run identifier
+run_sweep‡Fan out a parametric sweep; return run identifiers
+get_run_status†Query the terminal or running state of a job
+get_results†Retrieve parsed postprocessor output and narrative
+list_runs†List all runs with metadata summary
+get_log_tail†Stream the tail of a MOOSE solver log
+stop_run‡Send a termination signal to a running job
+2.12 Parameter Sweep Automation
+The MCP interface described in Section 2.11 exposes sweep execution as a first-class capability through the
+run_sweep tool, but the underlying sweep mechanism operates at the level of the simulation plan. The frame-
+work supports automated parameter studies by expanding P (Eq. (9)) into a family of independent cases {Pi}n
+i=1
+indexed over a user-defined parameter range Θ ={θ i}n
+i=1. For the temperature sweep demonstrated here,
+θi =T i∈{300,450,600,750}K, and the Architect agent populatesθ run in eachP i with the corresponding tempera-
+ture.
+The physical significance of this parameterization flows directly through the model: each Ti propagates through Eq. (5)
+to set the Allen–Cahn mobility L(Ti), which in turn determines the macroscopic rate constant ˜k(Ti) extracted by
+the Visualization agentf5 via Eq. (6). The total sweep wall-clock time is bounded by Eq. (12), since all cases are
+dispatched concurrently. Once complete, aggregated results{˜k(Ti), R2
+i}n
+i=1 are compiled automatically and passed to
+13
+
+the Arrhenius fit of Eq. (7), recovering the activation energyQfit and closing the quantitative loop from user-specified
+grain boundary parameters through the full pipeline. Each case retains a complete metadata.json provenance record
+encoding all fields ofPi, the hostname, MOOSE executable path, wall-clock duration, and output file locations, ensuring
+full reproducibility from the run directory alone [11].
+2.13 Benchmark Design and Execution
+The framework is evaluated on a benchmark of 25 end-to-end grain-growth tasks spanning six regimes: a core
+temperature and grain-count sweep, spatial resolution and domain variations, the two Allen–Cahn formulations
+(GBEvolution and LinearizedInterface), robustness across initial-condition seeds, three-dimensional cases, and
+high-temperature and high-density stress tests. Each task is specified by a natural-language prompt and carried through
+the full pipeline — generation, execution, and verification — with no human intervention. The complete prompt set,
+listed verbatim, and the per-task gate outcomes are given in Supplementary Section S7.
+Each task is scored against five pre-registered, machine-checkable gates, with no human judgement: (G1) the agent
+produces a parseable MOOSE input; (G2) the simulation runs to completion without solver divergence; (G3) the
+microstructure coarsens (final grain count below initial); (G4) parabolic Burke–Turnbull kinetics are recovered (R2≥
+0.90, Eq. (6)); and (G5) the fitted rate constant is physically valid ( ˜k >0 ). We report two tiers: avalid-and-runs
+rate (G1–G3) and a stricterfullrate (G1–G5), the latter additionally requiring quantitative kinetics, which depend on
+production-length integration to develop the asymptotic regime. Each task is, in addition, independently falsification-
+tested by the Skeptic (Section 2.8), so that a task counts as fully credible only if it both clears the gates and survives
+falsification.
+The grain-growth physics uses the MOOSE GBEvolution module with copper parameters from Schönfelderet
+al.[ 26]: σ= 0.708 J m−2, wGB = 14 nm, M0 = 2.5×10 −6 m4 J−1 s−1, Q= 0.23 eV . Solver settings are
+PJFNK [25] with BDF2 time integration, ASM preconditioning, ϵnl = 10−8, ϵl = 10−4, and adaptive timestep-
+ping (IterationAdaptiveDT). The full suite is executed at production integration length on NERSC Perlmutter, with
+each of the 25 tasks assigned a dedicated compute node within a single 12-hour batch allocation.
+2.13.1 Benchmark-driven generator corrections
+Executing the suite surfaced two systematic input-generation defects, each falsified by the Skeptic rather than reported
+as a metric. First, the LinearizedInterface formulation emitted placeholder material constants rather than the
+copper GBEvolution parameters used elsewhere, producing an interface mobility orders of magnitude too large;
+the stiff variational-inequality solve then diverged on the first nonlinear step with no time advance. Second, the
+three-dimensional cases diverged under the default time-stepping (linear solves failing with DIVERGED_ITS), the
+step size and solver settings inherited from the two-dimensional configuration being too aggressive for the stiffer
+three-dimensional system. Both were diagnosed from the solver error signatures together with the Skeptic’s verdicts and
+corrected in the generator — the linearized-interface block now uses the physically grounded copper parameters, and
+the three-dimensional path uses a smaller initial time step with a stronger preconditioner — and verified by re-execution.
+The benchmark results reported below reflect the original configuration in which these cases failed; the corrections
+are forward-looking improvements committed to the public repository, an instance of the benchmark functioning as a
+diagnostic that drives a falsification-to-fix loop rather than merely a pass/fail score.
+2.14 User Interface and Demonstration Workflow
+To make the agent pipeline accessible to domain scientists without programming expertise, AutoMOOSE provides a
+browser-based chat interface that exposes the full workflow through six interactive panels. Figure 1 illustrates this inter-
+face using the four-temperature grain growth sweep (T∈{300,450,600,750}K) as a representative demonstration.
+The workflow begins in theChat panel(Fig. 1a), where the user submits a single natural-language prompt specifying the
+sweep temperatures, physical model, domain geometry, and analysis goal — without any MOOSE syntax knowledge.
+The Architect agentf1 parses this prompt and auto-populates theConfigure panel(Fig. 1b) with the corresponding
+simulation planP (Eq. (9)), mapping user intent onto physical parameters{σ,w GB,M 0,Q} and numerical settings
+{θsolver,θ run}; the user may inspect or override any field before launching.
+With the plan confirmed, the Runner agentf3 dispatches four independent MOOSE processes concurrently via the sweep
+orchestrator, visible as parallel run cards in theRun Sidebar(Fig. 1c), achieving total wall-clock time Tsweep = maxiTi
+(Eq. (12)) rather than the serial sumP
+iTi. Solver progress is streamed in real time to theLive Log panel, where the
+Reviewer agentf4 monitors nonlinear residual convergence∥R(k)∥2 <ϵ nl (Eq. (13)) and triggers timestep cutback
+∆t(k+1) =α∆t (k) (Eq. (15)) on convergence failure. The agent-generated .i input file is simultaneously accessible in
+14
+
+theInput File viewer(Fig. 1f), assembled by f2 following the block order of Eq. (10) with physical parameters fromM
+converted to phase-field coefficients{L,µ,κ}via Eq. (4).
+Upon completion, the Visualization agent f5 populates theResults panel(Fig. 1d) with N(t) curves for all four
+temperatures fitted to the grain coarsening law (Eq. (6)). Coarsening kinetics are recovered at T≥450 K, with
+R2 = 0.90–0.95 atT≥600 K, consistent with Burke–Turnbull theory [ 29]; the zero coarsening at T= 300 K is
+attributable to Arrhenius suppression ofL(T) at low temperature (Eq. (5)). The complete workflow — from natural-
+language prompt to publication-ready kinetics analysis — requires no MOOSE syntax knowledge and completes in
+under two hours on a standard workstation for the four-temperature sweep demonstrated here.
+3 Results
+We validate AutoMOOSE at several complementary levels. We first demonstrate the full agent pipeline end-to-end on a
+copper polycrystalline grain-growth workflow — from a single natural-language prompt to quantitative kinetics analysis,
+with no manual file editing or direct solver interaction (Section 3.1). We then evaluate breadth and reliability on a
+pre-registered 25-task benchmark with machine-checkable gates and independent Skeptic falsification (Section 3.2), and
+establish generalization to a second, conserved-dynamics domain — Fe–Cr spinodal decomposition (Section 3.3). The
+remaining subsections examine the mechanisms behind these results: input-file fidelity (Section 3.4), grain-coarsening
+kinetics (Section 3.5), ensemble Arrhenius recovery of the activation energy (Section 3.6), failure detection and recovery
+(Section 3.7), a controlled baseline against bare frontier models (Section 3.8), the role of Skeptic falsification as
+methodology (Section 3.9), and agent-narrated interpretation (Section 3.10).
+3.1 End-to-End Workflow Demonstration
+The benchmark is initiated by submitting the following natural-language prompt to the AutoMOOSE chat interface:
+Run a grain growth simulation atT={300,450,600,750} K withσ= 0.708 J m−2,wGB = 14 nm,
+M0 = 2.5×10 −6 m4 J−1 s−1,Q= 0.23 eV [26]. Use 15 Voronoi grains on a 1000×1000 nm2
+domain with a12×12mesh (uniform refinement level 3) and periodic boundary conditions.
+From this single prompt, the six-agent pipeline executes the complete simulation campaign without any further user
+input. The Architect (f1) parses the sweep intent and decomposes the request into four independent simulation tasks,
+each populating a separate planPi (Eq. (9)). The Input Writer (f2) generates a syntactically valid, physically correct .i
+file for each task via its six specialized sub-agents, converting the user-specified parameters{σ,w GB,M 0,Q} to phase-
+field coefficients{L,µ,κ} through Eq. (4). The Runner (f3) dispatches all four jobs concurrently via the run_sweep
+MCP tool. Because the cases are mutually independent, the sweep is embarrassingly parallel and its wall-clock time is
+bounded by the slowest single run (Eq.(12)),Tsweep≈22,820 s, rather than the serial sum (P
+iTi≈41,261 s; Table 5),
+a 1.8× reduction in wall-clock time. We emphasize that this is a workflow-level scheduling effect from concurrent job
+dispatch, not a solver-level acceleration: AutoMOOSE does not modify or speed up MOOSE’s numerics, and the figure
+simply reflects that independent sweep cases run in parallel rather than in sequence. Where a run fails to execute, the
+Reviewer (f4) flags it and, for recoverable time-step divergences, the closed-loop recovery module applies a bounded
+correction (Section 3.7). On successful completion, the Visualization agent (f5) extracts grain-count trajectories from
+the GrainTracker CSV output, fits the coarsening law (Eq.(6)) to recover{˜k(Ti)}, and performs Arrhenius regression
+to extractQ fit.
+Table 4 summarises agent-level performance across the benchmark. The complete pipeline — from prompt submission
+to publication-ready kinetics analysis — required approximately 380 min (≈6.3 h) of total wall-clock time, dominated
+by MOOSE compute time atT= 750K (22,820s). The active human effort in AutoMOOSE is limited to composing
+the single prompt; by contrast, an experienced researcher hand-authoring four input files and performing kinetics
+analysis manually would require comparable active scripting effort in addition to the same compute time. The adaptive
+time-stepper grew ∆t from 25 ns to∼284 ns as grain boundary curvature diminished, with peak mesh resolution of
+∼261,000degrees of freedom per run.
+3.2 Benchmark Results
+We evaluate the framework on the 25-task pre-registered benchmark of Section 2.13, executed at production integration
+length on NERSC Perlmutter (one dedicated node per task, single 12-hour allocation), and score each task against the
+five machine-checkable gates G1–G5 plus independent Skeptic falsification. The aggregate outcome is summarized per
+regime in Table 6; the full per-task gate outcomes and the Skeptic verdict for each task are given in Supplementary
+Section S7.
+15
+
+Table 4:AutoMOOSE agent pipeline performanceon the four-temperature grain growth benchmark ( T∈
+{300,450,600,750} K). First-attempt success: correct output without Reviewer intervention. Timing on a Mac-
+Book Pro (Apple M-series, single core).
+Agent Stage 1 st-attempt Key metric
+f1 Architect Intent parsing 1/1 Correct sweep intent, formulation, BCs
+f2 Input Writer.ifile generation 4/4 6/12 blocks exact match (Section 3.4)
+f3 Runner Parallel execution 4/4T sweep≈22,820s (1.8×vs. serial, scheduling only)
+f4 Reviewer Completion screen — 3/3 failed runs flagged (Section 3.7)
+f5 Visualization Kinetics extraction 4/4R 2 = 0.90–0.95atT≥600K (Section 3.5)
+End-to-end 4/4Prompt→kinetics analysis:≈380min
+Table 5:Per-run execution statisticsfor the four-temperature grain growth sweep on a MacBook Pro (Apple M-
+series, single core per run). All runs dispatched concurrently via the run_sweep MCP tool. Nf : final grain count
+att= 4000 ns; DOFs: peak degrees of freedom. T= 300 K shows no coarsening due to Arrhenius suppression
+(Section 3.5). The 1.8× reduction is a workflow-level scheduling effect — independent cases run concurrently, so
+wall-clock time is bounded by the slowest run — and not a solver-level acceleration of MOOSE.
+T(K) TimestepsN f DOFs (peak) Wall time (s)
+300 31 15 260,124 509
+450 85 13 261,862 4,165
+600 306 6 261,086 13,768
+750 602 3 260,832 22,820
+Serial total 41,261
+Concurrent (bounded by slowest run) 22,820
+Wall-clock reduction (scheduling)1.8×
+All 25 tasks produce a parseable MOOSE input (G1= 25/25), confirming that the generator reliably emits syntactically
+valid simulations across every regime. Nineteen of 25 run to completion and coarsen (thevalid-and-runstier, G1–G3
+= 19/25), and 15 of 25 additionally satisfy quantitative parabolic kinetics and a positive rate constant (thefulltier, G1–
+G5 = 15/25); independent Skeptic falsification corroborates exactly this set of 15 credible runs. The parabolic-kinetics
+gate is recovered for 18 of 25 tasks at production integration length (G4 = 18/25), a regime that short under-integrated
+runs do not reach.
+The failures are localized and interpretable rather than diffuse. The four LinearizedInterface (formulation) tasks
+generate valid input and coarsen correctly but do not complete within the wall-clock window in the configuration
+benchmarked, owing to the placeholder-material defect diagnosed in Section 2.13; the two three-dimensional tasks
+diverge under the inherited two-dimensional time-stepping. Both failure modes were falsified by the Skeptic and
+corrected in the generator as forward-looking fixes (Section 2.13). The remaining sub-gate misses are a small number of
+low-grain-count and robustness cases that coarsen correctly but fall marginally below theR2≥0.90 kinetics threshold.
+Concentrating the failures in two well-understood mechanisms — rather than scattering them across regimes — is what
+makes the benchmark useful as a diagnostic.
+3.3 Second Physics Domain: Spinodal Decomposition
+To establish that the framework generalizes beyond the non-conserved Allen–Cahn dynamics of grain growth, we
+apply it to a second, physically distinct domain: Fe–Cr spinodal decomposition under the conserved Cahn–Hilliard
+dynamics (Eq. (17)) of Section 2.10. From a single natural-language specification, the agent generated the complete
+split Cahn–Hilliard input, which was executed on a 25×25 nm2 periodic domain (100×100QUAD4 elements) from
+an initial composition c0 = 0.4677 seeded with 0.02-amplitude noise. The composition field evolves through the
+characteristic stages of spinodal decomposition (Fig. 4): an initially noisy, near-uniform field develops an interconnected
+Cr-rich/Fe-rich modulation, which then breaks into discrete Cr-rich domains that grow and separate.
+The decisive test, however, is quantitative. Because the dynamics are conserved, the Skeptic’s invariants here areexact
+physical lawsrather than the kinetics-based heuristics used for grain growth, making them a more stringent falsification
+16
+
+Table 6: AutoMOOSE performance across then=25 benchmark regimes (production integration length; each task on a
+dedicated Perlmutter node within a 12-hour allocation). G1: valid input generated; G2: ran to completion within the
+wall-clock window; G3: coarsened (Nf <N 0); G4: parabolic (Burke–Turnbull) kinetics (R2≥0.90 ); G5: positive
+rate constant.Valid & runscounts G1–G3;Fullcounts all five gates.
+RegimenG1 G2 G3 G4 G5 Valid & runs Full
+Core (T,Nsweep) 8 8 8 8 6 8 8/8 6/8
+Resolution / domain 4 4 4 4 4 4 4/4 4/4
+Formulation (Lin. Interface) 4 4 0 4 3 4 0/4 0/4
+Robustness (seeds) 4 4 4 4 2 4 4/4 2/4
+3D 2 2 0 0 0 1 0/2 0/2
+High-Tstress 2 2 2 2 2 2 2/2 2/2
+Density stress 1 1 1 1 1 1 1/1 1/1
+Total 25 25 19 23 18 24 19/25 15/25
+Table 7: Fe–Cr spinodal-decomposition (Cahn–Hilliard) validation invariants from the AutoMOOSE run (500 ◦C).
+Equilibrium target concentrations 23.6 / 82.3 mol% Cr; the Cr-mass drift is assessed against the SkepticS1 tolerance
+(10−5).
+Invariant Value
+Relative Cr-mass drift6.28×10 −6
+Free-energy decrease 0.4%
+Energy monotone (transient increasing steps) within tol. (15)
+Final Cr range[0.239,0.826]
+Cr-rich precipitates (final) 1
+battery (Table 7). The run satisfies all three: the integral of the Cr composition is conserved to a relative drift of
+6.28×10 −6, within the Skeptic’sS1 tolerance of 10−5; the total free energy (bulk plus gradient) shows a net decrease
+of 0.4% to a stable plateau, with transient step-wise increases at a small number of steps that remain within numerical
+round-off, consistent with the gradient-flow structure of the dynamics (S2); and the composition separates toward the
+two-phase equilibrium tie-line, the extreme compositions reachingcmax = 0.826 (Cr-rich) andcmin = 0.239 (Fe-rich)
+against the equilibrium targets of 0.823 and 0.236 mol fraction Cr (S3), with a single Cr-rich precipitate at the final
+time. That an agent-generated simulation reproduces an exact conservation law to a stated numerical tolerance in a
+second physical domain — without any change to the agent pipeline — is the strongest evidence that the framework’s
+reasoning is physics-general rather than tuned to a single problem.
+3.4 Input File Fidelity
+Having established the aggregate benchmark outcome and generalization to a second physics domain, we now examine
+the mechanisms underlying these results in detail: how faithfully the agent reproduces expert input structure (Section 3.4),
+the grain-growth kinetics it recovers (Section 3.5), and the activation energy it extracts (Section 3.6). These subsections
+use a single representative worked example for transparency, complemented by the at-scale statistics that confirm the
+example generalizes.
+Two human-written baselines are used for complementary purposes throughout this section, and we keep them clearly
+separate. For structural input file fidelity (this subsection), we compare against an expert-authored reference adapted
+from the canonical MOOSE grain growth tutorial [9] (44×44 mesh, 20 grains) — the standard community benchmark for
+evaluating whether an agent reproduces established MOOSE input structure. For kinetics and Arrhenius benchmarking
+(Sections 3.5–3.6), we use a separately constructed physics-matched reference with identical mesh (12×12 , refinement
+level 3) and grain count (N0 = 15) to the AutoMOOSE runs, enabling a controlled comparison of simulation output.
+The two baselines answer different questions and must not be conflated: the structural comparison asks whether the agent
+produces awell-formed, expert-equivalent input file, while the kinetics comparison asks whether two physics-matched
+runs produce thesame quantitative output. The kinetics comparison is necessarily physics-matched (identical mesh and
+grain count) because any difference in those parameters would itself change the kinetics; the structural comparison
+deliberately is not, because the tutorial reference and the prompt specify different mesh and grain counts by design.
+This raises an important point about what the structural comparison measures. Some differences between the agent’s
+file and the tutorial reference arise not from agent error but from the promptintentionallyspecifying different values —
+17
+
+t = 0.1 s t = 11.33 s t = 997.4 s
+t = 9.721 105 s×t = 9.751 104 s×t = 9469 s
+(a) (b) (c)
+Figure 4:Fe–Cr spinodal decomposition (500 ◦C): composition evolution and Skeptic validation invariants.Top
+two rows: composition field c(x,y) at increasing times, from the noisy initial condition through an interconnected
+spinodal pattern to grown, well-separated Cr-rich domains (each panel independently scaled to its composition range).
+Bottom row: (a) S1 Cr-mass conservation, relative drift 6.28×10 −6, within the 10−5 tolerance; (b)S2 free-energy
+dissipation, net decrease to a stable plateau (transient round-off increases within tolerance); (c)S3 phase separation
+toward the equilibrium tie-line (Cr-rich0.823, Fe-rich0.236mol fraction).
+a 12×12 mesh and 15 grains rather than the tutorial’s 44×44 and 20. Counting these prompt-driven differences as
+fidelity failures would penalize the agent for correctly following the user’s instructions. We therefore score fidelity
+only over the parameters the agent isfree to choose: the set of prompt-specified parameters ( {nx, ny, xmax, ymax,
+grain_num, rand_seed,T , GB properties, end_time, auto_direction}) is excluded from the mismatch count, so
+a block is judged on whether the agent reproduced the reference’snon-promptparameters, not on whether it echoed
+values the user deliberately changed. A block in which the only differences are prompt-driven is therefore classified as
+an exact match.
+A necessary condition for any agentic simulation framework is that autonomously generated input files are not only
+syntactically valid but physically correct — faithfully encoding the user’s parameters, boundary conditions, and solver
+settings without manual intervention. To evaluate this, we perform a block-by-block structural comparison atT= 450 K
+with 15 V oronoi grains, GBEvolution formulation, and a12×12mesh with uniform refinement level 3.
+The comparison is computed by a deterministic scoring script (provided in the repository, with its per-block output in
+diff_summary.json) that parses each file into its top-level blocks, extracts the key–value parameter pairs of each
+block (comments stripped), and classifies every reference block by its number of mismatches against the agent file. A
+mismatch is a reference parameter that is either absent from the agent’s block or present with a different value, with
+prompt-specified parameters excluded as described above. The block-level classes are defined precisely as:exact
+(✓), zero mismatches — every non-prompt reference parameter is reproduced identically;functionally equivalent( ≈),
+18
+
+0 5 10 15
+̃k human reference (×10−6)
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+̃k AutoMOOSE (×10−6)
+slope = 1.028
+r = 0.9877
+median |Δ| = 3.7%
+350
+375
+400
+425
+450
+475
+500
+525
+550
+T (K)
+Figure 5:Matched-cell parity between AutoMOOSE-generated and human-reference runs.Across 14 matched
+grain-count/temperature cells, the agent-generated and human kinetic outputs agree closely (slope 1.023, Pearson
+r= 0.9887 , median absolute deviation 3.4%), confirming that structural fidelity carries through to functionally
+equivalent simulation output.
+exactly one mismatch — a single non-prompt parameter differs in a way that does not change the simulated physics (for
+example a postprocessor reordering or a visualization-only output flag); andphysically valid difference( ×), two or
+more mismatches that nonetheless correspond to a legitimate alternative configuration (for example a different but valid
+preconditioner). The third class is reserved for differences that a domain expert would accept as correct, not for errors;
+genuine errors would instead produce a file that fails the --check-input validity gate, which none of the reported
+inputs do.
+Of 12 structural blocks compared, 6 match exactly, 4 are functionally equivalent with a single minor parameter
+difference, and 2 differ in solver and mesh settings, as summarised in Table 9. The complete annotated listing
+is provided in Figure S11 (Supplementary Section S9). The six exact matches cover all physics-critical blocks:
+[UserObjects], [Materials], [BCs], [AuxVariables], [AuxKernels], and [Modules]. Notably, AutoMOOSE
+correctly instantiates GBEvolution with experimentally grounded copper parameters from Schönfelderet al.[ 26]
+and registers GrainTracker exclusively as a UserObject — its erroneous duplication in [Postprocessors] is a
+well-known source of runtime failure in hand-written MOOSE files that AutoMOOSE avoids by construction. Periodic
+boundary conditions are correctly enforced viaauto_direction.
+The four approximate matches reflect minor differences with no effect on simulation output: postprocessor
+entry reordering, a coarsen_fraction difference ( 0.1 vs. 0.05), and AutoMOOSE’s automatic addition of
+exodus = true in [Outputs] to enable microstructure trajectory visualization. The two differing blocks are [Mesh]
+and [Executioner]: the mesh correctly uses nx = ny = 12 with uniform_refine = 3 from the prompt rather than the
+tutorial’s 44×44 grid, and the executioner autonomously selects ASM preconditioning rather than hypre boomeramg
+— both physically valid choices that reflect the prompt specification.
+Figure 6 illustrates the exact match for the [UserObjects] block: both files declare identical GrainTracker pa-
+rameters; the only difference is grain_num (15 from the prompt vs. 20 in the reference). Grey inline annotations in
+Figure S11 trace every parameter directly back toP (Eq. (9)), making prompt-to-input traceability explicit throughout.
+The generated file executed without error on the first attempt, indicating that AutoMOOSE’s pre-trained MOOSE
+knowledge was sufficient to produce a valid, runnable input file for this case without retrieval-augmented grounding.
+3.4.1 Fidelity at scale
+The single-file comparison above is illustrative; to test fidelity systematically we analyze it at scale (Table 8). Across
+1000 AutoMOOSE-generated inputs spanning the full grain-count and temperature sweep, every one of the 12 top-level
+MOOSE blocks is present and well-formed in all 1000 inputs, matching the 100 human reference inputs (structural
+completeness 1000/1000 and 100/100). Block-by-blockcontentagreement, measured over 100 matched human–agent
+pairs at identical grain count, temperature, and seed, shows that the agent reproduces every physics-determining block
+— [Mesh], [UserObjects], [ICs], [Modules], [AuxVariables], [AuxKernels], [Materials], [BCs], and
+[Postprocessors] — exactly in all 100 pairs, with [GlobalParams] exact in 80 and approximate in the remainder.
+19
+
+Table 8: Input-file fidelity.Top:structural completeness — fraction of inputs in which each block is present and
+well-formed — across 1000 AutoMOOSE-generated inputs and 100 human reference inputs.Bottom:block-by-block
+content agreement across 100 matched human–agent pairs (same grain count, temperature, seed), scored over non-
+prompt parameters only: “exact” = zero mismatched parameters, “approx” = exactly one (functionally equivalent),
+“differs” = two or more (physically valid alternative); see Section 3.4 for the full criteria.
+Structural completeness (all 12 blocks present & valid)
+Setnblocks present blocks valid
+AutoMOOSE-generated 1000 12/12 12/12
+Human reference 100 12/12 12/12
+Content agreement, 100 matched pairs (per block, over 100 pairs)
+Block exact approx differs
+Mesh, UserObjects, ICs, Modules 100 0 0
+AuxVariables, AuxKernels, Materials, BCs 100 0 0
+Postprocessors 100 0 0
+GlobalParams 80 20 0
+Executioner 0 0 100
+Outputs 0 0 100
+Overall 81.7% 1.7% 16.7%
+Finding: the agent reproduces every physics-determining block exactly across all 100 pairs; the only divergences fall in the two
+operational blocks (Executioner, Outputs), where no canonical form exists.
+Human-written (reference)
+[UserObjects]
+[voronoi]
+type =
+PolycrystalVoronoi
+grain_num = 20
+rand_seed = 42
+int_width = 7
+[]
+[grain_tracker]
+type = GrainTracker
+threshold = 0.1
+compute_halo_maps = true
+polycrystal_ic_uo = voronoi
+[]
+[]
+AutoMOOSE-generated
+[UserObjects]
+[voronoi]
+type =
+PolycrystalVoronoi
+grain_num = 15 # from
+prompt
+rand_seed = 42 # from
+prompt
+int_width = 7
+[]
+[grain_tracker]
+type = GrainTracker
+threshold = 0.1
+compute_halo_maps = true
+polycrystal_ic_uo = voronoi
+[]
+[]
+Figure 6:Input file fidelity: [UserObjects] block (✓ exact structural match).Human-written expert reference
+(left) and AutoMOOSE-generated file forT= 450 K (right). Both files declare identical [UserObjects] structure; the
+sole difference is grain_num (20 in the reference vs. 15 from the prompt, annotated in grey). The complete 12-block
+comparison is in Figure S11.
+The only systematic divergences fall in the two purely operational blocks, [Executioner] and [Outputs], for which
+no canonical form exists and where the agent’s autonomous choices (preconditioner, output cadence) are themselves
+valid. This separation is the key point: structural fidelity (presence and well-formedness) and content fidelity (agreement
+with a human expert) are both complete on the physics-bearing blocks, while the agent retains latitude only where
+latitude is appropriate. Functional and physical correctness is established independently by the benchmark (Section 3.2)
+and the Skeptic (Section 3.7); here matched-cell parity of the resulting kinetics (Fig. 5) confirms that this input fidelity
+carries through to equivalent simulation output.
+20
+
+Table 9:Block-by-block input file comparisonbetween the expert reference [ 9] and the AutoMOOSE-generated
+file (T= 450 K, 15 V oronoi grains,12×12 mesh). ✓: exact match;≈: functionally equivalent, minor difference;×:
+differs from reference (physically valid; see text). Full annotated listing: Figure S11.
+Block Key parameter / setting Human AutoMOOSE
+[Mesh] nx/ny=44 vs. 12;
+uniform_refine
+✓×
+[GlobalParams] op_num=8 vs. 15;
+var_name_base
+✓≈
+[UserObjects] PolycrystalVoronoi +
+GrainTracker
+✓ ✓
+[ICs] PolycrystalColoringIC✓ ✓
+[Modules] GrainGrowthphase-field module✓ ✓
+[AuxVariables] bnds , unique_grains,
+var_indices
+✓ ✓
+[AuxKernels] BndsCalcAux ,
+FeatureFloodCountAux
+✓ ✓
+[Materials] GBEvolution, Cu params [26]✓ ✓
+[BCs] Periodicx,y viaauto_direction✓ ✓
+[Postprocessors] TimestepSize , NumDOFs,
+NumElements
+✓≈
+[Executioner] PJFNK;hyprevs. ASM✓×
+[Outputs] csv ; AutoMOOSE adds
+exodus=true
+✓≈
+Summary6✓4≈2×/ 12 blocks
+3.5 Grain Growth Kinetics
+Having established that AutoMOOSE generates physically correct input files (Section 3.4), we now examine the
+simulation output. Grain growth kinetics are analysed across all four temperatures and benchmarked against the
+physics-matched human-written reference runs introduced in Section 3: a separately constructed set matched to the
+AutoMOOSE case in mesh (12×12 , refinement level 3), grain count (N0 = 15), and physical parameters — distinct
+from the tutorial reference used in Section 3.4, which used a coarser 44×44 mesh. The two runs differ only in
+V oronoi initial conditions (rand_seed= 42 for AutoMOOSE; rand_seed∈{10,30} for the human-written runs)
+and minor solver settings. Distinct seeds are used deliberately: because AutoMOOSE selects its seed autonomously
+from the prompt, using the same seed for the reference would conflate the agent’s input file choices with the initial
+microstructure effect. The comparison instead tests whether both approaches recover consistent macroscopic kinetics
+across statistically independent V oronoi realisations of the same physical system.
+In two dimensions, classical grain growth theory predicts parabolic coarsening [23],
+¯d 2(t)− ¯d 2
+0 =k(T)t,(19)
+where ¯d(t) is the mean grain diameter and k(T) a temperature-dependent rate constant. Since N(t) is inversely
+proportional to ¯d 2 in a fixed-area domain ( ¯d∝N −1/2), Eq. (19) recasts into the linear form fitted directly by f5
+(equivalent to the coarsening law of Eq. (6)):
+N−1(t)−N −1
+0 = ˜k(T)t,
+where ˜k(T) is extracted via linear regression ofN−1 againstt. This formulation is physically equivalent to Eq. (19)
+and computationally convenient:N(t)is a directGrainTrackeroutput requiring no post-processing.
+The microstructural origin of this coarsening is captured in the AutoMOOSE-generated phase-field trajectories. Figure 7
+shows the T= 450 K grain structure at four time points, illustrating how curvature-driven boundary migration
+progressively eliminates high-curvature interfaces. The grain highlighted by the dashed circle shrinks steadily and
+vanishes by panel (iv), consistent with the Gibbs–Thomson relation governing boundary velocity in the GBEvolution
+model.
+Figure 8a–b shows N(t) for the AutoMOOSE-generated and human-written runs respectively, both starting from
+N0 = 15 V oronoi grains on a12×12 mesh under periodic boundary conditions. In both cases the grain count decreases
+monotonically at T≥450 K, with higher temperatures driving faster coarsening as expected from the Arrhenius
+mobility in the GBEvolution model. At T= 300 K the grain count remains constant at N= 15 throughout the
+21
+
+(i) (ii) (iii) (iv)
+Figure 7:AutoMOOSE-generated microstructure evolution atT= 450 K.Panels (i)–(iv): phase-field grain structure
+att= 0 , 500, 2000, and 4000 ns; grains colored by unique index ( GrainTracker). The grain in the dashed circle
+shrinks from panel (i) and vanishes by panel (iv), consistent with the Gibbs–Thomson relation in the GBEvolution
+model. Grain count reduces fromN 0 = 15toN f = 13(Figure 8a). No user intervention was required.
+Table 10:Grain coarsening fit parametersfrom linear regression of N−1(t) (Eq. (6)). Nf : final grain count at
+t= 4000ns.T= 300K excluded: Arrhenius-suppressed (N= const).
+AutoMOOSE Human-written
+T(K)N f ˜k(×10 −6 ns−1)R 2 Nf ˜k(×10 −6 ns−1)R 2
+300 15 suppressed 15 suppressed
+450 132.863 0.749132.850 0.750
+600 623.51 0.898718.40 0.804
+750 358.67 0.951443.46 0.922
+4000 ns window in both runs, confirming Arrhenius suppression of grain boundary mobility — an independent physical
+consistency check reproduced correctly by both approaches.
+Byt= 4000 ns, AutoMOOSE reaches N450 = 13,N600 = 6, and N750 = 3, while the human-written runs yield
+N450 = 13,N600 = 7, andN750 = 4. The exact agreement atT= 450 K and modest divergence at higher temperatures
+reflects the increasing sensitivity of coarsening to the initial grain size distribution as the number of grains decreases.
+Linear regression of N−1(t) againstt yields the rate constants in Table 10: AutoMOOSE agrees with the human
+reference to within 0.5% atT= 450 K, where initial condition effects are minimal, and diverges by 22–26% at higher
+temperatures due to different V oronoi tessellations — a stochastic variability intrinsic to the small-system statistics
+rather than any agent error. These rate constants are carried forward to the Arrhenius analysis in Section 3.6.
+3.6 Arrhenius Analysis and Consistency Check
+The rate constants{˜k(Ti)} of Section 3.5 enable a direct test of whether AutoMOOSE-generated simulations faithfully
+recover the thermal physics encoded in GBEvolution. Because ˜k(T)∝M(T) and the grain boundary mobility
+follows the Arrhenius relation (Eq. (5)), linear regression ofln ˜kagainstT −1,
+ln ˜k(T) = lnA− Qfit
+kB
+· 1
+T,(20)
+should recover the inputQ= 0.23 eV [26]. We perform this regression for both the AutoMOOSE and human-written
+runs usingT= 450,600, and750K (T= 300K excluded: mobility is Arrhenius-suppressed).
+Figures 8c–d show the Arrhenius plots for both sets; in both cases the three data points fall on a straight line, confirming
+excellent linearity across the active temperature range. AutoMOOSE yields Qfit = 0.296 eV (R2 = 0.994) and the
+human-written reference yieldsQfit = 0.267 eV (R2 = 0.996), both consistent in direction and magnitude with the
+expected activation energy for Cu grain boundary migration [26] (Table 11).
+The ∆Qfit = 0.029 eV difference between the two runs traces directly to the kinetics of Section 3.5: the two runs
+agree to within 0.5% in ˜k atT= 450 K, where sensitivity to the initial microstructure is minimal, but diverge by
+22–26% atT= 600 and 750 K, where distinct random seeds produce different grain size distributions and coarsening
+rates. This seed-driven variability shifts the Arrhenius slope modestly, fully accounting for the inter-run difference in
+Qfit. Different seeds were used by design: identical seeds would produce identical initial microstructures, conflating
+22
+
+(a) Kinetics — AutoMOOSE (b) Kinetics — Human-written
+(c) Arrhenius — AutoMOOSE (d) Arrhenius — Human-written
+Figure 8:Grain growth kinetics and Arrhenius analysis: AutoMOOSE vs. human-written reference. (a)Au-
+toMOOSE N(t) (rand_seed= 42 ); circles, dashed lines: 1/N linear fit (Eq. (6)).(b)Human-written N(t)
+(rand_seed∈{10,30} ); squares.(c)AutoMOOSE Arrhenius plot; Qfit = 0.296 eV ,R2 = 0.994 .(d)Human-
+written Arrhenius plot;Qfit = 0.267 eV ,R2 = 0.996. Both sets: 12×12 mesh,N0 = 15, refinement level 3, copper
+GBEvolution parameters (Q= 0.23 eV [26]). Colors: T= 300 K (navy), 450 K (vivid blue), 600 K (deep orange),
+750K (amber).
+Table 11:Arrhenius fit summary. Qfit from the slope of ln ˜k vs.T−1 (Eq. (20));T= 450 , 600, 750 K only. Input:
+Q= 0.23eV [26].
+Quantity AutoMOOSE Human-written
+Slope(−Q fit/kB)(K)−3,436−3,095
+Qfit (eV)0.296 0.267
+InputQ(eV)0.230
+R2 0.994 0.996
+numerical equivalence with physical agreement; the chosen seeds instead provide statistically independent realizations
+of the same probability distribution, offering a more realistic test of pipeline robustness. The residual offset from
+Q= 0.23 eV present in both runs reflects a finite-size effect in the 15-grain system; as shown next, an ensemble
+campaign over a range of system sizes resolves this offset and converges the recovered activation energy onto the input
+value, identifying the single-seed result here as a finite-size-inflated worked example.
+The close Arrhenius linearity ( R2 >0.99 for both) and small inter-run spread ( ∆Qfit = 0.029 eV) confirm that
+AutoMOOSE-generated simulations reproduce the thermally activated physics of the GBEvolution model at a level
+statistically comparable to expert-authored inputs within stochastic and finite-size variability to expert-authored inputs,
+without any manual parameter tuning.
+23
+
+1.8 2.0 2.2 2.4 2.6 2.8
+1000 / T (K−1)
+-14.0
+-13.5
+-13.0
+-12.5
+-12.0
+-11.5
+-11.0
+-10.5ln ̃k
+AutoMOOSE N0=100
+AutoMOOSE N0=200
+AutoMOOSE N0=500 (res-lim.)
+human reference N0=100
+human reference N0=200
+Figure 9:Ensemble Arrhenius analysis over the 1000 AutoMOOSE / 100 human-written runs.Per-temperature
+ensemble-mean rate constants ˜k(T) (mean± standard error over admissible seeds) for the converged grain-count
+ensembles, with the standard-error-weighted Arrhenius fit of ln ˜k against 1/T . The fit recovers the input activation
+energy within statistical uncertainty.
+0.00 0.01 0.02 0.03 0.04 0.05 0.06 0.07
+1 / N0
+0.16
+0.18
+0.20
+0.22
+0.24
+0.26
+0.28
+0.30Qfit (eV)
+input Q = 0.230 eV
+human reference
+AutoMOOSE
+15-grain system
+(0.267-0.296)
+Figure 10:Finite-size dependence of the recovered activation energy. Qfit as a function of initial grain countN0:
+the recovered value decreases from the finite-size-inflated small-system estimate toward a plateau at large N0. An
+inverse-variance fit over the converged sizes (N0≤200 ) gives Q∞ = 0.228 eV against the input Q= 0.230 eV;
+N0 = 500is resolution-limited (6.5 cells per grain) and excluded from the fit.
+24
+
+3.6.1 Ensemble convergence of the activation energy
+The single-seed comparison above is a worked example; its residual offset from the input Q motivates a statistical
+campaign that removes both seed variability and finite-size bias. We generate 1000 AutoMOOSE runs spanning five
+initial grain counts N0∈{20,50,100,200,500} and five temperatures{350,400,450,500,550} K with up to 40
+independent seeds per cell, on a fixed 1000×1000 box with a 1282 periodic mesh, alongside 100 human-written
+runs (four sizes× five temperatures× five seeds). Each trajectory is fit to 1/N(t) = 1/N0 +kt under pre-registered
+admissibility gates (coarsening to≤0.60N 0, at least five resolved levels and six fit points,R2≥0.90 ); a temperature
+cell enters the Arrhenius fit only if at least 60% of its seeds are admissible and at least five are valid, and each accepted
+point is an ensemble mean with its standard error. Standard-error-weighted Arrhenius regression with bootstrap
+confidence intervals is then performed per grain-count ensemble. For the converged sizesN0 = 100 and 200, all five
+temperatures clear the yield gate withR 2 >0.999(Fig. 9).
+The recovered activation energy depends systematically on system size (Fig. 10):Qfit is inflated for small ensembles —
+reproducing the 0.27–0.30 eV range of the single-seed worked example — and decreases toward a plateau asN0 grows,
+with the converged ensembles sitting at 0.232–0.236 eV . An inverse-variance fit over the converged sizes (N0≤200 )
+yields Q∞ = 0.228 eV against the input Q= 0.230 eV , a0.9% agreement; the largest ensemble, N0 = 500 , is
+resolution-limited at 6.5 cells per grain and is excluded from the fit. That the autonomously generated simulations
+recover the input activation energy to within1% once finite-size bias is removed is the framework’s primary quantitative
+validation, and it identifies the earlier single-seed 0.296 eV as the expected finite-size-inflated estimate rather than a
+discrepancy.
+3.7 Failure Detection and Recovery
+Reliability in AutoMOOSE comes from two distinct mechanisms acting at different stages: the Reviewer’s completion-
+aware execution screen (Section 2.6), which catches inputs that cannot run, and the Skeptic’s physics-grounded
+falsification (Section 2.8), which catches runs that complete but are physically wrong. We describe both here, and the
+closed-loop recovery module that builds on them.
+3.7.1 Execution-screen catches during plugin development
+Three classes of input-level defect surfaced during initial GrainGrowth plugin development and were caught by the
+execution screen before any physically meaningless result could propagate (Table 12). Each illustrates the structural
+property of MOOSE error messages that makes automated root-cause attribution tractable.
+3.7.2 Class I: DuplicateUserObjectdeclaration.
+The initial plugin registered GrainTracker in both [UserObjects] (correct) and [Postprocessors] (erroneous
+duplication), causing MOOSE’s object registry to raise:
+A GrainTracker ‘grain_tracker’ already exists.
+You may not add a Postprocessor by the same name.
+The execution screen identified the duplicate declaration; removing the [Postprocessors] entry restored a runnable
+input. All four sweep runs failed on the first attempt and ran on the second.
+3.7.3 Class II: Duplicate solver parameter
+The Executioner sub-agent emitted solve_type = PJFNK twice — once from the base template and once from the
+preconditioner branch — causing a duplicate key error at input validation. Deduplicating the sub-agent output template
+resolved all four runs.
+3.7.4 Class III: Unused parameter abort
+The [Outputs] block contained an interval parameter not recognised by the installed MOOSE version, which aborts
+by default with:
+unused parameter ‘Outputs/exodus/interval’
+Removing the parameter restored Exodus output with no change to physics or solver settings.
+25
+
+Table 12:Input-level defects caught by the execution screenduring GrainGrowth plugin development. Each defect
+produces an unambiguous MOOSE error signature, and each correction is a single re-generation plus re-execution.
+Class Error Root cause Correction
+I Duplicate object name in
+registry
+GrainTracker declared in
+both [UserObjects] and
+[Postprocessors]
+Remove
+[Postprocessors]
+entry
+II Duplicate key in
+[Executioner]
+solve_type=PJFNK emitted
+twice by Executioner sub-agent
+Deduplicate output
+template
+III Unused parameter abortinterval not recognised in
+[Outputs/exodus]
+Remove interval
+parameter
+3.7.5 Skeptic falsification of benchmark failures
+Beyond these input-level catches, the more consequential failures are runs that execute but are physically untrustworthy,
+and these are the Skeptic’s domain. On the 25-task benchmark (Section 3.2), the Skeptic falsified exactly the cases
+that the gates also failed — the LinearizedInterface and three-dimensional tasks — rather than reporting their
+metrics as if valid, and its set of credible runs coincides with the 15/25 full-gate set. Two of these falsifications
+traced to systematic generator defects rather than to the physics being modeled: the LinearizedInterface branch
+emitted placeholder material constants in place of the copper parameters, and the three-dimensional path inherited
+two-dimensional time-stepping too aggressive for the stiffer system. Diagnosed jointly from the solver error signatures
+and the Skeptic’s verdicts, both were corrected in the generator — physically grounded copper parameters for the
+linearized interface, and a reduced initial step with a stronger preconditioner in three dimensions — and verified by
+re-execution. The benchmark thus functions as a diagnostic that drives a falsification-to-fix loop, not merely a pass/fail
+score.
+3.7.6 Closed-loop recovery module
+The recovery module ( recovery.py, Section 2.6) operationalizes this loop for the divergence-class failures: it
+consumes the Skeptic’s diagnosis, applies a bounded time-step correction (Eq. (15)), and regenerates and re-executes
+through the standard pipeline, accepting a corrected run only if it independently completes and passes the Skeptic.
+We validated the classifier against real run logs, confirming that it is completion-aware — a run whose log records
+completion is never “corrected” on the basis of a stale running-status record — and that corrections inapplicable to a
+given configuration are suppressed. We report the module as implemented and component-validated; failures rooted in
+problem formulation rather than time-stepping fall outside its bounded envelope and are surfaced rather than forced.
+3.8 The Value of Task Decomposition: Pipeline versus a Single Non-Decomposed Agent
+A natural question is how much of AutoMOOSE’s reliability comes from the task-decomposed agentic workflow rather
+than from the capability of the underlying language model. We are careful about what this comparison is and is not.
+AutoMOOSE is not merely “more agents” than a baseline: it is a task-decomposed workflow in which specialized
+agents own distinct stages of the simulation lifecycle — input generation, parameter handling, execution, completion
+screening, falsification, recovery, and result extraction. A single general-purpose agent prompted to perform the entire
+lifecycle in one call (our baseline, a single generic agent given the task and the MOOSE executable and documentation
+but no role specialization) can attempt only the first of these stages, input generation; it has no mechanism to screen
+its own run for completion, to adversarially falsify its own result, or to recover from a divergence. The comparison is
+therefore not a like-for-like end-to-end race — a non-decomposed agent does not reach the later stages at all — but an
+isolation of what decomposition buys at the one stage both configurations attempt.
+For that reason we score the baseline on the objective G1 gate (does the generated input parse and run under
+--check-input) over the eight core grain-growth tasks: G1 is precisely the stage a single generic agent can at-
+tempt. The identical modeling task is posed to each bare frontier model with no scaffolding, and because direct model
+output is stochastic, each condition is repeated over independent runs and reported as a mean with range (Table 13).
+The full AutoMOOSE pipeline produces valid input in 8/8 tasks on every invocation, with zero run-to-run variance.
+The bare models are both lower and stochastic: the strongest, Claude Opus 4.8, averages 5.0/8 (range 3–7); the mid-tier
+Claude Sonnet 4.6 averages 0.3/8 strict; and GPT-4o produces 0/8 in every run, with genuine structural errors rather
+than near-misses. Two conclusions follow. First, because the plugin dominates every model and every run, the advantage
+is attributable to the scaffolding rather than to any single model’s idiosyncrasies. Second, the determinism is itself a
+26
+
+contribution: direct prompting cannot offer the reproducibility that a deterministic generator provides, independent of
+accuracy. We are careful about scope: the G1 gate measures input validity, while functional and physical correctness
+are established separately by the benchmark (Section 3.2) and the Skeptic (Section 3.7).
+The value of the decomposition is not, however, captured by G1 alone, because the stages a single generic agent cannot
+attempt are exactly where the remaining specialized agents act, and each is independently evidenced in this paper. The
+Reviewer’s completion screen flags the runs that execute but fail to advance (the failed runs of Section 3.7); the Skeptic
+falsifies results that pass execution but violate physics, ablated as its own stage in Section 3.9; the recovery module
+corrects divergence-class failures through a bounded time-step cutback; and end-to-end completion across the full
+lifecycle is quantified by the 25-task benchmark (19 of 25 run, 15 of 25 credible, Section 3.2) and the agreement with
+the expert-written reference (Section 3.4). We therefore do not claim that multi-agent design is universally superior
+to a single agent; we claim the narrower and better-supported point that, for this multi-stage simulation workflow,
+task-specialized agents enable modular execution, targeted validation, and error recovery across lifecycle steps that a
+single non-decomposed agent does not reliably complete.
+Table 13: Ablation and baseline comparison on n=8 core grain-growth tasks, scored on G1 (input validity via
+--check-input).AutoMOOSEis the deterministic plugin (identical output on every invocation);rawconditions
+prompt the bare model directly with the same task and no plugin scaffolding, repeated across independent runs to
+characterize stochasticity (ranges shown).Strictrequires a clean parse;lenient( --allow-unused) ignores deprecated-
+but-harmless parameters, matching the checking applied to AutoMOOSE’s own benchmark runs. The frontier models
+the reviewer named were used (Claude Opus 4.8, exceeding the requested Opus 4.7+); GPT-5.x was not API-accessible
+at the time of testing, so GPT-4o is reported.
+Condition G1 strict G1 lenient
+Raw entries: mean (min–max) over 3 independent runs.
+AutoMOOSE plugin8/8 8/8
+raw Opus 4.8 (claude-opus-4-8) 5.0 (3–7)/8 5.3 (3–8)/8
+raw Sonnet 4.6 (claude-sonnet-4-6) 0.3 (0–1)/8 2.0 (1–3)/8
+raw GPT-4o (gpt-4o) 0/8 0/8
+3.9 Skeptic Falsification as Methodology
+The baseline above measures raw generation; the Skeptic addresses the complementary and, we argue, more important
+question of whether a completed result should bebelieved. Running the Skeptic over the full benchmark yields a natural
+ablation of the verification stage: of the runs that execute and report well-formed metrics, the Skeptic admits exactly the
+15/25 that satisfy the physics invariants and falsifies the remainder, including runs that complete but violate parabolic
+scaling or fail in three dimensions. Without this stage, those clean-but-wrong runs would enter the downstream analysis
+with plausible numbers attached; with it, only physically credible results are reported.
+This is a methodological contribution distinct from raw model capability. The Skeptic reframes the final stage of the
+pipeline from an engineering task (generate, run, parse) to an epistemic one (propose, execute,falsify), and the reliability
+it confers does not come from a stronger model but from testing each result against the physical laws it must obey. The
+same adversarial stage carries across domains unchanged: the conserved-dynamics invariants of the Fe–Cr spinodal run
+(Section 3.3) are simply a different battery dispatched by the same falsification machinery. Verification grounded in
+physics, rather than in model confidence, is what makes the framework’s outputs trustworthy.
+3.10 Agent-Narrated Interpretation
+Completing the pipeline, the Visualization agent (f5) generates a natural-language scientific interpretation of each
+completed simulation alongside the numerical metrics, grounding the quantitative results in established theory and
+flagging physically significant deviations. This narration is produced by a structured API call that receives the parsed
+simulation metrics — grain-count trajectory, coarsening fit parameters, and DOF statistics — and generates a concise
+expert-level interpretation without any user-authored prompt. Thef5 narrative for theT= 450 K run is reproduced
+verbatim below.
+The grain growth simulation at 450 K demonstrates limited coarsening kinetics, with grain count
+reducing from 15 to 13 (13.3% reduction) over 4000 ns. The coarsening law fitting yields a reasonable
+correlation (R2 = 0.749) with a rate constant˜k= 2.863×10−6 ns−1, indicating moderate adherence
+27
+
+to classical grain growth kinetics. The low rate constant reflects limited grain boundary mobility at
+this temperature, consistent with thermally activated migration governed by the Arrhenius relation.
+The modest deviation from ideal linear behaviour (R2 <0.9 ) likely reflects grain size distribution
+effects and topological constraints in the small 15-grain system.
+Across all four temperatures,f5 correctly identifies coarsening kinetics atT≥450 K, attributes the zero coarsening at
+T= 300 K to Arrhenius suppression rather than a numerical artefact, and reportsQfit = 0.296 eV from the three active
+temperatures — consistent with the manual Arrhenius analysis of Section 3.6. This capability transforms AutoMOOSE
+from a simulation execution tool into a self-interpreting scientific instrument, lowering the expertise barrier for users
+unfamiliar with phase-field kinetics and providing an auditable record of physical reasoning alongside every numerical
+result.
+4 Discussion
+4.1 Agentic Decomposition Versus Single-Turn Prompting
+The six-agent decomposition adopted in AutoMOOSE reflects the design principle thatreliability scales with speciali-
+sation. A single agent tasked with simultaneously parsing intent, generating mesh parameters, writing a MOOSE input
+file, executing the solver, and interpreting results would face an informationally overloaded context window and a task
+space that conflates physically distinct subtasks. By contrast, each AutoMOOSE agent holds a minimal, well-scoped
+system prompt (100–300 tokens) focused on a single pipeline stage (Eq. (8)).
+The Reviewer agent (f4) illustrates the value of this decomposition most clearly: it is the only agent with access to the
+full MOOSE error log, and its system prompt encodes a structured taxonomy of common failure modes — duplicate
+declarations, unused parameters, solver divergence, mesh incompatibility — that would be diluted into irrelevance in a
+shared monolithic prompt. The three input-level defects caught by the execution screen in Section 3.7 confirm that
+focused context enables reliable root-cause attribution from MOOSE error messages.
+This architecture also enables progressive automation at arbitrary depth. Researchers can intercept the pipeline at
+any stage through the chat interface, overriding agent decisions while delegating the remainder: a user who wishes
+to manually author the mesh block but delegate the rest can do so by intercepting afterf2; a user who supplies their
+own .i file but wants agent post-processing can enter atf3. Thishuman-in-the-loop at arbitrary depthproperty — a
+direct consequence of the modular pipeline structure — is not achievable with monolithic single-turn approaches and
+substantially lowers the adoption barrier for partial integration into existing MOOSE workflows.
+4.2 Physical Validity and Pipeline Consistency
+A necessary condition for any simulation automation framework is that it produces physically correct results, and not
+merely syntactically valid inputs. AutoMOOSE establishes this at several complementary levels of stringency.
+At the level of aggregate capability, the 25-task benchmark (Section 3.2) shows that the agent generates valid input for
+every task and produces fully credible runs — passing quantitative Burke–Turnbull kinetics and surviving independent
+Skeptic falsification — in 15 of 25, with failures confined to two diagnosable generator defects rather than scattered
+across regimes. The Skeptic’s falsification battery (Section 2.8) is what makes this a test of physical correctness rather
+than mere execution: completed runs that violate the physics are flagged, not reported.
+At the level of quantitative physics, the ensemble campaign (Section 3.6) recovers the input activation energy to within
+1% (Q∞ = 0.228 eV against 0.230 eV) once finite-size bias is removed across system sizes. The single-seed worked
+example —Qfit = 0.296 eV , an end-to-end consistency check from user-specified parameters through the phase-field
+bridge, MOOSE execution, and macroscopic kinetics extraction (Table 11) — illustrates the pipeline transparently; its
+residual offset is the expected finite-size effect in a 15-grain system, resolved by the ensemble, not an agent error.
+Finally, generalization is established on a second, conserved-dynamics domain: the Fe–Cr spinodal run satisfies the
+exact mass-conservation and free-energy-dissipation laws to a stated tolerance and separates toward the equilibrium
+tie-line (Section 3.3). To our knowledge, no prior LLM-based simulation assistant provides this combination of
+pre-registered benchmarking, physics-grounded falsification, and exact-conservation verification across two distinct
+phase-field domains.
+28
+
+4.3 Role of Pre-trained Knowledge Versus Retrieval Augmentation
+A deliberate architectural choice in AutoMOOSE is the absence of retrieval-augmented generation (RAG). The Architect
+and Input Writer agents rely entirely on pre-trained MOOSE knowledge embedded in the underlying language model,
+without access to MOOSE documentation or example files at inference time. The input file fidelity results (Section 3.4)
+confirm that this is sufficient for the GBEvolution grain growth formulation: across 100 matched human–agent pairs the
+agent reproduces every physics-determining block exactly, with divergences confined to the two purely operational
+blocks ([Executioner], [Outputs]); in the representative single-file comparison, 6 of 12 structural blocks match the
+human-written reference exactly and 4 more are functionally equivalent, and the generated file executes correctly on the
+first attempt after plugin validation.
+This approach has clear limits, however. MOOSE is a large, actively developed framework with hundreds of physics
+modules, many of which post-date the language model’s training cutoff or are insufficiently represented in public
+training corpora. For less common physics — electrochemistry, contact mechanics, reactor neutronics — pre-trained
+knowledge alone is likely insufficient to generate correct input files without retrieval support. A RAG layer over the
+MOOSE documentation corpus and official examples repository is therefore the most impactful near-term extension,
+scoped as future work in Section 4.6.
+4.4 Comparison to Related Approaches
+Several recent systems have demonstrated LLM-assisted generation of simulation inputs in adjacent domains. LLM-
+MD [34] and related tools [ 35] generate LAMMPS and GROMACS molecular dynamics input files from natural
+language, reporting first-attempt success rates of 60–80% on standard benchmarks. MatAgent [36] and AtomAgents [37]
+implement multi-agent workflows for DFT calculation setup and materials property prediction. These systems share
+a common limitation: they generate a candidate input and return control to the user without closing the execution-
+diagnosis-correction loop.
+AutoMOOSE differs in three respects. First, beyond the initial prompt it carries a task through the full loop from intent
+to quantitative result without further user intervention in the demonstrated benchmark cases, including physics-grounded
+falsification of completed runs (Section 2.8), a component-validated recovery module for divergence-class failures
+(Section 3.7), and structured provenance capture. Second, it targets continuum phase-field simulation — a domain that
+has received substantially less automation attention despite its practical importance for microstructure prediction at the
+mesoscale. Third, it exposes all capabilities through the Model Context Protocol (Section 2.11), enabling composability
+with external agentic systems including Bayesian optimisation loops and high-throughput screening pipelines. The
+closest prior work in the MOOSE ecosystem is a documentation chatbot [38] that answers questions about MOOSE
+syntax but does not execute simulations or close the analysis loop.
+4.5 Reproducibility as a First-Class Outcome
+The computational materials science community has identified reproducibility as a persistent challenge [10]: nominally
+identical physical models can produce different results depending on executable version, compiler flags, MPI rank
+count, and random seed. AutoMOOSE addresses this at the infrastructure level rather than through documentation
+convention. Every run directory is self-documenting by construction: the record.json provenance file encodes the
+absolute MOOSE executable path, all simulation parameters, hostname, MPI rank count, wall-clock runtime, and
+random seed. Reproducing any run requires only
+mpiexec -nN MPI $MOOSE_EXEC -i input.i,
+where all three quantities are present in the directory without reference to any external system. This design is directly
+aligned with community standards for reproducible computational science [11] and ensures that simulation records
+produced by AutoMOOSE satisfy the FAIR data principles at the level of the individual run.
+4.6 Limitations and Future Directions
+Several limitations of the current framework point directly to concrete extensions, which we group below by the
+component they most affect.
+4.6.1 RAG over MOOSE documentation
+The Input Writer agent relies on the pre-trained MOOSE knowledge of the underlying LLM. For well-established blocks
+(Kernels, BCs, Materials) this performs reliably, but recently-added MOOSE objects or non-standard formulations
+29
+
+are susceptible to hallucination of plausible but incorrect parameter names. A RAG layer backed by a vector store
+and exposed via a lookup_moose_docs MCP tool is the planned integration point for this capability, requiring only a
+single tool registration in the existing server.
+4.6.2 Extended recovery policy
+The current recovery module (Section 3.7) acts on divergence-class failures through a bounded time-step correction.
+For novel or composite failure modes, a staged recovery policy — timestep cutback → mesh refinement→ solver
+fallback — consuming the Skeptic’s diagnosis could address a broader range of convergence failures without human
+intervention; extending recovery beyond the time-stepping channel, and validating the full closed loop on genuine
+numerical breakdowns at scale, is a direct line of future work.
+4.6.3 Extended physics coverage
+Spinodal decomposition (conserved Cahn–Hilliard) is fully implemented and validated end-to-end (Sections 2.10
+and 3.3), demonstrating that the plugin contract generalizes across non-conserved and conserved dynamics. Ferroelectric
+switching and solidification remain registered as plugin stubs in the current release; full activation requires only validated
+generate_inputandparse_resultsimplementations, with no modification to the orchestration layer.
+4.6.4 Active learning and autonomous discovery
+The most scientifically compelling near-term extension couples AutoMOOSE to a Bayesian optimisation loop for
+autonomous parameter exploration. In this workflow, an external optimisation agent calls run_simulation with
+proposed parameters, receives structured results via get_results, and updates its surrogate model — enabling largely
+autonomous characterisation of the ˜k(T) surface over a multi-dimensional parameter space{Q,M 0,γ GB,w GB} once
+the search bounds are specified. This coupling is a planned extension rather than a demonstrated capability of the
+present work.
+5 Conclusion
+We introduced AutoMOOSE, an open-source agentic framework that automates the full lifecycle of MOOSE phase-field
+simulation — from natural-language intent to quantitatively validated results — without manual file editing or direct
+solver interaction. The framework deploys a six-agent, model-agnostic pipeline in which language-model agents handle
+intent parsing, input-file generation, parallel execution, completion-aware execution screening, and result interpretation,
+and in which a physics-grounded Skeptic adversarially tests every completed run against the physical laws it must
+satisfy — all coordinated through a Model Context Protocol server that exposes ten structured simulation tools.
+The central result is that the framework producesverifiedsimulations, not merely executed ones. On a pre-registered
+25-task grain-growth benchmark with machine-checkable gates and independent Skeptic falsification, AutoMOOSE
+generates valid input for all 25 tasks and yields 15 fully credible runs, with failures localized to two diagnosable
+generator defects that the benchmark itself surfaced. An ensemble campaign across system sizes recovers the input
+activation energy to within1% (Q∞ = 0.228 eV against 0.230 eV) once finite-size bias is removed, with the single-seed
+Qfit = 0.296 eV retained as an illustrative worked example of that bias. Generalization is demonstrated on a second,
+conserved-dynamics domain: an agent-generated Fe–Cr Cahn–Hilliard simulation satisfies the governing conservation
+and dissipation laws to a stated tolerance and relaxes to the correct equilibrium tie-line — exact physical laws verified
+rather than asserted. A controlled ablation confirms that this reliability comes from the scaffolding rather than any
+single model: the deterministic pipeline produces valid input in 8 of 8 tasks every invocation, where the strongest bare
+model manages only 3–7 of 8, unpredictably. Block-level analysis shows the generated inputs match human-written
+references on every physics-determining block, with differences confined to operational choices that carry no canonical
+form. Three classes of input-level defect encountered during plugin development were caught by the execution screen,
+and divergence-class failures are handled by a component-validated closed-loop recovery module.
+Three contributions distinguish AutoMOOSE from prior LLM-assisted simulation tools. First, in the demonstrated
+benchmark cases it closes the automation loop — from prompt to quantitative result — including execution, runtime
+monitoring, component-validated failure recovery, and kinetics extraction, without returning control to the user at any
+intermediate stage. Second, it provides structured, physics-grounded self-verification through the Skeptic’s falsification
+battery, establishing a reproducible standard for assessing pipeline physical correctness that is independent of the specific
+LLM version or prompt formulation used. Third, the MCP interface enables composability with external agentic systems,
+including Bayesian optimisation loops and high-throughput screening pipelines for processing–microstructure–property
+database construction.
+30
+
+Looking ahead, retrieval-augmented generation over the MOOSE documentation corpus will reduce dependence on
+pre-trained syntax knowledge and extend reliable input generation to the full breadth of MOOSE physics modules.
+Building on the validated spinodal plugin, full activation of the remaining registered stubs — ferroelectric switching
+and solidification — requires only validated plugin implementations within the existing orchestration layer. Coupling
+to active learning algorithms is intended to support largely autonomous exploration of multi-dimensional parameter
+spaces, and integration with HPC job schedulers will enable systematic multi-node scaling studies.
+More broadly, AutoMOOSE demonstrates that the gap betweenknowingthe physics anddoingthe physics can now be
+bridged by a lightweight multi-agent orchestration layer built on top of a mature simulation framework. As language
+model capabilities continue to advance and agentic infrastructure matures, frameworks of this kind will become standard
+components of computational materials science workflows — shifting the productivity bottleneck from input file
+authorship to the scientifically more valuable tasks of experimental design, result interpretation, and physical insight.
+AutoMOOSE is released as open-source software to support this transition.
+Author contributions.S.M. conceived and implemented the AutoMOOSE framework, designed the agent architecture
+and benchmark, performed the simulations and analysis, and wrote the manuscript. H.C. contributed to the validation
+design and reviewed the manuscript. S.S. supervised the project, contributed to the conceptual design, and reviewed
+and edited the manuscript. All authors approved the final version.
+Conflicts of interest.There are no conflicts of interest to declare.
+Code availability.AutoMOOSE is released under the MIT License and is publicly available at
+https://github.com/sukritimanna/AutoMOOSE. The repository provides the complete source code, including the
+GrainGrowth and spinodal-decomposition plugins, the evaluation set and scoring runner, example run directories with
+record.json provenance files, and comprehensive documentation hosted athttps://automoose.readthedocs.io.
+Data availability.The data supporting this article — including the benchmark evaluation set, per-task scoring outputs,
+the seed-campaign aggregates, and the run records ( record.json provenance files) for all reported results — are
+available in the AutoMOOSE repository at https://github.com/sukritimanna/AutoMOOSE. A versioned archive
+will be deposited in a public repository (Zenodo) upon acceptance, and the DOI will be provided in the final version.
+Use of AI tools.During preparation of this manuscript, the authors used ChatGPT / GPT-5.5 Thinking for language
+editing, organization, and clarity improvement. The authors reviewed and edited all AI-assisted text and take full
+responsibility for the content of the manuscript.
+Acknowledgement:This work was supported by DOE Office of Science, Basic Energy Science under the AI-Pathfinder
+project. Work performed at the Center for Nanoscale Materials, a U.S. Department of Energy Office of Science User
+Facility, was supported by the U.S. DOE, Office of Basic Energy Sciences, under Contract No. DE-AC02-06CH11357.
+This work utilized the National Energy Research Scientific Computing Center, a DOE Office of Science User Facility
+supported by the Office of Science of the US Department of Energy under Contract No. DE-AC02-05CH11231. We
+also acknowledge the LCRC computing facilities at Argonne.

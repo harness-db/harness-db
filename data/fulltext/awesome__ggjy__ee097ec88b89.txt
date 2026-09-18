@@ -1,0 +1,1240 @@
+record_id: awesome:ggjy:ee097ec88b89
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2602.11724
+fetched_title: WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with Symbolized GUI Elements
+fetched_at: 2026-09-18T19:08:33Z
+
+WebTestPilot: Agentic End-to-End Web Testing against
+Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements
+XIWEN TEOH,National University of Singapore, Singapore
+YUN LIN∗,Shanghai Jiao Tong University, China
+DUC-MINH NGUYEN,Shanghai Jiao Tong University, China
+RUOFEI REN,Shanghai Jiao Tong University, China
+WENJIE ZHANG,National University of Singapore, Singapore
+JIN SONG DONG,National University of Singapore, Singapore
+Visual language model (VLM) agents show great promise in automating graphical user interface (GUI) testing
+against requirements in natural language. However, the probabilistic nature of language models can have
+inherent hallucinations. Therefore, given a detected inconsistency between the requirement and the web
+application, it is hard to distinguish whether it stems from the hallucination or a real application bug. Addressing
+this issue presents two core technical challenges: (1) limited capability and accuracy in deriving implicit
+test oracles, where the agent must act as its own oracle to implicitly decide if the application’s behavior is
+correct without guidance, and (2) limited reliability due to probabilistic inference, where an LLM’s inconsistent
+reasoning undermines its trustworthiness as an oracle.
+We introduceWebTestPilot, a neurosymbolic LLM-based approach that addresses both challenges through
+symbolization.WebTestPilotdetects and abstracts critical GUI elements of a web application into symbolic
+variables. This design improves reliability by constraining assertion generation to operations grounded in
+explicitly defined symbols, thereby reducing unconstrained or inconsistent reasoning. At the same time, it
+improves accuracy by representing application states and their relationships in a structured symbolic form,
+which increases the likelihood of the agent recognizing data, causal, and temporal dependencies across states.
+Together, these capabilities enableWebTestPilotto generate reliable and accurate test oracles that capture
+meaningful implicit expectations derived from test requirements. To advance research in this area, we build a
+benchmark of bug-injected web apps for evaluating NL-to-E2E testing. The results show that WebTestPilot
+achieves a task completion rate of 99%, with 96% precision and 96% recall in bug detection, outperforming the
+best baseline (+70 precision, +27 recall). The agent generalizes across diverse natural language inputs (i.e.,
+those containing typos, grammatical errors, redundant sentences, stylistic restyling, or abbreviations) and
+model scales (3B–72B). In a real-world deployment with a no-code platform, WebTestPilot discovered 8 bugs
+during development, including data binding, UI, and navigation issues.
+CCS Concepts:•Software and its engineering → Software testing and debugging;Domain specific
+languages;Consistency.
+Additional Key Words and Phrases: end-to-end testing, natural language specifications, LLM agents
+∗Corresponding author.
+Authors’ Contact Information: Xiwen Teoh, National University of Singapore, Singapore, xiwen.teoh@u.nus.edu; Yun Lin,
+Shanghai Jiao Tong University, China, lin_yun@sjtu.edu.cn; Duc-Minh Nguyen, Shanghai Jiao Tong University, China,
+minh.nguyen@sjtu.edu.cn; Ruofei Ren, Shanghai Jiao Tong University, China, renruofei0120@sjtu.edu.cn; Wenjie Zhang,
+National University of Singapore, Singapore, wjzhang@nus.edu.sg; Jin Song Dong, National University of Singapore,
+Singapore, dcsdjs@nus.edu.sg.
+This work is licensed under a Creative Commons Attribution 4.0 International License.
+©2026 Copyright held by the owner/author(s).
+ACM 2994-970X/2026/7-ARTFSE087
+https://doi.org/10.1145/3797115
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+arXiv:2602.11724v3 [cs.SE] 23 Apr 2026
+
+FSE087:2 Teoh et al.
+ACM Reference Format:
+Xiwen Teoh, Yun Lin, Duc-Minh Nguyen, Ruofei Ren, Wenjie Zhang, and Jin Song Dong. 2026. WebTestPilot:
+Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with Symbolized
+GUI Elements.Proc. ACM Softw. Eng.3, FSE, Article FSE087 (July 2026), 24 pages. https://doi.org/10.1145/3797115
+1 Introduction
+The global progressive web application market is projected to reach USD 9.4 billion by 2030 [51].
+As web applications grow in scale and complexity, companies turn to end-to-end (E2E) testing to
+safeguard reliability for end users, in which testers translate requirements into executable scripts
+(e.g., Selenium, Playwright, Cypress) that simulate user interactions and verify that applications
+behave as intended through their end-user interfaces. Without such safeguards, unchecked bugs
+can escalate into failures that have caused high-profile breakdowns [64, 65].
+E2E testing has two main branches.Exploration-based testingexplores all possible states of
+a web application to maximize coverage.Specification-based testing[ 48] verifies that the web
+application behaves consistently with business requirements. Most prior work targets the former,
+using techniques such as random exploration [18, 45], model-based testing [43, 44], search-based
+testing [6, 7, 14, 15, 41, 74], symbolic execution [3], and reinforcement learning [9, 19, 42, 75, 76, 81].
+While effective for finding vulnerabilities and corner cases, these methods ignore documentation
+produced during development, and thus fail to capture meaningful user behaviors.
+In this work, we look into the latter branch. We transform natural language requirements
+drawn from any source (i.e., UX/UI specifications, product requirements, technical designs, quality
+assurance plans, or API documents) into executable test actions. Existing approaches both in
+industry (Cucumber [12], RSpec [53], Squish [21]) and academia (GUIPilot [ 32], Appflow [22])
+also look into requirements but rely on rigid input formats (e.g., Sketch files, Gherkin) compatible
+with their parser. In contrast, we propose a flexible framework that generates tests with verifiable
+oracles from any natural language excerpt, which (1) directly validates applications against business
+requirements, (2) speeds up testing for continuous integration and deployment, and (3) reduces
+maintenance by regenerating tests when requirements change.
+Recent advances in large language model (LLM) agents with multimodal reasoning open new
+possibilities for specification-based GUI testing. According to the State of Software Quality Report
+[58] in 2024, over 58% of respondents use LLM-based tools in automated testing, yet adoption
+remains limited by capability gaps (44%) and reliability concerns (30%). When an agent flags an
+inconsistency, it is unclear whether the issue stems from the agent itself (hallucination) or the web
+application (a real bug). Effective automated testing must distinguish between these sources, which
+give rise to our two key technical challenges:
+Limited capability and accuracy in deriving test oracles.Automated E2E testing requires the
+agent to act as its own oracle, which is non-trivial [5]. An effective test oracle must infer underlying
+test requirements and translate implicit expectations into concrete assertions. These assertions are
+only meaningful if they are grounded in data (values reflect prior inputs and computations), causal
+(state transitions result from the intended actions), and temporal (changes in states referencing
+the same page over time) dependencies across one or more states. For example, verifying that
+a “product has been added to cart” requires not only checking the newly added item, but also
+ensuring consistency with existing items in the cart (i.e., product types, quantities, and subtotals).
+Existing works such asNaviQAte[ 55] andLaV ague[ 26] lack oracle capability. They translate
+test requirements directly into actions without generating assertions. AlthoughPinATA[ 10]
+generates assertions, it relies on a global memory that is (1) precomputed, (2) unstructured, and (3)
+capacity-limited.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:3
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Trial Number (per Model)
+Cart icon shows "1"
+Checkout button says "1 item"
+Only one quantity selector
+Subtotal equals item price
+Only one item description
+Singular nouns used (e.g., "item")
+Only one edit options panel
+Reasons
+Gemini Grok Deepseek Qwen GPT
+Reason Present
+Reason Absent
+Fig. 1. Inconsistent reasoning by different LLMs with multiple trials in test state verification.
+Consider a shopping scenario. On the cart page,PinATApreemptively stores cart items in
+free-form natural language (e.g., “Cart contains: Laptop – $1200, Mouse – $25”) and carries this
+textual summary forward throughout test execution. This design leads to three limitations:
+(1) Loss of recoverability due to precomputed memory.Only information explicitly recorded at
+observation time is preserved. If the agent later reaches checkout and intermediate values (e.g.,
+subtotal or applied discounts) were not stored, it cannot reconstruct how the final total was
+derived. Without these transformation links, it cannot verify whether the total is correct.
+(2) Loss of dependencies due to unstructured memory.Historical information accumulates as loosely
+organized natural language snippets without symbolic identifiers across states. To verify that
+“the checkout total equals the sum of item prices minus discount, ” the agent must retrieve
+fragments from noisy text. Lacking structured references (cart→ shipping→ checkout), it may
+confuse entries or miss updates, making dependency reasoning brittle.
+(3) Loss of changes over time due to capacity-limited memory.As execution lengthens, earlier states
+are summarized or truncated. For example, if a user applies a 10% discount and then removes an
+item, the specification requires the discount to be recalculated. If only the final total is retained,
+the agent cannot verify whether the recalculation occurred after the removal.
+Limited reliability due to probabilistic inference.By design, LLMs are stochastic: the same
+prompt can yield different responses even with fixed model settings. When tasked with verifying
+states during testing, this randomness can lead to inconsistent reasoning. To illustrate, we conducted
+an empirical study (Figure 1): five mainstream LLMs (GPT, Gemini, Grok, Deepseek, and Qwen) were
+each prompted 10 times with the same page screenshot and the question, “Does the shopping cart
+contain only one item?” Across trials, the models produced seven distinct answers, with reasoning
+varying both across and within models. This variability has visible consequences for multi-step
+tests. Consider a test with 𝑛 sequential steps, where each step relies on correct reasoning from
+the LLM. Even if the probability of a single step being correct (𝑝) is high, the stochastic nature of
+the model means that completing the full trajectory successfully becomes unlikely (𝑝𝑛), as errors
+compound across steps. Inconsistent outputs in individual steps produce flaky end-to-end verdicts,
+and interpreting the models’ natural language reasoning adds further manual overhead, breaking
+the assumption of a stable test oracle in automated testing.
+On one hand, effective test oracles must establish data, causal, and temporal dependencies across
+states to infer implicit expectations that satisfy test requirements. On the other hand, free-form
+reasoning and verification with stochastic LLMs is inherently unstable. To address these challenges,
+we proposeWebTestPilot, a neurosymbolic approach capable of acting as its own accurate and
+reliable test oracle.WebTestPilotuses symbolization to uniformly improve both oracle accuracy
+and reliability. Building on the success of effective perception models [ 39] to extract symbols
+from states, our approach is guided by two key insights: (1) Symbolization improves reliability by
+converting test oracle generation from a continuous space into a discrete one with finite bounds. By
+defining explicit symbols, the set of possible assertions is constrained, which reduces uncertainty
+and guides the agent towards assertions that are semantically valid and consistent. In addition,
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:4 Teoh et al.
+WebTestPilotcan perform retrials when generating assertions to reduce hallucinations and
+maintain stability. and (2) Grounding assertions in symbols improves accuracy. By representing
+states and their relationships as structured symbols, the agent can explicitly track how UI elements
+evolve across states. the agent is more likely to recognize data, causal, and temporal dependencies
+across states. This structured exposure increases the chance that generated assertions capture
+implicit expectations and faithfully reflect the intended behavior of the application. However,
+designing this approach involves two technical challenges:
+How to link symbols with assertions?After extracting symbols, the agent must compose them
+into correct, executable assertions. The challenge is designing a domain-specific language (DSL)
+that balances expressiveness and simplicity: it must be rich enough to capture application behaviors,
+yet simple enough to avoid hallucination or retraining. We address this by extending an existing
+programming language, using its familiar syntax and native libraries for data processing, while
+providing a predefined set of operators over symbols (e.g., relational and compositional predicates).
+How to achieve effective and efficient symbolization?A naive approach would symbolize all
+visible UI elements and track dependencies for every symbol, leading to combinatorial explosion
+and the same limitations as global memory inPinATA. We instead proposepage reidentification. It
+assigns consistent identifiers to logically equivalent pages (e.g., two or more states pointing to the
+Cart page) and maintains a structuredSessionhistory of states. Rather than symbolizing eagerly,
+symbols are derivedon demandby retrieving states with the same page identifier and extracting
+only the relevant elements. It enables focused (fewer symbols) and scalable (more states) reasoning.
+Specifically, given a natural language test requirement,WebTestPilotdecomposes it into 𝑛
+(condition, action, expectation) steps. For each step,WebTestPilottranslates the condition and
+expectation into pre- and post-condition assertions. It then applies symbolization to extract relevant
+UI components as symbols, which are composed via a DSL to construct executable assertions
+satisfying the specified constraints. To support cross-state reasoning,WebTestPilotuses page
+reidentification to detect revisited pages and maintain a structured history of test states.
+We evaluateWebTestPiloton a newly constructed benchmark of four bug-injected web appli-
+cations, comparing its performance against three LLM-based GUI testing baselines (NaviQAte[55],
+LaV ague[26],PinATA[ 10]). Our results show thatWebTestPilotachieves a test completion rate
+of 99%, with 96% precision and 96% recall in bug detection, outperforming the strongest baseline by
++70 precision and +27 recall.WebTestPilotis robust across diverse natural language inputs (i.e.,
+those containing typos, grammatical errors, redundant sentences, stylistic restyling, or abbrevia-
+tions) as well as across model scales from 3B to 72B parameters. In a real-world deployment with
+our collaboration partner, a no-code platform,WebTestPilotdiscovers 8 bugs during development.
+In summary, our contributions are as follows:
+• Methodology: We propose the first neurosymbolic GUI testing approach. The neural component
+extracts symbols from application states to capture dependencies. The symbolic component
+constructs assertions over the properties, values, and relations of these symbols, ensuring that
+implicit expectations in the test requirements are satisfied.
+• Implementation: We presentWebTestPilot, a framework realizing our approach, which has
+been successfully adopted by our industry collaborator, China Mobile.
+• Experiments: We build a benchmark of four open-source, real-world web applications with
+100 injected bugs. We evaluateWebTestPilotagainst LLM baselines on this benchmark and
+in real-world settings (industry collaborations and GitHub issues), showing that it outperforms
+state-of-the-art methods in bug detection.
+The source code forWebTestPilotand the benchmark are available at https://github.com/code-
+philia/WebTestPilot.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:5
+(a)
+Your Amazon Cart
+is empty
+Check your Saved for later
+items below or continue
+shopping
+Search Amazon
+Deliver to
+Search Amazon
+Deliver to
+Latest arrivals
+Electronics Home
+camera
+Deliver to
+Latest arrivals
+Electronics Home
+camera
+camera glasses
+camera bag
+camera tripod
+Deliver to
+camera
+4K Digital Camera
+for Photography, ...
+$82 99
+(1.7K)4.3
+...
+Deliver to
+camera
+4K Digital Camera for ...
+In Stock
+Add to Cart
+$82 99
+Quantity: 1
+Deliver to
+4K Digital Camera for ...
+Proceed to Checkout
+1 Delete Save for later
+Subtotal $82 99
+Search Amazon
+(b) (c) (d) (e) (f)
+Temporal dependency
+Data dependency
+d = session.history[-3].extract("search results", schema=Result)
+e = session.history[-2].extract("product details", schema=Product)
+f = session.history[-1].extract("cart details", schema=Cart)
+assert len(d.items) > 1 and e == d.items[0]
+assert len(f.items) > 1 and e == f.items[0]
+b = session.history[1].extract("search bar", schema=SearchBar)
+c = session.history[2].extract("search bar", schema=SearchBar)
+assert b.dropdown == False and c.dropdown == True
+assert b.value == None and c.value is not None
+assert c.value == "camera"
+Causal dependency
+a = session.history[0].extract("cart details", schema=Cart)
+f = session.history[-1].extract("cart details", schema=Cart)
+assert len(a.items) + 1 == len(b.items)
+Fig. 2. A test flow depicting search, shopping, and checkout on e-commerce platformamazon.com.
+2 Motivating Example
+Figure 2 shows a test flow on amazon.com, a representative e-commerce scenario. The flow begins
+on the cart page (State 2(a)) with an empty cart. The user clicks “Continue Shopping” to navigate
+to the homepage (State 2(b)), enters the query “camera” in the search bar, triggering a suggestion
+dropdown (State 2(c)), and submits the query to reach a results page (State 2(d)). The user then
+clicks the first product to view its details (State 2(e)) and adds it to the cart, completing the test flow.
+Applying LLM agents to verify such flows is challenging because meaningful test oracles must
+reason over dependencies across states, not just the correctness of individual steps. Prior work,
+such asNaviQAte[ 55] andLaV ague[ 26], considers reaching the end as success without verifying
+intermediate states. Using the scenario above, if they successfully navigate from State (a) to (f), then
+the test case passes. AlthoughPinATA[ 10] maintains a memory to store information and compare
+it against expected outcomes, its general and unstructured design limits its ability to retrieve
+task-relevant context for constructing assertions. For example, to verify that the cart subtotal
+increases exactly by the price of the newly added product, it may fail to recognize that states (a) and
+(f) correspond to the same logical page, preventing detection of inconsistent incremental changes
+(i.e., subtotal difference (f) - (a) equals the price of the newly added product). Similarly, to verify
+that every selected search attribute (e.g., the price range) is preserved across the search results (d),
+which may include hundreds of products, an unstructured memory may omit a single attribute,
+leading to incomplete verification. Many real bugs arise from such inconsistencies. To catch them,
+it is necessary to reason about the implicitcausal,data, andtemporaldependencies between states,
+which are explained below:
+• Causal Dependency: A relation between adjacent states that holds when UI elements in the
+current state are created, updated, or deleted as a direct effect of executing an action in the
+previous state. For example, the auto-complete suggestion dropdown and the populated search
+input in state (c) depends on the typing action in state (b).
+• Data Dependency: A relation between states that holds when information extracted in one
+state is propagated to and reused in another, forming a data flow across the execution trace. For
+example, the product details in (e) depend on the selected item from the search results in (d), and
+the cart items in (f) depend on the product details in (e).
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:6 Teoh et al.
+• Temporal Dependency: A relation between states corresponding to the same logical page that
+holds when a later state must be interpreted relative to an earlier state to detect incremental
+changes over time. For example, state (f) depends on state (a), both representing the cart page, to
+determine how the cart contents have evolved after user actions.
+To enable robust cross-state verification of implicit expectations,WebTestPilotsupports declar-
+ative schemas, which act as symbol templates (or “variables”) representing structured UI data. The
+schemas are implemented as strongly typed models that can automate parsing, normalization,
+and validation of extracted content. They define not only the expected data structure, but also
+type-level constraints (e.g., supported strings), field-level requirements (e.g., required vs. optional),
+and domain-specific rules (e.g., non-negative prices).
+Concretely, consider a test step where after executing the action “click Add to Cart. ”, its corre-
+sponding expectation is “the product is now in the cart. ” To act as a test oracle for this post-condition,
+WebTestPilotfirst applies symbolization to define relevant symbols (Figure 3).
+class Product(BaseModel):
+title: str = Field(...)
+price: float = Field(..., ge=0)
+quantity: Optional[int] = Field(None, gt=0)
+class Cart(BaseModel):
+items: List[Product] = Field(...)
+Fig. 3. Definition of theProductandCartsymbols, represented as Pydantic schemas.
+WebTestPilotthen instantiates these schemas with values extracted from the current and prior
+states. By referencing page reidentification, it recognizes that State (a) and State (f) correspond to
+the Cart page and learns a high-level overview of its layout (e.g., the cart contains a list of items,
+each displaying specific information), allowing the Cart symbol to be applied. Similarly, it identifies
+State (e) as the Product Detail page, where the Product symbol is relevant. By combining this
+information with the historical actions, the agent establishes the semantic connection of adding a
+product to the cart through the transitions State (a)→State (e)→State (f). See Figure 4.
+# (e) Extract added product from the latest state
+added = session.history[-1].extract("Get product detail", schema=Product)
+# (f) Extract current cart summary
+current = session.state.extract("Get cart summary", schema=Cart).items
+# (g) Extract previous cart summary
+prior = session.history[-2].extract("Get cart summary", schema=Cart).items
+Fig. 4. Extracting the added product from product page and comparing current and prior cart details.
+Using the DSL, the agent constructs a formal assertion on these symbols to verify that the post-
+action state satisfies both explicit expectations (the product is in the cart) and implicit expectations
+derived from prior states (the cart contains the same items as before plus the new product, the
+product type matches the previously viewed item in (e), and the quantity is 1). See Figure 5.
+This allowsWebTestPilotto detect bugs from implicit and cross-state causal, data, or temporal
+violations (e.g., missing/duplicate items, wrong quantities or prices, or UI inconsistencies).
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:7
+cart = Cart(
+items=[
+Product(
+title="4K Digital Camera for ...",
+price=82.99,
+quantity=1
+]
+subtotal=82.99
+)
+SymbolsSchema
+(Symbol Definition)
+class Product(BaseModel):
+title: str = Field(...)
+price: float = Field(..., ge=0)
+quantity: float = Field(None, ge=0)
+
+class Cart(BaseModel):
+items: List[Product] = Field(...)
+subtotal: float = Field(..., ge=0)
+
+Deliver to
+4K Digital Camera for ...
+Proceed to Checkout
+1 Delete Save for later
+Subtotal $82 99
+Search Amazon
+Webapp State Assertions
+(on Symbols)
+sum(p.price * p.quantity
+for p in cart.items)
+cart.subtotal
+Fig. 6. Example (from motivating scenario):WebTestPilotextractssymbolsvia declaredschemasthat corre-
+spond to GUI elements for makingassertionson the applicationstate.
+# Verify products (title, quantity, price) consistency
+forprodinprior + [added]:
+match = next((pforpincurrentifp.title == prod.title),None)
+assertmatchis not None, f"Product{prod.title}missing in current cart"
+assertmatch.quantity == prod.quantity, f"Quantity mismatch for{prod.title}"
+assertmatch.price == prod.price, f"Price mismatch for{prod.title}"
+# Verify subtotal consistency
+prior_subtotal = sum(p.price * p.quantityforpinprior)
+added_total = added.price * added.quantity
+current_subtotal = sum(p.price * p.quantityforpincurrent)
+assertcurrent_subtotal == prior_subtotal + added_total, "Cart subtotal mismatch"
+Fig. 5. Assertion generated byWebTestPilot.
+3 Problem Statement
+Preliminary.We model a web applicationW as a graph of states𝑠∈S . Each state is defined as a
+tuple𝑠=(screenshot,DOM) , where screenshot encodes the visual appearance of the page, and
+DOM is a rooted, ordered tree of UI elements𝑒, where each element encodes its type (i.e., button,
+input), relevant attributes (e.g., name, value, enabled/disabled), and child elements. A user interacts
+withW by executing an action𝑎=⟨𝑡,𝑒,𝑝⟩ , where𝑡 is the action type (e.g., click, type),𝑒 is the
+target UI element, and𝑝 is an optional parameter (e.g., text to enter). The state transition function
+T :S×A →S maps a state and action to a successor state 𝑠′ =T(𝑠,𝑎) . Finally, executing
+a sequence of actions 𝐴=⟨𝑎 1,𝑎 2,...,𝑎 𝑛⟩ from an initial state 𝑠0 produces an execution trace
+𝜏=𝑠 0
+𝑎1
+−→𝑠1
+𝑎2
+−→···
+𝑎𝑛
+−−→𝑠𝑛 or𝑠 0
+𝐴
+−−→𝑠𝑛.
+Objective. Given a natural language test requirement𝐷, an automated tester𝑇 parses𝐷 into a
+sequence of steps⟨step1,...,step 𝑛⟩, 𝐷=step 1⊕···⊕step 𝑛, and maps each step to an output
+𝑜𝑖 =𝑇(𝑠𝑡𝑒𝑝 𝑖). The details of the input and output are as follows:
+Input.Let the natural language test requirement be a sequence of textual tokens 𝐷=(𝑤 1,...,𝑤 𝑚).
+We assume𝐷 can be mapped to an ordered sequence of executable steps⟨step1,...,step 𝑛⟩, where
+each step𝑖 is derived from a contiguous token sequence in𝐷. The sequence satisfies:
+(1) Disjointness. The contiguous token sequences corresponding to the steps are pairwise disjoint,
+i.e., no token in𝐷contributes to more than one step 𝑖.
+(2) Monotonicity. The steps preserve the left-to-right order of𝐷: if step𝑖 is derived from tokens that
+precede those of step𝑗, then𝑖<𝑗.
+(3) Semantic completeness. Each step𝑖 encodes: (i) a set of predicates over the input state, (ii) an
+action to be executed, and (iii) a set of predicates over the output state.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:8 Teoh et al.
+The current
+page
+appears in
+the template
+list.
+The current
+page is not
+in the
+template list.
+Step #1: Within the editor
+sidebar you should see a
+templates tab. Within this
+tab you should ﬁnd a “Page
+is a template” checkbox.
+Simply check that option to
+make the page become a
+template.
+Step #2: ...
+Templates
+tab is
+present
+Templates
+tab is not
+present
+Fig. 7. Visualization of the problem statement’s input and output.𝐷 is parsed into steps. The colored overlays
+highlight regions of interest on the state screenshots: green denotes the portion evaluated by 𝑝pre
+𝑖 , blue
+corresponds to the action 𝑎𝑖, and yellow denotes the portion evaluated by 𝑝post
+𝑖 . For each predicate, we
+illustrate the conditions under which the state is consistent or inconsistent with the requirement𝐷.
+Output.We define a predicate 𝑝𝑖 as a property over application states,𝑝𝑖 :S→{⊤,⊥} . We write
+𝑠𝑖|=𝑝𝑖 if the state𝑠𝑖 satisfies𝑝𝑖, i.e.,𝑝𝑖(𝑠𝑖)=⊤ . A bug occurs when𝑠𝑖̸|=𝑝𝑖 or𝑝𝑖(𝑠𝑖)=⊥ , meaning
+the state is reported as inconsistent by𝑇 with the requirements specified in step𝑖. During execution,
+for each parsed stepstep𝑖 from𝐷,𝑇 produces three artifacts𝑜𝑖 =𝑇(step 𝑖)=(𝑝 pre
+𝑖 , 𝑎𝑖, 𝑝post
+𝑖 ), where:
+(1) A predicate𝑝 pre
+𝑖 evaluated on the state𝑠 pre
+𝑖 before the action.
+(2) An action𝑎 𝑖 applied on𝑠 pre
+𝑖 , which transitionsWto a new state𝑠 post
+𝑖 .
+(3) A predicate𝑝 post
+𝑖 evaluated on the state𝑠 post
+𝑖 after the action.
+For𝑇without assertion capability,𝑝 pre
+𝑖 and𝑝 post
+𝑖 will always evaluate to⊤.
+4 Approach
+OverviewFigure 8 showsWebTestPilot’s overall approach. Its key novelty is serving as a
+capable and reliable test oracle, generating predicates𝑝𝑖 that verify implicit expectations from test
+requirements. This section is organized as follows:
+• Input Parsing (Section 4.1).WebTestPilotparses a natural language requirement into a
+structured sequence of steps⟨step1,...,step 𝑛⟩, where each step specifies the state before the
+action (conditionNL), the action itself (actionNL), and the state after the action (expectationNL).
+• Oracle Inference (Section 4.2).For each step,WebTestPilotanalyzes the explicit requirements
+conditionNL and expectationNL. It inspects the execution trace𝜏 to identify temporal, data, and
+causal dependencies, which it uses to infer implicit requirements.WebTestPilotthen defines
+symbols that abstract relevant states and establishes schemas for their expected content. Finally, it
+uses a DSL to formalize predicate assertions over the symbols from implicit expectations inferred
+from requirements, producing preconditionDSL and postconditionDSL.
+• Oracle Execution (Section 4.3).With the assertions ready,WebTestPilotmaps actionNL to an
+executable action on the web application. Before the action, it evaluatespreconditionDSL to ensure
+that the current state satisfies the step’s conditions. After the action, it evaluatespostconditionDSL
+to verify the resulting state meets the expected outcome. If any assertion fails,WebTestPilot
+retries the action up to𝑛times. If all retries fail, it reports a bug.
+4.1 Input Parsing
+Input requirements come in many forms, from formal (PRD, user stories) to informal sources
+(meeting notes, messages, emails).WebTestPilotnormalizes these into a sequence of steps
+⟨step1,...,step 𝑛⟩, each a 3-tuple(conditionNL,action NL,expectation NL) specifying when and where
+an action occurs, how it is performed, and the expected outcome in natural language. To extract
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:9
+Parsing
+Natural Language
+Test Description
+1
+2
+...
+# Condition Action Expectation
+Test Case
+Structured
+Test Specification
+Inconsistency
+Report (Bug)
+Input Output
+Previous States (History)
+State State StateAutomatorState
+Before
+Action
+For each step
+Oracle Execution
+Success?
+Oracle Inference
+Oracle Execution
+Action Execution
+After
+Action
+Success?
+Page Reidentification
+Current State (App)
+Symbolization
+All
+States
+Symbols
+Symbol Values
+Yes No
+No
+Yes
+Fig. 8. Overview ofWebTestPilot.WebTestPilotparses a natural language requirement into structured
+steps (Input Parsing), each specifying a condition, action, and expectation. For each step, it performsOracle
+Inferenceto generate predicate assertions over symbols capturing explicit and implicit requirements. During
+Oracle Execution, it checks preconditions, executes the action, checks postconditions. Failed assertions
+trigger retries, and persistent failures are logged as bugs. (
+) means the process prompts an LLM.
+this structure,WebTestPilotprompts an LLM with the raw input and parses its JSON output. It
+can be configured to infer and fill-in any missing steps.
+4.2 Oracle Inference
+For each step, step𝑖 =(condition NL,action NL,expectation NL),WebTestPilotprompts an LLM in
+two stages. First, the LLM receives the explicit requirements(conditionNL,expectation NL) and the
+execution trace in text form string(𝜏)=[string(𝑠 0),...,string(𝑠 𝑛)] (see Section 4.3.2 for details) to
+infer implicit requirements by identifying causal, temporal, and data dependencies. Second, the LLM
+uses string(𝜏 ) together with explicit and implicit requirements to define custom symbols for relevant
+concepts (e.g.,Cart, Product; Section 4.2.1). It then applies the DSL (Section 4.2.2) to generate formal
+predicate assertions over these symbols. This yields the mapping conditionNL↦→precondition DSL
+and expectationNL↦→postcondition DSL, where preconditions and postconditions are predicate
+assertions over the starting and ending states𝑠and𝑠 ′ in a step, respectively.
+4.2.1 State Symbolization.To letWebTestPilotreason effectively and identify dependencies, it
+can abstract domain-specific concepts from any state via custom symbols (e.g.,Cart or Product). It
+defines symbols in Pydantic with type constraints, descriptions, and default values. These symbols
+can be referenced inside predicate assertions, while their actual values are instantiated at execution
+time. Predicate assertions are evaluated over the instantiated symbols (see Section 4.3).
+4.2.2 Domain Specific Language.To construct and manipulate predicate assertions over symbols,
+we design a Python-extended domain-specific language (DSL). Its BNF syntax is shown in Figure 9.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:10 Teoh et al.
+Φ::=assertPredTop-level assertion
+Pred::=Pred and Pred
+|Pred or Pred
+|not Pred
+|(Pred)
+|Expr comp Expr
+Boolean logic and comparisons
+Expr::=value
+|var
+|var.attr
+|var.method(args)
+Values, variables, field/method
+access
+comp ::= ==, !=, >, >=, <, <=, in,
+not in
+Comparison operators
+args::=Expr(’, ’Expr)* Argument list (comma-
+separated)
+var::= identifier Valid variable name in Python
+attr ::= id | text | children |
+···
+Of Session, State, or
+Elementobject
+method ::= extract() |
+find()|···
+Of Session, State, or
+Elementobject
+Fig. 9. BNF syntax of DSL for writing test assertions
+Session
+State
+Element
+Action
+1
+*
+1
+*
+contains
+contains creates
+supports
+Composite
++ children: list[Element]
+Leaf
+implements has
+1
+*
+Methods
+Attributes
+0..*
+0..*
+1has Fig. 10. Class diagram for built-in symbols.
+Built-in Symbols.In addition to custom-defined symbols, the DSL provides a set of general-
+purpose symbols always available at every step. Figure 10 depicts their class structure. At the
+top level, Session stores the sequence of states and provides global access to past and current
+states. Each Session contains multiple State objects, each modeling a specific test step with
+page metadata and layout information represented as a tree of Elements. The State class offers
+methods to extract custom symbol values or directly access elements. Table 1 lists all the methods
+and attributes for these symbols.
+Expressibility.By combining custom and built-in symbols, the DSL enablesWebTestPilotto
+reason about causal, data, and temporal dependencies. It supports five types of assertions:
+• Existence.Verify the presence or absence of data, e.g., state.find("profile") is not None
+• Relational.Verify spatial, structural, or logical relationships, e.g., state.find("checkout
+button")[0].ymin > state.find("cart icon")[0].ymax
+•Temporal.Ensure events occur in a specific order, e.g.,all(a.extract(Banner).
+countdown >= b.extract(Banner).countdown for a, b in zip(states, states[1:]).
+• Causal.Check cause-effect relations, e.g., len(session.history[0].extract(Cart).items)
+- len(session.history[-1].extract(Cart).items) == 1.
+• Data Integrity.Verify extracted or computed data matches expectations, e.g., subtotal ==
+sum(item.price for item in cart.items).
+Compositability.DSL predicates can be single first-order clauses or combinations of multiple
+clauses connected with logical operators (and,or,not) and grouped with parentheses. Predicates
+can also span multiple lines of assertions.
+Manipulability.By extending Python,WebTestPilotbenefits from the LLM’s pre-existing Python
+knowledge. Its DSL supports Python Standard Library functionality for functional programming
+(e.g., itertools, functools, operator), text processing ( re), built-in functions ( all(), any(),
+filter(), map(), len(), min(), max(), etc.), and data types (datetime, enum).WebTestPilotcan
+also control execution with conditional statements and loops.
+4.3 Oracle Execution
+OnceWebTestPilotinfers the PreconditionDSL and PostconditionDSL predicate assertions, it ex-
+ecutes the step in three stages. First, it executes PreconditionDSL. Then, it maps ActionNL to an
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:11
+Table 1. Built-in DSL symbols, their attributes and methods
+Type Methods / Attributes Return Type Description
+Session history list[State] Chronological list of all states.
+state State Current browser page.
+State page_id string Logical page identifier shared across states.
+elements set[Element] All state elements (flattened).
+find(description: str, top_k: int) list[Element] Top K elements matching description (may be empty).
+extract(instruction: str, schema: BaseModel) BaseModel Extracts a schema-conforming symbol from the state.
+Element xmin, ymin, xmax, ymax int Bounding box coordinates.
+parent Element Parent element.
+children list[Element] Child elements.
+extract(instruction: str, schema: BaseModel) BaseModel Extracts a schema-conforming symbol from the ele-
+ment.
+executable action𝑎=⟨𝑡,𝑒,𝑝⟩ (see Section 4.3.1) and executes it on the current state, producing
+𝑠
+𝑎
+− →𝑠′. Finally, it executes PostconditionDSL. Formally, a step𝑖 is successful iff:
+(𝑠|=Precondition DSL∧𝑠
+𝑎
+− →𝑠′)=⇒𝑠 ′|=Postcondition DSL.
+A test case is successful if every step𝑖 in the sequence is successful. A bug occurs whenever any
+predicate assertion𝑝at any step 𝑖 fails, i.e.,𝑝(𝑠)=⊤, 𝑠̸|=𝑝.
+4.3.1 Action Execution.Set-of-Mark prompting (e.g., OmniParser [ 39]) is stable but costly and
+sensitive to noise, such as when the page contains too many elements, while GUI grounding
+models (e.g., [17, 20]) are fast but unstable, especially in out-of-distribution settings such as unseen
+websites. Inspired by ScreenSeekeR [29],WebTestPilotcombines these approaches to achieve
+a balance of stability and efficiency. Given ActionNL and the full page screenshot in the current
+state𝑠,WebTestPilotuses a GUI grounding model (UI-Venus-7B [ 20]) to predict coarse target
+coordinates(𝑥,𝑦) , and then apply Set-of-Mark prompting to annotate all interactable elements on
+the screenshot with bounding boxes and IDs by analyzing the tree of UI elements in𝑠. A square
+crop centered at(𝑥,𝑦) , together with ActionNL, is fed to an LLM, which outputs precise executable
+actions⟨𝑡,𝑒,𝑝⟩ , where 𝑡∈{click,type,press,scroll,wait} ,𝑒 is the element ID, and 𝑝 are action
+parameters. This approach mitigates GUI grounding instability by using it for predicting coarse
+approximate locations, while reducing cost and improving effectiveness by focusing the LLM on a
+cropped screenshot of the target region.
+4.3.2 Page Reidentification.To store a new state 𝑠′ in𝜏,WebTestPilotassigns it a page_id so that
+later states can be recognized as referring to the same logical page (e.g., returning to the shopping
+cart page).WebTestPilotfirst selects 𝑠′′ from𝜏 with the smallest DOM tree edit distance to𝑠′,
+then it provides screenshots of𝑠′ and𝑠′′ to an LLM to decide if they belong to the same page. If
+so,𝑠′.page_id=𝑠 ′′.page_id; otherwise, a new page_id is assigned.WebTestPilotalso generates a
+textual representation string(𝑠′)=(page_id,summary,layout)and appends𝑠 ′ to𝜏.
+4.3.3 Retry on Assertion Failure.When a predicate assertion fails,WebTestPilotcan regenerate it
+and retry up to𝑛 times to reduce the possibility of LLM hallucination. Alternatively, it can generate
+𝑛 candidate predicates upfront and resolve the outcome via majority voting. As long as the assertion
+holds, the reliability of test results scales with𝑛. In this work, we use𝑛=1.
+5 Experiments
+We design our experiments to answer the following research questions:
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:12 Teoh et al.
+• RQ1 (Test Flow Completion):How effectively doesWebTestPilotgenerate test trajectories
+that align with human-authored test scripts, compared to baseline GUI testing agents?
+• RQ2 (Bug Detection):How effective isWebTestPilotat detecting visual and functional faults
+during GUI testing, relative to existing agent-based baselines?
+• RQ3 (Robustness Evaluation):To what extent canWebTestPilotgenerate correct test cases
+when provided with requirements expressed in a varied, unstructured, or freely written natural
+language, without relying on a fixed input format?
+• RQ4 (Model Comparison)How much doesWebTestPilot’s overall performance depend
+on the capabilities of the underlying language model, and to what extent can its refinement
+mechanisms compensate when using a lightweight and cost-effective LLM?
+5.1 Benchmark Construction
+To the best of our knowledge, existing automated UI testing benchmarks primarily target An-
+droid mobile applications [ 23, 32, 60, 62, 79]. While there are datasets for web navigation [ 28],
+UI understanding, and test scripts [13] they do not focus on E2E bug detection. To address this
+gap, we construct a benchmark of live web applications for E2E test execution and bug detec-
+tion. The construction proceeds as follows. First, we identify a set of candidate web applications
+{W1,...,W 𝑛} that satisfy our selection criteria. Next, for each applicationW𝑖, we curate a set of
+natural-language test requirements{𝐷𝑖1,...,𝐷 𝑖𝑚} by referring to the application’s user documen-
+tation and extracting its key functional features. For each requirement𝐷𝑖𝑗 , we define an executable
+test scriptA𝑖𝑗 =⟨𝛼 1
+𝑖𝑗,...,𝛼 𝑘
+𝑖𝑗⟩ consisting of test assertions, where each assertion𝛼𝑘
+𝑖𝑗 :S→{⊤,⊥}
+is a predicate over system states. Each assertion corresponds to a single expected test step to be
+parsed from𝐷𝑖𝑗 by the evaluated automated tester𝑇 , and serves as a ground truth evaluation oracle
+for assessing the correctness of its execution trace𝜏. To evaluate bug detection, we additionally
+inject a bug for each𝐷𝑖𝑗 in the form bug𝑖𝑗 :S→S . When applied to a state𝑠𝑡, it either leaves the
+state unchanged if the bug should not trigger, or produces a modified state𝑠′
+𝑡 with buggy behavior.
+In summary, each benchmark sample is represented as a tuple(W, 𝐷,A,bug).
+5.1.1 Web Applications.We search GitHub for open-source web applications and select those based
+on five criteria: (1) popularity, with≥5,000 stars; (2) active development, with >50 contributors and
+>1,000 commits, and a commit in the past month; (3) maturity, publicly available for >5 years; (4)
+practical relevance, indicated by active deployment, recognizable domain or organization, commer-
+cial support, or adoption by well-known entities; and (5) user-facing documentation describing
+core features. We select the following four web applications:
+•BookStack[8]: A hierarchical documentation management platform with rich text editing.
+•Indico[24]: An event manager for conferences, meetings, and lectures.
+•InvoiceNinja[25]: A business-oriented invoicing platform with multi-step workflows.
+•PrestaShop[50]: A full-stack e-commerce platform with store management feature.
+We package the applications into reproducible Docker Compose environments.
+5.1.2 Natural Language Test Requirements.For each application W𝑖, we construct{𝐷𝑖1,...,𝐷 𝑖𝑚}.
+We start by adapting verbatim extracts from user documentation, which typically provides how-to
+guides for key features, and write scripts that follow the “happy paths” (intended successful usage
+scenarios). We then extend this initial set by extrapolating additional requirements based on the
+Create, Read, Update, Delete (CRUD) paradigm. For example, if the documentation describes a
+book management feature, we create test flows for adding, viewing, editing, and deleting book
+entries. Throughout this process, we follow ISTQB Certified Tester Foundation Level (CTFL) v4.0
+guidelines. This yields 100 test requirements. See Table 2 for more details.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:13
+Table 2. Overview of the benchmark and its injected bugs.
+Web Application Test Cases Lines of Code Example Bug(from GitHub Issues)
+BookStack [8] 27 214,819 No error message shown when user does not have permission
+to delete attachment (bookstack/#5323).
+Indico [24] 25 573,316 "Send" button is missing from request recording in lectures
+(indico/#239).
+InvoiceNinja [25] 25 1,513,289 Generating a PDF statement for a client shows the wrong
+client name and address (invoiceninja/#10351).
+PrestaShop [50] 23 2,234,514 Clicking a product in "All Stores" send you to the "Order"
+page not the "Edit Product" page (prestashop/#39044).
+5.1.3 Test Scripts.For each test requirement 𝐷𝑖𝑗 , the corresponding test scriptA𝑖𝑗 consists of
+sequential test assertions𝛼𝑡
+𝑖𝑗 . During testing, at step𝑡, if𝑇 proposes an action𝑎𝑡 that transitions
+the system from state𝑠𝑡
+𝑎𝑡
+−→𝑠𝑡+1, we evaluate𝛼𝑡
+𝑖𝑗(𝑠𝑡+1):⊤ if the resulting state is expected state,
+and⊥ otherwise. This is applied sequentially over the entire execution trace𝜏. We implement test
+scripts using Playwright. Figure 11 shows an example test assertion.
+action : Click'Books'link in navigation
+expectation : Books listing page with title'Books'appears
+assertion : expect ( page . get_by_role ('heading', name ='Books') ) . to_be_visible ()
+Fig. 11. An example test assertion for a test step.
+5.1.4 Injected Bugs.We design a single artificial bug bug𝑖𝑗 :S→S for each test requirement
+𝐷𝑖𝑗 . These bugs induce incorrect behaviors while ensuring stable and reproducible experiments by
+locking application versions. To ensure realism, we examine closed GitHub issues labeled "Bug"
+from each application repository. From a total of 2,043 issues, we randomly sample 10%. We perform
+open coding on the titles and descriptions of the sampled issues to identify meaningful labels, and
+then conduct a thematic analysis to group these labels into broader bug categories. Two co-authors
+independently perform the analysis, with a third resolving any disagreements. We exclude crash
+bugs and purely cosmetic bugs (e.g., layout or positioning issues) that do not affect functionality, as
+prior work has already addressed them. Based on our analysis, we focus on four categories:
+• Missing UI elements: Required interface components are absent, breaking feature functionality.
+For example, in prestashop/#22170, the "Configure" button is missing for newly installed modules.
+• Data inconsistency: Information shown to the user does not match expected values. For example,
+in indico/#5197, the category search results include items that were previously deleted.
+• No-op actions: User actions fail silently or have no effect. For example, in invoiceninja/#11188,
+the filter button in "Customer > Documents" does not sort or filter and always shows the full list.
+• Navigation failures: Pages fail to transition correctly. For example, in prestashop/#14796, a
+logged-in user selecting any option in the back-office menu is redirected to the login page.
+Our categorization aligns with prior studies on Android applications [ 79]. Following these
+categories, we manually study the source code of each benchmarked web application and implement
+the bug in JavaScript. The bug function bug𝑖𝑗 is invoked at every state transition during testing. It
+will automatically modify the system state according to its behavior.
+5.2 RQ1: Test Flow Completion
+In this section, we evaluateWebTestPilot’s ability to complete test steps on web applications by
+parsing natural language test requirements.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:14 Teoh et al.
+5.2.1 Baselines.We select three baseline agents for GUI testing, described in detail below.
+• LaV ague: The most popular open-source, community-supported multi-agent approach.LaV ague
+follows a two-stage architecture: theWorld Modelinterprets the user’s objective in the context of
+the current webpage state to produce the next high-level instruction, while theAction Engine
+translates this instruction into executable automation code. It utilizes both the HTML DOM and
+a visual screenshot of the page to generate DOM-level actions.LaV aguefocuses solely on test
+step completion, without verification or assertion.
+• NaviQAte: The first single-agent approach guided by functional descriptions.NaviQAteop-
+erates through a three-step process: (1)Action Planninguses retrieval-augmented generation
+(RAG) to identify relevant prior tasks that guide planning; (2)Choice Extractioncollects actionable
+elements from the webpage, ranks them based on relevance to the current step, and annotates
+their functionality; (3)Decision Makingprompts the LLM to select an action using an annotated
+screenshot. LikeLaV ague,NaviQAtefocuses only on test step completion.
+• PinATA: The state-of-the-art (SOTA) multi-agent approach that separates planning, execution,
+and verification into three agents: theOrchestrator,Actor, andAssertor. The orchestrator manages
+the test flow, instructing the actor to perform UI actions and the assertor to verify outcomes.
+The actor grounds actions using page screenshots and executes them via code actions, while the
+assertor checks expected results through visual analysis. All agents share a long-term memory
+and operate solely on the application’s observable state.
+5.2.2 Evaluation Metrics.Let 𝜏=𝑠 0
+𝑎1
+−→𝑠1
+𝑎2
+−→···
+𝑎𝑛
+−−→𝑠𝑛 denote the execution trace produced by
+the automated tester𝑇 (eitherWebTestPilotor a baseline) for a given test requirement 𝐷𝑖𝑗 . Here,
+𝑠𝑘 is the system state after step𝑘, and𝛼𝑘
+𝑖𝑗 ∈A 𝑖𝑗 is the assertion for that step in the test script. We
+evaluate the effectiveness of𝑇in completing the test using two metrics:
+• Task Completion (TC): A test is considered complete if and only if all state transitions in the
+execution trace satisfy their corresponding test assertions. Formally:
+TC𝑖𝑗 =
+(
+1if𝑠 𝑘|=𝛼𝑘
+𝑖𝑗,∀𝑘=1,...,|A 𝑖𝑗|
+0otherwise
+• Correct Trace (CT): Measures the fraction of the test script correctly executed before the first
+assertion failure (prefix). It quantifies how far𝑇progresses along the test. Formally:
+CT𝑖𝑗 =
+max
+n
+𝑘∈{1,...,|A 𝑖𝑗|}
+𝑠ℓ|=𝛼ℓ
+𝑖𝑗 for allℓ=1,...,𝑘
+o
+|A𝑖𝑗|
+5.2.3 Experiment Setup.For each test requirement 𝐷𝑖𝑗 in our benchmark, we let𝑇 parse it into a
+sequence of steps, where each step is a tuplestep𝑡 =(condition NL,action NL,expectation NL). At step
+𝑡,𝑇 proposes an action𝑎𝑡 corresponding to actionNL, transitioning the system from𝑠𝑡
+𝑎𝑡
+−→𝑠∗𝑡+1 .
+The evaluation environment automatically checks𝑠𝑡+1 against the step’s assertion𝛼𝑡
+𝑖𝑗 to update the
+metrics (Section 5.2.2). After the test terminates, we store the execution trace𝜏𝑖𝑗 of𝑇 for analysis.
+A test terminates when the number of steps executed by𝑇 reaches|A𝑖𝑗|, the expected length of
+the corresponding test script. This termination criterion prevents unbounded execution. Tests are
+executed sequentially to avoid shared-state interference. For each test case, we initialize a fresh
+instance of the web application and restore its database to a state before the test.
+5.2.4 Results & Discussion.Table 3 summarizes the results.WebTestPilotachieves the highest
+TC and CT scores, both at 0.99, outperforming the best baseline by 54.7% in TC and 28.6% in CT.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:15
+Table 3. Task Completion (TC) and Correct Trace (CT) across web applications (App #1: BookStack, App #2:
+Indico, App #3: InvoiceNinja, App #4: PrestaShop).Totaldenotes aggregated results across all webapps.
+Approach Task Completion (TC) Correct Trace (CT)
+𝐴𝑝𝑝#1𝐴𝑝𝑝#2𝐴𝑝𝑝#3𝐴𝑝𝑝#4Total𝐴𝑝𝑝#1𝐴𝑝𝑝#2𝐴𝑝𝑝#3𝐴𝑝𝑝#4Total
+LaV ague0.85 0.32 0.80 0.57 0.64 0.93 0.49 0.88 0.78 0.77
+NaviQAte0.78 0.44 0.60 0.30 0.54 0.92 0.61 0.78 0.46 0.70
+PinATA0.11 0.04 0.08 0.09 0.08 0.27 0.09 0.16 0.22 0.18
+WebTestPilot 1.00 1.00 0.98 1.00 0.99 1.00 1.00 0.99 1.00 0.99
+Why isWebTestPilotmore effective?WebTestPilot’s effectiveness stems from three
+reachability advantages. First, it can propose multiple actions when a test step requires them (e.g.,
+filling multiple form fields). Second, grounding actions at the visual level using GUI grounding and
+SoM prompting avoids common DOM-based pitfalls such as iframes, shadow DOMs, and custom
+form components. Third, its two-stage action execution makesWebTestPilotmore robust to
+out-of-distribution settings and noisy or complex UIs, enabling stronger generalization.
+IsWebTestPilotefficient?WebTestPilotachieves a median execution time of 29 seconds
+and consumes a median of 10k tokens per step. It is the fastest among the compared methods,
+outperformingLaV ague(33s),NaviQAte(40s), andPinATA(38s). In terms of token consumption,
+it ranks second, using fewer tokens thanLaV ague(49k) andPinATA(19k), but slightly more than
+NaviQAte(9k). Overall,WebTestPilotis a balance between speed and cost. This efficiency stems
+from its hybrid action execution design, which avoids both noisy DOM-based multi-round ranking
+(NaviQAte) and multi-agent communication overhead (PinATA). Total computational cost scales
+linearly with the number of steps. Breaking down the costs by stage, token usage is dominated by
+Action Execution (33%) and Page Reidentification (32%), while execution time is primarily spent on
+Oracle Inference and Symbolization (34%) and Page Reidentification (39%). Page Reidentification is
+therefore the main bottleneck and a key target for future optimization.
+IsWebTestPilotmaintainable?Test actions generated byWebTestPilotmay be fragile as
+web applications evolve. To mitigate this,WebTestPilotcan cache test action and only re-invokes
+the action execution pipeline in Section 4.3.1 when meaningful changes to the content/layout
+of the state are detected. We evaluate maintainability in a study inspired by prior work on GUI
+evolution [56]. We compareWebTestPilotwith XPath-, CSS-, and Playwright-based test scripts
+under UI changes. The evaluation measures each method’s ability to re-identify the same GUI
+widgets before and after interface updates, using five tests per application: two real-world changes
+(on Amazon and USPS) and three synthetic changes (on BookStack) generated using transformation
+techniques from [54].WebTestPilotpreserves test actions in 39/40 cases, outperforming XPath
+(32/40), CSS (33/40), and Playwright (29/40).
+5.3 RQ2: Bug Detection
+In this section, we evaluate how wellWebTestPilotand the baselines detect injected bugs in web
+application, using the same benchmark as in RQ1.
+5.3.1 Baselines.We excludeLaV agueandNaviQAte. We directly compareWebTestPilotagainst
+PinATA, the only baseline capable of bug detection.
+5.3.2 Evaluation Metrics.We use step-level outcomes. Let 𝑠bug denote the bug-injected state in a
+test and ¯𝑠 the set of all other states. If𝑇 generates a predicate𝑝(𝑠) , we define a true positive (TP)
+as𝑝(𝑠 bug)=⊥ , a false positive (FP) as𝑝(𝑠)=⊥ for any𝑠∈ ¯𝑠, a false negative (FN) as𝑝(𝑠 bug)=⊤ ,
+and a true negative (TN) as𝑝(𝑠)=⊤ for all𝑠∈ ¯𝑠. Then precision= |TP|
+|TP|+|FP| and recall= |TP|
+|TP|+|FN| .
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:16 Teoh et al.
+Table 4. Precision and Recall for bug detection across web applications (App #1: BookStack, App #2: Indico,
+App #3: InvoiceNinja, App #4: PrestaShop).Totaldenotes aggregated results across all webapps.
+Approach Precision Recall
+𝐴𝑝𝑝#1𝐴𝑝𝑝#2𝐴𝑝𝑝#3𝐴𝑝𝑝#4Total𝐴𝑝𝑝#1𝐴𝑝𝑝#2𝐴𝑝𝑝#3𝐴𝑝𝑝#4Total
+PinATA0.31 0.20 0.26 0.29 0.26 0.70 0.68 0.68 0.70 0.69
+WebTestPilot 0.98 0.94 0.94 1.00 0.96 0.93 0.96 0.98 0.96 0.96
+Finally, to ensure that assertions capture application behavior and to rule out coincidental matches
+that could be spurious TPs, we manually verify the semantic correctness of all assertions.
+5.3.3 Experiment Setup.We follow the setup in Section 5.2, with two changes: (1) for each step, 𝑇
+now generates assertion predicates𝑝 that check against conditionNL and expectationNL. (2) bug𝑖𝑗
+is automatically injected into the web application at the start of each test𝐷 𝑖𝑗 .
+5.3.4 Results & Discussion.Table 4 summarizes the results.WebTestPilotachieves both a preci-
+sion and recall of 0.96, with absolute improvements of 0.70 and 0.27 overPinATA, respectively.
+Why isWebTestPilotmore effective?Analyzing execution traces 𝜏, we identify three key
+reasons whyWebTestPilotoutperformsPinATA: (1)Dynamic cross-state reasoning:WebTestPi-
+lotcan generate and track symbolic representations on the fly across multiple states. In contrast,
+PinATAdepends on a static memory where agents must choose in advance what information to
+retain, and anything unrecorded is lost. This limits reasoning in tasks where crucial information is
+only known later or when large amounts of data make prioritization challenging. For example, in
+InvoiceNinja, forgetting a single detail about multiple invoices can break assertions later. (2)Explo-
+ration capability:WebTestPilot’s two-stage action execution supports robust navigation, while
+PinATAfails to reach certain UI elements (e.g., the timetable in Indico). (3)Full-page perception:
+WebTestPilotprocesses the entire page screenshot at each state, whereasPinATAobserves only
+visible elements without scrolling, potentially missing information in long lists, tables, or grids.
+CanWebTestPilotdetect real-world bugs?We replicated 23 real-world bugs from GitHub
+issues.WebTestPilotdetected 22 of them, compared to 15 byPinATA. The 7 bugs not detected by
+PinATAwere due to: missing cross-state context (1), requirement misinterpretation (2), and verifier
+agent hallucinations on detailed pages (4). More details are available on our project page [?].
+5.4 RQ3: Robustness Evaluation
+To test whetherWebTestPilot’s can generalize given all necessary information, we conduct an
+experiment by modifying the test requirements provided to the agent.
+5.4.1 Input Transformations.We design a set of input transformations under the assumption that
+all essential information (i.e., the condition, action, expectation) are preserved. In other words,
+these transformations do not remove or alter the core semantics of the test case, but instead change
+how the information is expressed. We introduce the following four transformations:
+•Dropout: Randomly removes 10% of sentences to mimic incomplete requirements.
+• Add Noise: Adds typos, filler or informal words to simulate casual language in communication.
+•Summarize: Produces a brief, draft-style version of the test description with abbreviations.
+•Restyle: Rewrites it in a different documentation style (e.g., procedural, technical, narrative).
+Let the transformation functions be 𝑓add_noise, 𝑓dropout, 𝑓restyle, and 𝑓summarize, each defined as
+𝑓 :D→D , whereD denotes the space of test requirements. In other words, given𝐷∈D , each
+transformation produces a modified test requirement 𝑓(𝐷)∈D . We implement these functions by
+prompting LLMs to perform an initial guided transformation, followed by heuristic post-processing
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:17
+to produce the final output. For example, forAdd Noise, we apply typo-generation libraries (e.g.,
+typo,nlpaug) to introduce lexical perturbations.
+Add Noise
+frmo tr dsboard amd tpa-
+pin9 the "Boosk" ljnk nes-
+tled withi he naviatno
+mneu [...]
+Dropout
+Redacted. Books listing
+page appears. Verify "Cre-
+ate New Book" link is vis-
+ible [...]
+Restyle
+To begin your journey
+through the digital li-
+brary, start by navigating
+[...]
+Summarize
+From dash, click ’Books’
+-> verify ’Create New
+Book’ link -> click it ->
+form opens [...]
+Fig. 12. Example of transformed test requirements. Original text: “Click "Books" link in navigation. Books
+listing page appears. Verify "Create New Book" link is visible [...]”
+5.4.2 Model Selection.BeyondWebTestPilot’s base model (GPT-4.1), we evaluate four open-
+source Qwen2.5-VL models (72B, 32B, 7B, and 3B). Qwen2.5-VL is trained with GUI grounding data,
+and has shown strong generalization on GUI testing and agentic benchmarks [4, 67, 79].
+5.4.3 Experiment Setup.We follow the same setup as in Section 5.3, with the difference that, for
+each test, the input test requirement𝐷𝑖𝑗 is first transformed using the transformation functions:
+𝑓default,𝑓 add_noise,𝑓 dropout,𝑓 restyle, and𝑓 summarize. We use metrics defined in Section 5.2 and 5.3.
+5.4.4 Results & Discussion.Table 5 shows the results. We observe that no transformation con-
+sistently reduces TC or CT for every model, indicating the absence of a universal “worst-case”
+transformation. For instance, DO reduces TC for Qwen2.5-VL-32b from 0.65 (DF) to 0.63, while
+Qwen2.5-VL-7b remains largely unaffected at 0.70. This suggests that each model exhibits its own
+strengths and weaknesses, reacting differently to various transformations: GPT-4.1 maintains high
+performance under noise (AN = 0.93) but is more impacted by DO, RS, and SU (0.70 each), whereas
+smaller models like Qwen2.5-VL-3b are highly sensitive to noise (AN = 0.48, SU = 0.41).
+In general, performance declines as model size decreases, but the decline is not uniform. Initially,
+reducing model size by roughly half results in modest performance drops of less than 10%. However,
+7B is a critical threshold where TC and CT start to decline sharply by 20–30%. Thus, we suggest
+that for cost considerations, 7B models may serve as the minimum viable option, whereas for
+performance, local models should be at least 72B parameters to reliably match or exceed GPT-4.1.
+Finally, there is a noticeable gap between TC and CT, with differences ranging from 0.05 to 0.09
+across models. We observe that models can omit or introduce redundant steps in transformed test
+requirements, leading to errors in trace execution. For example, details about filling a form (how
+many fields, what expected input) are not interpreted correctly during parsing.
+There are two key takeaways. First, all necessary information must be present in the requirements,
+as accurate input parsing is the strongest predictor of downstream task performance. Second, style
+and formatting variations can be overcome by designing specialized semantic parsers tailored to
+the specific domain and language style (e.g., PRD parsers, email parsers, or Slack/chat message
+parsers) that restructure inputs into step sequences that are correct, complete, and concise.
+5.5 RQ4: Model Comparison
+We perform an ablation study ofWebTestPilotby replacing its base model with alternative LLMs
+of varying sizes and capacities.
+5.5.1 Experiment Setup.We follow the setup and metrics in Section 5.4, but we evaluate only
+WebTestPilotand vary its underlying model on the benchmark without transformation.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:18 Teoh et al.
+Table 5. Task Completion (TC) and Correct Trace (CT) across test requirement transformations, evaluated
+usingWebTestPilot.Totaldenotes aggregated results across all transformations. Abbreviations: DF = Default,
+AN = Add Noise, DO = Dropout, RS = Restyle, SU = Summarize.
+Model Task Completion (TC) Correct Trace (CT)
+DF AN DO RS SUTotalDF AN DO RS SUTotal
+GPT -4.11.00 0.93 0.70 0.70 0.70 0.81 1.00 0.95 0.81 0.78 0.78 0.86
+Qwen2.5-VL-72b1.00 0.93 0.85 0.70 0.81 0.85 1.00 0.95 0.89 0.82 0.85 0.90
+Qwen2.5-VL-32b0.65 0.89 0.63 0.78 0.81 0.75 0.76 0.94 0.76 0.85 0.88 0.84
+Qwen2.5-VL-7b1.00 0.74 0.70 0.70 0.63 0.72 1.00 0.84 0.84 0.83 0.74 0.83
+Qwen2.5-VL-3b1.00 0.48 0.52 0.70 0.41 0.57 1.00 0.61 0.66 0.77 0.47 0.66
+Default Add Noise Dropout Restyle Summarize
+Transformation
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0T ask Completion
+GPT-4.1
+Qwen-2.5-VL (72B)
+Qwen-2.5-VL (32B)
+Qwen-2.5-VL (7B)
+Qwen-2.5-VL (3B)
+(a) Task Completion
+Default Add Noise Dropout Restyle Summarize
+Transformation
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Correct Trace
+GPT-4.1
+Qwen-2.5-VL (72B)
+Qwen-2.5-VL (32B)
+Qwen-2.5-VL (7B)
+Qwen-2.5-VL (3B) (b) Correct Trace
+Fig. 13. Performance of different models (RQ4) under different transformed input requirements (RQ3).
+5.5.2 Results & Discussion.Table 5 (default, DF column) shows that model performance is generally
+stable. However, the picture changes when models generate predicate assertions.
+Assertion Quality.GPT-4.1 shows strong DSL usage: 91% of predicate assertions reference both
+prior and current states, 8% only the current state, and 0.2% non-adjacent states. Of declared
+symbols, 41.3% represent physical concepts (e.g., Cart) and 58.7% UI components (e.g., DropDown).
+Most assertions perform existence checks (membership 78%, is None 14%, list length 18%) and 51%
+use relational comparisons. Common built-ins includelen,any,set,all,next, andreversed.
+Analysis of Assertion Errors.Challenges occur in local models. On proprietary models (e.g.,
+GPT-4.1), failures can be mitigated through prompt tuning. For local models (Qwen-2.5VL series),
+however, we observed the following issues despite prompt tuning:
+• Incorrect symbol declaration or usage (52% of cases):Symbols declared but unused, or used without
+declaration. Some models treat BaseModel as a concrete symbol rather than an abstract schema
+(akin to using an abstract class), or misuse symbols to extract non-visual data (e.g., HTML).
+• Incorrect usage of the assertion DSL in Oracle Inference (39% of cases):Hallucinated attributes,
+imports (e.g.,state.isNotificationEnabled) and method calls (e.g.,session.extract()).
+• Runtime errors in Oracle Execution (9% of cases):Mismatched data types in equality comparisons
+and incorrect membership checks (e.g.,in/not inapplied to non-set data).
+To improve local model performance, we recommend: (1) fine-tuning with DSL examples, (2)
+providing access to DSL references via an external source (e.g., retrieval-augmented generation), or
+(3) constraining outputs to be syntactically correct according to the DSL.
+6 Case Study
+Setup.In addition to our empirical studies, we collaborated with China Mobile on its no-code
+platform𝑃, which supports relational data modeling and drag-and-drop UI design for enterprise
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:19
+Table 6. Bugs detected byWebTestPilotin the case study.
+# Section Page Feature/Action Bug Type Bug Description
+1 Warehouses Warehouse Info Table Data Some required fields in the table are empty.
+2 Storage Area Create UI Duplicate “Warehouse Name” form fields.
+3 Storage Unit Search Data Dropdown options for "Warehouse" is inconsistent
+with available warehouses.
+4 Receipts Receipt Info Table Nav Clicking “Details” leads to an error page.
+5 Assets Inventory Search Form Data Dropdown options for "Warehouse" are not bound
+to the actual table data.
+6 Inventory Search Form Data Dropdown options for "Storage Area" are not
+bound to the actual table data.
+7 Asset Search Form Data Dropdown options for "Supplier" is empty.
+8 Device Management Cameras Search Form UI Query field names are incorrect.
+applications. Its target users are non-technical staff who build internal enterprise applications.
+We were granted access to an in-progress warehouse management system𝑤, and converted its
+PRD into individual requirements𝑑 forWebTestPilotto check consistency against 𝑤. In total,
+WebTestPilotuncovered eight bugs (Table 6).
+Results.Of the eight bugs, five (62.5%) were data-binding issues, two were UI issues, and one was
+a navigation issue, demonstratingWebTestPilot’s strength in detecting data-related bugs often
+missed by baselines. Technically,PinATAis limited to detecting UI and navigation issues (3/8) and
+would catch data issues only if explicitly specified. The PRD was pre-processed into 56 test inputs
+(6.4 mins), and all tests ran in 32.7 mins.WebTestPilot’s mean time to detect (MTTD) was 4.9
+mins, with a defect density of 0.14 bugs per page. These results show thatWebTestPilotprovides
+both practical effectiveness and testing efficiency in real-world applications.
+7 Discussion
+Threats to Validity.Internally, our metrics may underestimate tester performance, as multiple
+paths can achieve the same functionality. Future work could consider final page layout, content,
+or application state as additional indicators. Externally, our benchmark (webapp, test case, bugs)
+may not fully reflect real-world scenarios. However, sinceWebTestPilotmodels testing as a
+consistency problem using a Pythonic DSL, it can handle any bug that causes behavior to diverge
+from requirements. A final limitation is that we assume requirements are self-contained and
+complete, specifying all conditions, actions, and expected outcomes in order.
+Semantic Parsing for Specification-based Testing.Following our discussion above, experiments
+show that input parsing strategy and quality drive performance. Natural language requirements are
+often ambiguous, incomplete, or context-dependent. Parsing requires semantic understanding and
+pre-processing, not just extraction. LLM agents must act as proactive semantic parsers, transforming
+requirements into machine-understandable, executable representations. This includes identifying
+ambiguities, ask the user clarifying questions, and retrieving context from an external knowledge
+base where needed.
+8 Related Work
+8.1 Automated GUI Testing
+Automated GUI testing simulates user interactions (e.g., clicks) to validate application functionality
+via its GUI. Random techniques explore the AUT by fuzzing random actions (e.g., Monkey [45],
+Gremlins.js [18]) or by randomly interacting with detected widgets (White et al. [69]). Model-based
+approaches (e.g., Crawljax [ 43], ATUSA [ 44], Stoat [ 61]) construct navigational or behavioral
+models (e.g., flow graphs, state machines) of the AUT and derive test cases from them. To prune
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+FSE087:20 Teoh et al.
+redundant model states, works like Judge [31], WebEmbed [59], Corazza et al. [11], FragGen [72],
+and NDStudy [71] detect and remove near-duplicate states. Systemic strategies try to generate test
+cases that optimizes a test objective (e.g., code coverage), which can be done through search-based
+techniques (e.g., DIG [7], SubWeb [6], FeedEx [15], RoboTest [74], Sapienz [41], TimeMachine [14])
+and symbolic execution (e.g., Apollo [3]). Reinforcement learning (RL) approaches frame testing
+as a sequential decision problem using Q-learning or policy optimization to guide exploration
+on the AUT (e.g., AutoBlackTest [ 42], QExplore [ 57], WebExplor [81], WebQT [9], WebRLED
+[19], UniRLTest [76], PIRL-Test [75], Hawkeye [49]). These exploration-based methods prioritize
+coverage over requirements. Specification-based testing uses requirements for targeted validation of
+user flows. Kea [70] uses a property description language to manually specify properties for Android
+apps. In contrast,WebTestPilotautomatically derives symbolic assertions from rich contextual
+test information. Complementary works improve test efficiency [46] and stability [33, 47, 77].
+8.2 LLM for GUI Testing
+Input Generation.QTypist[ 34] produces context-aware text inputs for realistic testing.In-
+putBlaster[ 37] mutates input strings to trigger crashes, andFormNexus[ 1] validates form
+functionality via constraint-based testing. These approaches improve E2E testing reachability.
+Mobile Applications.Several works, such asGPTDroid[ 35, 36],DroidAgent[ 73],LLMDroid,
+Guardian[52],AUITestAgent[ 23],Trident[ 38],A11yScan[ 78] andXUAT -Copilot[68], focus
+on mobile E2E testing, using techniques like functionality-aware dialogues, coverage-guided explo-
+ration, multi-agent planning, and verification inference. Garcia et al. [16] also study how testers
+collaborate with LLMs in mobile testing. These works target mobile instead of web platforms.
+Web Applications.Zimmermann et al. [ 82] and VETL [66] propose the first LLM and multimodal
+LLM-based GUI testing agent, respectively.AutoAUT[ 42] and Leotta et al. [27] conduct feasibility
+studies and user interviews to understand how LLMs can support acceptance testing workflows.
+AxNav[ 63] andUXAgent[ 40] target accessibility and usability testing, respectively. These tools
+do not perform full E2E flow validation.AutoE2E[ 2] andTemac[ 30] infer features from the
+application under test (AUT) and use them to drive test case generation.LLM-Explorer[ 80]
+maintains an abstract UI state and interaction graph to guide exploration. However, these systems
+primarily target coverage and do not verify expected outcomes.NaviQAte[ 55] ranks actionable
+elements by relevance to a goal to guide interaction, but does not verify whether the final outcome
+satisfies the user objective. In summary, existing LLM-based web testers are limited oracles that focus
+on end states or explicit requirements, missing inconsistencies not captured in the specification.
+WebTestPilotaddresses this with formalized test specifications and pre/post-condition verification,
+enabling stable and reliable testing that also accounts for inferred implicit requirements.
+9 Conclusion
+In this work, we show that LLM agents, when paired with symbolic modeling and a DSL for
+formalized assertions, can serve as reliable automated GUI testers. We proposeWebTestPilot,
+which detects implicit, context-dependent bugs with high precision and recall, while remaining
+robust across diverse inputs and model scales.
+Data Availability
+Our benchmark, the source code ofWebTestPilotand baselines, and all scripts for setting up and
+running experiments are available at https://github.com/code-philia/WebTestPilot. For more details
+(i.e., prompts, case study, etc.), please visit https://sites.google.com/view/webtestpilot.
+Proc. ACM Softw. Eng., Vol. 3, No. FSE, Article FSE087. Publication date: July 2026.
+
+WebTestPilot: Agentic End-to-End Web Testing against Natural Language Specification by Inferring Oracles with
+Symbolized GUI Elements FSE087:21
+Acknowledgement
+We thank the reviewers for their constructive feedback and Haozhe Wei for his contributions
+to the benchmark construction. This research is conducted in collaboration with China Mobile,
+and is supported in part by the National Natural Science Fundation of China (62572300), the
+Minister of Education, Singapore (MOE-T2EP20124-0017, MOET32020-0004), the National Research
+Foundation, Singapore and the Cyber Security Agency under its National Cybersecurity R&D
+Programme (NCRP25-P04-TAICeN), DSO National Laboratories under the AI Singapore Programme
+(AISG Award No: AISG2-GC-2023-008-1B), and Cyber Security Agency of Singapore under its
+National Cybersecurity R&D Programme and CyberSG R&D Cyber Research Programme Office.
+Any opinions, findings and conclusions or recommendations expressed in this material are those
+of the author(s) and do not reflect the views of National Research Foundation, Singapore, Cyber
+Security Agency of Singapore as well as CyberSG R&D Programme Office, Singapore.

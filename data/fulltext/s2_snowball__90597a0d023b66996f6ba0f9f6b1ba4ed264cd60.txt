@@ -1,0 +1,1071 @@
+record_id: s2_snowball:90597a0d023b66996f6ba0f9f6b1ba4ed264cd60
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2605.17450
+fetched_title: ContraFix: Skill-Enhanced Contrastive Runtime Analysis for Vulnerability Repair
+fetched_at: 2026-09-18T19:00:51Z
+
+ContraFix: Skill-Enhanced Contrastive Runtime Analysis for
+Vulnerability Repair
+Simiao Liu
+Beihang University
+Beijing, China
+buaalsm@buaa.edu.cn
+Fang Liu
+Beihang University
+Beijing, China
+fangliu@buaa.edu.cn
+Peiding Wang
+Beihang University
+Beijing, China
+wangpeiding@buaa.edu.cn
+Taichuan Li
+Beihang University
+Beijing, China
+taichuanli@buaa.edu.cn
+Yinghao Zhu
+The University of Hong Kong
+Hong Kong, China
+yhzhu99@gmail.com
+Xiaoli Lian
+Beihang University
+Beijing, China
+lianxiaoli@buaa.edu.cn
+Li Zhang
+Beihang University
+Beijing, China
+lily@buaa.edu.cn
+Abstract
+As software systems grow increasingly complex, automated vulner-
+ability repair (AVR) remains difficult because the materials available
+to a repair system are usually failure artifacts rather than repair
+guidance. Traditional analysis techniques can provide suspicious
+locations, reduced triggers, or constraints, but they are costly to
+configure across repositories and seldom directly actionable for
+patch generation. Recent LLM-based agents can edit and validate
+repository-level patches, and experience-based systems can reuse
+prior repair traces or demonstrations, but they still need current-
+instance evidence that turns a broad, symptom-level failure re-
+port into a concrete repair decision. We presentContraFix, an
+agentic AVR framework that constructs such evidence through
+contrastive runtime analysis. Starting from a failing witness,Con-
+traFixgenerates nearby failing and non-failing variants, executes
+them through aligned probe sites, and compares their runtime
+states to infer the repair boundary and guide source-level patch-
+ing. Each candidate patch is accepted only after build and valida-
+tion.ContraFixalso stores validated repair episodes in a dual-
+track skill base, reusing mutation skills to construct useful variants
+and correction skills to refine failed patches. On SEC-Bench,Con-
+traFixwith GPT-5-mini achieves resolution rate of 92.0% over
+three repeated runs and an average resolution rate of 91.8%± 0.8.
+On PatchEval, it resolves 73.8% of 225 Go, Python, and JavaScript
+instances. A semantic audit of benchmark-validated SEC-Bench
+patches shows that 58.2% ofContraFix’s patches are semantically
+correct, compared with 31.3% for the strongest baseline, indicating
+that the proposed framework improves semantic correctness be-
+yond benchmark validation. We provide the replication package at
+https://figshare.com/s/f173c78e44bca88ebaea
+CCS Concepts
+•Software and its engineering;•Computing methodologies
+→Artificial intelligence;
+Keywords
+Automated Vulnerability Repair, Multi-Agent Framework, Con-
+trastive Runtime Analysis, Skill Accumulation
+1 Introduction
+Modern software systems are growing rapidly in scale and complex-
+ity. As real-world systems expand, security vulnerabilities emerge
+more frequently and become harder to manage [14, 39, 48]. If left
+unpatched, these vulnerabilities can cause data leakage, privilege
+escalation, service disruption, and attacks on critical infrastructure,
+imposing substantial economic and operational costs [ 2, 25]. Al-
+though fuzzing, static analysis, and sanitizer-based testing have
+automated vulnerability discovery [26, 34], repair still largely relies
+on human experts who must reproduce the failure, understand the
+vulnerable path, identify the root cause, design a security check, and
+validate the patch. This cost does not scale with modern disclosure
+volume [8, 40]. Recent large language models (LLMs) and agen-
+tic repair systems, which can generate code, inspect repositories,
+and interact with execution tools, have therefore made Automated
+Vulnerability Repair (AVR) increasingly promising [15, 21, 30, 44].
+The top ASan frame exposes a symptom,
+not the repair boundary. The failing input
+crosses a capacity limit that a nearb y input
+does not. The fix should ensur e space
+before use, not r eject the input.
+Symptom PatchASan Crash Report
+ERROR: AddressSanitizer: heap-buffer-overflow
+READ of size 8 at 0x619000000e80 thread T0
+#1 fiber_switch fiber.c:289
+#2 fiber_resume fiber.c:312
+#3 fiber_yield fiber.c:276
+#4 mrb_vm_exec / OP_ENTER vm.c:1859
+#5 vm_run vm.c:2134
+#6 vm_exec vm.c:2287
+#7 mrb_fiber_resume fiber.c:312
+...
+0x619000000e80 is located 0 bytes to the
+right of 1024-byte region
+[0x619000000a80,0x619000000e80)
+allocated by thread T0 here:
+...
+#2 0x10cfc9908 in mrb_realloc_simple gc.c:206
+#3 0x10cfca0d1 in mrb_realloc gc.c:220
+#4 0x10cfcaba3 in mrb_malloc gc.c:242
+...
+// fiber.c / fiber_switch
+len = mrb->c->ci->argc;
+- if (len >= stack_room)
++ if (len + 1 >= stack_room)
+raise FiberError;
+Boundary-aware Patch
+// vm.c / OP_ENTER
+need = mrb->c->ci->argc;
++ need = max(need, argc + 2);
++ mrb_stack_extend(mrb, need);
+argv = regs + 1;
++
+Figure 1: Motivating example of symptom-driven failure in
+A VR.
+Before LLM-based agents, AVR mainly relied on program anal-
+ysis and learning-based repair. Static analysis, path exploration,
+arXiv:2605.17450v2 [cs.SE] 1 Jul 2026
+
+Liu et al.
+exploit-neighborhood analysis, input reduction, and constraint-
+based repair can produce useful suspicious locations, reduced trig-
+gers, or repair constraints [3, 29, 35, 36, 49]. However, these tech-
+niques are costly to configure across large repositories and hetero-
+geneous build systems, and their outputs are rarely patch-ready.
+A patcher still has to decide the source-level boundary condition,
+insertion point, and repair scope. Learning-based repair systems
+trained on historical fixes can synthesize edits [7, 13, 17], but they
+typically operate on function-level snippets or pre-localized re-
+gions, and do not solve repository-level localization and valida-
+tion. LLM-based repair agents improve this situation by making
+repository-level repair more practical. In issue-driven APR tasks
+such as SWE-bench [18], agents inspect code, search repositories,
+generate edits, and validate candidates against tests. Recent AVR
+agents, including PatchAgent [48], SAN2PATCH [19], and VulnRe-
+solver [50], adapt this workflow to vulnerability repair by using
+vulnerability reports, crash logs, retrieved fixes, security reasoning,
+and iterative validation. Another line further augments LLM-based
+repair with experience retrieval or memory [4]. ExpeRepair [27]
+reuses demonstrations, traces, and semantic insights from previous
+repairs, while Agenticrepair [12] accumulates repair histories or
+interaction traces to guide later attempts.
+These systems improve patch generation, validation, and reuse,
+but they still depend on the quality of the available repair evidence.
+In AVR, the initially supplied evidence usually demonstrates an
+unsafe execution rather than the intended repaired behavior. A
+vulnerability report, PoC, sanitizer log, or failing security test can
+reproduce the failure [ 38], but it often leaves the repair under-
+specified. The call stack may contain many plausible project frames,
+and the crash site may be where invalid state is finally consumed
+rather than where the repair boundary should be enforced. Expe-
+rience reuse does not remove this problem by itself: if retrieved
+traces or previous edits were guided by a symptom-level crash site
+or PoC-specific validation, reuse can repeat the wrong condition,
+location, or repair scope. Figure 1 illustrates why repair localization
+is difficult in AVR. The original repair materials include a PoC, an
+ASan report, and a stack trace, but these artifacts provide mixed
+signals rather than a direct repair decision. Several stack frames
+and nearby code regions look relevant, and each suggests a differ-
+ent possible fix, such as adding a local guard at the crash-adjacent
+API, rejecting the observed input pattern, or checking the upstream
+state that later causes the overflow. A symptom-driven agent may
+therefore follow the most visible ASan frame and patch the location
+where the invalid state is consumed. However, the correct repair
+depends on a boundary that is not explicit in the report: a nearby
+valid input still fits within the VM stack, while the failing input
+crosses the capacity boundary. By comparing these nearby passing
+and failing executions,ContraFixidentifies the repair-relevant
+boundary and guides the patch toward ensuring enough stack space
+before use, rather than merely rejecting the input.
+Motivated by the gap, we proposeContraFix, an agentic AVR
+framework that turns a single exploit witness into boundary evi-
+dence for localization, patch generation, and experience reuse. 1)
+Contrastive PoC localization.ContraFixconstructs format-
+preservingsame-crashandoracle-passingPoC variants that still
+reach the same vulnerable execution region, then compares their
+executions to narrow a broad crash context to the failure boundary.
+2)Patch-ready boundary evidence.ContraFixrecords concrete
+runtime values at shared probe sites and summarizes the bound-
+ary evidence into repair guidance, including where to patch, what
+condition to enforce, and what scope the patch should cover. 3)
+Reusable A VR skills.ContraFixaccumulates two kinds of vali-
+dated experience. Mutation skills help future runs construct useful
+contrastive PoCs, while correction skills record how a failed patch
+was later refined into a validated repair.
+We evaluateContraFixon SEC-Bench [ 20], which contains 200
+C/C++ vulnerability instances, and PatchEval [43], which contains
+225 usable Go, Python, and JavaScript instances. With GPT-5-mini
+as the backbone,ContraFixachieves state-of-the-art performance
+on both benchmarks, reaching 92.0% resolution rate on SEC-Bench
+and resolving 73.8% of PatchEval. On SEC-Bench,ContraFixout-
+performs Agenticrepair [12] by 42.0 percentage points under the
+same GPT-5-mini backbone, supporting the conclusion that the
+framework contributes substantially beyond backbone capability
+alone. Ablation results show that contrastive runtime analysis pro-
+vides a 26.8-point average gain, while the full skill-accumulation
+setting adds a further 17.0 points over contrastive-only analysis. In
+summary, this paper makes the following contributions:
+•Boundary-Oriented PoC Analysis for A VR.We introduce a
+runtime analysis method that compares aligned failure-reproducing
+and oracle-passing executions, identifies runtime relations that
+distinguish the observed execution classes, and encodes those re-
+lations and their supporting evidence in location-specific repair
+specifications.
+• Vulnerability-Specific Skill Accumulation.We design a skill
+mechanism tailored to AVR that accumulates boundary-construction
+skills for PoC mutation and failure-to-success refinement skills
+for revising benchmark-invalid candidate patches into benchmark-
+validated repairs.
+• Extensive Evaluation.We evaluateContraFixon SEC-Bench
+and PatchEval across C/C++, Go, Python, and JavaScript. Re-
+sults show thatContraFixoutperforms state-of-the-art AVR
+baselines and general-purpose software engineering agents, with
+ablations confirming the complementary benefits of contrastive
+analysis and skill accumulation.
+2 Proposed Framework
+Figure 2 illustrates the overall pipeline ofContraFix. Three co-
+ordinated agents operate in an iterative repair loop. TheMutator
+constructs PoC variants around the observed failure boundary (Sec-
+tion 2.1). TheAnalyzercompares failure-reproducing and oracle-
+passing executions and formulates a location-specific RepairSpec
+(Section 2.2). ThePatchertranslates the RepairSpec into a can-
+didate source patch (Section 2.3). Benchmark-validated episodes
+are recorded in a dual-track skill base for subsequent instances
+(Section 2.4).
+The repair loop is gated by the results of concrete runs. Each
+PoC variant is executed and labeled by its outcome. The Analyzer
+summarizes observed state differences at shared code locations
+into repair guidance. The Patcher accepts a candidate patch only if
+it builds, no longer triggers the vulnerability on the original PoC
+and same-crash variants, and passes the benchmark regression
+tests. When a patch fails, its diff, diagnostics, and prior analysis
+
+ContraFix: Skill-Enhanced Contrastive Runtime Analysis for Vulnerability Repair
+context are carried into the next round. Table 1 summarizes the role
+permissions, while the complete prompts and machine-readable
+schemas are included in the replication package.
+2.1 PoC Variant Generation
+The Mutator generates format-valid variants that make small, tar-
+geted changes to the original PoC and executes each variant to
+observe its outcome. A variant is useful for contrastive analysis
+when it either reproduces the original failure signature or no longer
+triggers the vulnerability oracle while still reaching the relevant
+code. When a failure-reproducing execution and an oracle-passing
+execution reach the same probe site, their recorded runtime states
+form contrastive evidence that the Analyzer can use to infer candi-
+date state relations for repair.
+Vulnerability-A ware Mutation Strategies.Real-world PoCs span
+diverse formats, from structured binary containers (e.g., MP4, TIFF,
+DWG) to interpreter scripts (e.g., Ruby, JavaScript, PHP). Effective
+mutation must respect the structural constraints of each format;
+blindly corrupting bytes typically produces unparseable inputs
+rejected long before execution reaches the vulnerable code path [10,
+11].ContraFixaddresses this challenge with a two-level mutation
+strategy.
+At theformat level, the Mutator examines the original PoC and
+its file signature to select an appropriate manipulation method. For
+binary containers it generates a Python script that operates on
+semantic fields (e.g., box sizes and sample counts in MP4, dimen-
+sion tags in TIFF, chunk lengths in DWG) while preserving magic
+bytes, checksums, and framing headers. For interpreter scripts it
+rewrites the source directly, modifying literal values, loop bounds,
+or argument lists that control the execution path reaching the fault
+site.
+At thevulnerability-type level, we initialize the mutation skill
+base with author-defined mutation templates derived from the san-
+itizer failure classes observed in SEC-Bench [20]. These templates
+are manually designed from the failure semantics of each class and
+serve only as cold-start mutation guidance; the concrete mutation
+is still generated after the Mutator inspects the current PoC for-
+mat, execution command, and failure report. For example, overflow-
+related templates encourage changes to size, count, offset, and index
+fields, while lifetime- and nullness-related templates guide muta-
+tions around allocation, release, reuse, and missing-reference pat-
+terns. The complete template list is included in the code repository.
+As instances are resolved, the skill base accumulates format-specific
+strategies from successful resolutions, progressively supplementing
+the generic templates with empirically validated ones.
+Differential Variant Generation.The goal of this step is to obtain
+two executions that differ only in whether the vulnerability fires:
+one that still triggers thesamebug as the original PoC, and one
+that runs safely past the same code. Comparing this pair later tells
+the Analyzer which runtime value actually decides the outcome.
+The Mutator starts from the original PoC𝑥0 and produces can-
+didate variants with format-aware and vulnerability-aware trans-
+formations, running each through run_variant. For every vari-
+ant𝑥 we record three things: whether it triggers the vulnerability
+(𝑂(𝑥)= 1if it does), itsfailure signature sig(𝑥) (for sanitizer cases,
+Table 1: Role-restricted tool access inContraFix. M/A/P de-
+note Mutator, Analyzer, and Patcher, respectively. Complete
+tool schemas and prompts are provided in the replication
+package.
+Toolkit Representative tools M A P
+File inspectionview,search✓ ✓
+File editingstr_replace_edit,revert_*✓ ✓
+Executionbash✓ ✓ ✓
+PoC mutationmutate_poc,run_variant✓
+State probinginsert_probed,run_variant✓
+Validationcheck_vul✓
+the sanitizer class plus a project-level stack frame; for test cases,
+the failing test plus its error), and the set of probe sites it actually
+reaches, Π(𝑥) . Each variant is then sorted into one of three groups:
+label(𝑥)=
+ 
+
+same-crash,triggers the same bug𝑥 0,
+other-crash,triggers a different failure,
+oracle-passing,does not trigger the bug.
+(1)
+A useful comparison needs one variant from the first group and
+one from the third. But a safe-looking variant is only meaningful if
+it actually runs through the same place as the crash—otherwise it
+might look safe simply because parsing stopped early, long before
+the vulnerable code. We therefore require the safe variant𝑥+ and
+the crashing variant 𝑥− to share at least one probe site that the
+original failing run also passed through:
+Π(𝑥−)∩Π(𝑥 +)∩Π(𝑥 0)≠∅.(2)
+We call such a pair anideal contrastive pair.
+2.2 Contrastive Analysis
+The Analyzer converts evidence from an aligned execution pair into
+a source-level RepairSpec. Given a pair in which one execution re-
+produces the original failure, the other produces an oracle-passing
+outcome, and both reach a shared probe site, the Analyzer localizes
+the fault region, probes candidate runtime expressions, and summa-
+rizes relations that distinguish the observations collected from the
+two executions. The goal is not to establish causality or prove a pro-
+gram invariant, but to derive a concrete, location-specific candidate
+condition that can guide patch generation.
+Phase 1: Fault Location.The Analyzer extracts the failure type,
+project-level stack frames, and faulting source region from the
+sanitizer or test report. Candidate probe expressions are drawn from
+three concrete sources: operands of the faulting statement, variables
+used by nearby controlling predicates, and security-relevant fields
+referenced in the fault function or its inspected callers. These fields
+include indices, lengths, capacities, allocation sizes, pointer/nullness
+states, ownership flags, and parser-state variables. The Analyzer
+probes only side-effect-free expressions that can be evaluated at a
+specific source location.
+Phase 2: Contrastive State Probing.The Analyzer instruments the
+candidate fault region with lightweight language-level probes and
+executes the same instrumented program on both same-crash and
+oracle-passing variants.ContraFixsupports two probe forms: a
+point probe, which records a snapshot immediately before or after
+
+Liu et al.
+Sanitizer Report
+Repo: mruby VM | CVE-2018-12248
+heap-buffer-overflow
+ASan crash: mrb_vm_exec / OP_ENTER
+stack trace + reproducer command
+Regression
+Tests
+PoC
+Task Inputs Mutator
+Analyzer
+Patcher Skill Base
+Correction
+skills
+Mutation
+skills
+Contrastive Pair
+SAME-CRASH
+variant
+SAFE
+variant
+OTHER-CRASH
+variant
+filtered
+PoC & Failure
+Understanding
+Guided Boundary
+Mutation
+Labeled Variants
+Outcomes
+same site: OP_ENTER
+SAME-CRASH argc = 63
+SAFE argc = 62
+mrb_vm_exec()
+OP_ENTER:
+probe(argc, stack_space)
+regs[...]
+Shared-Probe Placement
+...
+fault-adjacent, side-effect-free probes
+Paired Executions
+SAME-CRASH
+run
+SAFE
+run
+shared probes
+FAILED
+PASSED
+Runtime Evidence
+Candidate Condition
+Require argc + 2 stack slots
+Inferred Boundary
+Relations
+Location
+OP_ENTER
+Boundary Evidence
+argc 62 / 63
+Repair Condition
+ensure stack space
+Patch Scope
+before regs[] access
+RepairSpec Input
+-
+-
++
++
++
+Spec-Guided Edit
+Build
+Vuln Oracle
+Regression
+Validation Gates
+Failed Patch
+diff + diagnostics
+Validated Patch
+passed
+Patch Outcomes
+validated
+episodes
+wrong-to-correct examples
+mutation guidance
+CRASH reaches stack end
+SAFE stays within the stack
+Figure 2: Overall architecture ofContraFix.
+a suspicious statement, and aspan probe, which records entry/exit
+snapshots around a short code region. Each probe record contains
+the probe site, source location, execution phase, and concrete values
+of the selected candidate expressions. The complete probe schema
+and language-specific logging templates are provided in the repli-
+cation package.
+Probe records are keyed by a stable probe identifier, source lo-
+cation, execution phase, and variant identifier. The Analyzer com-
+pares only records observed at a common probe site; unmatched
+records are excluded rather than treated as evidence. It examines
+simple security-relevant relations, including index–capacity and
+size–allocation bounds, nullness, equality/inequality conditions,
+and state transitions. A relation is retained when the available
+oracle-passing observations satisfy it while a same-crash observa-
+tion violates it.
+For example, if a probe before a buffer access records idx=15,
+cap=16 in an oracle-passing execution and idx=16, cap=16 in an
+execution that reproduces the original failure, then idx < cap
+distinguishes the two observations. This relation is supported by
+the sampled executions at that probe site, but we do not claim that
+it establishes causality or constitutes a formally proven program
+invariant.
+Phase 3: RepairSpec Inference.The Analyzer converts the retained
+evidence into a fixed-format RepairSpec:Locationidentifies the file,
+function, and source range;Boundary Evidencecites the probe
+sites and concrete values observed in the failure-reproducing and
+oracle-passing executions;Candidate Repair Conditionrecords
+the relation proposed as repair guidance; andPatch Scopeiden-
+tifies the state-creation, validation, or use sites at which the can-
+didate condition may need to be enforced. The prompt requires
+every proposed condition to be supported by recorded probe values.
+When the shared-site evidence does not yield a clear separating
+relation, the Analyzer summarizes the available observations and
+uncertainty in the RepairSpec. The RepairSpec is treated as repair
+guidance rather than a proof, and the generated patch must still
+pass the normal build, vulnerability-oracle, and regression-oracle
+gates. The exact prompt and schema are included in the replication
+package.
+Returning to the motivating example in Figure 1, for CVE-2018-
+12248 [28], probe records from theOP_ENTER handler showargc=62
+in the oracle-passing execution andargc=63 in the failure-reproducing
+execution. The execution with argc=62 remains within the allo-
+cated fiber stack, whereas the execution with argc=63 reaches the
+stack end stend. Based on these observations, the RepairSpec pro-
+poses ensuring that the VM stack has space for at leastargc+2 slots
+before the firstregs[]access insrc/vm.c:mrb_vm_exec.
+Cross-Round Refinement.When a candidate patch fails PoC vali-
+dation,ContraFixstarts a new round with three pieces of carry-
+over evidence: the failed diff and diagnostic output, the previous
+RepairSpec, and the prior probe plan. This allows the Analyzer to
+refine the previous hypothesis rather than repeat the same analysis
+from scratch. After each analysis phase, all probe edits are reverted
+to ensure that the final submitted diff contains only the Patcher’s
+source changes.
+
+ContraFix: Skill-Enhanced Contrastive Runtime Analysis for Vulnerability Repair
+2.3 Patch Generation
+The Patcher translates the RepairSpec into a candidate source patch,
+using retrieved benchmark-validated trajectories as repair exam-
+ples. The examples provide corrective patterns rather than accep-
+tance evidence: every transferred edit is regenerated for the current
+repository and independently validated.
+All source modifications are applied through str_replace_edit,
+and the controller extracts the resulting diff from the working tree.
+A candidate is counted as benchmark-validated only if it passes
+three gates: (1) the project builds successfully; (2) the benchmark
+vulnerability oracle passes on the original PoC and all available
+same-crash variants; and (3) the benchmark regression oracle passes.
+Failure at any gate supplies the next round with the exact diff and
+the corresponding compiler, sanitizer, or test diagnostics. Probe in-
+strumentation is reverted before patch validation, so the submitted
+diff contains only Patcher edits.
+After each round, revert_all_edits() restores a clean work-
+ing tree before the next candidate is generated.
+2.4 Experience Accumulation
+ContraFixrecords two experience tracks across resolved instances.
+The first track supports PoC mutation. A mutation record stores
+⟨𝑃𝑟𝑒𝑝𝑜,𝐾 𝑣𝑢𝑙𝑛,𝐷 𝑠𝑎𝑛,𝐹 𝑝𝑜𝑐,𝑆 𝑚𝑢𝑡,𝑉⟩ , where 𝐹𝑝𝑜𝑐 describes the input
+family,𝑆𝑚𝑢𝑡 summarizes the effective transformation, and𝑉 stores
+per-variant outcomes such as mutation operation, oracle result,
+sanitizer class, and a short output snippet. These records let the
+Mutator reuse format-preserving transformations, such as chang-
+ing MP4 box sizes, TIFF count/offset fields, or script literals while
+keeping the input on the vulnerable path.
+The second track supports patch correction. A correction record
+is created only when an instance is validated after at least one
+failed patch. It stores the repository, vulnerability class, failed diffs
+with compiler/oracle feedback, and the final benchmark-validated
+diff. During a later repair, the Patcher retrieves these records only
+after its current candidate fails, and uses them as wrong-to-correct
+demonstrations, such as moving a symptom-side guard upstream
+or applying the same bounds check to sibling paths.
+The two tracks are retrieved independently with a default budget
+of two entries each. Retrieval first prefers the same repository and
+vulnerability type, then falls back to same-type cross-repository
+episodes. To prevent leakage,ContraFixexcludes same-CVE and
+later-disclosed entries, and inserts the current instance into the
+skill base only after its repair run terminates. Retrieved experience
+guides generation but never bypasses build, vulnerability-oracle,
+or regression validation.
+3 Experimental Setup
+3.1 Research Questions
+We evaluateContraFixwith the following research questions:
+• RQ1: Overall Performance, Localization Accuracy, and
+Patch Correctness.How doesContraFixcompare with ex-
+isting repair methods in benchmark validation and localization
+accuracy, and how many of its benchmark-validated patches are
+semantically correct?
+• RQ2: Ablation Study.How much do contrastive state probing
+and experience accumulation contribute to the final repair rate?
+• RQ3: Generalizability.DoesContraFixgeneralize from C/C++
+to Go, Python, and JavaScript vulnerabilities?
+3.2 Benchmarks and Metrics
+We evaluate on two execution-based vulnerability repair bench-
+marks.
+SEC-Bench[ 20] contains 200 real-world CVE instances from 29
+C/C++ projects. Each instance provides a vulnerable repository, a
+PoC, reproduction commands, and sanitizer feedback. We use SEC-
+Bench as the primary benchmark because it evaluates end-to-end
+repository-level AVR under sanitizer-based vulnerability oracles.
+PatchEval[ 43] covers Go, Python, and JavaScript vulnerabilities.
+We use 225 Dockerized instances that can be built and executed
+in our environment; five instances are excluded before evaluation
+because their Docker images cannot be pulled. We use PatchEval to
+test whetherContraFixgeneralizes beyond C/C++ memory-safety
+settings.
+We report%Resolved,FileLoc,HunkLoc, andAvg. Cost. A
+patch is counted as resolved only if it passes the benchmark’s
+execution-based vulnerability and regression oracles. We evalu-
+ate localization following the rule [47]: FileLoc counts an instance
+as correctly localized if the generated patch edits all developer-
+modified files, and HunkLoc counts an instance as correctly local-
+ized if generated hunks overlap all developer-modified hunks. Avg.
+Cost is the average LLM API cost per instance in USD, computed
+from token usage. To distinguish benchmark validation from seman-
+tic correctness, we additionally audit benchmark-validated patches
+using three categories: semantically correct, incomplete/PoC-specific,
+and behavior-regressive. We use same-backbone GPT-5-mini com-
+parisons for framework attribution and report cross-backbone com-
+parisons separately.
+3.3 Baselines and Adaptation
+We compareContraFixwith four baseline groups. General-purpose
+coding agents include OpenHands [ 42], smolagents [ 33], SWE-
+agent [47], and Claude Code [1]. AVR-specific agents include PatchA-
+gent [48], VulnResolver [50], and Agenticrepair [12]. Experience-
+based repair is represented by ExpeRepair [27]. Constraint-guided
+repair is represented by CrashRepair+LLM, where the LLM receives
+the vulnerable-function context and a CrashRepair-style repair con-
+straint [35] before synthesizing a source patch.
+We preserve each baseline’s native repair workflow, memory,
+and hyperparameters unless the baseline is explicitly adapted, as in
+CrashRepair+LLM. For ExpeRepair, we keep the original implemen-
+tation and replace only the execution wrapper so its patches are
+checked by the same SEC-Bench oracle asContraFix. SEC-Bench
+patches are evaluated with sanitizer-based workflows; PatchEval
+patches are evaluated with the benchmark’s language-specific tests,
+including go test , pytest, andnpm test . We exclude older function-
+level AVR systems evaluated mainly with static similarity metrics
+such as CodeBLEU [32], because they do not operate in the same
+repository-level, execution-validated setting.
+
+Liu et al.
+3.4 Implementation Details
+We use GPT-5-mini as the default backbone for all threeContraFix
+agents and rerun LLM-based baselines unless otherwise stated. On
+SEC-Bench, we run the fullContraFixconfiguration three times,
+report the median run by resolved instances, and use that run for
+per-instance analyses. The repair loop runs for at most three rounds;
+a sensitivity run extends the budget to five rounds. All LLM calls
+use the model default decoding setting, which is temperature 1.0
+and top-p 1.0 for GPT-5-mini.
+All experiments run inside isolated Docker containers provi-
+sioned from the benchmark images. For SEC-Bench, run_variant
+and check_vul wrap the benchmark’s sanitizer workflow and use
+AddressSanitizer signals to classify executions. For PatchEval (Go,
+Python, JavaScript), which is test-driven, these tools instead in-
+voke the respective language’s testing frameworks (e.g., go test ,
+pytest,npm test).
+4 Results and Analysis
+4.1 RQ1: Overall Performance, Localization
+Accuracy, and Patch Correctness
+RQ1 evaluatesContraFixfrom four perspectives: benchmark val-
+idation, localization accuracy, semantic correctness, and perfor-
+mance across vulnerability types. The RQ1 tables report the median
+SEC-Bench run forContraFix, which also supplies the patches
+used in the semantic and per-instance analyses.
+Overall benchmark validation and localization accuracy.Table 2
+comparesContraFixwith general-purpose coding agents, AVR-
+specific agents, experience-based repair, and constraint-guided re-
+pair on SEC-Bench. In the median SEC-Bench run,ContraFix
+with GPT-5-mini resolves 184/200 instances (92.0%), achieving the
+highest benchmark-validation rate among all evaluated config-
+urations. The strongest baseline is Agenticrepair with GPT-5.2,
+which resolves 150/200 instances (75.0%).ContraFiximproves
+over it by 17.0 percentage points and repairs 34 additional instances.
+Under the same GPT-5-mini backbone,ContraFixoutperforms
+PatchAgent, ExpeRepair, Agenticrepair, OpenHands, and Smola-
+gents by 29.5, 32.0, 42.0, 43.0, and 57.5 points, respectively. The best
+general-purpose baseline, OpenHands, reaches 49.0%, suggesting
+that repository-level coding ability alone is insufficient for AVR.
+The comparison also helps separateContraFix’s framework
+contribution from two simpler alternatives. First, CrashRepair+LLM
+receives vulnerable-function context and a CrashRepair-style con-
+straint, but resolves only 29.0% of instances. This suggests that
+a repair constraint alone still leaves important source-level deci-
+sions unresolved, including where to enforce the condition, how
+far the check should be propagated, and how to preserve normal
+behavior. Second,ContraFixremains strong under a different
+backbone: with DeepSeek-V3.2 [22], it resolves 178/200 instances
+(89.0%), still outperforming all evaluated baselines. As shown in
+the cost column,ContraFixwith DS-V3.2 averages $0.15 per task,
+lower than PatchAgent-GPT-5-mini ($0.40) and less than one-third
+of Agenticrepair-GPT-5.2 ($1.07). With the default GPT-5-mini back-
+bone,ContraFixcosts $0.32 per task while achieving the highest
+resolution rate.
+Table 2: Overall performance, localization accuracy, and cost
+on SEC-Bench.
+Method Backbone %Res. FileLoc HunkLoc Avg. Cost
+OpenHands [42] GPT-5-mini 49.0 58.0 51.5 0.22
+Smolagents [33] GPT-5-mini 34.5 60.0 52.0 0.04
+Smolagents [33] GPT-5.2 45.0 67.0 58.5 0.50
+CrashRepair+LLM [35] GPT-5-mini 29.0 – – 0.01
+Agenticrepair [12] GPT-5-mini 50.0 67.5 57.5 0.16
+ExpeRepair [27] GPT-5-mini 60.0 63.0 45.0 0.22
+PatchAgent [48] GPT-5-mini 62.5 58.5 42.5 0.40
+VulnResolver [50] DS-V3.2-Exp 67.5 – – 0.07
+Agenticrepair [12] GPT-5.2 75.082.5 62.51.07
+ContraFixGPT-5-mini92.080.5 59.0 0.32
+ContraFixDS-V3.2 89.0 80.5 58.5 0.15
+For localization accuracy,ContraFixwith GPT-5-mini achieves
+80.5% FileLoc and 59.0% HunkLoc, close to the highest localization
+scores while achieving substantially higher benchmark validation.
+Agenticrepair-GPT-5.2 obtains the highest FileLoc and HunkLoc,
+82.5% and 62.5%, respectively. This result is partly due to patch
+breadth. Its generated patches contain on average 2.2× as many
+hunks asContraFix’s patches, which increases the chance that the
+generated file and hunk sets cover the developer-modified locations
+used by FileLoc and HunkLoc. Its multi-agent analysis also provides
+static-analysis results, historical commits, and multiple repair sug-
+gestions, so the final patch often combines several plausible repair
+ideas and edits a broader region. The manual audit below further
+shows that higher FileLoc and HunkLoc do not necessarily imply
+semantic correctness.
+Manual semantic review.Benchmark validation does not nec-
+essarily imply semantic correctness [5], since a patch may block
+the supplied PoC while leaving the root cause reachable through
+other inputs or changing valid behavior. We therefore audited
+all benchmark-validated patches fromContraFix’s run and the
+strongest baseline configuration, covering 184 patches fromCon-
+traFixand 150 patches from Agenticrepair-GPT-5.2. The audit
+classified patches into three categories: (1) semantically correct,
+(2) incomplete or PoC-specific, and (3) behavior-regressive. A se-
+mantically correct patch fixes the root cause without known valid-
+behavior loss, including both developer-patch-aligned repairs and
+correct alternative repairs. Incomplete or PoC-specific patches
+pass the benchmark checks because they block the supplied PoC,
+but they do not enforce the same rule across related code paths.
+Behavior-regressive patches remove the trigger by rejecting or
+changing valid behavior. Two PhD software engineering annota-
+tors with over seven years of relevant experience independently
+labeled every patch. For each generated diff, they considered the vul-
+nerability report, PoC, relevant code context, benchmark tests, and
+developer patch. The developer patch served as evidence of root-
+cause intent and repair scope rather than a syntactic oracle. Patches
+were shuffled and anonymized with respect to system provenance.
+Initial agreement was 84.8% with Cohen’s𝜅= 0.78, and remaining
+disagreements were resolved through discussion.
+Figure 3 summarizes the three-category audit. Among benchmark-
+validated patches,ContraFixhas 107/184 semantically correct
+patches (58.2%), 44 incomplete or PoC-specific patches (23.9%), and
+
+ContraFix: Skill-Enhanced Contrastive Runtime Analysis for Vulnerability Repair
+Table 3: Resolution rate (%) by vulnerability type on SEC-Bench under GPT-5-mini. Values in parentheses denote resolved
+instances.
+Vulnerability Type𝑁Smolagents Agenticrepair ExpeRepair PatchAgentContraFix
+heap-buffer-overflow 77 42.9 (33) 55.8 (43) 59.7 (46) 68.8 (53) 97.4 (75)
+null-pointer-deref 53 34.0 (18) 50.9 (27) 58.5 (31) 58.5 (31) 92.5 (49)
+SEGV 23 30.4 (7) 52.2 (12) 56.5 (13) 52.2 (12) 87.0 (20)
+use-after-free 20 5.0 (1) 20.0 (4) 55.0 (11) 60.0 (12) 80.0 (16)
+memory-leak 13 23.1 (3) 46.2 (6) 69.2 (9) 53.8 (7) 84.6 (11)
+stack-buffer-overflow 14 50.0 (7) 57.1 (8) 71.4 (10) 71.4 (10) 92.9 (13)
+Overall200 34.5 (69) 50.0 (100) 60.0 (120) 62.5 (125) 92.0 (184)
+33 behavior-regressive patches (17.9%), whereas Agenticrepair-GPT-
+5.2 has 47/150 (31.3%), 22/150 (14.7%), and 81/150 (54.0%), respec-
+tively. Over all 200 SEC-Bench instances, the semantic repair rates
+are 53.5% forContraFixand 23.5% for Agenticrepair-GPT-5.2. To-
+gether with Table 2, these results show that higher FileLoc and Hun-
+kLoc do not necessarily imply semantic correctness. Agenticrepair-
+GPT-5.2 achieves the highest localization accuracy, but many of
+its validated patches are behavior-regressive, indicating that broad
+patches may cover developer-modified locations while enforcing
+the wrong boundary, missing the full repair scope, or rejecting valid
+behavior. Section 5.1 gives concrete examples of incomplete and
+behavior-regressive patches.
+Figure 3: Manual semantic review of benchmark-validated
+SEC-Bench patches.
+Breakdown by vulnerability type.Table 3 reports resolution rates
+by sanitizer category under GPT-5-mini.ContraFixleads in all
+six vulnerability types. The largest gains over PatchAgent appear
+on heap-buffer-overflow and null-pointer-deref, whereContraFix
+improves by 28.6 and 34.0 points, respectively. These defects often
+expose concrete bound or nullness conditions, which are well suited
+to same-crash/oracle-passing PoC comparison and contrastive state
+probing.ContraFixalso remains effective on harder classes, re-
+solving 87.0% of SEGV and 80.0% of use-after-free instances, where
+the repair condition often depends on parser state, object lifetime,
+or dispatch logic rather than a single local bound.
+Answer to RQ1.ContraFixachieves the best SEC-Bench per-
+formance, resolving 184/200 instances (92.0%) and leading all
+vulnerability types, while also reaching competitive localization
+Figure 4: Ablation study on SEC-Bench over three runs.
+accuracy with 80.5% FileLoc and 59.0% HunkLoc. Compared with
+Agenticrepair-GPT-5.2,ContraFixproduces far more semanti-
+cally correct validated patches (58.2% vs. 31.3%), showing that its
+localization evidence better supports correct vulnerability repair.
+4.2 RQ2: Ablation Study
+Figure 4 reports the ablation results on SEC-Bench. We compare five
+configurations that progressively enable the three main components
+ofContraFix.Patcher onlygenerates a patch from the original
+failure report without contrastive analysis or experience retrieval.
++ Contr.enables the Mutator and Analyzer, so the Patcher receives
+a RepairSpec inferred from contrastive runtime evidence.+ M-Exp.
+additionally enables mutation experience to guide PoC variant
+construction.+ C-Exp.instead enables patch-correction experience
+to guide the revision of failed patches. The fullContraFixenables
+contrastive analysis and both experience tracks.
+Each configuration is run three times. Before each run, the ac-
+cumulated skill base is reset to the same initial state, and the 200
+instances are processed in the same fixed order. For each configura-
+tion, the per-instance mechanism analyses below use the median
+run by resolved instances. Unless otherwise stated, each enabled
+experience track retrieves at most two entries.
+Component effects.Across the three runs, the ordering of the five
+configurations is unchanged; all sample standard deviations are at
+
+Liu et al.
+Table 4: Repair success conditioned on contrastive-pair qual-
+ity.
+Configuration 𝑃(resolved|
+Ideal)
+𝑃(resolved|
+NoIdeal)
+Contrastive analysis 126/156 (80.77%) 24/44 (54.55%)
++ M-Exp. 140/168 (83.33%) 19/32 (59.38%)
++ C-Exp. 144/157 (91.72%) 30/43 (69.77%)
+ContraFix(Full)160/168 (95.24%) 24/32 (75.00%)
+most 0.9 percentage points, and every within-configuration range
+is at most 1.5 points. On average, contrastive analysis raises the
+resolution rate from 48.0% to 74.8% (+26.8 points), while the full
+system reaches 91.8%, a further 17.0-point improvement.
+Across the three runs, M-Exp. adds 2.5–5.5 points and C-Exp.
+adds 12.0–13.0 points across the two settings of the other track; the
+corresponding interaction term remains between 0 and 0.5 points.
+This consistency indicates that the two experience types provide
+largely distinct and complementary information.
+Table 4 groups instances by contrastive-pair quality.Idealmeans
+that the original PoC, a same-crash variant, and an oracle-passing
+variant reach a common probe site;No idealdenotes cases where
+this condition is not met, such as when all variants still crash.
+Mutation experience improves the evidence available to later stages.
+Table 4 separates instances with ideal contrastive pairs from fall-
+back instances. Across all configurations, ideal-pair instances are
+repaired more often than fallback instances, confirming that the
+quality of the contrastive evidence strongly affects downstream
+repair.
+M-Exp. increases the number of ideal pairs from 156 to 168 and
+reduces fallback cases from 44 to 32. Its effect is therefore mainly
+indirect: it helps the Mutator preserve PoC structure while crossing
+the failure boundary, giving the Analyzer clearer evidence for Re-
+pairSpec inference. The gain is concentrated in structured binary
+inputs: ideal pairs increase from 35 to 40 for Image & Graphics
+and from 44 to 50 for Media Containers, while the Other category
+remains unchanged at 36. These formats require mutations that
+preserve framing and parser reachability.
+C-Exp. has a different effect. It barely changes ideal-pair con-
+struction (156→ 157), but improves success within both ideal and
+fallback groups. This matches its intended role: M-Exp. improves
+the evidence available to the Analyzer, whereas C-Exp. improves
+the Patcher’s ability to recover from failed candidate patches.
+Correction experience supports feedback-driven recovery.The full
+system repairs 112 instances in Loop 1, 69 additional instances in
+Loop 2, and 3 in Loop 3, reaching 184/200 (92.0%). The latter 72
+instances produce 72 correction trajectories, one per instance re-
+covered after at least one failed patch. Extending the loop to five
+rounds yields no further repairs, indicating that the remaining fail-
+ures require different evidence, invariants, or repair scopes rather
+than additional iterations.
+Varying the per-track retrieval budget over𝑘∈{ 1, 2, 3, 4} yields
+168, 184, 180, and 178 repairs, respectively, supporting𝑘=2. Because
+correction retrieval ranks failed-diff and validation-feedback simi-
+larity, larger budgets necessarily add lower-ranked trajectories. The
+decline for𝑘> 2suggests that examples involving different repair
+locations or invariants can distract the Patcher, particularly when
+recovery depends on a small but decisive edit such as moving a
+guard upstream or extending it to sibling paths.
+Answer to RQ2:Contrastive analysis provides the main gain
+by turning a raw failure report into execution-grounded bound-
+ary evidence, which substantially improves downstream patch
+generation. The two experience tracks then improve different
+stages of the loop: M-Exp. helps construct more ideal contrastive
+pairs, whereas C-Exp. helps recover from failed candidate patches.
+Thus, the ablation shows thatContraFix’s effectiveness comes
+from a staged repair process: first obtaining better repair evi-
+dence, then using accumulated experience to refine how that
+evidence is constructed and applied.
+4.3 RQ3: Generalizability
+On PatchEval’s 225 Go, Python, and JavaScript instances,Con-
+traFixuses language-specific test feedback and retrieves experi-
+ence by CWE and language, while retaining the same controller
+and contrastive workflow. Table 5 compares it with GPT-5-based
+baselines.
+ContraFixresolves 166 out of 225 instances (73.8%) at an av-
+erage cost of $0.56 per task, nearly doubling the resolution rate
+of the strongest baseline (OpenHands, 37.8%) at a fraction of the
+per-task cost. This result is consistent with the framework-level
+advantage observed on SEC-Bench, where same-backbone compar-
+isons isolate the effect of the repair workflow. Per-language rates
+are80.7%on Go (67/83),77.3%on Python (51/66), and63.2%on
+JavaScript (48/76). Although lower thanContraFix’s 92.0% rate on
+SEC-Bench, the 73.8% overall PatchEval rate demonstrates that the
+contrastive runtime analysis and skill accumulation mechanisms
+transfer effectively from C/C++ memory safety to diverse languages
+and vulnerability classes.
+JavaScript exhibits a noticeably lower resolution rate, primar-
+ily due to its complex build toolchains (Babel, Webpack, custom
+preload scripts) that hinder both variant generation and build-graph-
+preserving edits. We inspected all 59 PatchEval failures across the
+three languages and found that 26 generated patches are logically
+consistent with the ground-truth developer fixes but fail benchmark
+validation for non-repair reasons. These includetest-suite mis-
+matches(10 cases), where legacy regression tests enforce pre-fix
+behavior, such as expecting malformed input to be silently accepted;
+andbenchmark environment issues(16 cases), where even the
+ground-truth developer patch fails due to proxy or Docker image
+mismatches. Diff comparisons and logs for these 26 cases are in-
+cluded in the replication package.
+Answer to RQ3:ContraFixgeneralizes beyond C/C++ on
+PatchEval, resolving 166/225 instances (73.8%) across Go, Python,
+and JavaScript. It nearly doubles the strongest baseline, Open-
+Hands (37.8%), at a lower average cost of $0.56 per task, with
+per-language rates of 80.7% on Go, 77.3% on Python, and 63.2%
+on JavaScript.
+
+ContraFix: Skill-Enhanced Contrastive Runtime Analysis for Vulnerability Repair
+Table 5: Performance comparison on PatchEval across Go, Python, and JavaScript. Values in parentheses denote resolution
+rates.
+Method Go Python JavaScript Total Avg. Cost
+SWE-agent [47] 28 (33.7) 17 (25.8) 33 (43.4) 78 (34.7) $2.39
+OpenHands [42] 32 (38.6) 18 (27.3) 35 (46.1) 85 (37.8) $4.64
+Claude Code [1] 33 (39.8) 16 (24.2) 32 (42.1) 81 (36.0) $6.40
+ContraFix67 (80.7) 51 (77.3) 48 (63.2) 166 (73.8) $0.56
+5 Discussion
+5.1 Failure Modes
+We manually inspect the SEC-Bench outcomes to understand where
+ContraFixstill fails. As reported in Section 4.1, 77 benchmark-
+validated patches are not semantically correct, including 44 incomplete/PoC-
+specific and 33 behavior-regressive patches.ContraFixalso fails to
+produce any benchmark-validated patch for 16 instances, including
+9 root-cause tracing failures and 7 incomplete candidate repairs.
+This section gives representative cases.
+Root-cause tracing gaps.This failure mode occurs when the crash
+site is only where an invalid state is later used, while the real fix
+must be placed where that state is created or should have been rolled
+back. In gpac.cve-2023-41000,ContraFixfollows a late command-
+buffer lifetime symptom, but the developer patch repairs an earlier
+rollback rule inBM_ParseCommand.
+Incomplete or PoC-specific repairs.In gpac.cve-2021-32439,Con-
+traFixprotects the observed stbl_AppendSize path. Manual inspec-
+tion labels the patch incomplete because the same packed-sample
+invariant is shared by several sibling sample-table operations. List-
+ing 1 shows the pattern. The patch blocks the path exercised by the
+PoC, but other functions that update the same sample-table state
+remain unprotected.
+1/* Covers only the PoC - exercised path . */
+2int stbl_AppendSize (...) {
+3if (! v a l i d _ p a c k e d _ s a m p l e _ s t a t e ( stbl ) )
+4return ERROR ;
+5append_size ( stbl , ...) ;
+6}
+7/* Sibling paths require the same guard . */
+8int s tbl_Appe ndChunk (...) {
+9append_chunk(stbl, ...); // need same guard
+10}
+11int st bl _U pda te Sa mp le (...) {
+12update_sample(stbl, ...); // need same guard
+13}
+Listing 1: gpac.cve-2021-32439.
+This case shows that after a candidate condition is found, the
+repair system should search for other functions that update the
+same fields or enforce the same file-format rule.
+Behavior regressions.In openjpeg.cve-2016-7445, a PNM header
+carries three fields—width, height, and maxval—that a legal file may
+place either on a single line or split across multiple lines. To block
+the malicious PoC,ContraFixadds a check that rejects any input
+whose three fields are not all on the current line. This stops the
+attack, but it also wrongly rejects legal multi-line headers, treating
+valid input as if it were an attack. Listing 2 shows the over-strict
+guard and the legal path it wrongly blocks (both in red).
+1/* Over-strict guard: requires all three fields on one line. */
+2if (!current_line_contains_all_header_fields())
+3return ERROR; /* rejects valid headers */
+4read_next_token(&width);
+5read_next_token(&height);
+6read_next_token(&maxval);
+Listing 2: openjpeg.cve-2016-7445.
+Such cases show that vulnerability repair needs positive bound-
+ary tests in addition to malicious inputs, so a patch is accepted only
+when it removes the vulnerability without rejecting valid behavior.
+5.2 Implications
+These outcome groups require different improvements. Root-cause
+tracing failures suggest probing where invalid state is created, in-
+cluding parser failure and rollback boundaries, rather than only the
+final crash site. Oracle-passing incomplete repairs require searching
+sibling functions that manipulate the same fields or implement the
+same format rule. Behavior regressions require positive boundary
+tests in addition to malicious inputs, so that a patch is accepted only
+when it removes the vulnerability without rejecting valid behav-
+ior. The PatchEval mismatches further show that execution-based
+benchmarks can be affected by stale regression expectations and
+environment drift, so we report these cases separately rather than
+counting them as successful repairs.
+6 Threats to Validity
+6.1 Internal Validity
+Experience reuse may introduce order dependence or leakage across
+instances. We mitigate this risk by resetting the accumulated skill
+base before each repetition, using the same instance order across
+configurations, excluding same-CVE entries, and retrieving only
+experiences whose vulnerability disclosure predates the current
+instance. The reported three-run results therefore measure stochas-
+tic variation under a fixed experience curriculum rather than all
+possible instance orders. Pretraining contamination in proprietary
+LLMs cannot be fully ruled out, butContraFix’s 29.5–42.0 point
+gains over same-backbone GPT-5-mini baselines and its DeepSeek-
+V3.2 result make backbone memorization unlikely to explain the
+relative improvements.
+6.2 Construct Validity
+ContraFixderives each RepairSpec from a finite set of generated
+executions, so the inferred relation may not cover the full input
+space. We therefore treat a RepairSpec as an empirically grounded
+
+Liu et al.
+repair hypothesis rather than a formal invariant, and every gener-
+ated patch must still pass build, vulnerability-oracle, and regression-
+oracle checks. These benchmark oracles are not complete semantic
+specifications. To avoid equating oracle passing with correctness,
+we separately perform a manual semantic review of all benchmark-
+validated SEC-Bench patches and report semantic correctness apart
+from benchmark validation.
+6.3 External Validity
+The evaluation covers 425 instances across C/C++, Go, Python, and
+JavaScript, but does not represent all vulnerability classes, software
+architectures, or deployment environments. In particular, vulnera-
+bilities involving concurrency, cryptography, distributed state, or
+proprietary code may require evidence and repair mechanisms be-
+yond those evaluated here. PortingContraFixto a new language
+mainly requires implementing language-specific wrappers for exe-
+cution; the gated workflow remains unchanged. The reported cross-
+language results therefore support portability across the evaluated
+ecosystems rather than language-independent generality.
+7 Related Work
+7.1 Repair Constraints and Vulnerability Repair
+Traditional APR repairs functional failures specified by tests. Template-
+, search-, and learning-based methods [ 13, 16, 17, 23, 46] either
+instantiate edit patterns or learn fixes from historical patches, often
+with the repair region already localized. Constraint-based repair,
+represented by SemFix [ 29], derives symbolic repair constraints
+from test executions.ContraFixalso uses an intermediate con-
+dition to guide patch generation, so repair-constraint construc-
+tion itself is not our novelty. The difference is thatContraFix
+derives an empirical RepairSpec from aligned failure-reproducing
+and oracle-passing executions, records concrete boundary evidence
+and patch scope, and passes this specification to a repository-level
+LLM patcher.
+Vulnerability-oriented analysis has studied neighboring exploit
+inputs and execution differences. VulnLoc [36] localizes suspicious
+code from exploit-neighborhood fuzzing, CrashRepair [35] infers
+crash-free specifications with concolic execution, and delta debug-
+ging and cause-effect isolation [3, 49] reduce failure inputs or iden-
+tify outcome-relevant state changes. LLM-based AVR systems fur-
+ther use CWE knowledge, retrieved fixes, iterative feedback, sani-
+tizer diagnostics, or validation constraints [6, 9, 19, 24, 45, 48, 50, 53].
+We therefore do not claim exploit-neighborhood analysis, differ-
+ential execution, or repair constraints individually.ContraFix
+combines them in an AVR workflow that aligns failure-reproducing
+and oracle-passing executions at shared probe sites, encodes the ob-
+served separating relation as a RepairSpec, and validates repository-
+level patches across C/C++, Go, Python, and JavaScript.
+7.2 Experience Accumulation in LLM Agents
+Voyager [41] stores executable skills, Reflexion [37] stores textual
+feedback, and experiential co-learning [31] shares task-level lessons
+among software-engineering agents. Repository-level repair sys-
+tems reuse similar issues [ 52] or patches [ 51]; ExpeRepair [ 27]
+stores repair demonstrations and semantic insights from prior issue-
+driven repairs. These memories improve reuse but do not represent
+the PoC-construction step required by exploit-driven AVR.
+AVR requires two distinct reusable decisions. A useful mutation
+must preserve the input format and vulnerable path while crossing
+the execution boundary; patch refinement must identify how an
+edit using the wrong variable, location, boundary, or repair scope
+was corrected. Prior systems may accumulate issue-level repair
+experience, but they do not explicitly represent exploit-driven PoC
+construction or activate failed-patch correction trajectories after a
+rejected AVR candidate. Agenticrepair [12] accumulates interaction
+traces online, but does not separately represent PoC-boundary
+construction and failed-patch correction.
+ContraFixstores these decisions as records with different con-
+tents and activation points. A mutation record contains the PoC
+format, applied transformation, and observed same-crash/oracle-
+passing outcomes and is retrieved before variant generation. A
+correction trajectory contains each rejected diff, its compiler or ora-
+cle feedback, and the final benchmark-validated diff and is retrieved
+only after the current Patcher produces a failed candidate. This sep-
+aration lets experience directly guide both contrastive-evidence
+construction and patch refinement.
+8 Conclusion
+We presentedContraFix, an LLM-based automated vulnerability
+repair framework that addresses two key limitations of existing
+approaches: the lack of repair-useful boundary evidence from a
+single failing execution and the limited reuse of cross-instance AVR
+experience. By generating boundary-straddling PoC variants and
+executing them under aligned state probes,ContraFixidentifies
+candidate state relations that distinguish failure-reproducing and
+oracle-passing executions. A dual-track skill base separately ac-
+cumulates mutation and patch-correction experience for future
+reuse. On SEC-Bench and PatchEval,ContraFixachieves 92.0%
+and 73.8% resolution rates, outperforming all evaluated baselines
+while maintaining competitive cost. Ablation studies further con-
+firm complementary contributions from contrastive analysis and
+skill accumulation. Overall, our framework provides a practical and
+effective paradigm for advancing LLM-based automated vulnerabil-
+ity repair.

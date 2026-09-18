@@ -1,0 +1,748 @@
+record_id: openreview:bGtmGTbmaz
+source_used: openreview_pdf
+fetched_url: https://openreview.net/pdf?id=bGtmGTbmaz
+fetched_title: EIGEN-AGENT: ADAPTIVEMULTI-AGENTSCIENTIFIC REASONING WITHMONITOR-BASEDRAG
+fetched_at: 2026-09-18T19:01:40Z
+
+Published as a conference paper at ICLR 2026
+EIGEN-AGENT: ADAPTIVEMULTI-AGENTSCIENTIFIC
+REASONING WITHMONITOR-BASEDRAG
+Xiangru Tang1,∗,†, Wanghan Xu2,∗, Yujie Wang1,∗, Zijie Guo3,∗, Daniel Shao1, Jiapeng Chen1,
+Cixuan Zhang1, Ziyi Wang4, Lixin Zhang5, Guancheng Wan6, Wenlong Zhang7, Lei Bai7,
+Zhenfei Yin8, Philip Torr8, Hanrui Wang9, Di Jin9
+1Yale University 2Shanghai Jiao Tong University 3Fudan University
+4Wuhan University 5Tongji University 6University of California, Los Angeles
+7Shanghai AI Lab 8University of Oxford 9Eigen AI
+ABSTRACT
+Large language models (LLMs) have recently shown strong progress on scientific
+reasoning, yet two major bottlenecks remain. First, explicit retrieval fragments
+reasoning, imposing a hidden “tool tax” of extra tokens and steps. Second, multi-
+agent pipelines often dilute strong solutions by averaging across all candidates. We
+address these challenges with a unified framework that combines implicit retrieval
+and structured collaboration. At its foundation, aMonitor-based retrieval module
+operates at the token level, integrating external knowledge with minimal disruption
+to reasoning. On top of this substrate,Hierarchical Solution Refinement (HSR)
+iteratively designates each candidate as an anchor to be repaired by its peers, while
+Quality-Aware Iterative Reasoning (QAIR)adapts refinement to solution quality.
+On Humanitys Last Exam (HLE) Bio/Chem Gold, our framework achieves 48.3%
+accuracy—the highest reported to date, surpassing the strongest agent baseline by
+13.4 points and leading frontier LLMs by up to 18.1 points, while simultaneously
+reducing token usage by 53.5% and agent steps by 43.7%. Results on SuperGPQA
+and TRQA confirm robustness across domains. Error analysis shows that reasoning
+failures and knowledge gaps co-occur in over 85% of cases, while diversity analysis
+reveals a clear dichotomy: retrieval tasks benefit from solution variety, whereas
+reasoning tasks favor consensus. Together, these findings demonstrate how implicit
+augmentation and structured refinement overcome the inefficiencies of explicit tool
+use and uniform aggregation. The code is available at https://github.com/
+tangxiangru/Eigen-1.
+1 INTRODUCTION
+0
+10
+20
+30
+40
+50
+60
+Eigen-Agent (48.3%)
+Eigen-Agent
+Figure 1:HLE Bio/Chem Gold overall accuracy.On the 149-problem HLE Bio/Chem Gold split
+(Pass@1, auto-judged by o3-mini), our system attains48.3%accuracy, exceeding the strongest
+agent baseline (SciMaster) by+13.4points and leading frontier LLMs by up to+18.1points.
+∗Equal contribution.
+†Correspondence:xiangru.tang@yale.edu.
+1
+
+Published as a conference paper at ICLR 2026
+Query: In population genetics, how can we estimate the effective
+population size from sample polymorphism data?
+Error Type 1: Over Confident, No RAG Error Type 2: RAG Calling Disrupted Reasoning
+Answer: Okay, I know this is a
+<population genetics>
+problem. Effective population
+size is calculated through
+formula . So if
+can be estimated from
+polymorphism data, I can just
+plug it into the formula and
+got: ...
+Actually, the correct formula
+is . So the
+answer is [wrong] .
+Correctness:
+Answer: This looks like a
+<population genetics estimation
+problem>. I think it involves
+Watterson’s estimator, but I am not
+entirely sure of the exact formula.
+I don’t want to make a mistake…
+maybe I should call retrieval.
+<code>
+output = RAG("Watterson's estimator")
+</code>
+Okay, so . But now I need
+to re-align my reasoning: how to
+connect back to the original problem
+statement?
+Interrupted Thinking[Execuation Error]
+Figure 2:Population genetics case with two failure modes.Left (Error Type 1):the model confidently recalls
+an incorrect formula (θ= 2N eµ) and derivesNe =θ/2µ , yielding the wrong answer.Right (Error Type 2):the
+model retrieves the correct relation (θ= 4N eµ) via explicit RAG, but the reasoning flow is disrupted and the
+result is not reintegrated into the original problem, illustrating thetool tax. Our Monitor-based RAG avoids this
+context suspension by injecting the correct formula directly into the reasoning stream.
+Recent advances in large language models have enabled impressive performance on a spectrum of
+reasoning benchmarks, from general-purpose evaluations such as MMLU [21] and mathematical prob-
+lem solving [9; 43] to domain-specific tasks including ScienceQA [38], MedQA [29], and GPQA [42].
+These results indicate that LLMs can already handle factual recall and mid-level reasoning across
+diverse domains. However, when moving to more demanding benchmarks such as Humanity’s Last
+Exam (HLE) [39; 47], which targets expert-level biology and chemistry problems, performance de-
+grades substantially, and systematic failures persist when problems require deep domain knowledge
+and complex multistep reasoning [7]. Through comprehensive analysis of error patterns across 149
+HLE Bio/Chem problems, we identify two fundamental architectural limitations:(1) the fragmentation
+of logical flow through explicit tool invocation, and(2) the inefficiency of democratic multi-agent
+collaboration.
+Current retrieval-augmented generation systems [ 3; 19; 33] require explicit interruption to access
+external knowledge. Each retrieval breaks the reasoning flow: suspending the logical state, formulating
+queries, processing results, and reconstructing the context. Thistool taxcompounds quickly: solving
+population genetics problems requires Watterson estimators requires 8-10 such interruptions, doubling
+the number of agent steps compared to a baseline without information retrieval (see Table 3) while
+reducing coherence. The problem persists in all RAG paradigms: single-round approaches [ 1; 45]
+cannot adapt to emerging needs, iterative systems [27; 44] compound interruption costs, and reasoning-
+aware methods [51; 55] remain bound by explicit invocation, as shown in Figure 2.
+Simultaneously, most current multi-agent systems [4; 52] employ rigid democratic workflows: genera-
+tion, criticism, synthesis, selection, treating all solutions equally regardless of quality. This contradicts
+both cognitive science research on hierarchical expert reasoning [8; 32] and observations of scientific
+collaboration where ideas naturally organize into anchors and support [14]. Our analysis reveals that
+92.8% of the failures involve reasoning errors, while 88.7% involve knowledge gaps, with substantial
+overlap, indicating that these challenges are fundamentally intertwined, as shown in Figure 7.
+We present EIGEN-AGENT, an efficient agent framework that unifiesMonitor-based RAGeliminates
+tool taxthrough implicit augmentation, operating continuously at the token level to detect knowl-
+edge gaps via semantic uncertainty, generate contextual queries, and inject information seamlessly.
+Hierarchical Solution Refinement (HSR)rotates each candidate solution as an anchor and applies
+peer-informed repair from the remaining candidates, allowing structured cross-solution refinement
+rather than uniform averaging.Quality-Aware Iterative Reasoning (QAIR)replaces fixed workflows
+with adaptive cycles that respond dynamically to quality trajectories and problem characteristics. While
+2
+
+Published as a conference paper at ICLR 2026
+our experiments focus on integration within a multi-agent reasoning framework, the design of Monitor-
+based RAG is model-agnostic and can in principle be incorporated into other reasoning systems without
+architectural modification.
+Our system achieves 48.3% accuracy in Humanity’s Last Exam Bio/Chem Gold, surpassing SciMas-
+ter [4] (34.9%) by 13.4 percentage points while reducing token consumption by 53.5% and agent
+steps by 43.7%. Solution pattern analysis further validates our framework: retrieval tasks benefit from
+diversity, whereas reasoning tasks favor consensus. These results demonstrate that eliminating the tool
+tax and embracing hierarchical collaboration enables both superior performance and computational
+efficiency, with potential implications that might extend beyond scientific reasoning to any domain
+requiring complex knowledge integration with logical inference.
+2 RELATEDWORK
+2.1 EVOLUTION OFRETRIEVAL-AUGMENTEDGENERATION
+The integration of external knowledge into language model reasoning has evolved through
+three main paradigms.Single-round RAGsystems [ 19; 25; 33] employ linear pipelines
+(rewrite→retrieve→generate) and are effective for factual queries. REALM [ 19] enabled end-to-
+end retrieval training, while RAG [33] extended this to knowledge-intensive tasks. More recent variants
+such as REPLUG [45] and In-Context RALM [41] improve robustness via black-box integration, but
+they lack adaptivity when knowledge needs emerge mid-reasoning.Iterative RAGintroduces retrieval-
+generation loops for dynamic knowledge acquisition. ITER-RETGEN [ 44] alternates retrieval and
+generation, Self-RAG [1] uses self-reflection to decide retrieval, FLARE [27] predicts future content,
+and DRAGIN [48] updates datastores in real time. These improve grounding but typically incur 35×
+more API calls.Reasoning-aware RAGembeds retrieval into reasoning itself. Chain-of-Note [ 57]
+produces reading notes, RAT [51] couples retrieval with thought generation, IRCoT [49] interleaves
+retrieval with chain-of-thought, and ReAct [54] unifies reasoning with action. While more integrated,
+they still depend on explicit tool calls, fragmenting reasoning and increasing latency.
+Table 1 summarizes these paradigms against our Monitor-based approach. Unlike step-level methods
+that pause to query, Monitor-based RAG operates globally at the token level: it monitors uncertainty
+signals and implicitly injects evidence into context, reducing retrieval overhead while preserving
+reasoning continuity. Moreover, its retrieval granularity is finer, enabling more precise and frequent
+evidence integration without overwhelming the reasoning process.
+Table 1:RAG paradigms vs. key capabilities.Single-round RAG is efficient but inadaptable; iterative RAG
+improves grounding but increases latency; reasoning-aware RAG offers tighter coupling yet still relies on explicit
+calls.Monitor-based RAGintegrates evidence implicitly at the token level, improving continuity and efficiency.
+System Triggering Fine-grained Continuity Efficiency Adaptivity
+Single-round RAG✗ ✗ ✗ ✓ ✗
+Iterative RAG✓ ✓ ✗ ✗ ✓
+Reasoning RAG✓ ✓ ✓ ✗ ✓
+Monitor-based RAG (Ours)✓ ✓ ✓ ✓ ✓
+2.2 MULTI-AGENTREASONINGSYSTEMS
+Multi-agent frameworks have shown promise through collaborative problem solving, yet many rely on
+rigid orchestration assumptions.
+Democratic collaboration systemstreat all agents equally. SciMasters [ 4] employs solvercriti-
+crewriter pipelines with a selector over candidate solutions, while LLM-Debate [ 13], Debate-Only-
+When-Necessary [15], and Multi-Agent Debate [ 35] use argumentative dialogue at different scales.
+MetaGPT [22] assigns role-based responsibilities, and CAMEL [34] explores autonomous cooperation.
+Table-Critic [56] extends these ideas to structured domains such as tabular reasoning. Such approaches,
+however, may devote substantial computation to low-quality candidates and do not explicitly capture
+hierarchical relationships among solutions.
+Structured reasoning systemsexplore non-linear organizations. Tree-of-Thoughts [ 53] enables
+branching exploration with backtracking, Graph-of-Thoughts [2] allows arbitrary reasoning topologies,
+and Everything-of-Thoughts [11] combines multiple reasoning patterns. CoMM [5] introduces multi-
+path prompting, while HM-RAG [37] couples hierarchical agents with multimodal retrieval. Although
+these methods capture richer reasoning structures, they lack quality-aware adaptation and can rapidly
+expand search spaces.
+3
+
+Published as a conference paper at ICLR 2026
+critically check
+one by one
+For each solution
+Apply repair strategies:
+- Logic Completion
+- Numerical Correction
+- Method Replacement
+- Expression Refinement
+Solution Quality Rubric:
+Logical Reasonable
+Answer Correct
+Explanation Complete
+High Confidence
+→ Otherwise
+Query
+Answer
+Select Best
+Solution
+Until Converge
+repaired
+solutions
+suggestion
+(b) Framework CorrectorProposer
+…
+Generate
+initial
+solutions
+anchor
+reference
+…
+Quality-Aware Iterative Reasoning
+(QAIR)
+Ranker
+Refinement
+Monitor
+Reasoning
+[Original Context]
+[Additional Context]
+RAGQuerier
+Injector
+Resume Reasoning
+Original+AdditionalContext
+Now that I have more
+information, I can
+continue my reasoning.
+If Confusion Detected, triggers RAG
+Hierarchical Solution Refinement
+(HSR)
+…
+(a) Monitor-based RAG
+... I know little about Pi...
+By literature, Pi is 3.14 ....
+To solve this
+problem, I first
+need to know
+what Pi is.
+corrector
+Figure 3:Framework overview.(a)Monitor-based RAGoperates globally during reasoning: the
+Monitor detects insufficiency in the reasoning stream, the Querier generates targeted queries, and
+the Injector integrates retrieved evidence into context with minimal disruption. (b) Building on this
+substrate, theProposergenerates initial candidate solutions. Each candidate is revised individually
+by theCorrector, which applies local targeted fixes without access to other solutions. The improved
+candidates are then passed toHSR, which enables cross-solution refinement via anchor–reference
+relationships. Finally,QAIRevaluates overall quality and may invoke the Corrector again if needed,
+while theRankerselects the strongest solution as the final answer.
+Recent advancesattempt more flexible or adaptive coordination. AgentVerse [6] supports dynamic
+team assembly, AutoGen [52] enables configurable conversation patterns, and Reflexion [46] incorpo-
+rates self-improvement signals. Further, evolving orchestration [10], intent-propagation strategies [40],
+RL-enhanced planning with graph-based policies [26], and collaborative leaderfollower training [16]
+highlight the need for adaptive depth and role specialization. Hierarchical orchestration frameworks
+such as AgentOrchestra [58] and HALO [23] exemplify this trend, emphasizing scalable coordination
+via layered or logic-oriented control.
+In contrast, our HSR and QAIR modules introduce hierarchical refinement and quality-driven iteration.
+Rather than following critic–corrector or debate pipelines [35; 46; 52] that operate under democratic
+comment–rewrite loops and risk over-investing in weak candidates, HSR organizes solutions into
+anchor–reference structures for targeted repair, while QAIR applies quality-thresholded, suggestion-
+guided revisions with early stopping. Crucially, both mechanisms operateon top ofmonitor-based
+implicitRAG, enabling hierarchical, quality-aware convergence without suspending the reasoning
+process, echoing cognitive science findings on expert problem solving [8].
+Declarative vs. Procedural Frameworks (DSPy vs. Ours)Declarative frameworks such as DSPy [31]
+compile tasks into prompt programs and retrieval policies, providing stability but with adaptation largely
+at the stage level. Our approach is procedural and run-time: aMonitor,Querier, andInjectoroperate
+during inference to adapt reasoning on the fly. This shift from compile-time templates to run-time
+control enables finer-grained adaptivity and seamless knowledge infusion.
+3 METHOD
+Overall workflow.EIGEN-AGENTintegrates global retrieval, role-based reasoning, and higher-level
+refinement into a unified workflow, as shown in Figure 3 and Algorithm 1. Monitor-based RAG operates
+globally during reasoning:Monitordetects insufficiency in the reasoning stream, the Querier formulates
+targeted queries, and the Injector seamlessly integrates retrieved evidence back into context. Based on
+this substrate,Proposergenerates diverse candidate solutions, each of which is individually revised by
+Correctorthrough targeted local repairs. The refined candidates are then passed toHierarchical Solution
+Refinement (HSR), which introduces cross-solution repair through anchor-reference interactions. Next,
+4
+
+Published as a conference paper at ICLR 2026
+Quality-Aware Iterative Reasoning (QAIR)evaluates overall quality and may invoke the corrector again
+for additional improvement. Finally,Rankercompares candidates and selects the strongest as the final
+solution. All agents can use web search tool (Serp API [30]) by default.
+3.1 MONITOR-BASEDRETRIEVAL-AUGMENTEDGENERATION
+Our Monitor-based RAG system augments reasoning implicitly, without fragmenting the workflow
+through explicit tool calls. Instead of forcing the LLM to pause, formulate a query, and inject evidence,
+the Monitor continuously inspects the reasoning trace, identifies potential knowledge insufficiencies,
+and invokes retrieval only when strictly necessary. The construction of the RAG database is shown in
+Appendix A.1.
+3.1.1 MONITOR: DETECTINGUNCERTAINTY ANDTRIGGERINGRETRIEVAL
+The Monitor acts as a sentinel that periodically examines the reasoning trace and determines whether
+external knowledge is required:
+Monitor(context) =
+1,if retrieval is required,
+0,otherwise.
+Here,contextrefers to the partial reasoning sequence. Once insufficiency is detected, the retrieval is
+immediately triggered. To balance timeliness and efficiency, the Monitor runs in a streaming setup:
+It checks the reasoning at fixed intervals of 512 characters with an overlap of 128 characters. This
+overlapping design ensures that uncertainty markers that cross boundaries are not missed while keeping
+latency low. Details of RAG Monitor are in Appendix A.5.
+3.1.2 QUERIER: IDENTIFYINGUNCERTAINTY ANDGENERATINGTARGETEDQUERIES
+Triggered by the Monitor, the Querier converts the uncertain fragment into one or more retrieval queries:
+[query1,...,query n] =Querier(context) . Here, the Querier maps the reasoning context into one or
+more concise, contextually appropriate queries. A key requirement of the Querier is to precisely extract
+the minimal set of keywords that capture the essential uncertainty in the reasoning trace. Depending on
+the task, this may result in a single keyword or a small collection of terms, each corresponding to a
+distinct retrieval perspective. The number and specificity of the generated queries directly determine
+the granularity of retrieval, which in turn controls the trade-off between recall and precision in RAG.
+By ensuring that queries are as fine-grained as possible, the Querier avoids unnecessary expansion of
+the search space while maximizing the relevance of retrieved evidence.
+3.1.3 INJECTOR: EVIDENCECOMPRESSION ANDCONTEXTUALINTEGRATION
+The Injector first filters and compresses raw RAG outputs into concise, utility-focused snippets to avoid
+redundancy and irrelevant noise. Then it rewrites and integrates the selected evidence in the Proposer’s
+reasoning context, ensuring coherence and preserving the natural flow of the reasoning narrative. This
+two-step design allows the knowledge retrieved to improve accuracy without introducing stylistic or
+structural disruptions: additional context=Injector(context,RAG results).
+Figure 2 shows a population genetic problem that requires the Watterson estimator. Baseline LLMs
+exhibit two characteristic errors: (1) confidently recalling the wrong formula (θ= 2N eµ) and deriving
+an incorrect effective population size, or (2) retrieving the correct formula (θ= 4N eµ) via explicit RAG
+but failing to reintegrate it into the original reasoning chain, a classic case oftool tax. Our Monitor-based
+RAG resolves both issues: the Monitor detects semantic uncertainty, the Querier generates a targeted
+query, and the Injector seamlessly injects the correct formula into the reasoning stream, allowing the
+solution to proceed without disruption and converge to the correct answer, as shown in Figure 4.
+3.2 HIERARCHICALSOLUTIONREFINEMENT(HSR)
+HSR challenges the assumption that all solutions should contribute equally to the final output. Instead
+of democratic averaging, HSR establishes structured relationships among solutions that mirror expert
+collaboration patterns. LetS={s 1,...,s n} denote the candidate solutions. Each solution is iteratively
+designated as the anchorsi, while the remaining setR=S\{s i} provides references. This rotation
+ensures that every solution benefits from peer-informed repair, preventing premature convergence to a
+single trajectory.
+Formally, the process can be described ass′
+i =Refine(s i,R) , where Refine(·) denotes the LLM-driven
+mechanism that applies multidimensional repairs to the anchor. Specifically, logical completion fills
+missing reasoning steps or implicit assumptions, numerical correction resolves arithmetic inaccuracies,
+method replacement substitutes stronger strategies for weaker ones, and expression refinement improves
+5
+
+Published as a conference paper at ICLR 2026
+Start from a diploid autosome that contains 5 SNPs from two inbred strains of the organism,
+and allowing exactly one directional crossover per gamete in each generation (F1 → F2 → F3),
+determine the number of possible unique haplotype sequences in the F3 generation.
+"Okay, then haplotypes of 5 SNPs can be represented as binary
+strings. Sequences with 4 change-points (01010, 10101)
+cannot arise by F3, but all with 0–3 change-points are possible.
+I should compute how many such binary strings exist."
+Monitor <Detected> “Uncertainty” : “Maximum number of recombination-induced change-points”
+Querier <Generate> “Query”: “How many haplotype recombination change-points during single
+crossover meiosis in population genetics.”
+RAG Tool < Retrieve> “Knowledge” : "During meiosis, a single crossover introduces at most one new
+breakpoint per gamete. Across successive generations, recombination patterns accumulate, but
+typically require more crossovers than two rounds of meiosis..."
+Injector <Inject Information to Reasoning> (1) At most one breakpoint per gamete (2) fully alternating
+haplotypes cannot appear within a few generations as F2 ⟶ F3
+Question:
+Step 1-1: LLM Begins Reasoning:
+"We start with two inbred strains A and B, each homozygous. The F1 generation carries haplotypes from
+both parents. In F2 and F3, recombination can introduce change-points, but I am uncertain how many
+unique haplotypes can arise by F3"
+Monitor-based RAG Triggered:
+Step 1-2: LLM Resumes Reasoning:
+Coding
+Exacuation
+Step 2: Final Summary
+Executor Output:
+Counts by change-points: {0: 2, 1: 8, 2: 12, 3: 8, 4: 2}
+Total valid haplotypes (0–3 change-points): 30
+"So, among the 32 possible binary haplotypes of 5 SNPs, only 4 change-points are excluded.
+Therefore, F3 can produce 30 unique haplotypes." <answer>30</answer>
+Figure 4:Haplotype counting with single crossovers (F1→F3).The Proposer exhibits uncertainty about
+recombination constraints;Monitordetects insufficiency,Querierissues a targeted query, andInjectorintegrates
+two retrieved facts. This enables the reasoning to exclude invalid cases and converge on correct count of 30
+haplotypes.
+clarity without altering substance. These dimensions ensure that the weaknesses of the anchor are
+addressed systematically while preserving its original strengths.
+Figure 5 shows a pathway reasoning problem where multiple proposers generate partial but inconsistent
+solutions. Baseline multi-agent synthesis averages across candidates, often propagating contradictions
+or omitting critical intermediates. Instead, HSR designates one solution as the anchor and integrates
+targeted corrections from reference solutions (e.g., filling in missing intermediates or fixing reaction
+links). This yields a coherent and biologically valid pathway, demonstrating how HSR consolidates
+fragmented contributions into a unified solution. QAIR then evaluates the refined set and can terminate
+the process once the quality stabilizes, avoiding unnecessary additional cycles.
+3.3 QUALITY-AWAREITERATIVEREASONING(QAIR)
+QAIR introduces an evaluation-driven control mechanism to refine candidate solutions after the HSR
+stage. LetS′ ={s′
+1,...,s ′
+n} denote the initial set of refined candidate solutions. Each solutions′∈S′
+is evaluated by an LLM-based evaluator on three quality dimensions: logic, answer, and explanation,
+and a textual suggestion for improvement is generated. Each dimension is scored on a scale from 0
+to 5, and the three quality scores are then combined into a composite score:q(s′) = 0.2·q logic(s′) +
+0.6·q answer(s′) + 0.2·q explanation(s′), where the higher weight on the answer dimension emphasizes
+the correctness of the final answer while still allowing for logical consistency and explanatory clarity.
+Candidates meeting the thresholdτ= 3 are retained, while those failing are marked non-passing and
+passed to the corrector for targeted revision:˜s=Corrector(s′,suggestion(s′)).
+LetF t denote the set of solutions that fail the evaluation in roundt, andE t denote the set of solutions
+evaluated at roundt. Iterative refinement continues exclusively on the subset of failed solutions, forming
+the evaluation set for the next roundEt+1 ={˜s|s′∈F t}, until all solutions pass or maximum rounds
+6
+
+Published as a conference paper at ICLR 2026
+Tem entomologists collect 500,000 camera trap images (3MP, 10 cm FOV) of pollinators on
+Solidago altissima. They want to identify all pollinators and count flowers fed on in each image.
+Which single method would be easiest to process these images for the required data?
+Question:
+D. Manual, 410hA. EfficientNet, 5 species (36h train + 13.8h deploy)
+B. EfficientNet, 500 species (126h train + 13.8h deploy)
+C. ResNet, 500 species (128h train + 11.8h deploy) F. B + C
+E. A + B
+Answer Choice
+Anchor Solution Reference
+Solutions
+…
+C. ResNet
+500 species
+EfficientNet (Option A, B) and ResNet( C) are classification
+models ⟶ can’t identify multiple pollinators and count flowers
+in the same image ⟶ Option D is correct
+Deployment time: Option C = 126 + 13.8 = (139.8 hours), less than A: (49.8 hours)
+and B: (139.8 hours) ⟶ Option C is the fastest for deployment
+Although EfficientNet is generally faster than ResNet in practice, but we proceed
+with the given number. Hence, Option C is chosen as the most appropriate.
+Numeric correction:
+Targeted
+Correctness
+Numeric correction: the comparison of deployment time is incorrect; Option A
+is the fastest rather than Option C.
+Method Correction: Classification models such as EfficientNet and ResNet cannot
+simultaneously recognize multiple insects. Counting requires either a detection model (like
+Faster R-CNN, YOLO) or a density map approach. So, only Option D remains correct.
+Logic Correction: Time cannot be the only criterion, even though C has fewer hours.
+Clarify Correction: Even if given times suggest C is fastest, it cannot be considered a solution
+because it fails the fundamental requirement. Thus, the correct answer under the single-
+method rule is Option D (manual).
+Figure 5:Illustrative example: HSR.The system rotates anchors among candidate solutions and integrates
+targeted corrections from references (e.g., fixing arithmetic mistakes, filling missing steps). Instead of averaging
+inconsistent candidates, HSR applies targeted improvements to yield a coherent final answer.
+Tmax is reached. By coupling structured quality assessment with suggestion-driven repair and avoiding
+re-evaluation of already validated candidates, QAIR efficiently converges toward a high-quality solution
+set while maintaining logical consistency, answer correctness, and explanatory clarity.
+4 EXPERIMENTS
+4.1 EXPERIMENTALSETUP
+Table 2:Benchmark comparison under matched protocol.HLE
+Bio/Chem (149 problems; o3-mini judge), SuperGPQA Biology (hard
+split), and TRQA Literature (multiple-choice).
+Model HLE Bio/Chem SuperGPQA Hard TRQA
+Base Models
+Kimi K2 6.71 48.91 38.37
+DeepSeek V3.1 13.42 66.30 43.60
+Claude Opus 4.1 21.48 63.04 42.44
+Gemini 2.5 Pro 18.79 65.22 45.93
+GPT-5 22.82 61.96 50.58
+Grok-4 30.20 66.30 46.51
+Agent Systems
+SciMaster (GPT 4.1) [4] 9.45 19.78 47.67
+Autogen (GPT 4.1) [52] 7.38 29.35 51.74
+OpenAI Deep Research (o4-mini) 22.82 39.13 -
+Biomni (GPT 4.1) [24] 10.74 43.48 41.09
+SciMaster (DeepSeek V3.1) 34.92 66.30 51.74
+EIGEN-AGENT(DeepSeek V3.1, Pass@1) 48.30 69.57 54.65
+EIGEN-AGENT(DeepSeek V3.1, Pass@5) 61.74 78.26 79.07
+We evaluate our approach on
+Humanity’s Last Exam (HLE)
+Bio/Chem Gold [ 47]1, compris-
+ing 149 graduate-level problems
+in biology, medicine, and chem-
+istry. HLE Bio/Chem Gold sub-
+set was manually curated and cor-
+rected by domain experts to en-
+sure label fidelity. Additionally,
+we test on 92 hard-difficulty prob-
+lems from SuperGPQA [12] Biol-
+ogy and 172 problems from TRQA
+Literature [ 59]. Our framework
+uses DeepSeek-V3.1 [ 36] as the base model with temperature 0.5 and 64K token limit. Follow-
+ing HLE protocol, we employ o3-mini for automated evaluation (See Appendix A.3). Beyond accuracy,
+we log total generated tokens and agent steps in the ablation experiments, as quantitative measures of
+the tool tax.
+4.2 MAINRESULTS
+In the HLE Bio / Chem dataset, our system achieves48.3%accuracy (Pass@1), substantially outper-
+forming the strongest baseline Grok-4 (30.2%) by nearly 18 absolute points and more than doubling
+1https://huggingface.co/datasets/futurehouse/hle-gold-bio-chem
+7
+
+Published as a conference paper at ICLR 2026
+the performance of general purpose models such as GPT-5 (22.8%) and Claude Opus 4.1 (21.5%). This
+margin is particularly notable, given that HLE problems require domain-specific reasoning rather than
+surface-level recall.
+In SuperGPQA hard biology, our method reaches69.6%, exceeding all competing large models. The
+improvement is consistent across question categories, suggesting that our framework not only boosts
+correctness but also improves robustness on especially challenging scientific queries.
+Figure 6:Comparison of retrieval
+backends within Monitor-based RAG.
+Vanilla Vanna HippoRAG LightRAG
+RAG Methods
+0
+10
+20
+30
+40Accuracy
+Finally, in TRQA benchmark, which emphasizes Information
+retrieval, integration and reasoning, our method obtains54.7%
+Pass@1, surpassing both Grok-4 (46.5%) and Gemini 2.5 Pro
+(45.9%). Furthermore, under the more permissive Pass@5,
+counting success if any of five attempts is correctaccuracy rises
+to79.1%, indicating robustness under a best-of-N setting.
+Together, these results establish the advantage of our design
+in three heterogeneous benchmarks: biomedical, chemical and
+medical, demonstrating not only raw accuracy gains, but also
+improved adaptability across domains (Table 2). For more results
+of baseline models, please refer to Appendix A.10.
+Within the Monitor-based RAG framework, we experimented
+with four retrieval backends: Vanilla [ 17], Vanna, HippoRAG [ 28], and LightRAG [ 18]. Among
+these,HippoRAGachieved the most consistent gains when coupled with our uncertainty detection. We
+attribute this to its finer-grained retrieval and graph-structured indexing, which better capture relevant
+context fragments without overwhelming the reasoning stream. Based on these results, we adopt
+HippoRAG as the default retrieval backend in our Monitor module (Figure 6).
+4.3 COMPONENTANALYSIS
+To understand the contribution of each architectural component, we performed systematic analysis
+on the full HLE Bio/Chem benchmark (149 problems), considering both incremental build-up and
+component ablation (Table 3).
+The baseline configuration uses five parallel Proposers with access to a generic web search tool but
+without any paper retrieval (no RAG). TheExplicit RAGsetting adds a scientific paper database
+queried via embedding-based similarity. Unless otherwise noted, all settings use the same five-Proposer
+architecture with CriticCorrector refinement and Ranker selection.
+The baseline system without external knowledge achieves 25.3% accuracy, underscoring the limitations
+of parametric knowledge alone for graduate-level science problems. Adding an explicit paper database
+improves accuracy to 41.4%, but at the cost of a sharp increase in workflow iterations (from 43.4 to 94.8).
+This reflects the high overhead of explicit retrieval: each tool call suspends reasoning, requires query
+formulation, and forces reintegration of results, fragmenting what should be a continuous reasoning
+flow. While the first one or two retrievals may be helpful, repeated interruptions often add little value
+and compound this “tool tax.”
+Reasoning Process Error 92.78%
+Knowledge Application Error 88.66%
+Execution & Adherence Error 13.40%
+Comprehension Error 9.28%
+Figure 7:Error type distribution.Analysis of incorrect solution logs shows
+reasoning- and knowledge-related errors as dominant. Note that a single
+problem may involve multiple error types, so percentages do not sum to 100.
+Our Monitor-based RAG
+mitigates this overhead
+through implicit augmen-
+tation. By continuously
+monitoring generation and
+injecting knowledge only
+when necessary, it reduces
+token consumption by more
+than half (from 470.6K to
+218.4K) and cuts workflow
+iterations nearly in half
+(from 94.8 to 51.3), while maintaining competitive accuracy (34.5%). Adding the Querier improves
+query precision, leading to a modest gain to 36.8%. The limited margin compared to Monitor alone
+suggests that the primary bottleneck lies not in query formation but in evidence integration, which is
+addressed by the Injector. With the Injector, accuracy rises further to 40.3% with minimal additional
+overhead.
+Hierarchical Solution Refinement (HSR) then contributes complementary gains, raising accuracy to
+43.7%. Instead of naive aggregation, HSR leverages anchorreference interactions to apply targeted
+8
+
+Published as a conference paper at ICLR 2026
+Table 3:Component analysis from two perspectives on the full HLE Bio/Chem benchmark (149
+problems).(a) Incremental build-up: modules are added one by one. (b) Component ablation: each
+module is removed from the full system. The baseline configuration uses five parallel Proposers with
+web search but without external paper retrieval (no RAG).Steps= agent-level workflow iterations
+(not token-level reasoning).
+(a) Incremental build-up (b) Component ablation
+Configuration Accuracy (%) Tokens (K) Steps Configuration Accuracy (%) Tokens (K) Steps
+Baseline (no ext. knowledge & no RAG) 25.3 483.6 43.4 Full system48.3 218.953.4
++ Papers (Explicit RAG) 41.4 470.6 94.8 – (Monitor, Querier, Injector) 48.5 461.3 95.3
++ Monitor only 34.5 218.4 51.3 – Querier 45.9 224.1 53.1
++ Monitor + Querier 36.8 213.0 51.7 – Injector 44.7 202.5 52.1
++ Monitor + Querier + Injector 40.3 229.5 53.1 – HSR 44.8 234.1 53.5
++ Monitor + Querier + Injector + HSR 43.7 214.0 52.9 – QAIR 43.7 214.0 52.9
++ Monitor + Querier + Injector + HSR + QAIR48.3 218.953.4
+repairs, focusing revisions where they matter most (e.g., filling missing reasoning steps or correcting
+arithmetic). This adds some extra reasoning steps but yields proportionally higher accuracy.
+Finally, Quality-Aware Iterative Reasoning (QAIR) builds on HSR by selectively invoking the Corrector
+when evaluation indicates further refinement is necessary. This yields the best overall result in the
+incremental sequence: 48.3% accuracy with 218.9K tokens and 53.4 iterations. Although QAIR
+introduces slight additional overhead, it ensures that every revision contributes meaningfully, preventing
+uncontrolled exploration or redundant cycles.
+The ablation analysis further validates these findings: removing the Monitor results in a significant
+increase in the number of tokens and agent steps; and omitting HSR or QAIR lowers final performance
+to 44.8% and 43.7%, respectively. Together, these results show that Monitor-based RAG reduces the tool
+tax, HSR provides structured cross-solution repair, and QAIR ensures convergence through selective
+correction. Their combination achieves both state-of-the-art accuracy and controlled computation.
+5 ANALYSIS
+5.1 ERRORTYPEDISTRIBUTION
+0.0 0.2 0.4 0.6 0.8 1.0
+Average Pairwise Consistency Score
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Average Accuracy Score
+Reasoning T ype (n=392)
+Trend (r=0.840)
+95% Confidence
+Correlation: 0.840
+Slope: 0.851
+Samples: 392
+0.0 0.2 0.4 0.6 0.8 1.0
+Average Pairwise Consistency Score
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Average Accuracy Score
+Information Retrieval T ype (n=339)
+Trend (r=0.881)
+95% Confidence
+Correlation: 0.881
+Slope: 0.369
+Samples: 339
+Consistency vs Accuracy by Question T ype
+Figure 8:Diversity vs. consensus.Task-dependent effect of solution diversity:
+retrieval tasks benefit from variety, while reasoning tasks benefit from agree-
+ment. The horizontal axis reports theaverage pairwise consistency scoreamong
+Proposers, computed by an LLM-based judge that evaluates semantic overlap
+between answers on a 0–1 scale. The vertical axis shows theaverage accuracy
+score, also judged by an LLM, which rates the degree of correctness of each an-
+swer relative to ground truth on a continuous 0–1 scale (rather than a binary 0/1).
+This continuous evaluation enables us to capture fine-grained trends between
+diversity and correctness across tasks. The fitted trend lines further highlight
+the contrast: retrieval tasks show a relatively flat slope ( ≈0.369 ), whereas
+reasoning tasks exhibit a much steeper positive slope (≈0.851 ), indicating a
+stronger dependence on consensus.
+Analysis of failed prob-
+lems reveals two dominant
+error modes: reasoning
+process errors (92.78%)
+and knowledge applica-
+tion errors (88.66%), as
+shown in Figure 7. These
+frequently co-occur, sug-
+gesting that successful sci-
+entific reasoning requires
+seamless integration of do-
+main knowledge with log-
+ical inference. Execution
+errors (13.40%) and com-
+prehension errors (9.28%)
+are comparatively rare, in-
+dicating that the primary
+challenge lies not in un-
+derstanding problems or
+following instructions, but
+in maintaining coherent
+reasoning while access-
+ing relevant knowledge.
+The strong overlap also
+suggests interdependence:
+missing knowledge often manifests as faulty reasoning steps, and disrupted reasoning in turn prevents
+effective incorporation of retrieved facts. For more examples of these different errors, see Appendix A.6.
+5.2 DIVERSITY VS. CONSENSUS INMULTI-AGENTSOLUTIONS
+Our framework employs multiple parallelProposersto generate candidate solutions and utilizes a
+Rankerto select the final answer. A natural assumption is that higher agreement among Proposers
+9
+
+Published as a conference paper at ICLR 2026
+should correlate with higher accuracy. However, our analysis reveals a more nuanced picture: the
+relationship between solution diversity and correctness depends strongly on problem type.
+To investigate this, we divide the benchmark into two categories:information retrievaltasks, which
+rely heavily on external knowledge, andreasoningtasks, which require longer chains of inference. For
+each problem, we measure the level of agreement among Proposers and evaluate how it correlates with
+accuracy. Both metrics are scored continuously by an LLM judge on a [0,1] scale: consistency reflects
+the pairwise agreement among candidate answers, while accuracy measures the graded alignment
+between a candidate and the ground-truth solution (see Appendix A.3). This continuous evaluation
+enables fine-grained correlation analysis beyond binary correctness. As shown in Fig 8, retrieval
+tasks benefit from diversity (low agreement), whereas reasoning tasks benefit from consensus (high
+agreement), with correlation slopes of0.369and0.851, respectively.
+This dichotomy suggests that different ranking strategies are optimal for different task types. In retrieval-
+heavy settings, the Ranker should preserve diversity and aggregate complementary perspectives,
+whereas in reasoning-heavy tasks, it should prioritize high-consensus answers as indicators of reliability.
+These observations highlight the complementary roles of HSR and QAIR, which operationalize the
+transition from diversity to consensus in a task-adaptive manner.
+5.3 TOOLTAXQUANTIFICATION
+Tool Tax
+
+Token Decrease
+Accuracy Increase
+Eigen-Agent
+Baseline+RAG
+Figure 9:Quantifying the tool tax.Com-
+parison of accuracy and coherence relative
+to compute cost, showing the overhead of
+explicit retrieval vs. implicit augmentation.
+Note that in this analysis, the baseline refers
+to the explicit RAG configuration (i.e., Pro-
+posers equipped with paper retrieval and web
+search), which represents the standard setup
+in most existing agent systems.
+The computational burden of explicit tool invocation ex-
+tends beyond simple latency. As shown in Table 3, the
+explicit RAG baseline(with Proposers equipped with paper
+retrieval and web search) more than doubles agent-level
+workflow iterations compared to the no-IR setting (43.4
+→ 94.8). This quantifies a hiddentool taxfrom context
+switching between reasoning and retrieval modes: each call
+requires the system to pause the evolving chain of thought,
+formulate a query, process external results, and then recon-
+struct the local context before continuingfragmenting what
+should be a continuous inference process.
+Fig. 9 visualizes this trade-off. Explicit RAG produces
+substantially longer traces without commensurate gains,
+whereas ourMonitor-based RAGmaintains concise, inter-
+pretable reasoning by injecting only the evidence that is
+needed, precisely when it is needed. Operating implicitly at
+generation time, it delivers comparable knowledge augmen-
+tation with markedly fewer tokens and iterations, avoiding
+repeated context suspensions.
+More broadly, these findings argue forimplicit augmenta-
+tionandadaptive tool policiesin agent design: systems
+should not treat all retrieval calls equally, but modulate re-
+trieval frequency and depth based on emerging uncertainty,
+problem structure, and expected utilitypreserving continuity
+of reasoning while still accessing external knowledge when
+it truly helps.
+6 CONCLUSION
+Our experiments validate three key architectural innovations in EIGEN-AGENT. First, implicit knowl-
+edge augmentation through Monitor-based RAG substantially reduces explicit retrieval overhead while
+preserving reasoning coherence. Second, HSR improves over uniform multi-agent aggregation by
+introducing structured anchor–reference relationships. Third, QAIR adaptively balances exploration and
+early stopping, achieving an effective trade-off between diversity and consensus. On HLE Bio/Chem,
+EIGEN-AGENTreaches 48.3% accuracy under compute-matched settings, with a 53.5% token reduction,
+showing that targeted architectural design can enhance both effectiveness and efficiency. By integrating
+external knowledge with minimal disruption to reasoning flow, our framework addresses key limitations
+of prior approaches in complex scientific problem solving. Future work will extend these principles to
+additional scientific domains, assess robustness and transferability, and explore integration into broader
+scientific workflows.
+10
+
+Published as a conference paper at ICLR 2026
+ETHICSSTATEMENT
+Our study aims to improve the scientific reasoning capabilities of large language models (LLMs) by
+introducing a unified framework that combines implicit retrieval and hierarchical collaboration. All
+datasets used in this work, includingHumanity’s Last Exam (HLE),SuperGPQA, andTRQA, are
+publicly available under open licenses. No private, sensitive, or human-identifiable data are involved.
+All annotations, where applicable, are derived from public benchmarks or generated using synthetic
+processes, ensuring that no ethical concerns regarding data privacy or misuse arise. The broader
+societal impact of this research lies in its potential to enhance scientific reasoning and complex problem-
+solving abilities in AI systems, which can be applied to fields such as education, scientific discovery,
+and decision support. Care has been taken to avoid overstating capabilities or drawing misleading
+conclusions, and we encourage further research to validate our findings across other high-stakes
+domains.
+REPRODUCIBILITYSTATEMENT
+To ensure reproducibility, we provide detailed descriptions of our dataset preprocessing procedures,
+agent prompting strategies, and iterative refinement workflow in the appendix. These include full
+pipeline configurations and experimental setups required to reproduce the reported results with high
+fidelity.

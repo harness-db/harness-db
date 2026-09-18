@@ -1,0 +1,990 @@
+record_id: arxiv:2311.05657
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2311.05657
+fetched_title: Closed LLMs (GPT-3.5/4) as controller for agents?
+fetched_at: 2026-09-18T19:08:57Z
+
+ACL 2024 Main Conference
+Agent LUMOS :
+Unified and Modular Training for Open-Source Language Agents
+Da Yin♡* Faeze Brahman♠ Abhilasha Ravichander♠ Khyathi Chandu♠
+Kai-Wei Chang♡ Yejin Choi♠♢ Bill Yuchen Lin♠
+♠Allen Institute for AI
+♡UCLA ♢University of Washington
+https://allenai.github.io/lumos/
+da.yin@cs.ucla.edu yuchenl@allenai.org
+Abstract
+Closed-source agents suffer from several issues
+such as a lack of affordability, transparency,
+and reproducibility, particularly on complex in-
+teractive tasks. This motivates the development
+of open-source alternatives. We introduce
+LUMOS , one of the first frameworks for train-
+ing open-source LLM-based agents. LUMOS
+features a learnable, unified and modular archi-
+tecture with a planning module that learns high-
+level subgoal generation, and a grounding mod-
+ule trained to translate these into the actions us-
+ing various tools in the execution module. The
+design allows for modular upgrades and wider
+applicability to diverse interactive tasks. To
+foster generalizable agent learning, we collect
+large-scale, unified, and high-quality training
+annotations derived from diverse ground-truth
+reasoning rationales across various complex in-
+teractive tasks. On 9 datasets, LUMOS exhibits
+several key advantages: (1) LUMOS excels mul-
+tiple larger open-source agents on the held-out
+datasets (unused for training) for each task type.
+LUMOS even surpasses GPT agents on QA
+and web tasks; (2) LUMOS outperforms open-
+source agents produced by chain-of-thoughts
+and unmodularized integrated training; and (3)
+LUMOS effectively generalizes to unseen tasks,
+outperforming 33B-scale agents and domain-
+specific agents.
+1 Introduction
+Language agents execute actions and interact with
+external tools or environments, in service of a goal.
+They have evolved into crucial elements of AI sys-
+tems targeted at solving complex interactive tasks.
+These tasks often require agents to perform long-
+horizon planning and interactive reasoning, and
+can range from QA (Yang et al., 2018; Geva et al.,
+2021), to web tasks (Deng et al., 2023; Zhou et al.,
+* Work was done during Da’s internship at AI2. Code:
+https://github.com/allenai/lumos. Models & Data:
+https://huggingface.co/ai2lumos
+Complex QA
+Math
+Web Browsing
+Text Games
+Interactive Coding
+Multimodal
+…
+Various Complex Interactive Tasks
+Can we train agents with open data and LLMs?
+Yes, we introduce 🪄
+Lumos !
+Closed LLMs (GPT-3.5/4) as controller for agents?
+Cons: Expensive, black-box, not reproducible, less controllable, etc.
+🪄
+Lumos
+An uniﬁed, modular and
+open training framework
+Based on LLAMA-2-7B/13B
+✅
+Affordable ✅
+Transparent
+✅
+Easy to Update✅
+Task-General
+✅
+Reproducible
+Figure 1: LUMOS is an unified, modular and open-
+source agent training framework that enables effective
+cross-task generalization while being easy to be updated.
+It also has advantages against closed-source agents from
+affordability, transparency and reproducibility aspects.
+2023), math (Cobbe et al., 2021), and multimodal
+reasoning (Schwenk et al., 2022; Lu et al., 2022).
+Prior agent frameworks (Yao et al., 2022b; Shinn
+et al., 2023; Lin et al., 2023; Lu et al., 2023;
+Liu et al., 2023c) have primarily relied on closed-
+source large language model (LLM) APIs such
+as GPT-4 and ChatGPT (OpenAI, 2023a, 2022).
+Though powerful, they can be prohibitively expen-
+sive, particularly for tasks with long contexts such
+as web tasks (which include encoding long HTML
+code). Furthermore, the lack of transparency in
+closed-source LLMs hinders scientific understand-
+ing of their architectures and effectiveness, and
+provides limited reproducibility, and controllability
+over their behavior. We argue that over reliance on
+closed-source LLM-based agents is not conducive
+to the growth of research on language agents.
+In this paper, we propose
+LUMOS , a gener-
+alizable Language agent framework via Unified,
+Modular, and Open Source training. LUMOS em-
+ploys a unified and modular architecture broadly
+applicable to complex interactive tasks: a planning
+module ♂list-alt, a grounding module ⚛ , and an execu-
+arXiv:2311.05657v3 [cs.AI] 10 Jul 2024
+
+📝
+s1: Search ﬂights from honolulu to nyc...
+⚛
+a1-1: Type([box-id], HNL) ⚒
+⇒ Browser
+⚛
+a1-2: Type([box-id], JFK) ⚒
+⇒ Browser
+⚛
+a1-3: Click([button-id]) ⚒
+⇒ Browser
+📝
+s2: Set a ﬁlter to keep … price ≤ 1300
+⚛
+…. ⚒
+….
+📝
+s3: Set a ﬁlter to keep premium economy
+Lumos-OnePass (Lumos-O) Lumos-Iterative (Lumos-I) (𝑡-th iteration)
+Task desc.: 𝑇
+Prev. subgoals:
+Prev. actions:
+Action interfaces: 𝐼
+Task desc.: 𝑇
+Prev. results:
+Prev. subgoals:
+📝
+Planning
+⚛
+Grounding
+⚒
+Execution
+Task desc: 𝑇
+Action interf.: 𝐼
+Task desc.: 𝑇
+All Actions
+Exe. results
+All Subgoals
+📝
+Planning
+⚛
+Grounding
+⚒
+Execution
+Next Actions
+Exe. result
+Next Subgoal
+Multimodal Task
+(A-OKVQA): The device
+in her hand is from
+which country?
+📝
+s1: Identify the brand of the device …
+⚛
+a1: VQA(<img>, What is the brand..?)
+⚒
+e1: LLAVA(...) ⇒ Nintendo
+Web Task (Mind2Web):
+Find ﬂights from honolulu to NYC
+with budget of $1,300 for
+premium economy.
+📝
+s2: Answer the country of Nintendo
+⚛
+a2: QA(context, What’s the country …)
+⚒
+e2: LLM(...) ⇒ Japan
+Figure 2: Overall framework of LUMOS . LUMOS are trained with 56K high-quality training annotations. We
+propose two agent training and inference formulations, LUMOS -O (§2.2) and LUMOS -I (§2.3). LUMOS -O is an
+efficient formulation that enables one-pass inference; LUMOS -I is an adaptive formulation that help agents flexibly
+plan based on the execution feedback. We showcase twoLUMOS -I running examples in A-OKVQA and Mind2Web.
+tion module /tools. The planning module learns to
+decompose diverse complex tasks into a sequence
+of high-level subgoals. The grounding module is
+trained to communicate with the planning module
+and translate its generated subgoals into the ac-
+tions that can be executed through a collection of
+tools in the execution module. LUMOS design al-
+lows for easy module upgrades to enhance new task
+planning, novel action grounding and supplement-
+ing new tools, without impacting the others. To
+tackle the tasks through the agent modules, we pro-
+pose two interaction formulations for implementing
+the language agents, LUMOS -OnePass (LUMOS -
+O) and LUMOS -Iterative (LUMOS -I). Outlined in
+Fig. 2, LUMOS -O is an efficient formulation that
+generates all the subgoals and actions through a
+single inference call, accomplishing the task in a
+one-pass manner. LUMOS -I is an iterative formu-
+lation that generates one subgoal at a time based
+on its previous execution results and environment
+updates, thereby enabling an adaptive agent.
+In addition, LUMOS utilizes a unified data for-
+mat that encompasses multiple task types, thereby
+enabling the proposed agent framework to conve-
+niently support a range of interactive tasks. These
+include, but are not limited to: question answering,
+mathematics, coding, web browsing, multimodal
+reasoning, and text games. To obtain high-quality
+annotations for training LUMOS , we leverage the
+ground-truth rationales in existing benchmarks
+across various task types, and convert them into
+a unified format (§3). This conversion is achieved
+with the aid of strong LLMs, ensuring that the con-
+verted annotations adhere to a universally appli-
+cable format consistent with our modular design.
+Our proposed annotation conversion method re-
+sults in around 56K multi-task multi-domain agent
+training annotations, one of the largest open-source
+resources for agent fine-tuning. The training an-
+notations could serve as a resource for universally
+enhancing any open-source LLMs with agent capa-
+bilities.
+Our evaluation demonstrates that LUMOS pro-
+vides improved or comparable performance with
+GPT-based or larger open-source agents across
+various complex interactive tasks that are com-
+monly used for agent evaluation, including QA,
+web, math, and multimodal tasks. We summarize
+our contributions and results as follows:
+General Agent Framework with High-Quality
+Data. We introduce an open-source agent learn-
+ing framework that trains LLMs with unified data,
+aimed at unifying complex interactive tasks and
+enhancing generalization on unseen tasks with new
+environments and actions. We hope our framework
+and annotations can facilitate future research in
+developing open-source language agents.
+Competitive Performance Across Tasks and
+Agent Training Formulations. LUMOS outper-
+forms a great number of open-source agents on the
+LUMOS held-out datasets unused in LUMOS train-
+ing data across the four training task types.LUMOS
+even surpasses GPT-based agents in web and QA
+tasks. Specifically, LUMOS shows a 5.0% enhance-
+ment over GPT-4 on Mind2Web, and 4.1% and
+3.5% LLM accuracy1 improvement on HotpotQA
+over the ReAct and ReWOO agents fully based
+on GPT-3.5-turbo, respectively. Furthermore, we
+observe that LUMOS training formulations outper-
+form other potential agent training methods, such
+as chain-of-thoughts and integrated training, which
+instruct a single module to both plan and ground.
+Cross-Task Generalization. We evaluate LU-
+MOS on two unseen tasks, WebShop (Yao et al.,
+2022a), a text game for online shopping, and
+InterCodeSQL (Yang et al., 2023), an interactive
+code generation task. LUMOS even surpasses 30B-
+scale agents, especially by nearly 20 reward points
+on WebShop. LUMOS also delivers a consistent
+1A metric defined in Xu et al. (2023) to identify the seman-
+tic equivalence between predictions and gold answers.
+
+reward improvement over domain-specific agents.
+This suggests that LUMOS can generalize across
+tasks, hinting at potential benefits for a wide spec-
+trum of language agent applications.
+2
+LUMOS : A Modular Open-Source
+LLM-Based Agent Framework
+We introduce the overall design and two formula-
+tions for developing agents within this framework.
+2.1 L UMOS Agent Architecture
+For various complex interactive tasks, a common
+solution would include: (1) decomposing the task
+into a series of subgoals, (2) converting subgoals
+into concrete actions, (3) executing those actions.
+This process corresponds to the planning, ground-
+ing, and execution modules in our framework.
+♂list-altPlanning Module (PM). This module is de-
+signed to dissect a complex task into a series
+of high-level subgoals, expressed in natural lan-
+guage. For example, a multimodal question such
+as “The device in her hand is from which
+country?” necessitates two subgoals: (1) Identify
+the brand of the device in her hand; (2) Answer the
+country of the device brand. The devised subgoals
+assist in breaking down a complex task into low-
+level actions in an interpretable and tool-agnostic
+manner. The planning module is designed for easy
+debugging and learning new task planning, without
+affecting other modules.
+⚛ Grounding Module (GM). This module
+transforms the high-level subgoals produced by
+the PM into low-level executableactions. For in-
+stance, the GM translates the subgoal, “Query the
+living period of Lowell Sherman ,” into one
+or more actions, such asKnowledgeQuery(Lowell
+Sherman) and QA([R2], Query:“What is the
+living period of Lowell Sherman?”) . Here,
+R2 refers to the previously retrieved knowledge that
+may be helpful in answering the query. The ground-
+ing module can be easily customized to learn new
+actions without impacting the planning module.
+/toolsExecution Module (EM). The Execution
+Module (EM) is a program that implements the
+actions generated by the grounding module and
+gets execution results. It deploys a variety of
+off-the-shelf tools, including APIs, neural models,
+and virtual simulators. For instance, the execution
+module could call the Wikipedia or Google Search
+APIs to accomplish theKnowledgeQuery action.
+The main characteristic of the LUMOS frame-
+work is the interaction among the three modules.
+We propose two formulations promoting the com-
+munication: LUMOS -OnePass ( LUMOS -O) and
+LUMOS -Iterative (LUMOS -I).
+2.2 L UMOS -OnePass (LUMOS -O)
+The LUMOS -OnePass (LUMOS -O) formulation is
+an efficient method that generates all subgoals
+and grounded actions at once (efficiency study in
+App. E). As depicted in Fig. 2, this formulation uses
+the planning module to generate alln subgoals in a
+single inference call. We then pass all the generated
+subgoals to the grounding module, which translates
+them into a sequence ofm low-level actions. Note
+that in addition to the task description and subgoals,
+we also provide action interfacesI to the ground-
+ing module as inputs. These action interfaces
+(e.g., “VQA(Image_Context, Query): Given
+the image context, answer the query.”) de-
+fine the functionalities of actions and their valid ar-
+guments, guiding the grounding module to produce
+executable actions. Lastly, for example, the ground-
+ing module can produce all the corresponding ac-
+tions, fromVQA([IMG], Question: What’s the
+brand of the device in her hand?)to the final
+one QA(..., Question: What’s the country
+of ...?).
+Formally, the overall planning and grounding
+process of LUMOS -O is illustrated in Fig. 2. In
+the planning phase, the task description T is in-
+put into the planning module. This generates
+an output series of subgoals, expressed as S =
+πplan(T ) ={s1,...,s n}, whereπplan is the param-
+eters of trained planning module. Grounded ac-
+tions are obtained viaA =πground(T,I,S ), with
+reliance on the task description, action interfaces
+I = {i1,...,i k}, and the generated subgoals S.
+πground represents the parameters of the grounding
+module. We take the last execution resulten as the
+final inference result for the given task.
+2.3 L UMOS -Iterative (LUMOS -I)
+LUMOS -Iterative (LUMOS -I) is a formulation that
+generates one subgoal and its corresponding exe-
+cutable actions in each iteration. When generating
+thet-th subgoal, the planning module requires the
+previous planned subgoals and the execution results
+of their grounded actions as input. The execution
+results assist the planning module to be aware of
+the environmental change and decide next subgoal
+according to the up-to-date environments.
+
+Take the VQA question “The device in her
+hand is from which country?” in Fig. 2 as an
+example. In the first iteration, the planning module
+will produce “Subgoal 1: Identify the brand
+of the device in her hand ”. This subgoal
+is passed to the grounding module to generate the
+query actions, and obtain the executed resultsNin
+tendo. The planning module then takes Nintendo
+along with the prior planning context as input to
+generate the next subgoal “Subgoal 2: Answer
+the country of Nintendo”. Planning upon the
+latest execution results would mitigate the risk of in-
+troducing a non-existent object in the environment
+or a random entity during the reasoning process (a
+case study in App. E).
+We demonstrate a single iteration of planning
+and grounding process of LUMOS -I in Fig. 2.
+To plan thet-th subgoal, we input the 1) task de-
+scriptionT , 2) prior subgoals{s1,...,s t−1}, and
+3) their executed results {e1,...,e t−1} into the
+planning module. We concatenate them in the
+order of T,s 1,e 1,...,s t−1,et−1 where the most
+recent subgoals and their results are placed in
+the end, as they have higher influence for plan-
+ning t-th subgoal. The output would be the t-
+th subgoal, st = πplan(T,s 1,e 1,...,s t−1,et−1).
+After then, the t-th subgoal will be directly in-
+corporated into grounding module together with
+the prior grounding history and action interface
+I to generate the corresponding actions, At =
+πground(T,I,s 1,A 1,...,s t−1,At−1,st). Note that
+At is an executable actionlist, as the high-level sub-
+goal might be decomposed into multiple low-level
+actions. We finally put the low-level actions At
+into execution module. The final execution result
+et can be sent back for planning (t + 1)-th subgoal.
+3 Learning to Plan & Ground with
+Open-Source LLMs
+To guide planning and grounding modules to gener-
+ate subgoals and valid low-level actions under our
+specified action interfaces, we fine-tune the two
+modules to produce the expected outputs.
+Training the modules requires the supervisions
+consisting of high-quality tasks, subgoals, and
+low-level actions. To equip smaller LLMs with
+instruction-following ability, prior works leverage
+methods such as Self-Instruct (Wang et al., 2023b)
+to synthesize training tasks and inputs, and directly
+generate ground-truth task outputs based on its cre-
+ated tasks. However, these methods are not suitable
+for generating high-quality annotations for training
+agents. For example, given a web browsing task
+in Mind2Web, GPT-4 only achieves around 20%
+step success rate (Liu et al., 2023b) when complet-
+ing the task. Relying on such methods to generate
+complex interactive task annotations may degrade
+the annotation quality.
+Instead of creating annotations with LLMs from
+scratch, we exploit LLMs as a “style transfer” tool
+to convert ground-truth reasoning steps in existing
+benchmarks into the expected format in LUMOS
+formulations. There are a considerable number of
+the datasets annotated with either human-written
+solutions or structured action sequences2. For ex-
+ample, PRM800K (Lightman et al., 2023) is a math
+dataset containing the natural language solutions
+interleaved with formulas; StrategyQA (Geva et al.,
+2021) are a QA dataset with decomposed questions,
+supporting facts, and relevant Wikipedia paragraph
+indices; Mind2Web includes ground-truth action
+sequences, etc. They provide LLMs with funda-
+mental information that sufficiently contributes to
+the annotation conversion.
+Next, we introduce 1) how we prompt LLMs
+to obtain the subgoal and action supervisions for
+training modules; 2) how to organize the subgoals
+and actions into the conversational forms aligning
+with LUMOS formulations; 3) how we train the
+modules with the final annotations.
+3.1 Annotation Conversion Prompts
+To help LLMs better follow the annotation con-
+version instructions, we add 4-/5-shot examples
+in conversion prompts (see App. I for prompt de-
+tails). We discuss the important elements in these
+in-context examples. The notations of the con-
+verted annotations have hat over letters.
+Action Interfaces. Action interfaces define the
+available actions that LLMs could ground to. Ta-
+ble 8 shows a comprehensive list of action defini-
+tions and their implementations.
+Ground-Truth Intermediate Reasoning Steps.
+We provide LLMs with ground-truth intermediate
+reasoning steps in existing benchmarks. With these
+as references, LLMs are able to summarize high-
+level subgoals and synthesize corresponding ac-
+tions according to the given action interfaces.
+2More available resources for future extension and the
+discussion about the scalability of our annotation conversion
+methods are described in App. C.
+
+Subgoals and Corresponding Actions. When
+converting ground-truth reasoning steps into our
+expected annotations, we provide LLMs with ex-
+amples about how to distill the high-level subgoals
+from the reasoning steps and map them into cor-
+responding actions. In the in-context examples,
+we manually decompose a complex task into high-
+level subgoals according to the context of ground-
+truth reasoning steps. Under each high-level sub-
+goal, we write down multiple corresponding ac-
+tions that help to accomplish the subgoal (shown in
+App. I). Given the exemplar subgoals and actions
+in the prompt, LLMs would emulate to generate
+subgoals and their paired actions when performing
+the conversion for new tasks.
+As the executed results of prior subgoals
+might be useful in future action implementa-
+tion, we interlink the grounded actions in the
+in-context examples to allow context-dependent
+execution. One example of the interlinked ac-
+tions is R1 = KnowledgeQuery(Zombies); R2
+= ParagraphRetrieve( R1, Query: What
+color skin are zombies typically depicted
+with?). The agent could first find the zombie
+knowledge page (R1). Written in interlinked style,
+the ParagraphRetrieve action is able to receive
+the knowledge about zombies R1 as the context,
+and performs query-based retrieval.
+Intermediate Executed Results of Subgoals.
+The intermediate executed results ˆE play an im-
+portant role in increasing LUMOS ’s adaptability
+to environmental changes. Some datasets (e.g.,
+GSM8K) offer execution results in their reasoning
+steps, i.e., the computation results of formulas. For
+the datasets without any execution results, their
+reasoning steps actually contain the relevant clues
+for the execution results. We take an example in
+StrategyQA. Though the answer of the annotated
+decomposed question “ What color skin are
+zombies typically depicted with?” is not di-
+rectly provided, the annotation contains a related
+fact “Zombies are often depicted as green
+in pallor.” that mentions the answer “ green”.
+Thus, for each in-context example, we concatenate
+the relevant documents as well as our manually cap-
+tured execution results in the conversion prompts.
+When converting new samples into LUMOS an-
+notations, LLMs would automatically extract the
+executed results from the given documents.
+After prompting LLMs with the conversion
+prompts, we can acquire the key elements in train-
+ing annotations, including subgoals ˆS, their corre-
+sponding actions ˆA and execution results ˆE.
+3.2 Organizing Conversational Annotations
+Finally, to build the interaction between planning
+and grounding modules, we organize the annota-
+tions into conversational format.
+Conversational Planning Module Annotation.
+As shown in App. A’s Fig. 3a, we first play a user
+role to provide the task ˆT in the user prompt. For
+LUMOS -O, all the subgoals ˆS are the planning
+module’s final outputs. LUMOS -I requires multi-
+turn conversational style. From Fig. 3a, the plan-
+ning module appends the first ground-truth subgoal
+ˆs1 with index “Subgoal 1” as the first response
+supervision. We then put Subgoal 1’s executed re-
+sult ˆe1 with prefix “The executed result for
+Subgoal 1 is” as the second user input. For the
+remaining turns, we act as the user, provide the ex-
+ecution results ˆet−1 of the last subgoal ˆst−1 to the
+planning module, and ask if the planning should be
+stopped. The response supervisions cover whether
+the planning should be terminated; if no, the re-
+sponse should contain a new gold subgoal ˆst.
+Conversational Grounding Module Annotation.
+As shown in App. A’s Fig. 3b, we also first provide
+the task ˆT and action interfaces ˆI to the grounding
+module in the first user turn. For LUMOS -O, we
+feed all the converted subgoal annotations ˆS in the
+user prompt. All the action annotations ˆA would be
+the user prompt response. For LUMOS -I, we input
+the current gold subgoal ˆst, with prefix “Subgoal
+to be grounded: ”. Its response would be ˆst’s
+corresponding actions ˆAt.
+3.3 Training with Converted Annotations
+As LUMOS annotations are conversational, we
+formulate them as {x1,y 1,...,x i,yi,...,x n,yn},
+where xi is i-th user prompt and yi indicates its
+ground-truth responses. Following Wang et al.
+(2023a), during training, we feed each entire multi-
+turn annotation into a decoder-only model while
+merely calculating the decoding loss on the tokens
+of ground-truth responsesY ={y1,...,y i,...,y n}.
+We apply binary masking on the user prompt tokens
+to prevent computing loss on them. The final loss
+function isL =− P
+j logpπ(tj|t<j)×1(tj∈Y )
+where tj denotes j-th input token and 1(·) is a
+Boolean indicator function.
+
+4 Experiments
+We begin with the details of our experimental setup,
+including annotation conversion, module training,
+and the tools used in the execution module. We
+then evaluate LUMOS by: 1) comparing LUMOS
+with existing open-source LLM agents and GPT-
+based agents, 2) contrasting LUMOS against other
+agent training methods, 3) manifesting LUMOS
+generalizability on two unseen tasks involving new
+environments and actions, and 4) assessingLUMOS
+annotation quality.
+4.1 Experimental Setup
+Data Collection. Utilizing the conversion
+prompts discussed in §3.1, we employ GPT-4
+(Achiam et al., 2023) versions on 8/13/2023 and
+9/13/2023, and GPT-4V (OpenAI, 2023b) version
+on 1/24/2023 to perform annotation conversion
+on the ground-truth reasoning steps in existing
+benchmarks. App. B provides the data sources
+used for annotation conversion. These include
+the datasets of math, QA, web and multimodal
+tasks. To help LUMOS be aware of the visual
+inputs in multimodal tasks, we append a detailed
+image caption generated by LLAMA-1.5-7B (Liu
+et al., 2023a) to the task description in train and
+test sets. After filtering out the ones that contain
+mismatched parentheses, invalid execution outputs
+or excessively lengthy outputs, we obtain 55,382
+and 55,499 annotations for training the planning
+and grounding modules, respectively.
+Training and Action Interfaces. We adopt
+LLAMA-2-7B and LLAMA-2-13B (Touvron et al.,
+2023a) as the base models for both the planning and
+grounding modules. Details regarding the training
+process can be found in App. D. For solving interac-
+tive tasks, we integrate commonly used actions for
+each task into the pre-defined action interfaces. De-
+tails of supported executable actions are included
+in App. G.
+4.2 Training Task Performance
+We evaluate LUMOS across an array of complex
+interactive tasks - QA, web, math and multimodal
+tasks. The evaluation mainly follows the settings
+established by AgentBench (Liu et al., 2023b) and
+ReWOO (Xu et al., 2023) (see App. H). For each
+task type, excluding web tasks, we include a held-
+out dataset to assess the model’s generalizability
+across the domains within the same task category.
+The performance is displayed in Tab. 1. Note that in
+Tab. 1, task-specific agents LUMOS -I X are trained
+using task-specific data belonging to task type X
+(e.g., Web, Math, QA, MM). LUMOS -I All rep-
+resents the agent after unified training with the
+combination of four task type annotations. More
+evaluation details are shown in App. H.
+LUMOS vs. Open-Source Agents. Overall, we
+find that LUMOS consistently outperforms vari-
+ous open-source agents across the seven datasets.
+Though the base models of some compared agents
+are 2-10× larger than LUMOS , LUMOS signifi-
+cantly excels in performance. Specifically, 7B
+LUMOS -I achieves 24.5% and 14.1% step suc-
+cess rate improvements over WizardLM-30B and
+AgentLM-70B on Mind2Web.
+The effectiveness of LUMOS is particularly man-
+ifested on the held-out datasets which are unused
+in LUMOS training data. Our observations re-
+veal that LUMOS outperforms many baseline open-
+source agents across all held-out datasets. No-
+tably, even though Orca-Platypus-13B (Lee et al.,
+2023) has been trained on a math corpus that in-
+cludes GSM8K, its performance still 8.6% lower
+than LUMOS -O on SV AMP (Patel et al., 2021).
+Moreover, despite ReWOO and FiReAct being
+fine-tuned with in-domain HotpotQA annotations,
+LUMOS -I, without any fine-tuning on HotpotQA,
+still presents an impressive improvement. A similar
+trend can be observed on ScienceQA. We compare
+AutoAct-7B (Qiao et al., 2024), an open-source
+agent specifically trained on ScienceQA. LUMOS
+achieves 67.3% on the entire test set of ScienceQA,
+while AutoAct-7B’s performance is only 53.3%.
+LUMOS vs. GPT-based Agents. Although LU-
+MOS is built on LLAMA-2-7B/13B, LUMOS -I de-
+livers superior performance by 5.0-8.7% over GPT-
+4 on Mind2Web. We also notice a 3.5-7.8% in-
+crease in LLM accuracy over the GPT-based Re-
+WOO on the HotpotQA dataset when employing
+GPT-3.5-turbo as the implementation of the QA
+tool to ensure fair comparisons.
+4.3 Agent Formulation Comparison
+We train models using the same base model and
+data, but with different training methods - Chain-
+of-Thoughts (CoT) Training : For a given task
+T , the agent learns to produce both the chain-of-
+thoughts solution and the final answer directly; In-
+tegrated Agent Training: For a given taskT , the
+agent learns to generate all thesubgoals and actions
+
+Agents Web Task
+Mind2Web
+GPT/API-based Agents
+GPT-3.5-turbo 15.7
+GPT-4 22.6
+Open-source Agents
+Baichuan-13B-chat 2.3
+WizardLM-30B 3.1
+Koala-13B 6.0
+AgentLM-70B 13.5 ⋆
+LUMOS -I Web 27.6⋆
+LUMOS -I Web-13B 31.3⋆
+(a) Web performance in step-wise
+success rate.
+Agents Math Tasks
+GSM8K SV AMP
+Open-source Agents
+AgentLM-13B 32.4 -
+Code-Llama (PoT)-13B 36.1 60.0
+Platypus-30B 37.8 51.7
+ReWOO-open ≈38 -
+Orca-Platypus-13B 38.4 ⋆ 56.9
+Alpaca-7B ≈39 -
+Galactica-30B 41.7 41.6
+LUMOS -O Math 50.5⋆ 65.5
+LUMOS -I Math 47.1⋆ 63.6
+LUMOS -O Math-13B 55.4⋆ 69.3
+(b) Math performance in accuracy.
+Agents Multimodal Tasks
+A-OKVQA ScienceQA (IMG)
+GPT/API-based Agents
+GPT-3 + GT Caption 45.4 -
+Open-source Agents
+ClipCap (VL) 44.0 ⋆ -
+KRISP (VL) 51.9 ⋆ -
+GPV-2 (VL) 60.3 ⋆ -
+MiniGPT-4-13B (VL) 67.2 42.8
+LLA V A-1.5-7B (VL) - 57.6
+LUMOS -O MM 70.1⋆ 56.9
+LUMOS -I MM 71.3⋆ 58.4
+LUMOS -I MM-13B 72.4⋆ 58.2
+(c) Multimodal performance in accuracy.
+Agents Agent Model QA Tool QA Tasks
+StrategyQA HotpotQA (LLM Acc. / EM)
+GPT/API-based Agents
+GPT-3.5-CoT GPT-3.5-turbo GPT-3.5-turbo 56.0 37.8 / 22.4
+ReAcT GPT-3.5-turbo GPT-3.5-turbo 64.6 40.8 / 32.4
+ReWOO GPT-3.5-turbo GPT-3.5-turbo 66.6 42.4 / 30.4
+Open-source Agents
+ReWOO-open LLAMA-7B GPT-3.5-turbo ≈56 ≈37 / -⋆
+AgentLM LLAMA-2-7B LLAMA-2-7B - - / 22.3
+FiReAct LLAMA-2-7B LLAMA-2-7B - - / 26.2 ⋆
+FiReAct CodeLLAMA-34B CodeLLAMA-34B - - / 27.8 ⋆
+LUMOS -O QA LLAMA-2-7B GPT-3.5-turbo 60.6 ⋆ 39.2 / 24.9
+LUMOS -I QA LLAMA-2-7B LLAMA-2-7B 58.3 ⋆ 37.3 / 23.5
+LUMOS -I QA LLAMA-2-7B GPT-3.5-turbo 65.7 ⋆ 45.9 / 29.4
+LUMOS -I QA LLAMA-2-7B GPT-4 72.4 ⋆ 56.8 / 36.0
+LUMOS -I QA LLAMA-2-13B GPT-3.5-turbo 65.3 ⋆ 50.2 / 31.4
+LUMOS -I QA LLAMA-2-13B GPT-4 76.7⋆ 57.4 / 36.3
+(d) QA performance. The evaluation metric for StrategyQA and HotpotQA is
+accuracy, and LLM accuracy / Exact Match (EM), respectively.
+Agents Unseen Tasks
+WebShop InterCodeSQL
+Baichuan-13B-chat 5.7 -
+Koala-13B 6.0 -
+WizardLM-30B 10.6 -
+Vicuna-v1.1-13B 12.6 -
+ChatGLM2 19.4 -
+Vicuna-v1.3-33B 23.9 6.7
+Vicuna-v1.5-13B 41.7 4.8
+OpenChat-v3.2-13B 46.9 -
+Claude-instant 49.7 -
+LUMOS -I Web-13B 46.2 4.2
+LUMOS -I Math-13B 45.7 5.8
+LUMOS -I QA-13B 47.3 3.5
+LUMOS -I MM-13B 43.8 4.0
+LUMOS -I All-13B 50.3 7.3
+(e) Unseen tasks, WebShop and Inter-
+CodeSQL. The metric is average reward
+and success rate, respectively.
+Table 1: Overall performance of language agents on diverse complex interactive tasks. The tasks highlighted in red
+and blue are the held-in/held-out datasets for the trained task types. ⋆ indicates that the results are obtained after
+fine-tuning on the task’s training set. We adopt multiple-choice setting for A-OKVQA. IMG denotes the subset with
+image inputs in ScienceQA test set. GPT-3 in Tab. 1c indicatestext-davinci-002.
+using the same model. The execution modules re-
+mains the same. This training paradigm is adopted
+in ReWOO-open, FiReAct and AgentLM.
+From Tab. 3, both LUMOS -I and LUMOS -O out-
+perform CoT Training3. They also exceed the in-
+tegrated formulation based on a single module to
+operate planning and grounding. It highlights the
+importance of disentangling subgoal planning and
+action grounding skills during the agent training.
+4.4 L UMOS Generalizability Evaluation
+Since LUMOS employs a unified format to repre-
+sent complex interactive tasks, we envision that
+after trained with the combined annotations across
+the four training task types, i.e., unified training,
+when faced with an unseen task type, LUMOS may
+adapt to it more effectively.
+To examine the generalization ability ofLUMOS ,
+we evaluate it on the unseen tasks, WebShop (Yao
+et al., 2022a) and InterCode SQL. WebShop re-
+3We do not implement CoT training on web tasks, as up-
+dates to the environment (e.g., changes to HTML) are neces-
+sary intermediaries for planning subsequent actions.
+Training Data QA
+StrategyQA HotpotQA
+Downstream Perf. of Training Different Data w/ LLAMA
+ReWOO-open Data ≈57 ≈37
+LUMOS -I QA Data 58.3 38.1
+Perf. Using High- & Low-Level Subgoal Annots. w/ LLAMA-2
+LUMOS -I QA w/ Low-Level Subgoals 63.3 44.3
+LUMOS -I QA Data 65.7 45.9
+Table 2: Comparison between the 7B-sized agents
+trained with different annotations.
+sembles a text game 4, with its shopping environ-
+ment and action space considerably differing from
+those covered in the training annotations ofLUMOS .
+InterCodeSQL (Yang et al., 2023) is an interactive
+code generation task that requires the agent to gen-
+erate SQL code based on the external databases
+and involves unseen SQL commands. To makeLU-
+MOS adapt to these unseen tasks, we supplement
+2-/3-shot examples in the module inputs, enabling
+4WebShop utilizes four actions in its training annotations:
+Search,FeatureRetrieve,Pick, andClick. The argument
+of Click is a shopping item, differing from that of Click in
+Mind2Web which includes an HTML element description.
+
+them to learn how to generate subgoals and ground
+to new sets of available actions (see App. J).
+As outlined in Tab. 1e, LUMOS -I achieves a
+3-7 higher average reward than domain-specific
+agents on WebShop. It also significantly outper-
+forms larger agents such as WizardLM-30B and
+Vicuna-v1.3-33B (Chiang et al., 2023). We observe
+the similar trend on InterCodeSQL. It suggests that
+unified training enables agents to enhance the gen-
+eralization on unseen tasks and novel actions. We
+provide more unified training results in App. F to
+show unified training also boosts the performance
+on most training task types.
+4.5 Further Analysis on Training Annotations
+We aim to address three questions pertinent to qual-
+ity and format decisions. Q1: How good are our
+converted training annotations? Q2: Would adopt-
+ing low-level subgoals be more effective than us-
+ing high-level subgoals? Q3: Would incorporat-
+ing LUMOS annotation with general instruction-
+tuning data achieve comparable performance on
+instruction-following benchmarks?
+Assessment of Annotation Quality. We assess
+the quality of our annotations by training models
+with them and evaluating the agents’ performance.
+We compare them with ReWOO-open data, con-
+structed based on HotpotQA and TriviaQA (Joshi
+et al., 2017) using the Self-Instruct method. For fair
+comparison, we train the base model of ReWOO-
+open, LLAMA-7B, using LUMOS annotations. We
+also adopt the integrated training formulation and
+sample 2,000 training data to keep the same train-
+ing settings as ReWOO-open. Given that ReWOO-
+open data exclusively relies on QA benchmarks, we
+primarily focus on QA task evaluation. Shown in
+Tab. 2, LUMOS data yields an improvement when
+compared to ReWOO-open data on StrategyQA
+and HotpotQA. Note that even if the ReWOO-open
+data are based on HotpotQA, it still underperforms
+LUMOS on HotpotQA.
+Low-Level Subgoal vs. High-Level Subgoal.
+As described in §2, we ask LLMs to generate high-
+level subgoals corresponding to one or many low-
+level actions. An alternative annotation could be
+one where each subgoal corresponds solely to one
+low-level action, i.e., the subgoal is “low-level”.
+We direct LLMs to create low-level subgoals by
+modifying the annotation conversion prompt to fit
+the format where a subgoal is strictly linked to
+one action. Tab. 2 reveals a drop after replacing
+high-level subgoals with low-level ones on both
+QA datasets. This result hence reaffirms the appro-
+priateness of our initial subgoal design.
+Effect on General Instruction-Following Bench-
+mark. As LUMOS adopts the conversational style
+discussed in Sec. 3, any tasks that can be for-
+malized as conversation tasks could be accom-
+modated. Therefore, LUMOS supports all the
+instruction-tuning tasks and complex interactive
+tasks. We conduct an experiment to show the ef-
+fectiveness of LUMOS in instruction tuning tasks.
+By integrating the general instruction-tuning train-
+ing data, Alpaca, with the unified training anno-
+tations of LUMOS , we created an expanded train-
+ing dataset. To guide LUMOS towards generat-
+ing straightforward responses, we appended the
+phrase “Respond to me directly ” to each in-
+put instance from Alpaca, instructing the model to
+avoid elaborating reasoning processes for the gen-
+eral instruction-tuning tasks. Tested on the Super-
+NaturalInstruction benchmark (Wang et al., 2022),
+Lumos achieved a 39.3 ROUGE-L score, which is
+close to the LLAMA-2-7B trained on Alpaca alone
+(39.8), which suggesting the possibility of develop-
+ing agent reasoning ability and general instruction
+following ability simultaneously.
+5 Related Work
+LLM Agents. Language agents have shown po-
+tential in solving diverse complex interactive tasks.
+ReAct (Yao et al., 2022b) introduced a prompting
+method that shaped LLMs as language agents and
+grounded them in external environments. Subse-
+quently, several methods (Shen et al., 2023; Lu
+et al., 2023; Xu et al., 2023; Lin et al., 2023; Liu
+et al., 2023c) aimed at improving agent perfor-
+mance and increasing their applicability in diverse
+scenarios. These agents mainly rely on closed-
+source LLMs, lacking of the consideration of af-
+fordability, reproducibility and transparency issues
+on complex interactive tasks.
+Improving Small Models for Building Agents.
+Recent works have utilized larger models to gen-
+erate training data for fine-tuning smaller mod-
+els (Bosselut et al., 2019; West et al., 2022; Wang
+et al., 2023b; Hsieh et al., 2023; Brahman et al.,
+2023) to enable them to follow instructions and
+perform chain-of-thoughts reasoning. We also ob-
+serve contemporaneous efforts ReWOO-open (Xu
+et al., 2023), FireAct (Chen et al., 2023), AgentLM
+
+Agents Web Task
+Mind2Web
+Integrated Training 25.3
+LUMOS -I Web 27.6
+(a) Web task.
+Agents Math Tasks
+GSM8K SV AMP
+CoT Training 40.4 52.2
+Integrated Training 45.5 61.7
+LUMOS -O Math 50.5 65.5
+LUMOS -I Math 47.1 63.6
+(b) Math tasks.
+Agents QA Tasks
+StrategyQA HotpotQA
+CoT Training 58.3 22.1
+Integrated Training 62.3 39.6
+LUMOS -O QA 60.6 39.2
+LUMOS -I QA 65.7 45.9
+(c) QA tasks.
+Agents Multimodal Tasks
+A-OKVQA ScienceQA
+CoT Training 68.3 57.3
+Integrated Training 70.9 57.6
+LUMOS -O MM 70.1 56.9
+LUMOS -I MM 71.3 58.4
+(d) Multimodal tasks.
+Table 3: Comparison among different formulations of training language agents. The metric for HotpotQA is LLM
+accuracy (%). All the experiments are based on LLAMA-2-7B.
+(Zeng et al., 2023), and AutoAct (Qiao et al., 2024),
+focusing on training agents on smaller LLMs. Un-
+like FireAct and AutoAct, our work delves into a
+more in-depth analysis, aiming to discover a unified
+task representation that enables agents to general-
+ize across unseen interactive tasks effectively. In
+contrast to ReWOO-open and AgentLM, we ex-
+tend to examining proper training formulations and
+studying multiple strategies for creating large-scale,
+high-quality datasets for agent training. We demon-
+strate LUMOS superior performance in §4.
+6 Conclusion
+We introduce LUMOS , an open-source, generaliz-
+able language agent training framework. We pro-
+pose two formulations, LUMOS -I and LUMOS -O,
+which promote collaboration among agent modules
+to solve complex tasks. For module training data,
+we use LLMs to transform reasoning steps in ex-
+isting benchmarks into a unified format applicable
+within LUMOS framework. LUMOS outperforms a
+variety of open-source agents across the 9 datasets.
+It performs even better than GPT agents on QA and
+web tasks. LUMOS also exceeds potential agent
+training formulations and exhibits superior gener-
+alization on two unseen interactive tasks.
+Limitations
+Covered Training Task Types. Currently, LU-
+MOS is trained using annotations for four specific
+types of complex interactive tasks, which may still
+limit its generalization capabilities for novel tasks.
+To address this, we aim to enrich the training data
+for LUMOS by incorporating a wider variety of task
+types. As outlined in §3 and App. C, a substan-
+tial array of benchmarks already exists, providing
+ground-truth reasoning steps that could serve as
+a foundation for expanding LUMOS ’s annotations.
+By broadening the scope of annotations, we not
+only enhance the language agents but also offer a
+valuable resource for practitioners looking to de-
+velop their own models.
+Backtracking and Replanning Ability. In sit-
+uations where language agents encounter invalid
+execution outcomes or navigate erroneous solu-
+tion pathways, it is crucial for them to possess
+the capacity for self-diagnosis and replanning their
+reasoning processing. The current LUMOS lacks
+these sophisticated self-corrective features. Future
+versions should be designed with advanced mecha-
+nisms that enable the agents to recognize and rec-
+tify their planning errors.
+Open-Source Tool Replacement. For part of our
+QA experiments, we employ GPT models to ad-
+dress decomposed sub-questions. It is designed
+for fair comparison with the agents that also use
+GPT models as QA tools, as elaborated in §4.2.
+Our future strategy involves transitioning to fully
+open-source QA frameworks that leverage mod-
+els such as LLAMA-2-70B, aiming to establish a
+completely open-source framework.
+Acknowledgement
+This work was funded in part by DARPA MCS
+program through NIWC Pacific (N66001-19-2-
+4031), DARPA ECOLE (#HR00112390060), and
+the Allen Institute for AI. We thank Mosaic team
+members, and the anonymous reviewers for the
+helpful discussions.

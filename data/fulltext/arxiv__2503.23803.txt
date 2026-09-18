@@ -1,0 +1,1715 @@
+record_id: arxiv:2503.23803
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2503.23803
+fetched_title: Thinking Longer, Not Larger: Enhancing Software Engineering Agents via Scaling Test-Time Compute
+fetched_at: 2026-09-18T18:59:55Z
+
+Thinking Longer, Not Larger: Enhancing Software Engineering
+Agents via Scaling Test-Time Compute
+Yingwei Ma, Yongbin Li†, Yihong Dong*, Xue Jiang*, Rongyu Cao, Jue Chen, Fei Huang, Binhua Li
+mayingwei.myw@alibaba-inc.com
+Tongyi Lab, Alibaba Group
+Beijing, China
+ABSTRACT
+Recent advancements in software engineering agents have demon-
+strated promising capabilities in automating program improve-
+ments. However, their reliance on closed-source or resource-intensive
+models introduces significant deployment challenges in private
+environments, prompting a critical question: How can personally
+deployable open-source LLMs (e.g., 32B models running on a single
+GPU) achieve comparable code reasoning performance?
+To this end, we propose a unified Test-Time Compute (TTC)
+scaling framework that leverages increased inference-time compu-
+tation instead of larger models. Our framework incorporates two
+complementary strategies: internal TTC and external TTC. Inter-
+nally, we introduce adevelopment-contextualized trajectory synthesis
+method leveraging real-world software repositories to bootstrap
+multi-stage reasoning processes, such as fault localization and patch
+generation. We further enhance trajectory quality through rejection
+sampling, rigorously evaluating trajectories along accuracy and
+complexity. Externally, we propose a novel development-process-
+based search strategy guided by reward models and execution veri-
+fication. This approach enables targeted computational allocation
+at critical development decision points, overcoming limitations of
+existing "end-point only" verification methods.
+Evaluations on SWE-bench Verified demonstrate our32B model
+achieves a 46% issue resolution rate , surpassing significantly
+larger models such as DeepSeek R1 671B and OpenAI o1. Addition-
+ally, we provide the empirical validation of the test-time scaling phe-
+nomenon within SWE agents, revealing that models dynamically
+allocate more tokens to increasingly challenging problems ,
+effectively enhancing reasoning capabilities. We publicly release
+all training data, models, and code to facilitate future research.1
+KEYWORDS
+Software Improvement, Test Time Scaling, Code Agent, SWE-bench
+1 INTRODUCTION
+Large language model (LLM)-based agents have emerged as promis-
+ing tools for automating various software engineering tasks, partic-
+ularly in software maintenance (e.g., bug fixing) and evolution (e.g.,
+adding new features). The SWE-bench [15] has become a critical
+1https://github.com/yingweima2022/SWE-Reasoner
+†Corresponding Author.
+*Work done during Yihong and Xue’s internship at Tongyi Lab. Both are students at
+Peking University.
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+2018. ACM ISBN 978-1-4503-XXXX-X/2018/06. . . $15.00
+https://doi.org/XXXXXXX.XXXXXXX
+benchmark for evaluating the capabilities of SWE agents, specifi-
+cally designed to simulate real-world software improvement tasks.
+Given a natural language description of an issue and the corre-
+sponding GitHub repository, SWE agent is tasked with generating
+a patch that resolves the issue. The typical framework in code agent
+research involves locating the relevant code, generating a patch,
+and verifying its correctness [40, 47, 51].
+The main driver of progress in the field has been scaling model
+parameters and training data, leading to notable improvements in
+model capabilities. However, this scaling introduces critical deploy-
+ment challenges. For instance, DeepSeek V3 671B requires 436GB
+of VRAM, even with 4-bit quantization, and demands multi-GPU
+setups (e.g., 6 NVIDIA A100 80GB) [39], making such systems im-
+practical for most organizations. Additionally, closed-source models
+like Claude 3.5 raise privacy concerns when used via API services,
+particularly regarding private code repositories. These challenges
+lead to our central research question: How can we unlock the code
+reasoning potential of deployable LLMs, achieving comparable perfor-
+mance? For example, the 4-bit quantized 32B model requires only
+21GB of VRAM and can run on a single NVIDIA RTX4090 card [39].
+To address this challenge, we propose shifting the scaling par-
+adigm from model size to increasing the inference time inspired
+by emerging Test-Time Compute Scaling approaches [13, 31]. Cur-
+rent TTC implementations take two forms: Internal TTC, where
+models are trained to enhance reasoning depth through longer
+Chain-of-Thought (CoT); and External TTC, where multiple out-
+puts are generated in parallel, and the optimal solution is selected
+using search-based strategies. Despite the potential of these ap-
+proaches, technical difficulties, including resource constraints and
+proprietary strategies, have limited further exploration in this area.
+Specifically, the following issues remain underexplored:
+• Proprietary Implementation Barriers : While models like Ope-
+nAI o1 [ 13] and DeepSeek R1 [ 9] have demonstrated the
+effectiveness of long CoT reasoning, their methodologies
+remain proprietary and rely heavily on non-public training
+data and requires substantial computational resources and
+data collection efforts, making replication challenging. Given
+the privacy concern surrounding software repositories, there
+is a pressing need for transparent and computationally effi-
+cient methods, enabling strong reasoning capabilities even
+within resource-constrained, private development environ-
+ments.
+• Search Strategies Limitations: Existing external TTC approaches
+employ simplistic selection mechanisms like majority vot-
+ing [40], which prove inadequate for software tasks requiring
+precise understanding of development context. Few studies
+have systematically analyzed the impact of different search
+arXiv:2503.23803v2 [cs.SE] 8 Apr 2025
+
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Trovato et al.
+strategies—such as outcome and process reward models, or
+test-driven verification—on guiding the issue resolution pro-
+cess.
+Our Approach. To answer these questions, we conduct a sys-
+tematic exploration on the challenging SWE-bench Verified [29]
+proposed by OpenAI. We build upon an open-source SWE frame-
+work (SWESyninfer [22]) to generate initial single-solution pro-
+posals, which divide the issue resolution process into three key
+steps: (1) identifying relevant codebase context (repository under-
+standing), (2) fault localization, and (3) generating candidate code
+edits. We then explore both internal and external TTC methods to
+enhance agent performance.
+For internal TTC , we propose a development-contextualized tra-
+jectory synthesis method to address limited due to a lack of realistic
+multi-stage reasoning data aligned with actual software develop-
+ment workflows. Specifically, we first scrape <issue, repository,
+pull-request> triplets from high-quality GitHub repositories (>1000
+stars) and construct executable verification environments; we then
+use DeepSeek R1 as a bootstrapping model to generate compre-
+hensive reasoning trajectories spanning repository understanding,
+fault localization, patch generation, and patch verification. These
+trajectories are refined through Development-Contextualized Rejec-
+tion Sampling, which ensures quality via multi-dimensional filtering
+that evaluates both accuracy and complexity (filtering out prob-
+lems solvable by small base model without refinement). Finally, our
+Reasoning Training preserves both the think component (capturing
+planning, reflection, and correction processes) and the answer com-
+ponent (final solutions) at each reasoning step, enabling the model
+to internalize the multi-step decision-making process essential for
+complex software engineering tasks. This approach resolves 37.6%
+of issues on SWE-bench Verified with trained 32B model, surpassing
+Llama 3.1 405B [27]. Our results demonstrate that smaller models
+can achieve comparable capabilities to much larger models when
+trained on high-quality, multi-step reasoning trajectories derived
+from real software development scenarios.
+For External TTC , we introduce a development-process-based
+search strategy that strategically focuses computational resources
+on critical decision points in the software engineering workflow.
+Unlike existing approaches that either validate only at the final
+solution stage [32, 40], our framework applies targeted search at
+three crucial development phases: repository understanding, fault
+localization, and patch generation. We train specialized Process
+Reward Model (PRM) to evaluate intermediate outputs at these
+critical junctures, effectively pruning less promising solution paths
+early while maintaining a manageable beam width. At the patch
+generation stage, we implement execution verification through au-
+tomatically generated reproduction code, providing concrete feed-
+back on patch correctness. For final solution selection, we employ
+an Outcome Reward Model (ORM) trained via Direct Preference
+Optimization on verified patch pairs, enabling effective ranking of
+candidate solutions without requiring access to intermediate rea-
+soning steps. Our experiments demonstrate that this development-
+process-based search strategy significantly improves performance
+with fixed model size, and when combined with our Internal TTC
+approach, yields even greater performance gains. These results high-
+light how strategic test-time computation allocation can achieve
+performance comparable to much larger models while maintaining
+computational efficiency. Additionally, we provide the first empir-
+ical validation of the test-time scaling phenomenon within SWE
+agents, revealing that models dynamically allocate more tokens to
+increasingly challenging problems, effectively enhancing reasoning
+capabilities.
+Contributions. In summary, we make the following novel con-
+tributions:
+• We propose a unified scaling TTC approach tailored specif-
+ically for software engineering agents, including Internal
+TTC and External TTC.
+• Our method achieves state-of-the-art open source results
+on the challenging SWE-bench Verified benchmark, resolv-
+ing 46% of issues with a 32B model. Notably, our approach
+surpasses larger models, demonstrating the effectiveness of
+targeted inference-time scaling.
+• We present the empirical validation of the test-time scaling
+phenomenon within SWE agents, showing that increased
+inference-time computation improves performance on chal-
+lenging software engineering problems.
+• We open-source our model checkpoints, data, and code to
+support further research and development in this field.
+2 TEST-TIME COMPUTATION EXPLORED:
+INTERNAL AND EXTERNAL STRATEGIES
+In this section, we explore two core strategies for enhancing SWE-
+agent performance through scaling TTC: Internal and External TTC.
+Figure 3 presents our unified framework, illustrating how these
+approaches improve software engineering task. We first provide an
+overview of these two strategies and then delve into their specific
+implementations and results.
+2.1 Internal TTC in Software Engineering
+Internal TTC aims to enhance the reasoning depth during inference
+by leveraging extended CoT. While OpenAI o1 and DeepSeek R1
+achieve strong performance via large-scale Reinforcement Learning
+(RL) and massive datasets, we hypothesize that training smaller
+models (e.g., 32B parameters) using bootstrapped long reasoning
+trajectories, augmented by development-contextualized rejection
+sampling, can activate comparable reasoning capabilities. This is
+primarily because the model has already encoded a wealth of soft-
+ware engineering knowledge during pre-training. By utilizing high-
+quality, multi-step reasoning trajectories derived from real software
+development scenarios during post-training, we provide effective
+multi-step decision supervision, which helps unlock the model’s
+reasoning potential. To validate this, we introduce a systematic ap-
+proach for synthesizing high-quality reasoning trajectories, consist-
+ing of three primary stages: data curation, trajectory bootstrapping,
+and development-contextualized rejection sampling.
+2.1.1 High-Quality Trajectory Synthesis. The foundation of our ap-
+proach lies in high-quality, real-world software development data.
+In Data Curation stage, we begin by scraping <issue, pull-request,
+codebase> triplets from GitHub using SWE-bench’s data collec-
+tion procedure [15], focusing on repositories with high star ratings
+(>1000 stars) to ensure code quality.We filter out repositories already
+
+Thinking Longer, Not Larger: Enhancing Software Engineering Agents via Scaling Test-Time Compute Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+32B 405B 32B
+32B UNK671B UNK
+QwenCoder-2.5-Instruct
+SWE-ShortCoT (Trained) Llama-3.1-Instruct
+DeepSeek-R1
+SWE-Reasoner (Trained)
+DeepSeek-V3 OpenAI-o1
+Claude3.5-Sonnet v2
+32B
+(TTC)
+50
+10
+40
+30
+20
+Resolved (%)
+32B
+28.00 28.80 30.20
+36.80 37.60
+671B
+39.00
+46.0045.60
+46.20
+41.20
+
+39.0
+32B
+(TTC)
+0
+QwQ-20250306
+Figure 1: Comparison between the performance of smaller LLMs with extended Test-Time Compute and larger models on
+SWE-Bench Verified.
+0.36
+0.47
+0.38
+0
+1
+0.63
+0.45
+0.3
+0.47
+0.78
+0.38
+0.41
+0.36
+0.44
+0.38
+0
+1
+0.5
+0.45
+0.3
+0.42
+0.59
+0.27
+0.35
+0.45 0.47
+0.35
+0
+1
+0.5
+0.64
+0.2
+0.58
+0.72
+0.32
+0.36
+0.23
+0.49
+0.53
+0
+1
+0.38
+0.5
+0.2
+0.58
+0.66
+0.27
+0.45
+0
+0.2
+0.4
+0.6
+0.8
+1
+1.2
+astropy django matplotlib seaborn flask requests xarray pylint pytest scikit-learn sphinx sympy
+SWE-Reasoner-32B (TTS) DeepSeek-R1-671B OpenAI o1 Claude 3.5 Sonnet v2
+Figure 2: Comparison of issue resolution rates between our unified TTC framework (32B) and other LLMs across different
+repositories in SWE-bench Verified.
+present in the SWE-bench dataset to avoid data leakage. For each
+selected repository, we collect issues and linked pull requests (PRs)
+that were merged by developers. To further enhance the quality of
+the data, we apply a set of heuristic filtering rules, similar to those
+used in OctoPack [28]. For issues, we retain only those with textual
+descriptions containing at least 20 characters to exclude overly
+vague or incomplete issues. Additionally, we filter out issues con-
+taining more than three hyperlinks, as these are often references to
+external resources rather than detailed descriptions of the issue at
+hand. For pull requests, we focus on those that modify between one
+and five code files, excluding those that only modify test files. This
+ensures that the changes are substantive. To ensure that each repos-
+itory is suitable for patch verification, we use ExecutionAgent [4]
+to automatically construct the execution environment, ensuring the
+necessary dependencies and execution contexts are properly set up.
+We filter out repositories where the environment cannot be built or
+run, resulting in a final dataset of 9,000 issues from 300 repositories,
+with verified executable environments capable of real-time patch
+validation.
+
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Trovato et al.
+Next, ...
+Wait, ...
+LLM Agent
+Related Code
+Context
+Bug Location
+Intermediate process results
+① Observation
+③ Action ② Think
+Issue
+Repository
+Environment
+User requirement
+Observation: Search Results: <file>..<func>..<code>..
+Execution Results: <logs>, Other Results
+Think: Planning, Reflection, Backtracking, ...
+Action: search_func_in_file(func_A, file_B)
+git apply, python run.py, Other commands
+Example
+Single-solution proposal
+Q: Based on the
+files, code from
+the issue that
+related to the
+bug, you can use
+search APIs to
+get more context
+of the project.
+LLM Okay, let’s ...
+Internal test-time compute
+AlternativelyLet's tackleQuestion
+External test-time compute
+LLM
+Okay, let’s ...
+Let’s ...
+Okay, let’s ...
+Okay, let’s ...
+Combining Internal and external TTC
+Question
+Okay,
+let’s ...
+LLM
+Wait, ...Okay,
+let’s ...
+AlternativelyLet's
+tackle
+AlternativelyLet's
+tackle ...
+NextLet's...
+Let’s ...
+Best-of-N sampling
+Model employs longer CoT
+during inference
+Patch
+Generation
+Issue
+Reproduce
+Figure 3: A unified view of Test-Time Scaling strategies for SWE agents. Internal TTC enhances reasoning depth through
+extended chain-of-thought training, while External TTC employs reward-guided search and verification to select optimal
+solutions. The hybrid approach combines both paradigms through iterative refinement.
+In Trajectory Bootstrapping stage, we employ a bootstrap-
+ping strategy to synthesize detailed problem-solving trajectories.
+This approach builds upon the open-source SWE framework (SWE-
+SynInfer [22]), which has achieved superior results in open-source
+models. SWE-SynInfer divides the issue resolution process into
+three steps: (1) repository understanding to identify relevant code-
+base files, (2) fault localization to pinpoint problematic code seg-
+ments, and (3) patch generation to produce candidate code edits.
+We extend this framework to include a Patch Verification phase, fol-
+lowing Agentless [40], and call it SWE-SynInfer+. In this enhanced
+phase, the model generates reproduction code based on the issue
+description, and then verifies the correctness of the generated patch
+by executing the reproduction code. If the patch is deemed incorrect,
+the model iterates, refining the solution until it either meets the
+verification criteria or reaches the maximum threshold of iterations.
+We use a open-source reasoning model (DeepSeek R1 [9]) to boot-
+strap these long reasoning trajectories, as R1 iterates and refines
+its internal reasoning multiple times by utilizing more inference
+computation before producing the final output. Each trajectory step
+in the bootstrapping process includes two primary components:
+the think component, which captures the planning, reflection, and
+correction processes, and the answer component, which represents
+the final solution for that step. The trajectory bootstrapping pro-
+cess is summarized in Algorithm 1, which outlines how the model
+generates a sequence of reasoning steps. This algorithm mirrors
+real-world software development practices, where each stage builds
+upon previous reasoning in an iterative manner, progressively re-
+fining the solution. The environment is updated as the reasoning
+process progresses, and the model continues until either the patch
+is successfully verified by reproduce code or the maximum number
+of steps is reached.
+Algorithm 1 Trajectory Bootstrapping Process
+1: Input: Issue𝐼, Repository𝑅, Base Model𝑀
+2: Initialize trajectory𝜏 =[], EnvironmentE
+3: procedure GenerateTrajectory(𝐼,𝑅,𝑀)
+4: for step𝑡∈{ 1,...,𝑇 max} do
+5: 𝑠𝑡
+think,𝑠 𝑡answer←𝑀(CoT-Prompt(𝐼,𝑅,𝜏 [1 : 𝑡− 1]))
+6: ActionType, Params ← Analyze(𝑠𝑡answer)
+7: if parsing failed then
+8: 𝜏.append(fallback_error_handling)
+9: continue
+10: end if
+11: 𝑠𝑡
+output← ExecuteAction(ActionType, Params ,E)
+12: 𝜏.append
+
+(𝑠𝑡
+think,𝑠 𝑡answer),𝑠 𝑡
+output
+
+13: UpdateE with𝑠𝑡
+output outcomes
+14: if Resolved(E) or Failed(E) then
+15: break
+16: end if
+17: end for
+18: return𝜏
+19: end procedure
+We use Development-Contextualized Rejection Sampling
+to ensuring the quality of generated reasoning trajectories, which
+contain accuracy and complexity of each trajectory.
+• Repository Understanding: We verify that the model cor-
+rectly identifies the files that need modification. Specifically,
+we compare the model’s output in the Repository Under-
+standing phase with the files changed in the developer’s
+
+Thinking Longer, Not Larger: Enhancing Software Engineering Agents via Scaling Test-Time Compute Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+patch, ensuring alignment with the actual code modifica-
+tions.
+• Fault Localization: The generated patch must focus on the
+correct locations within the code (e.g., relevant classes, func-
+tions, and surrounding code blocks). We check that the
+model’s patch includes changes at these same locations as
+those in the developer’s patch.
+• Issue Reproduce: We validate the generated reproduction
+code’s correctness against the developer’s patch. A valid
+reproduction code should output issue reproduced when exe-
+cuted on the original codebase and issue resolved when exe-
+cuted after applying the developer’s patch. This two-stage
+verification ensures that the reproduction code correctly cap-
+tures the essence of the issue and can reliably detect when
+the issue has been fixed.
+• Patch Correctness: We assess whether the patch resolves
+the issue. We apply the model’s patch to the repository and
+run the SWE agent’s reproduction code to check if the issue
+is fixed. For cases where the LLM fails to generate correct
+reproduction code, we follow the approach [22] by evaluat-
+ing the similarity between the model-generated patch and
+the developer’s patch as a filtering criterion. We also run
+existing unit tests to ensure the patch does not break other
+functionalities, verifying the correctness and stability of the
+solution.
+• Complexity Filtering: To focus on challenging problems that
+activate deeper reasoning capabilities, we filter out simpler
+issues that Qwen2.5 Coder 32B [ 12] can solve in a single
+attempt without refinement. This ensures our training data
+consists of problems requiring sophisticated long CoT rea-
+soning.
+By incorporating development context into the rejection sam-
+pling process, we ensure that only high-quality trajectories are
+retained, ultimately enhancing the model’s reasoning depth and
+performance. Additionally, if a patch is incorrect but the preced-
+ing reasoning stages are accurate, we discard the erroneous patch
+data while preserving the correct stage data. This allows us to re-
+tain valuable reasoning steps, ensuring that useful problem-solving
+knowledge is not lost during the filtering process.
+2.1.2 Training. We train our model using supervised learning on
+the synthesized long CoT trajectories dataset. Our objective is to
+enable the model to internalize structured multi-round reasoning.
+We follow a standard maximum likelihood estimation objective, op-
+timizing the conditional probability of generating correct reasoning
+actions given an issue and prior observations. The training loss is
+computed over both the think and answer components at each step,
+ensuring that the model learns both intermediate reasoning steps
+and final predictions. To enhance efficiency in multi-round infer-
+ence, we adopt a history pruning mechanism inspired by DeepSeek
+R1 [9]. Specifically, for each reasoning step𝑖, we discard the think
+component of the previous response and retain only the final an-
+swer in the historical context. Formally, given a training instance
+consisting of issue and the corresponding step-wise trajectory:
+Phase
+results
+Issue
+Repo
+Env
+LLM
+Agent
+PRM
+Search
+Test
+Execution
+ORM
+Ranking
+PRM
+score
+Focused search
+guided by PRM
+Passed
+results
+Submitted
+Patch
+Figure 4: Overview of Development-Process-Based Search
+Strategy.
+𝜃′← argmax
+𝜃
+∑︁
+(𝑠𝑖
+obs,𝑠𝑖
+think,𝑠𝑖ans)∈ traj
+log𝑃𝜃(𝑠𝑖
+think,𝑠 𝑖
+ans| issue,𝑠 𝑖
+obs,H𝑖−1)
+(1)
+H𝑖 =H𝑖−1∪{𝑠𝑖
+obs,𝑠 𝑖−1
+ans} (2)
+where𝑠𝑖
+obs represents the structured observations at step𝑖, cap-
+turing relevant code snippets, execution logs, or other extracted
+information crucial for reasoning.𝑠𝑖
+think represents the model’s in-
+ternal reasoning process, and𝑠𝑖ans represents the actionable output
+from the model at each step, such as the search_api, the specific
+patch to apply, or a command to run. H𝑖−1 denotes the histori-
+cal trajectory context up to step 𝑖− 1, ensuring that the model
+conditions on prior reasoning states when generating the next step.
+2.2 Effective Search Strategies for External TTC
+External TTC explores ways to leverage multiple inference outputs
+to identify the best solution (see Figure 3). Existing methods typi-
+cally generate several candidate patches at once and then rely solely
+on a final correctness check (e.g., by running unit tests [38, 47], re-
+gression tests [40], or outcome-based reward models [32]) to select
+the best candidate. However, such “end-point only” methods often
+underutilize the available search budget because they do not inter-
+vene intermediate reasoning steps. This is particularly problematic
+for SE tasks, which involve lengthy reasoning chains with multiple
+interdependent decisions. Moreover, classical tree search [8] (like
+beam search) applied at every intermediate step (i.e., “step-by-step”
+validation) is also infeasible for extensive software development
+pipelines, due to the computational overhead of verifying. To ad-
+dress this, we propose a development-process-based search strategy
+that focuses on the critical decision phases of software development.
+2.2.1 Development-Process-Based Search Strategy. We decompose
+the agent’s problem-solving process into three essential phases:
+(1) repository understanding, (2) fault localization, and (3) patch
+generation. These phases represent crucial decision points in the
+development process, where errors can propagate and dramatically
+affect subsequent steps. By focusing our search at these junctures,
+we ensure that the agent’s decisions are evaluated at critical stages,
+not at every single action within the process. Figure 4 presents our
+overview framework.
+Focused Search with Process Reward Model (PRM) . At the
+repository understanding and fault localization stages, we apply a
+lightweight beam search strategy, guided by PRM. For each stage,
+we generate N candidate outputs and use the PRM to score each
+
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Trovato et al.
+candidate based on its likelihood of correctness. The top-k highest-
+scoring candidates are retained and used as input for the next stage,
+effectively pruning less promising solution paths. This approach
+maintains a manageable beam width while focusing computational
+resources on the most promising solution trajectories.
+Patch Generation and Execution Verification . At this stage,
+the agent generates potential patches to resolve the identified bug.
+To ensure the correctness of the generated patches, we apply exe-
+cution verification, where the agent generates reproduction code
+to check if the patch successfully fixes the issue. This verification
+process also ensures that the patch does not introduce new bugs by
+running regression tests on the repository to confirm that existing
+functionality is unaffected.
+Final Ranking with Outcome Reward Model (ORM) . After
+executing the verification checks, we prioritize keeping patches
+that pass more tests, and then we select the most promising patches
+from among these (in case of a tie). Here, we apply the ORM, which
+evaluates the quality of the final patches. The ORM ranks multiple
+candidate patches and the highest score from the ORM is selected
+as the final solution to be submitted. Importantly, our ORM design
+requires only the issue description and the candidate patch as inputs,
+without depending on intermediate reasoning steps or specific
+agent architectures. This design choice ensures that our ORM can
+be seamlessly integrated with various SWE agent systems or CI/CD
+pipelines.
+2.2.2 Reward Model Training. Process Reward Model (PRM)
+The PRM aims to assess the intermediate correctness at critical
+development phases, namely repository understanding and fault lo-
+calization. To train the PRM, we construct a labeled dataset by lever-
+aging the high-quality bootstrapped trajectories generated during
+the trajectory synthesis phase. For each trajectory step, we formu-
+late a binary classification task where the PRM learns to distinguish
+between correct and incorrect intermediate outputs. Specifically,
+for repository understanding, the model predicts whether the iden-
+tified files align with the actual developer’s modified files. For fault
+localization, it predicts whether the model-generated patch aligns
+with the developer-edited detailed locations. We use the contex-
+tual information from issues and intermediate trajectory reasoning
+outputs as inputs, enabling the PRM to contextualize and effec-
+tively evaluate partial solutions. We fine-tune a base model using a
+standard next-token prediction objective with cross-entropy loss,
+guiding the model to output tokens corresponding to binary labels
+(i.e., “+” for correct and “-” for incorrect):
+L𝑃𝑅𝑀 =−
+𝑁∑︁
+𝑖=1
+[𝑦𝑖 log(𝑝𝑖)+( 1−𝑦𝑖) log(1−𝑝𝑖)] (3)
+where𝑦𝑖 is the binary correctness label (1 for correct, 0 for
+incorrect), and𝑝𝑖 is the PRM’s predicted probability of correctness.
+Outcome Reward Model (ORM). The ORM performs final
+sorting of the generated patches. For ORM training, we curate a
+dataset comprising pairs of candidate patches labeled according
+to their verification outcomes. Specifically, patches that pass all
+execution verification and regression tests are considered superior
+(winning response), while those failing any verification steps are
+inferior (losing response). To effectively capture relative patch qual-
+ity, we apply the Direct Preference Optimization (DPO) loss [34]
+for training:
+L𝑂𝑅𝑀(𝜋𝜃 ;𝜋ref) =−E(𝑥,𝑦 𝑤,𝑦𝑙)
+"
+log𝜎
+
+𝛽 log 𝜋𝜃(𝑦𝑤|𝑥)
+𝜋ref(𝑦𝑤|𝑥)−
+𝛽 log 𝜋𝜃(𝑦𝑙|𝑥)
+𝜋ref(𝑦𝑙|𝑥)
+!# (4)
+Here,𝑦𝑤 represents the winning patch (passes verification),𝑦𝑙
+is the losing patch (fails verification), and𝑥 is the associated issue
+description. We fine-tune a smaller base model as the ORM refer-
+ence model (𝜋ref) to maintain fast inference during the external
+TTC phase. The hyperparameter𝛽 controls the reward sharpness,
+and we chose a common value of 0.5.
+2.3 Putting It Together
+We propose a unified framework by seamlessly integrating internal
+and external Test-Time Scaling (TTC), emphasizing enhanced per-
+formance of software engineering agents through allowing models
+to think longer and search more, instead of increasing model size.
+Figure 3 illustrates this unified TTC framework, clearly demonstrat-
+ing the integration of internal and external scaling strategies. All
+models in our experiments are based on Qwen2.5 Coder 32B [12].
+Our approach ultimately shows that careful inference-time scaling
+can achieve or even surpass the performance of significantly larger
+models, thus enabling advanced software engineering reasoning
+capabilities even under constrained computational resources. The
+effectiveness of this approach will be thoroughly validated through
+subsequent experiments.
+3 EV ALUATION
+3.1 Benchmark and Evaluation Metric
+SWE-bench Verified. We evaluated our method on the recently pro-
+posed benchmarks SWE-bench Verified [29], comprising 500 real-
+world GitHub issues. The model receives only the natural language
+description of the original GitHub issue and its corresponding code
+repository as input. These benchmarks employ developer-written
+unit tests to verify the correctness of model-generated patches,
+ensuring a rigorous assessment of the model’s performance.
+Evaluation Metric. We use (1) the percentage of resolved task
+instances, (2) fault location success rate. These evaluation metrics
+represent overall effectiveness in resolving real-world GitHub is-
+sues. In addition, we evaluate the effectiveness of solving issues at
+different difficulty levels and different generation budgets to verify
+the test-time scaling phenomenon of our method.
+3.2 Overall Effectiveness of Unified TTC
+Framework
+We evaluate the effectiveness of our unified TTC framework on the
+SWE-bench Verified benchmark. We first assess various base mod-
+els under our SWE-SynInfer+ framework. Figure 1 illustrates the
+comparative performance results. Notably, our 32B SWE-Reasoner
+model, which employs Internal TTC strategies, achieves an issue-
+resolution accuracy of 37.60%. When combined with External TTC
+
+Thinking Longer, Not Larger: Enhancing Software Engineering Agents via Scaling Test-Time Compute Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+Agent LLM Verified
+Model size unknown or size > 100B
+SWE-agent [29] GPT-4o 23.00%
+AutoCodeRover [29] GPT-4o 28.80%
+SWE-SynInfer [22] GPT-4o 31.80%
+Agentless [29] GPT-4o 33.20%
+SWE-agent [47] Claude3.5-Sonnet-v1 33.60%
+SWE-SynInfer [22] Claude3.5-Sonnet-v1 35.40%
+OpenAI Tools [30] GPT-4.5 38.00%
+Agentless [31] OpenAI-o3-mini 40.00%
+Agentless [13] OpenAI-o1-1217 41.00%
+Anthropic Tools [2] Claude3.5-Sonnet-v2 49.00%
+OpenAI Tools [31] OpenAI-o3-mini 61.00%
+Anthropic Tools [3] Claude3.7-Sonnet 62.30%
+Model size≤ 100B
+Agentless [26] Qwen2.5-Coder 32B 25.60%
+SWE-Gym [32] SWE-Gym 32B 29.80%
+SWE-SynInfer [22] SWE-GPT 72B 30.20%
+Agentless [26] SoRFT-Qwen 32B 30.80%
+SWE-Fixer [22] SWE-Fixer 72B 32.80%
+NebiusAI [8] NebiusAI 72B&70B 40.60%
+Agentless Mini [38] Llama3-SWE-RL 70B 41.00%
+SWE-SynInfer+ SWE-Reasoner 32B 46.00%
+Table 1: Performance comparison of our method and other
+models on SWE-bench Verified benchmark.
+(budget=8), our model’s performance further increases to 46.00%.
+This unified approach closely matches the performance of the signif-
+icantly larger proprietary Claude 3.5 Sonnet v2 model (46.20%) and
+surpasses OpenAI-o1 (45.60%) and DeepSeek-R1 (41.20%), clearly
+demonstrating the effectiveness of our unfied TTC strategies. We
+further benchmark our approach against leading state-of-the-art
+SWE agent frameworks reported in existing literature (see Table 1).
+Within the≤ 100B model-size category, our method achieves the
+highest issue-resolution accuracy, establishing a new state-of-the-
+art. Importantly, our method achieves this performance with sub-
+stantially lower computational demands, emphasizing that careful
+inference-time computation strategies effectively leverage smaller
+models to reach competitive results.
+Additionally, to evaluate the generalization and robustness of
+our unified TTC framework across different software domains, we
+analyzed its performance on a diverse set of repositories. Figure 2 il-
+lustrates the issue-resolution rates of our SWE-Reasoner-32B (TTC)
+model across 12 representative software repositories, compared
+with the strongest open-source baseline (DeepSeek-R1 671B) and
+two leading closed-source models (OpenAI-o1 and Claude 3.5 Son-
+net v2). Notably, SWE-Reasoner-32B (TTC) matches or surpasses
+the performance of DeepSeek-R1 671B in the majority of reposito-
+ries, and closely approaches the performance of larger closed-source
+models in numerous instances. This consistent cross-domain perfor-
+mance underscores our method’s robust generalization capabilities,
+highlighting its potential applicability and effectiveness across a
+wide spectrum of real-world software engineering scenarios.
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+Size of each list
+0
+115.5
+231
+230
+Our
+231
+Claude 3.5 Sonnet
+226
+OpenAI o1
+206
+DeepSeek R1
+195
+DeepSeek V3
+Number of elements: specific (1) or shared by 2, 3, ... lists
+100
+5
+68
+4
+49
+3
+55
+2
+59
+1
+17
+10
+10
+9
+8
+3
+3
+10
+6
+4
+6
+3
+3
+9
+4
+6
+54
+3
+4 6
+6
+2
+21
+18
+9
+11
+9
+100
+2025/3/11 14:1
+Our
+Claude 3.5 Sonnet
+OpenAI o1
+8 14
+DeepSeek R1DeepSeek V3
+1 jVenn_chart (1).svg
+ﬁle:///Users/mayingwei/Downloads/jVenn_chart (1).svg 1/1
+Figure 5: Venn diagram of issue instances solved by our uni-
+fied TTC framework and other models on SWE-bench Veri-
+fied.
+As illustrated in Figure 5, we further analyzed the overlap of
+solved issue instances among different models on the SWE-bench
+Verified benchmark through a Venn diagram. The diagram reveals
+that our unified TTC framework uniquely solves 17 issue instances
+that other models fail to address, while also sharing a substantial
+number of successfully resolved issues with major models. This
+indicates that our approach not only achieves competitive perfor-
+mance quantitatively but also demonstrates unique problem-solving
+capabilities in terms of coverage.
+3.3 Analysis of Internal TTC Strategies
+We conducted two detailed analyses to comprehensively assess the
+effectiveness of our Internal TTC strategies:
+Effectiveness of Internal TTC via Ablation Study. We per-
+formed ablation studies to assess the individual contributions of key
+Internal TTC components, particularly evaluating their impact on
+issue-resolution rates and fault localization accuracy. The results
+are summarized in Table 2. Upon removing the Long Chain-of-
+Thought (Long CoT) component (-w/o. LongCoT), we observed a
+significant reduction in issue resolution accuracy from 37.60% to
+28.80%. Specifically, in the -w/o. LongCoT experiment, we omitted
+the think labels from training data, instead prompting Claude 3.5
+Sonnet v2 [2] to explicitly generate short-CoT reasoning and corre-
+sponding action predictions on the same dataset. We then applied
+the repository-aware rejection sampling method to this short-CoT
+data and trained the same base model (Qwen2.5-Coder 32B [12]).
+Despite leveraging the stronger Claude model for short-CoT gen-
+eration, the trained smaller model underperformed compared to
+our original Long CoT strategy. This result highlights the unique
+advantage of Long CoT in activating deeper reasoning capabilities
+in smaller models. Additionally, we evaluated the impact of our
+repository-aware rejection sampling method by removing this fil-
+tering step (-w/o. Rejection). Although using unfiltered synthesized
+
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Trovato et al.
+Ablation Resolved Chunk Func File
+SWE-Reasoner 37.60% 51.00% 54.49% 72.19%
+-w/o. LongCoT 28.80% 49.05% 51.68% 69.18%
+-w/o. Rejection 33.00% 48.76% 51.94% 71.38%
+-w/o. All 28.00% 44.22% 47.25% 60.69%
+Table 2: Ablation experiment of the Internal TTC method,
+where Resolved is the issue resolution rate on SWE-bench
+Verified, and Chunk, Func, and File are the fault location
+success rates at three different levels.
+data increased the overall volume of training data, issue-resolution
+performance decreased from 37.60% to 33.00%. This decline under-
+scores the importance of carefully curated, high-quality reasoning
+trajectories for effective training.
+To further clarify the benefits of explicitly Long CoT reasoning
+trajectories training, we compared performance across internal-
+ized Long CoT (SWE-Reasoner), internalized Short CoT (w/o. Long
+CoT), and prompt-based CoT (w/o. All). Specifically, we categorized
+SWE-bench Verified issues into five difficulty buckets based on
+their resolution frequency among the top 30 submissions on the
+SWE-bench leaderboard [15]. Level 1 includes issues resolved by
+25–30 agent submissions (easiest), level 2 by 20–25 submissions,
+level 3 by 15–20 submissions, level 4 by 10–15 submissions, and
+level 5 by 5–10 submissions (hardest). Issues resolved fewer than
+five times were excluded due to their infrequency and high variance.
+As shown in Figure 6, models employing internalized CoT (both
+Long and Short) consistently outperform Prompt-CoT-based meth-
+ods. Crucially, our internalized Long CoT approach significantly
+surpasses Short CoT performance on the hardest bucket (level 5),
+achieving an issue-resolution rate approximately six times higher.
+These findings confirm that explicitly internalizing long reason-
+ing trajectories is highly effective, particularly in enabling small
+models to tackle complex tasks by effectively leveraging test-time
+computational resources.
+Analysis of the Test-Time Scaling Phenomenon. We fur-
+ther investigated whether the SWE-Reasoner dynamically allocates
+computational resources based on task complexity, as indicated by
+longer inference trajectories (measured by output token counts).
+Using the previously defined difficulty buckets (level 1 being easiest
+and level 5 hardest), we compared average output tokens generated
+by SWE-Reasoner, OpenAI o1, ShortCoT model, and Claude 3.5
+Sonnet v2 across different issue-difficulty levels (Figure 7). From
+the figure, we observe that both SWE-Reasoner and OpenAI o1 con-
+tinue to adaptively allocate more reasoning tokens to increasingly
+challenging tasks, demonstrating a clear test-time computation scal-
+ing phenomenon. Interestingly, we also observed that Claude3.5
+Sonnet v2, despite being a model not explicitly trained for inference-
+intensive computation, exhibited a similar scaling trend, whereas
+ShortCoT model did not show this behavior clearly. This empiri-
+cal evidence strongly supports the existence of test-time compute
+scaling in advanced reasoning models, further validating that our
+Internal TTC strategy effectively enables dynamic computational
+resource allocation tailored to task complexity.
+0.91
+0.82
+0.55
+0.25 0.24
+0.91
+0.76
+0.38
+0.2
+0.04
+0.85
+0.71
+0.44
+0.13
+0.03
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+1 2 3 4 5
+Issue Resolved Rate
+Github Issues Binned by Increasing Difficulty Level
+Comparing Different Reasoning Strategies by Difficulty Level
+Long CoT Short CoT Prompt CoT
+Figure 6: Comparison of Issue Resolution Rates by Reason-
+ing Strategies across Difficulty Levels. The graph shows the
+performance of three approaches: Long CoT (SWE-Reasoner),
+Short CoT (w/o. Long CoT ), and Prompt CoT ( w/o. All).
+20
+5020
+10020
+15020
+20020
+25020
+30020
+35020
+1 2 3 4 5
+Average Output Tokens
+Github Issues Binned by Increasing Difficulty Level
+Comparing Output Tokens by Difficulty Level
+OpenAI oSWE-Reasoner 1 Claude 3.5 Sonnet vShortCoT 2
+Figure 7: Average Number of Output Tokens by Difficulty
+Level. We categorize SWE-bench Verified issues into five
+difficulty buckets based on their resolution frequency by
+top-performing agents (bucket 1: resolved by 25–30 agents,
+bucket 5: resolved by 5–10 agents).
+3.4 Analysis of External TTC Strategies
+We further evaluated the effectiveness of our proposed External
+Test-Time Compute (TTC) strategies, specifically the Development-
+Process-Based Search Strategy, through two targeted experiments.
+Due to the computational resources and significant time required
+for scaling experiments, we randomly sampled 100 issues from the
+SWE-bench Verified benchmark for these analyses.
+Effectiveness of Development-Process-Based Search Strat-
+egy. Our first experiment aimed to systematically evaluate the
+effectiveness of our proposed external search strategy, labeled as
+Dev-Search, against three alternative baselines under varying infer-
+ence budgets (Generation Budget). Specifically, Dev-Search utilizes
+our proposed Process Reward Model (PRM)-guided beam search
+at the repository understanding and fault localization stages, com-
+bined with execution-based patch verification and ORM-based final
+ranking. For budgets of 2 and 4, we set the beam search width to 2;
+
+Thinking Longer, Not Larger: Enhancing Software Engineering Agents via Scaling Test-Time Compute Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+0.32
+0.34
+0.36
+0.38
+0.4
+0.42
+0.44
+0.46
+0.48
+1 2 4 8
+Issue Resolved Rate
+Generation Budget
+Comparing Issue Resolved Rate by Generation Budget
+Dev-Search ORM_Exec Exec Voting
+Figure 8: The comparative issue-resolution rates under vari-
+ous inference budgets (1, 2, 4, and 8 rollouts).
+for budget 8, we expanded it to 4. We compared Dev-Search with
+the following baselines. Exec strategy uses only execution veri-
+fication (regression tests and issue reproduction) to select a final
+patch. If multiple patches passed execution verification, a patch was
+randomly selected to resolve the tie. In ORM_Exec approach, we
+employed our Outcome Reward Model (ORM) to break ties among
+multiple patches that passed execution verification, rather than
+selecting randomly. In Voting strategy, following Agentless [40],
+we normalized patches to abstract syntax tree representations, stan-
+dardized their format (ignoring comments, extra whitespace, and
+surface-level differences), and then selected the patch appearing
+most frequently.
+Figure 8 illustrates the comparative issue-resolution rates under
+various inference budgets (1, 2, 4, and 8 rollouts). We observe several
+key findings. First, our proposed Dev-Search strategy consistently
+achieves the highest resolution rate across all budget conditions,
+clearly demonstrating its overall effectiveness. Moreover, a dis-
+tinct test-time compute scaling phenomenon emerges, evidenced
+by steadily improving performance as inference budgets increase.
+Conversely, the Exec baseline exhibited an unexpected drop in per-
+formance at the highest budget (budget=8). A potential explanation
+for this performance decline is that execution-based verification
+alone (specifically, reproducing code functionality) might occasion-
+ally yield false positives due to limited coverage and incomplete re-
+producibility, leading to instability when randomly selecting among
+candidate patches. Importantly, incorporating the ORM-based tie-
+breaking method in the ORM_Exec variant mitigates this issue,
+achieving stable improvements with increased budgets.
+Influence of Generation Budgets Across Difficulty Levels.
+Our second experiment analyzed how varying generation budgets
+impacted agent performance across different issue difficulty buckets.
+The issues were categorized into five difficulty levels based on their
+resolution frequency among existing top-ranked agent submissions
+from the SWE-bench Verified leaderboard (bucket 1: easiest, solved
+by 25–30 agents; bucket 5: hardest, solved by 5–10 agents). Figure 9
+summarizes these results.
+1
+0.89
+0.78
+0.67
+0.16
+1
+0.89
+0.61
+0.56
+0.16
+1
+0.79
+0.5
+0.22 0.21
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+1 2 3 4 5
+Issue Resolved Rate
+Github Issues Binned by Increasing Difficulty Level
+Comparing Different Rollout Times by Difficulty Level
+PRM@8 PRM@2 PRM@1
+Figure 9: Comparison of Issue Resolution Rates: By Difficulty
+Level and Rollout Time.
+As expected, increasing inference budgets consistently improved
+issue-resolution performance for difficulty levels 1 through 4, par-
+ticularly notable in difficulty levels 3 and 4. This clearly indicates
+that additional test-time compute can indeed enhance model perfor-
+mance, allowing the agent to explore broader reasoning trajectories
+and effectively handle moderately challenging problems. However,
+at the highest difficulty level (bucket 5), we observed a slight reduc-
+tion in resolution accuracy when using higher inference budgets.
+This counterintuitive finding suggests that, for extremely challeng-
+ing tasks, the effectiveness of external compute strategies may reach
+inherent limitations imposed by the model’s reasoning capabilities.
+In other words, beyond certain complexity thresholds, merely al-
+locating more computational budget to external search may offer
+limited gains without commensurate improvements in underlying
+model reasoning abilities. Future work should explore combining
+external compute strategies with complementary internal training
+improvements to further extend effectiveness on highly challenging
+tasks.
+4 RELATED WORKS
+4.1 LLM-based Software Engineering Agents
+Generative models have exhibited significant capabilities in code
+generation. These models have substantially impacted various as-
+pects of software engineering, enabling tasks such as code gen-
+eration [14, 23, 33, 36, 44, 52, 53], test generation [19, 20, 41, 46],
+and code editing and refactoring [ 1, 5, 18, 35, 49, 50]. In recent
+years, AI agents have significantly advanced ASE. These agents
+enhance project-level SE tasks by integrating diverse capabilities,
+such as awareness of the running environment [ 10, 16, 37, 43],
+structured planning and reasoning [6, 21, 37], and leveraging ex-
+ternal tools [ 11, 17, 25, 45, 48]. Devin [ 6] notably introduced a
+milestone end-to-end ASE framework, capable of autonomously
+planning requirements, utilizing tools such as code editors, termi-
+nals, and search engines, and ultimately generating functional code
+to fulfill user specifications. Its promising capabilities have sparked
+significant attention within the SE community, inspiring subse-
+quent works, such as SWE-Agent [47], AutoCodeRover [51], and
+
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Trovato et al.
+RepoUnderstander [24]. Recently, SWE-SynInfer [22] provided an
+effective open-source framework to systematically handle software
+issues, decomposing issue resolution into stages of repository un-
+derstanding, fault localization, and patch generation. Building upon
+this framework, we propose SWE-SynInfer+, an enhanced version
+introducing an explicit patch verification phase, where reproduc-
+tion code is generated to automatically verify and iteratively refine
+candidate solutions. Besides, a major limitation across existing ASE
+agents remains their heavy reliance on larger models, which re-
+stricts accessibility in real-world deployments. Our work directly
+addresses this limitation by proposing a scalable inference-time
+compute framework, explicitly designed to strengthen open-source
+ASE agents through enhanced reasoning depth and systematic ex-
+ploration of candidate solutions.
+4.2 Training Software Agents
+Recent advancements have demonstrated the significant potential
+of leveraging LLMs to tackle complex SE tasks. Existing approaches
+rely predominantly on proprietary or resource-intensive models
+such as OpenAI o1 [13] or DeepSeek R1 [9], achieving strong results
+but facing barriers related to model accessibility, data transparency,
+and deployment costs. Efforts have begun to develop open-source al-
+ternatives explicitly tailored for emerging SWE tasks. For instance,
+Lingma-SWEGPT [22] proposes iterative, development-process-
+centric methods and introduces open model variants derived from
+Qwen2.5 [12], achieving improved performance on SWE-bench.
+SWE-Gym [32] further advances open-source SWE agent training
+by providing an environment designed to enhance the Qwen2.5-
+Coder series (7B and 32B) on SWE-bench tasks. Similarly, SWE-
+Fixer [42] fine-tunes Qwen2.5 models into specialized retrievers
+and editors for more efficient issue resolution. SWE-RL [38] uses
+reinforcement learning to improve the Llama model and achieve
+better issue resolution. In contrast, our work proposes a distinct ap-
+proach focused explicitly on scalable inference-time compute (TTC)
+rather than merely scaling model size. Our framework achieves
+superior or comparable performance to existing state-of-the-art
+models, while significantly reducing computational demands and
+resource constraints.
+4.3 Scaling Test-Time Compute
+Recent advancements in software engineering agents, leverage
+external tools like parallel trajectory generation, voting mecha-
+nisms [40], and execution verification [7, 38] to enhance solution
+quality. For example, SWE-Gym [32] trains an ORM to select the
+highest-scoring trajectory from parallel generations, while Agent-
+less [40] employs a voting mechanism to normalize and rank can-
+didate patches, choosing the most frequent one. Although effective,
+these methods do not address intermediate steps in the workflow.
+Extensions like CodeMonkeys [7] and SWE-RL [38] generate re-
+production code to validate patch correctness, offering functional
+feedback. Similarly, Nebius [8] introduces PRMs to guide action se-
+lection. Yet, these frameworks still emphasize either trivial or final
+actions rather than systematically addressing all critical stages of
+development. Moreover, they fail to explore the potential of internal
+TTC to dynamically scale reasoning capabilities. Our work bridges
+these gaps by proposing a novel framework that integrates targeted
+search at three pivotal development phases alongside Long CoT
+training. To the best of our knowledge, this is the first empirical
+demonstration of test-time scaling within software engineering
+agents.
+5 LIMITATION AND THREATS TO V ALIDITY
+While SWE-Reasoner 32B (TTC) demonstrates promising results
+in automated software improvement, it is important to acknowl-
+edge several limitations that affect both the current approach and
+the broader generalizability of our findings: Inference Efficiency.
+Although test-time compute scaling substantially improves model
+performance, it can also degrade inference efficiency, particularly
+for interactive tasks such as real-time code completion or conversa-
+tional code assistance. In contrast, for end-to-end software issue res-
+olution where short delays are acceptable, test-time scaling remains
+practical. We also observe that SWE-Reasoner and OpenAI-o1 par-
+tially adapt their reasoning depth to problem complexity, suggesting
+that future work could explore more fully adaptive inference-time
+mechanisms—automatically adjusting the extent of reasoning based
+on task difficulty or runtime constraints. Automated Solution
+Verification. Despite strong results on the SWE-bench dataset, our
+training data remains relatively small, primarily due to the con-
+straints of verifying solutions in real-world software environments.
+Few datasets capture the entire testing and debugging lifecycle, and
+automatically setting up complex project environments with myriad
+dependencies is a significant challenge for current tooling, which
+frequently has a low success rate. Future research could improve the
+end-to-end capabilities of SWE agents by developing more precise,
+large-scale automated environment-setup frameworks. Integrating
+these frameworks with reinforcement learning or other adaptive
+training methods might further enhance the robustness and appli-
+cability of automated software engineering systems. Despite these
+limitations, SWE-Reasoner 32B (TTC) constitutes a significant step
+forward in automated software engineering. The challenges out-
+lined above highlight opportunities for continued investigation
+and improvement. We plan to leverage these insights to evolve
+SWE-Reasoner into a more robust, adaptable, and effective solution,
+ultimately aiming to assist developers across the full spectrum of
+software development tasks.
+6 CONCLUSION
+In this work, we introduced a unified Test-Time Compute (TTC)
+scaling framework to enhance the code reasoning capabilities of
+software engineering agents using personally deployable open-
+source LLMs. Internally, we proposed a development contextual-
+ized trajectory synthesis method, leveraging realistic multi-stage
+reasoning trajectories extracted from high-quality GitHub repos-
+itories. This method, combined with repository-aware rejection
+sampling, significantly improves the model’s internal reasoning
+capabilities. Externally, we developed a development-process-based
+search strategy that focuses computational resources at critical
+decision-making points, utilizing specialized reward models and
+execution verification to efficiently prune less promising trajecto-
+ries. Evaluations conducted on the challenging SWE-bench Verified
+
+Thinking Longer, Not Larger: Enhancing Software Engineering Agents via Scaling Test-Time Compute Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+demonstrate that our 32B model, with targeted inference-time scal-
+ing, achieves a state-of-the-art 46% issue resolution rate, outper-
+forming larger models. Additionally, we provided the first empirical
+validation of the test-time scaling phenomenon within SWE agents,
+revealing effective dynamic allocation of computational resources
+to address increasingly complex software engineering tasks. Future
+work includes extending our unified TTC framework to broader
+software engineering tasks, exploring adaptive computation allo-
+cation strategies informed by task difficulty prediction, and inves-
+tigating TTC’s applicability across different software engineering
+environments and domains.
+ACKNOWLEDGMENTS
+We would like to express our gratitude to Wenhao Zhang 2 and
+Zhipeng Xue3 for their invaluable feedback and suggestions on the
+manuscript.

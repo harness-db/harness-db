@@ -1,0 +1,903 @@
+record_id: arxiv:2602.14160
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2602.14160
+fetched_title: Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+fetched_at: 2026-09-18T19:00:13Z
+
+Process-Supervised Multi-Agent Reinforcement Learning
+for Reliable Clinical Reasoning
+Chaeeun Lee 1 T. Michael Yates1 Pasquale Minervini 1 2 T. Ian Simpson1
+Abstract
+Clinical decision-making requires nuanced
+reasoning over heterogeneous evidence and
+traceable justifications. While recent LLM
+multi-agent systems (MAS) show promise,
+they largely optimise for outcome accuracy
+while overlooking process-grounded reasoning
+aligned with clinical standards. One critical
+real-world case of this is gene–disease validity
+curation, where experts must determine whether
+a gene is causally implicated in a disease by
+synthesising diverse biomedical evidence. We
+introduce an agent-as-tool reinforcement learning
+framework for this task with two objectives: (i)
+process-level supervision to ensure reasoning
+follows valid clinical pathways, and (ii) efficient
+coordination via a hierarchical multi-agent
+system. Our evaluation on the ClinGen dataset
+shows that with outcome-only rewards, MAS
+with a GRPO-trained Qwen3-4B supervisor agent
+substantially improves final outcome accuracy
+from 0.195 with a base model supervisor to
+0.732, but results in poor process alignment
+(0.392 F1). Conversely, with process + outcome
+rewards, MAS with GRPO-trained supervisor
+achieves higher outcome accuracy (0.750)
+while significantly improving process fidelity to
+0.520 F1. Our code is available at https:
+//github.com/chaeeunlee-io/
+GeneDiseaseCurationAgents.
+1. Introduction
+Large language models (LLMs) have shown promise in
+biomedical applications, but their deployment in real-world
+clinical settings remains limited due to the need for domain
+expertise and the heterogeneity of biomedical reasoning
+1School of Informatics, University of Edinburgh,
+UK 2Miniml.AI. Correspondence to: Chaeeun Lee
+<chaeeun.lee@ed.ac.uk>.
+Preprint. February 17, 2026.
+Figure 1.Overview of the hierarchical Agent-as-Tool framework
+for gene–disease validity curation task. The supervisor orchestrates
+specialised sub-agents to produce both a validity classification and
+a structured evidence trace matching a clinical SOP.
+tasks. Recent works on LLM agents (Yao et al., 2023;
+Schick et al., 2023; Shinn et al., 2023; Jin et al., 2025) have
+extended LLM reasoning through tool use, self-reflection,
+and retrieval, while multi-agent systems (MAS; Wu et al.,
+2023; Chen et al., 2024; Yang et al., 2025c) further ex-
+pand this paradigm by enabling coordination of specialised
+agents. These advances provide a promising pathway for un-
+derexplored biomedical domains where process fidelity and
+auditability are essential (Hunter et al., 2016; Thaxton et al.,
+2022; Wright et al., 2024). In particular, many such settings
+require not only correct conclusions through complex rea-
+soning but also structured, traceable evidence aligned with
+formal clinical standards. The medical specialty of Clinical
+Genetics provides a representative real-world case. Rare
+genetic diseases (RD) affect over 300 million people world-
+wide (International Rare Diseases Research Consortium
+(IRDiRC), 2017), and diagnosis of these conditions relies
+on establishing valid gene–disease relationships from litera-
+ture. With an increasing number of reported gene–disease
+relationships, developing a shared framework for consistent
+assessment has become increasingly important. This need
+is exemplified by the Gene Curation Coalition (GenCC), an
+international coalition of groups engaged in gene–disease
+validity evaluation (DiStefano et al., 2022), including the
+Clinical Genome Resource (ClinGen). ClinGen has de-
+veloped an internationally recognised standard operating
+procedure (SOP) that defines formal criteria for evaluating
+1
+arXiv:2602.14160v1 [cs.AI] 15 Feb 2026
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+evidence supporting gene–disease relationships (Rehm et al.,
+2015; Andersen et al., 2025). These criteria decompose evi-
+dence into modular categories, providing a structured basis
+for decision-making. In this work, we introduce an agent-
+as-tool reinforcement learning (RL) framework designed
+to align LLM reasoning with rigorous clinical standards.
+We propose a hierarchical multi-agent architecture where
+a supervisor agent directs specialised sub-agents to follow
+valid reasoning pathways. Each sub-agent is responsible
+for a distinct evidence category and produces structured
+outputs relevant to that category. By training the supervisor
+agent with a hybrid approach that combines outcome-based
+and process-based rewards, we improve outcome accuracy
+while enforcing adherence to the clinical SOP. In addition,
+the multi-agentic system produces evidence-specific reason-
+ing traces and structured outputs that mirror clinical curation
+practices, providing the traceability and auditability that are
+crucial in real-world clinical decision-making.
+2. Related Works
+Biomedical Agentic Systems.Recent progress in LLM
+agents has highlighted biomedicine and healthcare as natu-
+ral application areas, where many tasks benefit from agentic
+abilities such as literature grounding and integration with ex-
+ternal data sources and tools. Systems such as MMedAgent
+(Li et al., 2024), Biomni (Huang et al., 2025), AgentMD (Jin
+et al., 2024), and MedAgent-Pro (Wang et al., 2025) demon-
+strate the potential of LLM agents to support biomedical
+reasoning through explicit planning, tool use, and workflow
+execution across a wide range of biomedical tasks (Rose
+et al., 2025; Gao et al., 2025). Studies on MAS further show-
+case that coordination among specialised agents can yield
+additional improvements, either through enhanced cognitive
+roles (e.g., planner, critic, verifier) or from task-specific role
+assignment (Wu et al., 2023; Chen et al., 2024; Yang et al.,
+2025c; Liu et al., 2025; Yang et al., 2025b). AI Hospital
+(Fan et al., 2024) simulates doctor–patient interactions via
+a multi-agent framework to benchmark multi-turn symp-
+tom collection and diagnosis. MDAgents (Kim et al., 2024)
+introduces a multi-agent framework that assigns solo or col-
+laborative LLM structures based on medical task complexity,
+improving knowledge-intensive benchmarks. Multi-agentic
+benchmarks such as AgentClinic (Schmidgall et al., 2025)
+and Agent Hospital (Li et al., 2025) facilitate medical agents
+under simulated environments mirroring real-world clinical
+scenarios.
+Reinforcement Learning for Biomedical Agents.RL for
+LLMs has been explored as a way to further improve agen-
+tic capabilities for biomedical tasks. While studies such as
+SiriuS (Zhao et al., 2025), Med-R1 (Lai et al., 2025), and
+DoctorAgent-RL (Feng et al., 2025) report gains on task
+performances through RL, they largely rely on outcome-
+Table 1.Dataset statistics.Breakdown of dataset construction
+from the ClinGen gene–disease validity curation database to the
+final data splits.Exp. Ev.= records containing experimental
+evidence annotations. Note that articles may overlap across splits.
+Only records (gene–disease pairs) with experimental evidence
+annotations linked to open-access article(s) are retained for the
+final data splits.
+Stage #Panels Records Unique Articles
+Total Exp. Ev. Total PMC-OA
+Raw Source 58 3,182 2,797 8,766 2,062
+Train 40 – 931 – 1,345
+Dev 4 – 224 – 231
+Test 8 – 220 – 299
+Total Used52–1,375–1,994
+based rewards. Med-PRM (Yun et al., 2025) has shown
+that process-level rewards can improve performance on
+biomedical benchmarks by verifying intermediate steps
+with an LLM-as-a-judge and retrieved evidence. While
+DoctorAgent-RL encourages clinically structured interac-
+tions through a protocol compliance reward, it still relies
+on a fixed penalty structure for procedural adherence and
+focuses on a single agent’s behavior rather than coordination
+of specialised agents. Our work incorporates process-level
+reward signals in a hierarchical multi-agent system using a
+real-world SOP-governed task to illustrate applicability in
+settings where process objectives are explicitly defined and
+established standards require modular intermediate reason-
+ing (Hunter et al., 2016; Thaxton et al., 2022). While prior
+works such as ToolRL (Qian et al., 2025) have shown that
+tool-call rewards can improve reasoning quality in general
+domain, we extend this idea to settings where the tools are
+LLM-based agents operating within an MAS.
+3. Gene–Disease Validity Assessment
+Developing AI systems that comply with established clinical
+standards is essential for real-world biomedical applications.
+A representative example isgene–disease validity assess-
+ment, a complex reasoning task that determines whether a
+candidate gene is causally implicated in a disease by syn-
+thesising evidence from the literature. Under ClinGen’s
+internationally recognised SOP, clinical experts derive a va-
+lidity classification from a predefined outcome set Y1 by
+evaluating evidence according to a consistent set of guide-
+lines that define modular evidence categories, where
+Y={Definitive,Strong,Moderate,
+Limited,No Known Disease Relationship}.
+While the SOP encompasses both genetic and experimental
+evidence, this work focuses on experimental evidence. The
+1We exclude categories associated with conflicting or contra-
+dictory evidence (e.g., Disputed and Refuted).
+2
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+Table 2.ClinGen’s experimental evidence schema.Experimental
+evidence categories and subtypes defined by ClinGen’s SOP. Each
+category contains two or more subtype labels that may be assigned
+based on literature analysis.
+Category Subtypes
+Biochemical
+Function
+(A) Shared biochemical function with
+genes implicated in the disease;
+(B) Biochemical function consistent
+with disease phenotype.
+Protein
+Interaction
+Physical association;
+Genetic interaction (sensu unexpected);
+Negative genetic interaction;
+Positive genetic interaction.
+Gene
+Expression
+(A) Gene expressed in tissues relevant
+to the disease of interest;
+(B) Gene altered in expression in pa-
+tients who have the disease.
+Functional
+Alteration
+Patient cells;
+Non-patient cells.
+Model
+Systems
+Non-human model organism;
+Cell culture model.
+Rescue
+Rescue in human;
+Rescue in patient cells;
+Rescue in non-human model organism;
+Rescue in cell culture model.
+detailed schema of the categories of experimental evidence
+defined by ClinGen’s SOP is summarised in Table 2.
+Dataset ConstructionTraining, development, and eval-
+uation data are derived from the ClinGen Gene–Disease
+Validity Curation database (Rehm et al., 2015; Wright et al.,
+2024). We filtered the curated records to identify entries
+containing experimental evidence annotations linked to pub-
+lications within the PubMed Central Open Access (PMC-
+OA) subset. This process yielded a final corpus of 1,994
+valid articles. We define each data instance as a case tu-
+ple (g,d,D,E,y) , comprising the unique gene–disease pair
+(g,d) , the set of associated open-access articlesD, the aggre-
+gate evidence annotationsE, and the final validity classifica-
+tiony. ClinGen records are organised into Gene Curation
+Expert Panels (GCEPs), each chaired by specialists in spe-
+cific clinical domains (e.g., theHereditary Cardiovascular
+Diseasepanel). While all 58 active panels adhere to the SOP,
+the specific literature distributions and annotation nuances
+vary by domain. We exploit this organisational structure
+by assigning entire panels exclusively to the training, de-
+velopment, or test splits. The held-out panel split enables
+evaluation of generalisation, as the model must transfer rea-
+soning patterns to evidence curated by unseen expert groups
+and across novel clinical specialties.
+4. Process-Supervised Multi-Agent RL
+We frame the gene–disease validity curation task as a hierar-
+chical MAS, in which aSupervisor Agentπθ orchestrates the
+reasoning process by invoking a set ofK= 6 specialised
+sub-agentsA={a 1,...,a K}. Each sub-agent specialises
+in a single evidence category (e.g.,Model Systems,Rescue,
+Expression) via prompt-based role assignment. When in-
+voked, a sub-agent evaluates a single article for evidence of
+that type.
+4.1. Task Definition and Agent Trajectories
+An input instance is defined as a global context x=
+(g,d,D abs), consisting of a gene g, a disease d, and a set
+of relevant scientific abstractsDabs ={D 1,...,D N}. The
+supervisor delegates the evaluation of specific evidence cat-
+egories on full-text articles to LLM sub-agents through dis-
+crete tool calls:
+c= (a k,idj)∈A×D abs,(1)
+where each call links a specific expert agentak to a target
+document identifier idj.
+Supervisor Trajectory.Given a global input context x=
+(g,d,D abs), the supervisor generates a trajectory:
+τsup =
+
+x, zplan,C,O, z synth, y
+
+.(2)
+Here, zplan is the model’s reasoning before invoking the
+tools C. C={c 1,...,c m} denotes a batch of parallel
+tool calls, while O={o 1,...,o m} represents the resulting
+structuredobservationsreturned by the sub-agents. Finally,
+the supervisor produceszsynth to generate the final validity
+classificationy∈Y . In this study, we constrain our experi-
+ments to a single round of tool usage. While the supervisor
+reasons in two stages (planning zplan and synthesiszsynth),
+all tool calls C are generated as a single parallel batch. Fig-
+ure 2 illustrates the supervisor trajectory and its interaction
+with specialised sub-agents as tool environment.
+Supervisor Rollout with Ground-Truth Agent Obser-
+vations.During supervisor training, rolling out all sub-
+agents to obtain structured observations O= (o 1,...,o m)
+can incur substantial computational overhead, particularly
+under Group Relative Policy Optimisation (GRPO; Shao
+et al., 2024), where the number of sampled trajectories
+scales with the group size. To reduce this cost, we adopt
+a strategy in which the supervisor πθ is conditioned on
+ground-truth sub-agent observations rather than on sampled
+LLM sub-agent outputs. Formally, for a given input instance
+x= (g,d,D abs) and a set of tool calls C= (c 1,...,c m),
+where eachci = (ak,idj) routes agentak to documentDj,
+we construct a synthetic observation
+˜O=
+
+˜o1,...,˜o m
+
+(3)
+3
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+Figure 2.Training trajectories for single-agent and multi-agent settings.In the single-agent setting (left), a single model optionally
+retrieves full text and directly predicts evidence subtypes and the final validity class. Process reward is applied at the level of evidence
+subtypes. In the multi-agent setting (right), a supervisor model invokes specialised sub-agents through tool calls, and aggregates their
+outputs to construct (subtype-level) evidence profile and predicts the final validity class. Process reward is applied at the level of the
+supervisor’s agent call(s).
+by retrieving from ground-truth subtype labels. Each in-
+jected ˜oi includes the correct evidence subtype label for
+(ak,Dj) as well as natural-language evidence summary by
+a clinician. This allows the supervisor to generate training
+time trajectories
+˜τsup =
+
+x, zplan,C, ˜O, zsynth, y
+
+,(4)
+reducing training costs and mitigating the noise introduced
+by incorrect or incomplete sub-agent predictions during
+training.
+Sub-Agent Trajectory.During inference, each invoked
+sub-agentak operates on a specific document instance with
+full-text visibility. Upon receiving a callc= (a k,idj), the
+sub-agent’s trajectory is defined as:
+τsub =
+
+(g,d,D full
+j ), zreason, e
+
+,(5)
+where Dfull
+j is the full text of the article specified by the
+supervisor in the tool argument. Each sub-agent generates
+a local reasoning trace zreason and returns a structured evi-
+dence objecte which forms the observationo∈O , where
+e= (S,M) .S is the set of predicted evidence subtypes
+for documentDj (possibly empty), andM is an evidence-
+specific rationale summarising the reasoning behind the
+sub-agent’s conclusion, mirroring the real-world clinical cu-
+ration workflow in which clinicians record natural-language
+summaries together with evidence annotations. We empha-
+sise that providing such rationales is a crucial prerequisite
+for real-world deployment, where evidence assessment must
+be transparent and incrementally updated as new studies
+emerge.
+4.2. Reward Design
+We trainπθ to predict the correct validity class while in-
+voking specialised sub-agents to ground decisions in evi-
+dence categories defined by the SOP. We optimise this with
+GRPO (Shao et al., 2024) using a rewardR that combines
+outcome reward with tool call-level process reward.
+Outcome Reward (Rout).Outcome reward evaluates the
+correctness of the final validity classificationy. Given the
+ordinal nature of the ClinGen scale (Definitive> Strong>
+Moderate> Limited> No Known Disease Relationship),
+we map the label setY to integer ranks rank(·)∈{0,...,4}
+(where 0 = No Known Disease Relationshipand 4 = Defini-
+tive). We employ a centered distance-based reward:
+Rout(y,y∗) =σ·(1−α·|rank(y)−rank(y ∗)|),(6)
+whereα= 0.5 centers the base metric to [−1,+1] (penal-
+ising catastrophic errors while rewarding exact matches),
+andσ= 4.0 scales the final reward signal. This results in a
+value range ofRout∈[−4,+4] , incentivising the model to
+predict labels that areordinallyclose to the ground truth.
+Process Reward (Rproc).The process reward Rproc eval-
+uates the quality of agent invocations. Given the set of
+4
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+0 100 200
+Step
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Reward
+Model Size
+1.7B
+4B
+8B
+(a)Outcome-Only
+0 100 200
+Step
+1.0
+0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+Reward
+Model Size
+1.7B
+4B
+8B (b)Hybrid (Total)
+0 100 200
+Step
+1.5
+1.0
+0.5
+0.0
+0.5
+Reward
+Model Size
+1.7B
+4B
+8B (c)Hybrid (Process)
+0 100 200
+Step
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2
+1.4
+1.6Reward
+Model Size
+1.7B
+4B
+8B (d)Hybrid (Outcome)
+Figure 3.Supervisor reward trajectories.Reward progression over training steps for (a) outcome-only total reward, (b) hybrid reward,
+(c) process component of the hybrid reward, and (d) outcome component of the hybrid reward. Longer convergence trajectories and
+single-agent trajectories are provided in the Appendix C.
+predicted tool calls C and ground-truth tool calls C∗, we
+compute the base alignment scoresas the F1 score:
+s= 2·|C∩C ∗|
+|C|+|C ∗| ,(7)
+where the intersection ∩ denotes exact matches on both
+agent type and input arguments. To discourage suboptimal
+agent invocation strategies and accelerate convergence, we
+apply a cubic shaping function to the base score. Since
+we leverage foundational models with native tool-calling
+capabilities, we do not introduce complex format rewards.
+Instead, we include a minimal penalty term for malformed
+tool blocks. We define a tool block as the text segment
+enclosed within <tool call> and </tool call> tags.
+A block is penalised if its content fails to parse as valid
+JSON or if the parsed object lacks required argument keys
+(i.e., PMID, PMCID, gene, and disease) required by the
+agent schema. Denoting nerr as the number of malformed
+tool blocks, the final process reward is:
+Rproc =clip
+
+γ·s 3− γ
+2−λ·n err,−4,4
+
+,(8)
+whereγ= 8.0 scales the base scores∈[0,1] to [−4,+4] ,
+andλ= 0.5 is the penalty coefficient for each malformed
+tool calls.
+Hybrid Process + Outcome Reward (RHybrid).To incen-
+tivise the ”right answer for the right reasons” trajectories,
+we employ a hybrid reward configuration. The total reward
+Rhybrid is computed as the weighted sum of the process and
+outcome components:
+Rhybrid =σ·[βR out + (1−β)R proc].(9)
+We set the balancing coefficient β= 0.5 , ensuring that
+both the final diagnosis and the supporting evidence path
+contribute equally to the combined reward within the global
+range of[−4,+4].
+4.3. Group Relative Policy Optimisation (GRPO)
+We optimise the supervisor policyπθ using Group Relative
+Policy Optimisation (GRPO). As described in Section 4.1,
+the supervisor is conditioned on ground-truth observations
+during training. For each inputx, the model samples a group
+ofG trajectories{˜τ1,...,˜τ G} following Equation (4) from
+the policyπθold. GRPO uses the group mean reward as a
+baseline, removing the need for a learned value function.
+We exclude the KL divergence term from the loss. The
+objective is:
+JGRPO(θ) =Ex∼DE{˜τi}G
+i=1∼πθold
+1
+G
+GX
+i=1
+min
+
+ρiAi,
+clip(ρi,1−ϵ,1 +ϵ)A i
+
+,
+(10)
+where the importance sampling ratio is defined over the
+generated tokens of the trajectory:
+ρi = πθ(˜τi|x)
+πθold (˜τi|x) (11)
+and the group-relative advantage normalises the hybrid re-
+wardR hybrid in Equation (9) against the group statistics:
+Ai = Rhybrid(˜τi)−mean({R hybrid(˜τj)}G
+j=1)
+std({Rhybrid(˜τj)}G
+j=1) +δ .(12)
+Single-Agent Baseline.We implement a single-agent
+pipeline as a baseline for comparison with our hierarchi-
+cal multi-agent framework. In this setting, a single agent is
+responsible for both identifying relevant evidence, including
+subtype distinctions, and producing the final validity classifi-
+cationy. Given an input contextx= (g,d,D abs), the agent
+produces a trajectory τsingle = (x,C ft,D full,z reason,J out),
+whereC ft denotes optional tool invocations to the function
+get full text() that retrieves the full text of an article
+given its identifier, and Dfull denotes any retrieved full-text
+articles. The response concludes with a structured JSON
+objectJout that contains (i) a list of evidence items Efine
+predicted at the subtype level for individual articles, and (ii)
+a single predicted validity labely. While the process reward
+5
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+Table 3.Main Experimental Results.We compare results from the proposed hybrid process + outcome reward (shaded) against the
+base model and an outcome-only GRPO baseline across single-agent and multi-agent settings. GRPO with hybrid reward consistently
+improves process metrics (Agent Call and Evidence accuracy/F1) while also improving outcome accuracy. Best metrics arebolded,
+second-best are underlined. In all multi-agent configurations, the supervisor and sub-agents share the same base model. The supervisor
+model is subsequently trained in GRPO settings, while sub-agents remain frozen (base model).
+Model Setting Single-Agent Multi-Agent
+Outcome
+Acc.
+Evidence
+Acc.
+Evidence
+F1
+Outcome
+Acc.
+Agent Call
+Acc.
+Agent Call
+F1
+Evidence
+Acc.
+Evidence
+F1
+DeepSeek-V3.2 Base Model 0.209 0.086 0.451 0.209 0.177 0.464 0.114 0.455
+GPT-5-mini Base Model 0.209 0.027 0.207 0.191 0.114 0.485 0.095 0.331
+Qwen3-1.7B
+Base Model 0.214 0.000 0.171 0.314 0.186 0.467 0.014 0.353
+GRPO (Outcome Only) 0.777 0.082 0.164 0.7860.114 0.383 0.109 0.184
+GRPO (Process + Outcome) 0.782 0.332 0.575 0.750 0.395 0.485 0.291* 0.501
+Qwen3-4B
+Base Model 0.045 0.032 0.367 0.195 0.105 0.504 0.068 0.417
+GRPO (Outcome Only) 0.782 0.095 0.286 0.732 0.082 0.479 0.045 0.392
+GRPO (Process + Outcome) 0.786 0.382 0.557 0.732 0.455 0.588 0.291* 0.520
+Qwen3-8B
+Base Model 0.077 0.005 0.324 0.218 0.132 0.436 0.095 0.469
+GRPO (Outcome Only) 0.764 0.118 0.300 0.705 0.127 0.426 0.077 0.396
+GRPO (Process + Outcome) 0.795 0.323 0.565 0.718 0.459 0.611 0.327 0.542
+for the supervisor in a multi-agentic system targets high-
+level agent routing, the process reward in this setting directly
+targets fine-grained subtype predictions. For training, we
+apply corresponding outcome, process, and hybrid reward
+formulations to Jout, with the distinction that the process
+component computes the base F1 score s at the evidence
+subtype level:
+s=F1(E fine,E∗
+fine).(13)
+Figure 2 illustrates the single-agent trajectory and compares
+it with that of the MAS supervisor.
+Sub-Agent Supervised Fine-Tuning.A key difference
+between the single-agent and multi-agent settings lies in
+the granularity of the process reward. In the single-agent
+setup, evidence subtypes are predicted directly, whereas the
+supervisor in the MAS is trained only to route queries to
+broader agent categories. We additionally evaluate the ef-
+fect of training both the supervisor and sub-agents. To this
+end, we train a shared sub-agent LLM via supervised fine-
+tuning (SFT) on high-quality traces generated by DeepSeek-
+V3.2 (DeepSeek-AI et al., 2025) to fulfill all agent roles.
+Although all sub-agents share the same model weights, each
+invocation uses a role-specific prompt and constrains the
+output space to the evidence subtypes relevant to that cate-
+gory.
+4.4. Experimental Settings
+We implement all RL and SFT experiments using the veRL
+framework (Sheng et al., 2025). To support tool use and
+multi-agentic topology, both single- and multi-agent settings
+are implemented using LangGraph, leveraging veRL’s inte-
+gration to enable graph-structured agentic workflows. We
+use Qwen3 models (Yang et al., 2025a) at three scales (1.7B,
+4B, and 8B) for our experiments. All models support native
+tool use and strong instruction-following behaviour. Exper-
+iments with Qwen3-1.7B and Qwen3-4B were conducted
+on a compute node with four NVIDIA H100 (80GB) GPUs,
+while experiments with Qwen3-8B used a node with four
+NVIDIA H200 (141GB) GPUs.Training Configuration.
+All GRPO training utilises multi-turn rollouts with a global
+batch size of 16 and 8 responses per query, 5 epochs. We
+set the sampling temperature to 0.8 and remove KL regular-
+isation. For SFT, we used a micro-batch size of 1, a global
+batch size of 4, and a maximum sequence length of 32,600
+tokens over 4 epochs. See Appendix D for full training
+details.
+Evaluation Metrics.We evaluate performance at three
+levels of granularity: final validity classification, evidence
+category, and evidence subtypes. Given a test set{xi}N
+i=1,
+where each input is xi = (gi,di,Di),outcome accuracy
+measures whether the predicted validity classification (e.g.,
+Moderate) matches the ground truth on a per-input basis.
+Agent call accuracyandevidence accuracyare exact-set
+metrics averaged over inputs:
+Agent Call Accuracy= 1
+N
+NX
+i=1
+1[C (i)
+pred =C (i)
+true]
+Evidence Accuracy= 1
+N
+NX
+i=1
+1[S(i)
+pred =S (i)
+true]
+Here C(i)
+pred and C(i)
+true denote the predicted and ground-
+truth sets of tool calls for input i. Each tool
+call consists of a tool name (e.g., “ExperimentalEvi-
+dence BiochemicalFunction agent”) and the required ar-
+guments (PMID, PMCID, gene, disease) supplied to the
+agent.S(i)
+pred andS(i)
+true denote the predicted and ground-truth
+evidence profiles for input i. S(i)
+pred is obtained from the
+outputs of the invoked sub-agents, whereasS(i)
+true is defined
+6
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+0.0 0.1 0.2 0.3 0.4
+Evidence Accuracy
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Outcome Accuracy
+Training + Type
+No Training
+GRPO (Outcome)
+GRPO (P+O)
+Single-Agent
+Multi-Agent
+Model Size
+DeepSeek-V3.2
+GPT-5-mini
+Qwen3-8B
+Qwen3-4B
+Qwen3-1.7B
+Figure 4.Outcome accuracy vs. evidence accuracy for single-agent
+and multi-agent configurations across model sizes and training
+settings. The plot illustrates how GRPO training with hybrid
+reward shifts performance along both axes.
+by gold-standard annotations mapping each document in
+D to evidence subtypes (e.g., Functional AlterationPatient
+cells, Biochemical FunctionB). Note that false-positive
+agent calls are not penalised at the evidence accuracy level
+if those sub-agents correctly predict no evidence.
+We additionally reportmacro F1at both the agent and
+subtype levels, averaged across inputs, where F1 is com-
+puted over predicted versus gold agent calls and evidence
+subtypes, respectively. For thesingle-agent setting, we
+report onlyoutcome accuracyandevidence accuracy/F1,
+since the model directly predicts the final validity class and
+document-level subtypes.
+5. Results and Analysis
+We evaluate two reward schemes (outcome-only and hy-
+brid) across single-agent and multi-agent architectures, with
+results summarised in Table 3.
+5.1. GRPO with Outcome-Only Reward
+In this setting, the model is trained using an outcome-based
+reward derived solely from the final validity class. While
+outcome-only training substantially improves outcome accu-
+racy (from 0.314 to 0.786 for Qwen3-1.7B in the multi-agent
+setting), agents trained with outcome-only rewards exhibit
+poor process alignment. For example, for Qwen3-1.7B,
+multi-agent Agent Call accuracy drops from 0.186 in the
+base model to 0.114 under outcome-only GRPO, and Evi-
+dence F1 decreases from 0.353 to 0.184. Consistently across
+both single-agent and multi-agent configurations, outcome-
+only GRPO degrades process metrics (Agent Call Acc./F1,
+Evidence Acc./F1) relative to the untrained baseline. This
+suggests that outcome accuracy alone is an unreliable proxy
+BiochemicalFunction
+Expression
+FunctionalAlteration
+ModelSystem
+ProteinInteraction
+Rescue
+0
+50
+100
+150
+200
+250Count
+TP
+TN
+FN
+FP
+(a)Outcome-Only
+BiochemicalFunction
+Expression
+FunctionalAlteration
+ModelSystem
+ProteinInteraction
+Rescue
+0
+50
+100
+150Count
+TP
+TN
+FN
+FP (b)Process + Outcome
+Figure 5.Sub-agent performance.Stacked bars show TP, TN,
+FN, and FP counts for each evidence agent called by supervisor
+trained with (a) outcome-only and (b) hybrid rewards. TP/FP/FN
+indicate correct/incorrect subtype predictions; TN indicates cor-
+rectly predicting absence of evidence for a given category.
+for reasoning quality in SOP-governed tasks, where coarse
+outcome labels fail to capture the complexity of the task or
+promote adherence to the clinically defined criteria.
+5.2. GRPO with Hybrid Reward
+GRPO with a hybrid reward combines outcome and process-
+level signals to encourage strong outcome accuracy while
+maintaining procedural validity. We observe that this hybrid
+reward consistently improves process metrics while main-
+taining high outcome accuracy (Figure 4). For example,
+in the multi-agent Qwen3-4B setting, Agent Call accuracy
+increases from 0.105 (base) and 0.082 (outcome-only) to
+0.455, while Evidence F1 improves from 0.417 to 0.520,
+with outcome accuracy remaining stable at 0.732. Similar
+trends are observed for Qwen3-8B, where Agent Call F1
+improves from 0.436 (base) to 0.611 and Evidence F1 from
+0.469 to 0.542. Reward trajectories also reflect that hybrid
+training improves both reward components (Figure 3).
+Notably, across two agent configurations and three model
+sizes, training with hybrid reward improves outcome accu-
+racy beyond outcome-only training in four of six settings.
+In the multi-agent setting, as Figure 5 illustrates, subtype-
+level Evidence Accuracy and F1 improve substantially de-
+spite the process reward being applied only at the agent-call
+level. This suggests that improved high-level routing places
+sub-agents in more relevant contexts, indirectly enabling
+stronger fine-grained evidence prediction without explicit
+subtype-level reward.
+5.3. Sub-Agent Fine-Tuning (SFT)
+We further analyse multi-agent performance by comparing
+prompt-based sub-agents with sub-agents trained via SFT.
+Fine-tuned sub-agents improve evidence accuracy and F1
+for the 1.7B and 8B models, and increase evidence accuracy
+for the 4B model despite a slight decrease in F1 (Table 4).
+7
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+Table 4.Effect of Sub-Agent SFTComparison of supervisor
+GRPO for MAS with and without sub-agent fine-tuning. Proc+Out
+denotes the inference setting using a supervisor trained with hybrid
+process and outcome rewards, while Proc+Out+SFT further fine-
+tunes the sub-agent model via SFT under the same supervisor.
+Model / Config Outcome Evidence Evidence
+Acc. Acc. F1
+Qwen3-1.7B
+Proc+Out 0.750 0.291 0.501
+Proc+Out+SFT 0.7500.309 0.523
+Qwen3-4B
+Proc+Out 0.732 0.2910.520
+Proc+Out+SFT 0.7500.3230.512
+Qwen3-8B
+Proc+Out 0.718 0.3270.542
+Proc+Out+SFT 0.7090.332 0.542
+These results suggest that jointly training a unified sub-
+agent model yields synergistic gains when combined with
+supervisor training. Notably, these gains are achieved using
+a single shared sub-agent model with role-specific prompts,
+rather than training separate models for each agent role.
+5.4. Case Studies
+To examine how the single-agent and multi-agent formula-
+tions perform under different levels of problem complexity,
+we present two representative case studies. We select cases
+where a single article is associated with the gene–disease
+pair for simplicity. Full reasoning traces from both the
+single-agent and multi-agent settings for selected cases are
+provided in the Appendix B.
+(1) POLR1D — Treacher Collins syndrome 2 (PMID:
+27448281).
+In this example, both systems recovered the relevantModel
+Systemsevidence and assigned the correct validity classi-
+fication (Definitive). The evidence is clear in the abstract,
+well-aligned with the target disease, and does not require
+weighing multiple categories. In such low-complexity set-
+tings, the single-agent approach can directly determine both
+the outcome and the process alignment.
+(2) OCRL — Oculocerebrorenal syndrome (PMID:
+22210625).
+In contrast, this case involves multiple relevant evidence
+types (Model SystemsandRescue). While both systems still
+converged on the correct validity classification (Definitive),
+the single-agent recovered only one of the two evidence
+categories. By delegating to specialised sub-agents, MAS
+identified an additional evidence type and produced a more
+complete evidence profile. This suggests that when the
+evidence signal is ambiguous or not directly stated in the
+abstract, assigning sub-agents to focus on specific evidence
+categories can improve process alignment.
+Across both cases, the final validity classification is the same
+due to the strong presence ofModel Systemsevidence. How-
+ever, the divergence in evidence completeness in the second
+selected case indicates that the multi-agent approach scales
+more naturally to scenarios involving multiple experimental
+evidence types.
+6. Discussion
+InterpretabilityAlthough our evaluation focuses on out-
+come and process-level prediction performance, a crucial
+advantage of MAS lies in its ability to produce structured,
+evidence-specific intermediate outputs. These intermediate
+rationales are indispensable for real-world clinical deploy-
+ment. While a single agent can be prompted to produce both
+the final validity class and supporting evidence, its reason-
+ing is not easily decomposable by evidence type, limiting
+interpretability at the level required for clinical curation.
+By contrast, MAS yields structured outputs for each agent,
+including explanation field that mirrors how clinicians
+record natural-language evidence summaries. Moreover,
+MAS allows reasoning traces to be inspected at the level
+of individual evidence categories. This is crucial in clinical
+curation settings, where evidence assessments accumulate
+over time as new studies are published, and where interme-
+diate evidence annotations are essential both for arriving at
+a final validity class and for enabling clinicians to revisit
+past decisions and integrate emerging evidence (Andersen
+et al., 2025).
+7. Conclusion
+In this work, we introduce a process-supervised multi-agent
+RL framework for gene–disease validity curation. Our ap-
+proach trains a supervisor to coordinate specialised evidence
+agents using GRPO with a hybrid reward that combines
+outcome correctness and process-aligned agent invocation.
+This hybrid approach substantially improves process fidelity
+while maintaining strong outcome accuracy. We show that
+comparable gains can be achieved by training only the su-
+pervisor without updating sub-agent parameters, reducing
+the computational overhead of multi-agent learning while
+preserving the benefits of structured coordination. Although
+a single-agent pipeline achieves higher quantitative perfor-
+mance, the MAS produces evidence-specific intermediate
+outputs that better reflect clinical curation practice. To-
+gether, our study proposes a multi-agent solution to the
+gene–disease validity curation task and positions multi-
+agent RL as a promising direction for a broader class of
+SOP-governed clinical tasks (Hunter et al., 2016; Thaxton
+et al., 2022) that have received limited attention in prior
+LLM studies.
+8
+
+Process-Supervised Multi-Agent Reinforcement Learning for Reliable Clinical Reasoning
+Impact Statement
+This work aims to improve the reliability of LLM-based de-
+cision support in healthcare by aligning training objectives
+with the procedural requirements of a real-world clinical
+task. We introduce a multi-agent reinforcement learning
+framework for gene–disease validity curation, a real-world
+clinical task that underpins rare disease diagnosis and di-
+rectly impacts both clinicians and patients. This task exem-
+plifies a broader class of clinical reasoning problems that
+require transparent evaluation of heterogeneous evidence
+under strict clinical SOPs. By incorporating process-aligned
+rewards framed as agent invocation supervision, our ap-
+proach improves process fidelity while producing structured,
+auditable intermediate outputs. These evidence-specific ra-
+tionales are a critical requirement for real-world deployment,
+enabling clinicians to inspect, revise, and update decisions
+as new literature emerges. The system is designed to assist
+rather than replace clinicians’ curation efforts, and was de-
+veloped in close collaboration with a clinician with directly
+relevant domain expertise. Beyond gene–disease curation,
+we view this work as a first step toward tackling a broader
+class of SOP-governed clinical tasks, encouraging more
+trustworthy and clinically grounded biomedical AI systems.
+Acknowledgement
+This research was funded in whole or in part by the Well-
+come Trust [226083/Z/22/Z] for PARADIGM (Primary
+Annotated Resources to Advance Discovery In Genomic
+Medicine). For the purpose of open access, the author has
+applied a CC-BY public copyright licence to any author
+accepted manuscript version arising from this submission.
+C.L. was supported by the United Kingdom Research and In-
+novation (grant EP/S02431X/1), UKRI Centre for Doctoral
+Training in Biomedical AI at the University of Edinburgh,
+School of Informatics. For the purpose of open access, the
+author has applied a creative commons attribution (CC BY)
+licence to any author accepted manuscript version arising.

@@ -1,0 +1,494 @@
+record_id: s2:c77bcd8e0c663d7ddbb4b47b15226b1ad2107c95
+source_used: openalex_oa_pdf
+fetched_url: https://www.nature.com/articles/s44387-025-00057-z.pdf
+fetched_title: A self-correcting multi-agent LLM framework for language-based physics simulation and explanation
+fetched_at: 2026-09-18T19:00:59Z
+
+npj | artiﬁcial intelligence Article
+https://doi.org/10.1038/s44387-025-00057-z
+A self-correcting multi-agent LLM
+framework for language-based physics
+simulation and explanation
+Check for updates
+Donggeun Park1,2,3, Hyeonbin Moon1,2,3 &S e u n g h w aR y u1,2
+Physics-based simulations are essential in science and engineering, yet creating them typically
+requires expert knowledge of numerical solvers and governing equations. Large language models
+(LLMs) offer new possibilities for natural language-based simulation, but they often fail when prompts
+are vague, incomplete, or multilingual. We present MCP-SIM (Memory-Coordinated Physics-Aware
+Simulation), a self-correcting multi-agent framework that transforms underspeci ﬁed prompts into
+validated simulations and explanatory reports. The system integrates input clari ﬁcation, code
+generation, error diagnosis, and multilingual explanation through structured agent collaboration and
+persistent memory. Rather than relying on one-shot code generation, MCP-SIM emulates expert-like
+reasoning via iterative plan – act– reﬂect– revise cycles. Across twelve tasks of increasing complexity,
+the framework solved all benchmark cases and improved convergence ef ﬁciency relative to GPT-
+based and human-in-the-loop baselines, under the speciﬁc metrics deﬁned in this study. In addition to
+numerical accuracy, the system produces interpretable, language-localized reports that explain each
+simulation’s physical logic. MCP-SIM represents a step toward general-purpose autonomous
+scientiﬁc assistants that simulate, adapt, and teach through natural language. While these results
+indicate strong robustness on the tested suite, performance in specialized domains and under
+distributions beyond our benchmark remains an area for future validation.
+Imagine describing a physical simulation in plain language, such as
+“simulate how water ﬂows around an obstacle shaped like a dolphin,” and
+receiving not only executable code and visualizations, but also a structured,
+multilingual explanation of the underlying physics. Such a capability would
+democratize access to computational modeling and open the door to
+simulation-driven discovery for students, engineers, and researchers with-
+out specialized programming or numerical expertise.
+Despite recent advances in large language models (LLMs)1–5,e x i s t i n g
+systems fall short when tasked with ge nerating reliable simulations from
+ambiguous or linguistically diverse prompts 6–8. Real-world simulation
+problems often lack complete speciﬁcations, including governing equations,
+boundary conditions, or material properties. Existing approaches to
+language-based simulation have notable limitations. One-shot LLM code
+generation methods9–11 can produce code from text but often fail on
+underspeciﬁed problems due to a lack of iterative reﬁnement. Recent multi-
+agent LLM frameworks have been explored in specialized contexts12,13 – for
+example, a two-agent system was sho wn to self-correct code for solving
+elasticity problems14– but these systems remain domain-speciﬁc and require
+agents to manually correct each o ther. Physics-informed neural
+networks15–18 provide another approach for solving PDEs, yet they demand
+fully speciﬁed equations and cannot interpret ambiguous natural language
+prompts.
+We hypothesize that this gap stems from a fundamental misalignment
+between one-shot LLM-based generation and the iterative, multi-step rea-
+soning that expert modelers use in practice. To address this, we introduce
+MCP-SIM, short for Memory-Coordinated Physics-Aware Simulation, a
+fully autonomous simulation framework that leverages a multi-agent
+architecture19–21 to emulate expert-level simulation workﬂows. Rather than
+translating prompts into code in a single step, MCP-SIM performs struc-
+tured cycles of planning, acting, reﬂecting, and revising through a network of
+specialized agents— each responsible for tasks such as prompt clariﬁcation,
+code generation, error diagnosis, and multilingual explanation.
+Central to MCP-SIM is a shared memory system that enables agents to
+collaborate coherently and track the evolution of the simulation process.
+1Department of Mechanical Engineering, Korea Advanced Institute of Science and Technology (KAIST), Daejeon, Republic of Korea. 2KAIST InnoCORE PRISM-AI
+Center, Korea Advanced Institute of Science and Technology (KAIST), Daejeon, Republic of Korea.3These authors contributed equally: Donggeun Park, Hyeonbin
+Moon. e-mail: ryush@kaist.ac.kr
+npj Artiﬁcial Intelligence | (2026) 2:10 1
+1234567890():,;
+1234567890():,;
+
+This architecture allows the system to infer missing assumptions, self-
+correct failed simulations, and generate scientiﬁcally grounded explanations
+— all without manual intervention. In benchmark evaluations across twelve
+increasingly complex tasks, MCP-SIM demonstrated success on all twelve
+benchmark tasks under the deﬁned metrics and exhibited robust general-
+ization across domains, including elasticity, heat transfer, multiphysics, and
+fracture mechanics.
+Beyond its technical performance, MCP-SIM redeﬁnes how simula-
+tions can be approached and understood. It serves not only as a solver but
+also as an autonomous scienti ﬁc assistant, capable of teaching users the
+rationale behind its modeling choices through multilingual, interpretable
+reports. By bridging natural language and computational modeling, MCP-
+SIM expands the frontier of accessible scienti ﬁcc o m p u t i n ga n do f f e r sa
+blueprint for future AI systems that both simulate and explain.
+Results
+A physics-aware multi-agent framework for simulation
+automation
+We present MCP-SIM, a memory-coordinated multi-agent framework that
+collaboratively interprets, constructs, and executesﬁnite element simula-
+tions directly from natural language prompts. Designed to support
+structured reasoning work ﬂows typical of expert-level physics-based
+modeling, MCP-SIM integrates six specialized agents— the Input Clariﬁer
+Agent, Code Builder Agent , Simulation Executor Agent, Error Diagnosis
+Agent, Input Rewriter Agent ,a n d Mechanical Insight Agent— all orche-
+strated by a central controller, the Memory-Centric Orchestrator,w h i c h
+governs informationﬂow via a persistent shared memory (Fig.1).
+A tt h ec o r eo fM C P - S I Ml i e saP l a n→ Act → Reﬂect → Revise control
+loop that enables self-correcting and interpretable simulation synthesis.
+Upon receiving a vague or incomplete user prompt— such as“simulateﬂuid
+ﬂow in an L-shaped pipe” (Fig. 1, ①)— the Input Clariﬁer Agent (Fig. 1, ②)
+infers essential simulation details like domain geometry, governing PDE
+(e.g., Navier–Stokes), and boundary conditions using domain knowledge
+and language understanding. These inferred attributes are stored in global
+memory as the canonical problem speciﬁcation.
+Next, the Code Builder Agent (Fig. 1, ③) translates this clariﬁed input
+into solver-ready Python code via prompt templates infused with physics-
+aware heuristics for mesh generation, solver conﬁguration, and boundary
+condition speci ﬁcation, using FEniCS 22 as the simulation backend.
+These templates embed domain-speci ﬁc heuristics that guide modeling
+decisions— such as mesh re ﬁnement, solver con ﬁguration, and stability
+control— based on the physical and numerical context of the problem.
+Fig. 1 | MCP-SIM work ﬂow and agent collaboration. The system starts with a
+user’s natural language prompt (①), which is clariﬁed by theInput Clariﬁer Agent (②)
+to identify missing details (geometry, PDE type, boundary conditions). The Input
+Clariﬁer turns the user prompt into a canonical paragraph and a structured JSON for
+code generation (parsing module within the Clari ﬁer). The Code Builder Agent (③)
+then generates solver-ready Python code, which is executed by the Simulation
+Executor Agent (④) while monitoring for errors or physical anomalies. If an error
+occurs, the Error Diagnosis Agent (⑤) identiﬁes and corrects it; if the initial
+instructions are ambiguous, the Input Rewriter Agent (⑤-i) reﬁnes the prompt and
+the cycle repeats. Finally, the Mechanical Insight Agent ( ⑥) produces a multilingual
+report explaining the simulation ’s physical principles and results, demonstrating
+how MCP-SIM yields accurate, executable, and educational outputs through coor-
+dinated agent interaction.
+https://doi.org/10.1038/s44387-025-00057-z Article
+npj Artiﬁcial Intelligence | (2026) 2:10 2
+
+All assumptions, numerical strategies, and intermediate artifacts are per-
+sistently logged, ensuring reproducibility and traceability.
+The resulting code is executed by theSimulation Executor Agent(Fig.1,
+③–④) within a sandboxed environment. In addition to standard execution,
+the agent monitors physically meaningful indicators— such as conservation
+violations, residual divergence, or spurious ﬁeld oscillations— that may
+signal modeling or discretization issues. If runtime failures occur— such as
+solver divergence, syntax issues, or physical inconsistencies — the system
+enters the Re ﬂect phase, where the Error Diagnosis Agent (Fig. 1, ④)i s
+invoked. TheError Diagnosis Agent(Fig. 1, ④) interprets failures in physical
+terms, such as insufﬁcient mesh resolution or solver-mismatch. It proposes
+targeted, physics-aware corrections — such as adjusting mesh density,
+reducing the time step, or modifying solver parameters — based on all
+execution logs and memory history. These corrections are communicated to
+o t h e ra g e n t sa ss t r u c t u r e dh i n t s( F i g .1, ④-i) for subsequent revision. If the
+issue stems from high-level ambiguity in the user prompt, theInput Rewriter
+Agent (Fig. 1, ⑤-i) semantically revises the instruction (e.g., adding“mesh
+resolution = 64” or “relaxation = 0.7”), and the control loop restarts from
+clariﬁcation (Fig. 1, ②).
+Upon successful simulation, theMechanical Insight Agent(Fig. 1, ⑥)
+automatically generates an interpretive report. This includes symbolic PDE
+summaries, physical reasoning behind the model, and code-level annota-
+tions— all rendered in accessible formats and multiple languages to support
+education and transparency (Fig. 1, ⑥-i). Critically, the Memory-Centric
+Orchestrator acts as the central coordination substrate, capturing the full
+trajectory of the simulation: from prompt history and problem clariﬁcations
+to code iterations, diagnostic logs, and ﬁnal results. This persistent trace
+enables context-aware decision making across agents and prevents redun-
+dant computations or regressions.
+In contrast to reactive prompt-to-code systems, MCP-SIM embodies
+memory-centric simulation automation with interp retable physical rea-
+soning, capable of resolving complex p h y s i c sp r o b l e m st h r o u g hm o d u l a r
+reasoning, targeted revisions, and cumulative reﬂection. Prompt templates
+for each agent— such as PDE clariﬁcation, code generation, and diagnostic
+hinting— were modularly designed based on domain heuristics. Their
+constructions are described in Supplementary Note 1 and Supplementary
+Figs. 1 –5. For a demonstration of MCP-SIM in action, please refer to
+Supplementary Video 1.
+Benchmark Performance: Accuracy and Efﬁciency
+To assess the robustness of MCP-SIM, we evaluated the system on a
+twelve-task benchmark suite encompassing a range of physics domains
+— including linear elasticity, heat conduction, ﬂuid ﬂow, thermo-
+mechanical coupling, piezoelectric deformation, and phase- ﬁeld frac-
+ture mechanics. These tasks were intentionally designed to re ﬂect real-
+world challenges faced by students and non-experts, such as vague
+boundary conditions, missing material properties, and ambiguous
+geometry descriptions (Fig. 2A; Table 1). The prompt design for our
+benchmark tasks follows a gradually increasing complexity (from fully
+speciﬁed to highly ambiguous problems), akin to a curriculum. This
+approach was inspired in part by conventional ﬁnite element tutorials 22,
+ensuring that the system is challenged across a spectrum from basic to
+advanced scenarios. Based on prompt completeness and modeling
+complexity, we categorized the 12 tasks into:
+ Simple (Levels 1–4): fully speciﬁed, single-physics problems.
+ Intermediate (Levels 5–9): incomplete inputs requiring inference (e.g.,
+geometry, material, BCs).
+ Challenging (Levels 10–12): multi-physics with missing assumptions,
+inspired by published problems without code.
+To quantify how each component of MCP-SIM contributes to ﬁnal
+performance, we conducted an abl ation study across the benchmark
+methodologies–a standard approach for evaluating the impact of system
+components–across the benchmark23,24. We compare three representative
+baselines in addition to our proposed MCP-SIM: (i) B1. One-shot GPT,
+which generates code once from a prompt while leaving speci ﬁcation
+completion, error inspection, and correction to the user; (ii) B2. GPT +
+Automated Clariﬁer, where the Input Clariﬁer Agent automatically infers
+missing speciﬁcations but execution monitoring and error handling remain
+manual; and (iii)B3. GPT + Clariﬁer + Human Diagnosis (human-in-the-
+loop hybrid), where speciﬁcations are auto-inferred and theError Diagnosis
+Agent proposesﬁxes, but the user must review and decide whether to accept
+these suggestions before re-running. These baselines all rely on user med-
+iation, process code and errors sequentially, and cannot exploit the history of
+past error –ﬁx attempts, which limits robustness under underspeci ﬁed
+prompts.
+In this study, we quantiﬁed performance using three metrics: (i) success
+rate, deﬁned as the proportion of tasks solved out of 12; (ii) convergence
+efﬁciency, measured by the number of Plan → Act → Reﬂect → Revise
+cycles required until success; and ( iii) numerical convergence, deﬁned as
+achieving solver residuals below 10−4 while producing physically plausible
+ﬁeld distributions. Speciﬁcally, once baselines and MCP-SIM successfully
+generated executable simulation code,we evaluated physical convergence by
+computing the residual as the total imbalance of each governing equation
+across all cells for the twelve tasks. This residual was normalized by the initial
+value at every iteration to yield a dim ensionless residual, independent of
+physical units. Convergence was determined when this normalized residual
+dropped below the prescribed threshold (10 −4). These metrics provide a
+consistent basis for comparing baselines (B1–B3) and our fully autonomous
+MCP-SIM (Fig.2A–C).
+As shown in Fig. 2B, B1 solved only 6/12 tasks, B2 improved to 8/12,
+and B3 reached 10/12. In contrast, MCP-SIM solved all 12/12 tasks. In
+addition, we evaluated convergence ef ﬁciency by measuring the number
+of Plan–Act–Reﬂect–Revise cycles required for each task. Unlike B1–B3,
+which only act on the current run, MCP-SIM leverages persistent
+memory that stores clari ﬁcations, code snapshots, execution traces, and
+error → ﬁx mappings from previous iterations. Agents consult this
+record to avoid regressions and propose consolidated, multifaceted
+corrections in one step. This history-aware mechanism explains MCP-
+SIM’s ability to converge within ≤5 iterations across most benchmark
+tasks (Fig. 2C).
+Building on these performance metrics, Fig. 3 visualizes the ﬁnal
+outputs for the 12 benchmark tasks— demonstrating MCP-SIM’s ability to
+generate physically meaningful results, even in the presence of ambiguity or
+missing information. The prompts weredeliberately designed to span a wide
+range of physical domains — including elasticity, ﬂuid dynamics, heat
+transfer, and coupled- ﬁeld phenomena— and to vary in geometric and
+numerical complexity. This progression ensures that MCP-SIM is evaluated
+not only on solvable cases but also on how it responds to the kinds of
+ambiguity common in real-world practice.
+Despite variations in governing equations and modeling complexity,
+MCP-SIM consistently produced ex ecutable and physically plausible
+simulations without human interve ntion. Through shared memory, the
+Input Clariﬁer and Error Diagnosis agent dynamically inferred missing
+quantities, such as inlet velocities, thermal conductivities, and solver para-
+meters. When failures occurred, the system recovered autonomously using
+physics-aware reﬁnement strategies, guided by the Plan→ Act → Reﬂect →
+Revise loop.
+Each simulation met physical convergence criteria, with dimensionless
+residual below 10⁻4. Importantly, the solutions were not only numerically
+stable but also physically interpret able. For instance, in Level 1 (linear
+elasticity), the stress and displacement ﬁelds re ﬂect equilibrium under
+tension around a central hole. In Level 9 (3D heat diffusion), the tem-
+perature gradients follow expected patterns of thermal conduction in a coil-
+shaped body— mirroring practical thermal management setups.
+These outcomes suggest that MCP-SIM is not narrowly tuned to
+templates but robustly generalizes across domains. Even when given vague
+or under-speciﬁed prompts, the system adapts and delivers physically
+meaningful results. This capability makes it a reliable tool not only for
+automated simulation but also for educational and engineering applications
+where interpretability,ﬂexibility, and correctness are essential.
+https://doi.org/10.1038/s44387-025-00057-z Article
+npj Artiﬁcial Intelligence | (2026) 2:10 3
+
+Expert-level reasoning from minimal prompts
+To illustrate how MCP-SIM handles complex physical systems from
+minimal input, we examine its performance on Level 12— the most chal-
+lenging task in the benchmark suite. This case involves reproducing a
+nonlinear phase-ﬁeld fracture simulation25 from a single prompt—“ simu-
+late crack propagation in a square domain with a central circle.”— without
+numerical values, PDE speciﬁcations, or boundary conditions.
+MCP-SIM successfully inferred that a phase-ﬁeld fracture model was
+appropriate. TheInput Clariﬁer proposed a 2D domain with a central void,
+applied Dirichlet conditions at the base, and assigned traction-free
+boundaries elsewhere. It also selected appropriate material constants and
+solver parameters. The Code Builder Agent generated corresponding
+FEniCS code, and upon encountering a syntax error, the Error Diagnosis
+Agent corrected the variational form and mesh resolution.
+Figure4B illustrates the problem setup, featuring a central circular void
+in a square domain subjected to quasi-static uniaxial tension, with the
+bottom boundary ﬁxed and the top boundary displaced upward by 5%.
+After ten self-correcting cycles, the crack propagation patterns simulated by
+ABAQUS and the MCP framework show close agreement in crack initiation
+and growth direction, thereby validating the effectiveness of the autono-
+mous solver (Fig.4C). This case illustrates MCP-SIM’sc a p a c i t yf o rd o m a i n -
+aware abstraction, autonomous decision-making, and model justiﬁcation,
+starting from minimal human input. Full simulation codes automatically
+generated by MCP-SIM for all challenging prompts — Level 10 (thermo-
+electric coupling), Level 11 (piezoelectric deformation), and Level 12 (phase-
+ﬁeld fracture)— are provided in Supplementary Figs 6–8, demonstrating the
+system’s ability to generalize across diverse and complex physics domains.
+Educational insight and multilingual explanation
+Beyond execution, MCP-S IM enhances interpretability and promotes
+simulation literacy by au tomatically generating structured simulation
+reports. After each successful run, the Mechanical Insight Agent produces
+multilingual explanations that describe the simulation’s physical principles,
+governing equations, boundary conditions, and solver strategies.
+These reports are available in English and Korean (Fig. 5), as well as
+Japanese and German (SupplementaryFig. 9), and follow a pedagogically
+Fig. 2 | Benchmark evaluation of MCP-SIM across varying simulation com-
+plexities. A Twelve benchmark tasks categorized by increasing dif ﬁculty— from
+well-posed, single-physics problems (Levels 1 –4) to under-speci ﬁed, multi-physics
+challenges (Levels 10–12). B Success rates across three benchmarks and MCP-SIM:
+B1. One-shot GPT, B2. GPT + Automated Clariﬁer, B3. GPT + Clariﬁer + Human
+Diagnosis (human-in-the-loop hybrid), and MCP-SIM. C Number of
+Plan–Act–Reﬂect–Revise cycles required for successful outcomes. MCP-SIM
+consistently solves all tasks within ﬁve iterations, signi ﬁcantly outperforming
+baseline models. The inset table in ( C) summarises the automation scope of each
+benchmark, showing which stages (speciﬁcation completion, execution/monitoring,
+diagnosis/ﬁx, memory consistency, loop control) are automated ( ), human-
+mediated ( ), or partially manual ( ). MCP-SIM uniquely integrates all stages
+into a fully automated, memory-centric loop.
+https://doi.org/10.1038/s44387-025-00057-z Article
+npj Artiﬁcial Intelligence | (2026) 2:10 4
+
+Table 1 | Overview of MCP-SIM test levels and objectives
+Level Problem Type Challenge Key Parameters/Omissions Objective
+1 2D Linear Elasticity Simple case, fully speci ﬁed Geometry (5×5 square domain, central circular hole,
+displacement)
+Test basic simulation handling with well-de ﬁned inputs
+2 2D Linear Elasticity Slightly more complex geometry and boundary
+conditions
+Central hole geometry, displacement boundaries,
+material properties
+Handle geometric complexity with standard boundary
+conditions
+3 Steady-State 2D Heat Conduction Thermal conduction simulation with ﬁxed boundary
+conditions
+Temperature boundaries (100 °C, 0 °C), thermal
+conductivity
+Simulate steady-state heat conduction with fully speciﬁed data
+4 2D Heat Transfer Complex temperature boundary conditions Thermal conductivity (1.5), boundary temperatures Test ability to handle thermal probl ems with different boundary
+conditions
+5 Incompressible Navier-Stokes Flow Simulate viscous ﬂow with inlet and outlet conditions Inlet velocity, outlet pressure, boundary conditions Handle ﬂuid dynamics with given velocity and pressure
+conditions
+6 Viscous Flow in L-shaped domain Inlet and outlet are implied without explicit boundary
+conditions
+Flow conditions not explicitly stated Handle unde ﬁned boundary conditions in L-shaped domain
+7 Unsteady Flow in 2D Cylinder Simulate unsteady ﬂuid ﬂow with varying velocity Velocity increase over time, boundary conditions Test ﬂuid dynamics under time-dependent ﬂow conditions
+8 2D Compression Analysis STL geometry for compression under Neumann
+boundary conditions
+STL geometry, applied load Handle geometric input (STL) for compression analysis
+9 3D Heat Diffusion Complex geometry with heat diffusion Heated boundaries, isotropic material Test 3D heat diffusion with complex geometries and va rying
+boundary conditions
+10 Steady-State Thermoelectric
+Generation
+Solve coupled temperature and electric
+potential ﬁelds
+Multi-physics simulation Simulate thermoelectric generation with coupled ﬁelds
+11 Piezoelectric Deformation Deformation due to voltage loading Boundary voltage, material properties (piezo-ceramic) Test piezoelectric defor mation with voltage-loaded
+boundaries
+12 Phase-Field Crack Growth Simulate crack initiation and growth in elastic material Vertical loading at the top, crack-tip model Handle complex fra cture growth and material behavior in
+simulations
+This table presents the twelve test levels used to evaluate MCP-SIM’s performance across a range of simulation challenges. Each level addresses speciﬁc problem types, from simple linear elasticity to complex multi-physics scenarios. The table outlines the key challenges,
+parameters or omissions, and objectives that each level aims to test, demonstrating the system ’s ability to handle both straightforward and ambiguous inputs in various engineering domains.
+https://doi.org/10.1038/s44387-025-00057-z Article
+npj Artiﬁcial Intelligence | (2026) 2:10 5
+
+consistent structure. They combine code-level annotations with high-level
+rationales— f o re x a m p l e ,e x p l a i n i n gw h yD i r i c h l e tr a t h e rt h a nN e u m a n n
+boundaries were applied, or why certain solvers were selected for stability.
+Importantly, these reports go beyond explanation— they scaffold stu-
+dent learning. They clearly deﬁne simulation goals, unpack physical models
+and assumptions, and guide users through critical implementation choices.
+By including localized language support and conceptual reasoning, MCP-
+SIM acts as a virtual teaching assistant — helping learners not just run
+simulations, but understand them. Th is reduces barriers to simulation-
+based education and broadens access across languages, disciplines, and
+levels of expertise26.
+Discussion
+The results presented above highlight MCP-SIM as a step change in auton-
+omous simulation, demonstrating how LLMs, when structured through
+multi-agent collaboration and persistent memory, can move beyond static
+code generation toward self-correcting, interpretable scientiﬁc computation.
+Unlike prior systems that rely on single -step prompt-to-code translation,
+MCP-SIM emulates the iterative reasoning loop of human experts— plan-
+ning, acting, reﬂecting, and revising— through modular agents that perform
+distinct tasks, such as input clariﬁcation, code repair, andp h y s i c a le x p l a n a -
+tion. This architecture allows the system to recover from incomplete or
+ambiguous inputs and deliver physically plausible outputs across diverse
+domains, including elasticity, heat conduction, and fracture mechanics.
+Importantly, MCP-SIM is not a bla ck-box tool. It generates multi-
+lingual educational reports that explain the governing equations, boundary
+conditions, solver strategies, and assumptions underlying each simulation.
+This interpretability distinguishes it from conventional LLM-based tools,
+positioning it as an autonomous scientiﬁc assistant that can both compute
+and teach. The ability to explain results in multiple languages also extends
+accessibility to a broader community of students, educators, and practi-
+tioners. The generalization observed across all twelve benchmark tasks—
+where all generated code for simulations satis ﬁed the numerical con-
+vergence criterion (dimensionless residual <10− 4)— suggests that MCP-
+SIM captures not just surface-level patterns, but domain-aware abstractions
+that transfer across physical systems and modeling contexts. This capacity
+for abstraction is particularly evident in Level 12, where the system repro-
+duced a published fracture simulat ion from a single-sentence prompt
+without explicit geometry or equations.
+Despite promising results, several limitations remain. First, MCP-SIM is
+based on a general-purpose LLM (GPT-4o) without domain-speciﬁc ﬁne-
+tuning; performance may degrade in specialized physical settings, such as rare
+material models or advanced multiphysics couplings. Second, the reﬂective
+loop introduces computational latency compared to one-shot generation,
+which may restrict applicability in r eal-time or resource-constrained sce-
+n a r i o s .T h i r d ,o u re v a l u a t i o ni sl i m i t ed to a curated twelve-task benchmark
+with synthetic prompts; extension to experimental or safety-critical contexts
+will require domain-speciﬁc validation and human oversight. Finally, while
+Fig. 3 | Simulation results for the 12 benchmark problems used to validate MCP-
+SIM across different physics domains.(Top-left to bottom-right): This presents the
+ﬁnal simulation outputs from MCP-SIM for each of the 12 levels of complexity,
+ranging from basic linear elasticity (Level 1) to advanced multi-physics problems,
+such as phase- ﬁeld crack growth (Level 12).
+https://doi.org/10.1038/s44387-025-00057-z Article
+npj Artiﬁcial Intelligence | (2026) 2:10 6
+
+persistent memory reduces regressionsi no u rs e t u p ,l o n g - h o r i z o ns t a b i l i t y
+under noisy or adversarial inputs remains an open research direction. Future
+work will focus on integrating domain-speciﬁc foundation agents, incor-
+porating symbolic physics engines, and optimizing inference for high-
+performance computing environments. Expanding the benchmark suite to
+include real-world data, sensor input, and experimental validation will also be
+crucial for establishing trust in high-stakes applications. We also envision
+integrating MCP-SIM into collaborati v ep l a t f o r m sw h e r eh u m a nu s e r sa n d
+AI co-design models, exchange reasoning steps, and accelerate discovery.
+At a broader level, MCP-SIM signals a shift in the role of LLMs in
+scientiﬁc computing— from passive generators of syntax to active partici-
+pants in modeling, interpretation, andexplanation. By embedding physical
+reasoning, structured iteration, and educational transparency into its core, it
+exempliﬁes a new paradigm for AI-driven scientiﬁc modeling that blends
+computational accuracy with accessibility. As autonomous agents become
+increasingly integrated into scientiﬁcw o r kﬂows, systems like MCP-SIM will
+serve as foundational infrastructure forsimulation-based discovery, design,
+and learning, making simulation not only more powerful but also more
+adaptive and scientiﬁcally grounded.
+Methods
+Agent framework design
+Each specialized agent in MCP-SIM follows a well-de ﬁned algorithm
+encoded via a prompt template and executed using GPT-4o (OpenAI,
+Fig. 4 | Autonomous reproduction of expert-designed fracture simulations from
+minimal prompts. A Agent reasoning process for Level 12: From a single-sentence
+prompt, MCP-SIM infers geometry, governing equations, and solver setup through
+iterative agent collaboration. B Problem setup: a square domain with a central
+circular crack tip subjected to 5% upward displacement on the top boundary; bottom
+boundary is ﬁxed, representing a quasi-static tension condition. C Comparison of
+crack propagation results obtained using ABAQUS (top row) and the MCP-SIM
+framework (bottom row). Both methods predict symmetric crack growth from the
+circular notch, validating the correctness and robustness of the autonomous simu-
+lation workﬂow.
+https://doi.org/10.1038/s44387-025-00057-z Article
+npj Artiﬁcial Intelligence | (2026) 2:10 7
+
+2024). Speci ﬁcally: the Input Clari ﬁer Agent reﬁnes vague user requests
+into a fully speci ﬁed description and, as an internal parsing module,
+emits a structured JSON object for downstream code generation (see
+Supplementary Fig. 2). The Code Builder Agent generates solver-ready
+Python/FEniCS code from the JSON and natural language speci ﬁcation;
+the Simulation Executor Agent executes the code and captures logs or
+errors; the Error Diagnosis Agent analyses error messages and proposes
+corrected code via JSON-formatted outputs; the Input Rewriter Agent
+revises the original prompt if high-level ambiguities persist, using hints
+from the diagnosis and prior outputs; and the Mechanical Insight Agent
+produces multilingual, student-friendly reports explaining the physical
+and numerical aspects of the generated code. All agents are orchestrated
+by a memory-centric controller that stores clari ﬁcations, parsed data,
+code versions, execution logs, and applied ﬁxes, thereby enabling
+reproducibility and the iterative Plan → Act → Reﬂect → Revise loop
+underpinning MCP-SIM ’s self-correcting behavior. The detailed
+prompt templates de ﬁning each agent ’s behaviour are provided in
+Supplementary Note 1 and Supplementary Figs 1 –5 for full
+transparency.
+In contrast to prior baselines (B1–B 3 ) ,w h e r eu s e r sr e m a i ni nt h el o o p
+f o re i t h e rs p e c iﬁcation completion or reviewing error corrections, MCP-
+SIM eliminates manual mediation by embedding all tasks — clariﬁcation,
+c o d eg e n e r a t i o n ,e x e c u t i o n ,d i a g n o s i s ,a n dr e w r i t i n g— within a memory-
+centric loop. The orchestrator maintains a JSON-based log of speciﬁcations,
+code versions, error traces, and applied ﬁxes, enabling history-aware cor-
+rections and preventing regressions.
+Fig. 5 | Mechanical insight agent: simulation reports - English and Korean. This
+showcases simulation reports generated by the Mechanical Insight Agent in English
+(USA) and Korean. The reports provide comprehensive, student-friendly explanations of
+the simulation, including details on the simulation goal, physical concepts, PDE expla-
+nations, and critical factors. The multilingual capability ensures that students from dif-
+ferent backgrounds can easily understand the process and results of their simulations.
+https://doi.org/10.1038/s44387-025-00057-z Article
+npj Artiﬁcial Intelligence | (2026) 2:10 8
+
+Simulation backend and libraries
+In MCP-SIM, the simulation agent is based on the open-source FEniCS
+computing platform, a widely used library for solving PDEs via ﬁnite
+element methods. Python 3.9 was used as the scripting environment, and
+all generated codes employed standard FEniCS constructs for mesh
+generation, function space de ﬁnition, weak form assembly, and non-
+linear solver execution. Simulations were run locally in sandboxed
+Python environments without manual modi ﬁcation unless other-
+wise noted.
+Data availability
+No experimental or observational data was utilized in this work.
+Code availability
+The codes used for this work are available at: https://doi.org/10.5281/
+zenodo.15645333and https://github.com/KAIST-M4/MCP-SIM.
+Received: 7 August 2025; Accepted: 22 November 2025;

@@ -1,0 +1,741 @@
+record_id: s2:ca5b7e928e08bfb07b46cc65e959184ec67e79a2
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2511.13233
+fetched_title: LLM-based Multi-Agent System for Simulating Strategic and Goal-Oriented Data Marketplaces
+fetched_at: 2026-09-18T19:00:35Z
+
+LLM-based Multi-Agent System for Simulating
+Strategic and Goal-Oriented Data Marketplaces
+Jun Sashihara
+The University of Tokyo
+Tokyo, Japan
+sashihara-jun0116@g.ecc.u-tokyo.ac.jp
+Yukihisa Fujita
+Toyota Motor Corporation
+Tokyo, Japan
+yukihisa.fujita.1@toyota.global
+Kota Nakamura
+Toyota Motor Corporation
+Tokyo, Japan
+kota.nakamura.10@toyota.global
+Masahiro Kuwahara
+Toyota Motor Corporation
+Tokyo, Japan
+masahiro.kuwahara.1@toyota.global
+Teruaki Hayashi
+The University of Tokyo
+Tokyo, Japan
+hayashi@sys.t.u-tokyo.ac.jp
+Abstract—Data marketplaces, which mediate the purchase and
+exchange of data from third parties, have attracted growing
+attention for reducing the cost and effort of data collection while
+enabling the trading of diverse datasets. However, a systematic
+understanding of the interactions between market participants,
+data, and regulations remains limited. To address this gap, we
+propose a Large Language Model-based Multi-Agent System
+(LLM-MAS) for data marketplaces. In our framework, buyer and
+seller agents powered by LLMs operate with explicit objectives
+and autonomously perform strategic actions, such as—planning,
+searching, purchasing, pricing, and updating data. These agents
+can reason about market dynamics, forecast future demand, and
+adapt their strategies accordingly. Unlike conventional model-
+based simulations, which are typically constrained to predefined
+rules, LLM-MAS supports broader and more adaptive behavior
+selection through natural language reasoning. We evaluated the
+framework via simulation experiments using three distribution-
+based metrics: (1) the number of purchases per dataset, (2) the
+number of purchases per buyer, and (3) the number of repeated
+purchases of the same dataset. The results demonstrate that
+LLM-MAS more faithfully reproduces trading patterns observed
+in real data marketplaces compared to traditional approaches,
+and further captures the emergence and evolution of market
+trends.
+Index Terms—LLM-MAS, data marketplace, data exchange,
+multi-agent system
+I. INTRODUCTION
+Data have emerged as a tradable economic resource, and
+data marketplaces that mediate the purchase and exchange
+of datasets from third parties have rapidly expanded [1].
+These marketplaces streamline data collection that previously
+required substantial cost and effort, while also providing
+organizations and researchers with access to diverse, high-
+quality datasets. As a result, they are increasingly recognized
+as critical infrastructures that accelerate innovation based on
+data that were closed within individual organizations [2].
+Despite this progress, our understanding of how interactions
+among market participants, data, and regulations shape market
+dynamics remains limited. Smooth and efficient data trans-
+actions require well-designed and robust data marketplaces
+[3]. The importance of simulation-based approaches to bridge
+the gap between market design theory and practice has been
+emphasized [4]. However, most existing simulations rely on
+model-based approaches with simple, predefined trading cri-
+teria. Such approaches are insufficient to capture essential real-
+world characteristics, including the heterogeneous objectives
+of participants, their strategic decision-making processes, and
+the emergence of domain-specific or temporal trends. Conse-
+quently, these models cannot adequately reproduce or analyze
+key phenomena such as price formation, long-term demand
+fluctuations, repeated data usage, and value updates.
+To address these challenges, we propose a Large Language
+Model-based Multi-Agent System (LLM-MAS) for simulating
+data marketplaces. Buyer and seller agents in this system are
+endowed with explicit objectives and can reason in natural
+language to take strategic actions such as planning, searching,
+purchasing, pricing, and updating data. This design enables
+agents to reproduce complex decision-making, forecast de-
+mand, and adapt strategies to evolving market conditions. In
+contrast to conventional rule-based simulations, our framework
+supports broader, adaptive, and goal-oriented behavior selec-
+tion through natural language reasoning. Figure 1 shows the
+overall architecture of our proposed system. Based on these
+motivations, this study makes the following contributions:
+1) Market-level simulation architecture: We design an
+LLM-MAS that captures both macro-level market struc-
+tures and long-term dynamics such as demand cycles
+and trend emergence.
+2) Agent-level behavioral modeling: We implement de-
+tailed buyer and seller models capable of goal-oriented
+actions and natural language reasoning, capturing di-
+verse decision-making and interactions.
+3) Data market evaluation metrics: We introduce real-world
+evaluation metrics that connect micro-level agent behav-
+ior with macro-level market outcomes, validated against
+transaction records from an actual data marketplace.
+These contributions collectively provide a structural per-
+spective on data marketplace dynamics: how micro-level
+arXiv:2511.13233v1 [cs.MA] 17 Nov 2025
+
+Fig. 1: Overall architecture of the proposed LLM-MAS for data marketplaces. The system consists of seller agents providing
+and updating data, and buyer agents pursuing goal-oriented acquisitions, a GoalGenerator for assigning analytical objectives,
+and a DataGenerator for producing metadata. Embedded metadata in a vector database supports cosine similarity-based search,
+reproducing the strategic behaviors, demand fluctuations, and trend emergence observed in real-world data marketplaces.
+strategic interactions among heterogeneous agents give rise
+to macro-level phenomena. Such a perspective lays the foun-
+dation for future research on market and institutional design
+in which, simulation-based insights can inform policy-making,
+pricing mechanisms, and data management strategies.
+II. RELATEDWORK
+Data marketplaces, which include data suppliers, buyers,
+and platform operators [5], serve as a medium for the ex-
+change and monetization of data across various organizations,
+gaining significant attention as a vital infrastructure in the
+data economy [6], [7]. However, the range of phenomena that
+can be directly observed in these markets remains limited [8].
+To address this limitation, Fernandez et al. [4] emphasized
+the importance of employing simulation-based approaches to
+study data markets, arguing that model-based simulations are
+effective tools for analyzing market structures and trading
+mechanisms. Building on this idea, prior research has created
+networks in which data are represented as nodes, examined
+their structural properties [9], conducted a scenario analysis of
+data purchasing behaviors [10], and proposed simulations in
+which buyer agents perform random walks on a data network
+to evaluate the impact of purchasing strategies [11].
+However, these approaches face two main obstacles. First,
+model-based techniques rely extensively on established be-
+havioral rules, making it difficult to understand complex or
+adaptive decision-making processes [12]. Second, while data
+transactions are generally motivated by clear individual goals,
+these methods assume that all agents are homogeneous, over-
+looking the various reasons for participating in the market [10].
+Moreover, in contrast to financial markets where stylized facts
+and established simulation benchmarks are present [13], data
+markets do not have standardized market features or evaluation
+criteria. This lack of standardization impedes the use of current
+simulation methods in the practical development of real-world
+markets.
+The advent of LLMs has presented novel opportunities
+to address these constraints. Owing to their sophisticated
+capabilities in natural language comprehension and reasoning,
+LLMs facilitate innovative simulation frameworks [14]. For
+example, Generative Agents [15] introduced a framework in
+which agents powered by LLMs interact and operate over
+extended periods. ReAct [16] merges reasoning with action
+generation, enabling agents to adapt plans dynamically and
+engage with their surroundings to acquire new information.
+These frameworks have demonstrated that LLM-based agents
+are highly proficient in executing complex tasks and exhibiting
+emergent behaviors [17].
+Building on this foundation, recent research has utilized
+LLM-MAS in social simulations. For instance, TwinMarket
+[18] has shown its capability in examining emergent phenom-
+ena that connect individual investor behaviors at the micro-
+level to broader financial market trends. AgentSociety [19]
+incorporated psychological theories and a three-layer social
+environment into an LLM-MAS framework to investigate
+societal challenges such as political polarization and the im-
+plementation of universal basic income.
+Our research leverages recent advancements by adapting
+LLM-MAS to data marketplaces. We create a market setting in
+which LLM-based agents function as data buyers and sellers,
+capturing diverse motivations and complex dynamics that tra-
+ditional model-based simulations cannot address. In addition,
+we derive market-specific attributes from real transaction data
+and assess how effectively these characteristics manifest in
+simulation outcomes to establish a more authentic simulation
+framework for market and institutional design.
+
+III. OURLLM-MAS ARCHITECTURE
+A. Data and Metadata
+Tabular datasets are among the most widely used and
+practically manageable data formats. In our simulation, we
+assume that all data traded are tabular. In real marketplaces,
+buyers generally cannot inspect raw data before purchase;
+instead, their decisions rely primarily on metadata, which
+describes attributes and structure rather than raw content.
+Metadata enables potential users to assess whether a dataset
+aligns with their analytical objectives. In our framework, all
+the information exchanged during transactions is represented
+as metadata.
+Metadata are generated by the DataGenerator agent. Fig-
+ure 7 shows the prompt provided to the DataGenerator to
+produce this metadata, which consists of six fields (Table
+I):data name,description,columns,tags,data price, and
+update frequency. Thedescriptionprovides a natural language
+summary of the content of the dataset. For example:
+This dataset contains detailed shot
+chart analytics of professional
+basketball players worldwide during the
+2024 season, capturing shot locations,
+shot types, outcomes, and player
+efficiency metrics.
+Column information is included to describe the table
+schema, which is essential for assessing the dataset suitability
+and potential interoperability with other datasets. Prior studies
+have highlighted the importance of leveraging column infor-
+mation for dataset similarity calculations [20].
+In real-world marketplaces, both public (often free) and
+private (paid) datasets coexist. Operators frequently seed the
+platform with high-quality public data to attract users and later
+expand with premium private offerings. Although our frame-
+work could model the dynamic ratio of public to private data,
+we simplified this aspect. Prices are autonomously determined
+by the DataGenerator.
+Among metadata fields,update frequencyis particularly
+important. It reflects how often data is refreshed and catego-
+rized into four levels:static,low,medium, andhigh. Static data
+(e.g., finalized financial statements and genomic sequences)
+are rarely updated, whereas dynamic data (e.g., traffic records,
+sensor streams, and stock prices) are frequently updated.
+Seller agents consider both the update frequency and sales
+history when deciding whether to update data. All generated
+metadata were embedded using OpenAI’s text-embedding-3-
+large model and stored in a vector database. This enables
+efficient similarity-based retrieval, supporting buyers’ search
+actions during the simulation.
+B. Models of Buyer and Seller
+Buyer and seller agents represent the primary market par-
+ticipants (Fig. 1). Their objectives and available actions are
+summarized in Table II. Sellers aim to maximize revenue
+through data provision and pricing, while buyers pursue spe-
+TABLE I: Metadata generated by DataGenerator
+Field Description
+data nameName of the data
+descriptionNatural language summary of the dataset’s content
+columnsList of column name
+tagsKeywords describing topical domains
+data priceSeller-specified price
+update frequencyRefresh frequency (static,low,medium,high)
+cific analytical objectives through strategic purchasing and
+analysis by considering their budgets and purchase histories.
+Seller Agent
+Each seller agent seeks to maximize profit by managing its
+data portfolio. At every simulation step, the seller selects one
+of five possible actions guided by prompts shown in Fig. 8:
+update data: This action updates the version of the data
+already provided by the seller; for example, by adding new
+information or revising existing content. The purpose is to
+enhance the value of the data and increase its attractiveness to
+potential buyers. In domains such as finance, where ongoing
+daily analysis is common, the freshness of the data is critical.
+The seller evaluates whether the data requires updating based
+on its metadata fieldupdate frequencyand its own action
+history, and choosesupdate datawhen necessary.
+change price: When this action is selected, the seller ad-
+justs the price of the data. In many cases, this involves lower-
+ing the price if sales are poor. The size of the price adjustment
+is not constrained, allowing the agent to autonomously deter-
+mine the appropriate magnitude.
+provide data: This action introduces entirely new data to
+the marketplace in addition to the seller’s existing offerings.
+Although creating new data incurs costs, the seller may decide
+to provide new data when doing so is expected to significantly
+influence market conditions.
+do nothing: In real-world data marketplaces, sellers gen-
+erally act less frequently than buyers because modifying or
+creating datasets entails nontrivial costs. As a result, the
+default long-term strategy for a seller is to remain inactive
+unless there is a clear reason to act. The system prompt
+explicitly instructs sellers to selectdo nothingunless special
+circumstances warrant another action.
+exit market: Finally, if a seller determines that its datasets
+are rarely sold and no future profit can be expected, it may
+withdraw from the marketplace by removing its datasets.
+Buyer Agent
+Each buyer agent is initialized with a unique analytical
+objective expressed in natural language. This reflects the
+diversity of real-world motivations; for instance, a financial
+institution may analyze customer transaction data for credit
+risk modeling, while an urban planning office may investigate
+traffic congestion patterns to optimize infrastructure. Tradi-
+tional model-based approaches assume homogeneous buyer
+objectives. However, our framework captures heterogeneity by
+generating goals in natural language using the GoalGenerator
+
+TABLE II: Seller and buyer in LLM-MAS for data marketplaces
+Agent Objective Available Actions
+Seller Maximize profit by providing and updating datasets and setting pricesupdate data,change price,provide data,do nothing,exit market
+Buyer Achieve a specific analytical goal through strategic purchasing and data analysisplan,search,buy,analyze,do nothing,exit market
+agent. Two types of prompts were used as inputs (Figs. 9 and
+10).
+Initial buyers: At the start of the simulation, buyers are
+randomly assigned one of 10 predefined fields (cybersecu-
+rity, education, environmental science, finance, healthcare,
+manufacturing, marketing, social media, sports, and urban
+planning), chosen from demands in both commercial data mar-
+ketplaces and public open-data portals. Goals were generated
+without reference to trends. For example:
+Analyze player performance metrics
+and game statistics from professional
+basketball leagues to identify key
+factors influencing team winning
+percentages and build a predictive model
+for upcoming game outcomes.
+New entrants: In contrast, buyers entering later may be
+trend-sensitive, i.e., the objectives of participants entering the
+market can be influenced by ongoing market trends. For exam-
+ple, if competitors are performing certain analyses, failing to
+conduct similar analyses internally may weaken a company’s
+competitive advantage. To capture such dynamics, each new
+buyer’s goal is generated by feeding GoalGenerator a prompt
+that incorporates trends with a probability of 0.5. At each step,
+the buyer agent selects one of six possible actions (Table II).
+plan: Develop a strategy by specifying the required datasets
+and analysis methods, typically chosen at the initial stage of
+market participation or after purchasing and analyzing some
+datasets. During planning, the buyer establishes a long-term
+strategy that includes the types of data required and the
+analysis procedures needed. For example:
+To analyze player performance metrics
+and game statistics from professional
+basketball leagues and identify key
+factors influencing team winning
+percentages, I will first plan to search
+for comprehensive datasets including
+player stats, game stats, and team
+performance data.
+search: Issue natural language queries to retrieve the related
+dataset. In real-world data marketplaces, it is impractical to
+directly review all available data. Instead, as in actual plat-
+forms, users typically issue queries or apply filters to identify
+relevant candidates. When this action is selected, the buyer
+agent composes a query and performs cosine similarity-based
+retrieval over the metadata. The top 20 results are provided
+as purchase candidates from which the buyer makes a final
+decision usingbuy. The query example is as follows:
+professional basketball player
+performance, game statistics, team
+winning percentages, seasonal data
+buy: Purchases data based on the current plan.
+analyze: Derive insights from purchased datasets.
+do nothing: Wait when suitable data is unavailable or
+market conditions are unfavorable.
+exit market: Withdraw if goals cannot be achieved or
+objectives have already been met.
+The fundamental setup for each buyer agent is outlined
+as a system prompt (Fig. 12). At each step, the buyer also
+receives a user prompt detailing its analytical goals, budget,
+possessed datasets, action history (including the plan), and
+the latest search outcomes (Fig. 11). By integrating this long-
+term strategy with its current state, the agent can assess its
+circumstances and determine the best action for that step.
+The buyer’s choice to leave the market is guided by a com-
+bination of an LLM-based autonomousexit marketdecision
+and two specific rule-based criteria: (1) theanalyzetobuyratio
+surpasses two, and (2)planis chosen more than seven times in
+a row. The first condition implies that sufficient data have been
+gathered, making further purchases improbable. The second
+condition indicates that the buyer has limited viable options
+in the current market setting. By merging natural language
+reasoning with these rule-based conditions, the framework
+implements the decision for buyer withdrawal.
+IV. EXPERIMENT SETTINGS ANDEVALUATION
+A. Simulation Process
+The LLM-MAS simulation process is shown in Fig. 2.
+This simulation advances in distinct steps, in which the buyer
+and seller agents engage in natural language reasoning to
+strategize, conduct trades, and update datasets. During the
+initialization phase, a predetermined number of buyers and
+sellers is created based on the parameter settings. Each seller
+is linked to a single dataset upon creation, making the initial
+count of tradable datasets equal to the number of sellers.
+Metadata is produced by the DataGenerator and stored in
+a vector database. Buyers are provided with their analytical
+objectives from the GoalGenerator and are given a budget that
+is randomly selected from predefined levels.
+The primary simulation loop continues until it reaches the
+set maximum number of steps or until all agents have left
+the market. During each step, the simulation begins with the
+dynamic entry of agents. Depending on the recent transaction
+volume, new buyers and sellers may join the market. The
+number of new agents is determined by a sigmoid function,
+which simulates the idea that higher transaction volumes draw
+more market participants. For new buyers, there is a 0.5
+
+TABLE III: Summary of the five macro-level evaluation metrics used to assess simulation results against real data
+Category Metric Description
+Structural
+Frequency of data purchases Frequency distribution of how many times each dataset is purchased (expected to follow a long-tail).
+Frequency of purchases per buyer Distribution of purchase counts per buyer measuring buyer activity level and market engagement.
+Frequency of repeated purchases of the same data Counts how often the same buyer purchases the same data repeatedly reflecting continuous demand.
+Network Degree distribution of buyer–seller bipartite graph A bipartite network and examines the degree distribution, capturing scale-free characteristics.
+Dynamic Autocorrelation of transaction volume over time Quantifies temporal persistence of trading activity.
+Fig. 2: Simulation process
+probability that their goals will reflect market trends based
+on the most popular selling datasets. In the seller phase, each
+active seller chooses an action from options, guided by their
+sales history and metadata. Any newly provided or updated
+datasets are added to the shared vector store.
+The buyer phase follows, during which each active buyer
+selects an action. If a buyer opts forsearch, a similarity-based
+retrieval from the vector store suggests potential datasets for
+purchase. Finally, in the transaction phase, purchase requests
+from buyers are matched with sellers’ offerings. If the buyer’s
+budget allows, the transaction is completed successfully, bud-
+gets are adjusted, and the seller’s revenue and sales history are
+updated.
+B. Parameters
+The simulation begins with 10 buyers and 5 sellers, with
+each seller initially possessing one dataset. As a result, five
+datasets were available for trade at the outset. Each buyer’s
+starting budget is randomly selected from the set{1,000,
+10,000, and 100,000}units. The simulation can run for up
+to 40 steps unless all participants leave the market sooner.
+The entry of new agents is regulated by a sigmoid function:
+f(x) = L
+1 +e −k(x−x0) ,(1)
+wherexrepresents the recent transaction volume;Lis the
+maximum number of entrants per step, set at 50;kis the
+growth rate, set at 0.03; andx 0 is the inflection point,
+set at 100. For new buyers, the GoalGenerator formulates
+objectives that reflect current market trends with a probability
+of 0.5. Sellers will exit if their datasets remain unsold for 10
+consecutive steps. Buyers will leave the market if the ratio of
+analyzetobuyactions surpasses two, or if theplanaction is
+chosen more than seven times in a row.
+C. Metrics and Benchmarks
+Data transaction dataset
+As data markets are still in their infancy, the availability of
+public transaction histories is limited. We utilized data from
+Ocean Protocol, a decentralized data marketplace framework
+that links data providers and consumers through blockchain
+technology. Within Ocean Protocol, data providers create
+DataNFTs to signify ownership of data assets and exchange
+Datatokens to provide usage rights. For this research, we
+utilized Ocean Protocol’s Subgraph to collect events related to
+Datatoken transactions. The dataset obtained includes unique
+identifiers (order id,transaction hash), details about the
+traded Datatoken (datatoken address, etc.), consumer details
+(payer address), transaction volume (amount), price (price),
+and timestamp (timestamp). Our analysis covers May 30, 2022,
+to June 20, 2025, during which we collected a total of 6,826
+transaction records.
+To evaluate how closely our LLM-MAS reproduced the
+structural and temporal properties of real-world data markets,
+we defined five evaluation metrics grouped into structural,
+network, and dynamic categories summarized in Table III.
+Structural Metrics: Distributions of Data Transactions
+To encapsulate the essential characteristics of data market-
+places, we identified three principal power-law distributions.
+Frequency of data purchases: This metric illustrates the
+distribution of how often each dataset is bought over the
+observation period. It assesses the concentration of demand
+and the popularity of datasets. Similar to many real-world
+markets, a long-tail effect is expected, in which a few highly
+popular datasets dominate the majority of transactions.
+Frequency of purchases per buyer: This metric examines the
+distribution of the number of purchases made by each buyer.
+It indicates the level of buyer activity and the degree of market
+participation.
+Frequency of repeated purchases of the same data: This met-
+ric tracks how frequently individual buyers purchase the same
+dataset multiple times. Given that datasets can be updated and
+easily replicated, they are often repeatedly bought and reused.
+Thus, this measure offers insights into the ongoing demand
+and usage trends driven by dataset updates.
+Network Metrics: Transaction Network Structure
+
+(a) Number of purchases per data
+(b) Number of purchases per buyer
+(c) Number of repeated transactions
+Fig. 3: Three distributions of data transactions in a real-world data market and simulation results
+Although structural metrics can capture the overall distribu-
+tion within a market, they fail to illustrate the connections
+between participants. To describe these relational patterns,
+we represent all buyer-seller interactions as a bipartite graph,
+where each node and edge signifies a participant and a com-
+pleted transaction, respectively. We then analyzed the degree
+distribution of this network to identify the presence of hub
+nodes and the concentration of transactions. This network-
+level examination enhances structural metrics by elucidating
+the extent of connections among participants and determining
+whether the marketplace displays a scale-free topology—a
+characteristic often observed in complex economic systems.
+Dynamic Metrics: Temporal Market Dynamics
+We performed a time-series analysis of market dynamics
+to assess the effectiveness of the proposed simulation in
+replicating the continuity of trading activity. We utilized the
+autocorrelation coefficient of transaction volume over time as
+the primary dynamic measure. A higher coefficient suggests
+that once trading becomes active, increased transaction vol-
+umes are likely to persist across subsequent simulation steps,
+thereby reflecting the temporal dependence of market activity.
+V. RESULT ANDDISCUSSION
+A. Macro-Level Evaluation
+Over the course of the 40-step simulation, the data mar-
+ketplace expanded to a total of 1,149 buyers and 1,144
+sellers, generating 3,014 data transactions (Fig. 4a). Among
+all participants, 950 buyers made at least one purchase, while
+365 sellers successfully sold at least once. In total, 401 unique
+datasets were traded during the simulation period (Fig. 4b).
+Structural Metrics: Distributions of Data Transactions
+Purchases per data: The distribution of transactions per
+data exhibited a clear long-tail. The minimum was 1, the
+maximum was 192, and the mean was 7.52. Fitting this distri-
+bution to a power-law yielded an estimated exponent of 2.58,
+a value that closely aligns with that observed in real-world
+data marketplaces. The Kolmogorov-Smirnov (KS) distance
+was estimated at 0.067, indicating a good fit to the power-law
+model. An exponent within the 2–3 range suggests a scale-free
+structure in which a small number of highly important datasets
+dominate overall trading. For comparison, Ocean Protocol’s
+transaction data exhibit a power-law exponent of 2.30 and KS
+distance of 0.0259, suggesting that our simulation successfully
+reproduced a key feature of real-world data marketplaces
+(Fig. 3a).
+Purchases per buyer: The minimum number of purchases
+was 1, the maximum was 10, the mean was 3.17, and the
+mode was 4. Fitting this distribution to a power-law yielded
+an exponent of 11.84, which differs significantly from the
+corresponding value estimated from Ocean Protocol’s real data
+(1.06) (Fig. 3b). The simulated distribution clearly followed a
+Poisson form rather than a power-law. This discrepancy indi-
+cates that our simulation does not fully reproduce the empirical
+distribution of buyer purchase frequencies observed in actual
+data markets. Specifically, our simulation exhibited a high
+proportion of buyers making only a few purchases (2-5 times),
+while extremely active buyers (heavy users) were absent.
+In contrast, Ocean Protocol data include buyers with more
+than 500 transactions. Because our simulation was limited to
+40 steps, reproducing hundreds of purchases per buyer was
+inherently difficult. Nevertheless, the fact that the maximum
+number of purchases was only 10 reveals a design limitation.
+One possible reason is that, in our model, each buyer must
+sequentially select from six actions:plan,search,buy,analyze,
+do nothing, andexit market. This stepwise decision process
+constrains the frequency ofbuyactions, thereby reducing
+the total number of transactions compared with real-world
+data marketplaces. A longer-term simulation combined with
+dynamic prompt refinement could potentially capture more
+complex purchasing behaviors, such as the emergence of heavy
+users and long-term buying cycles.
+Repeat purchases for the same data: Among all observed
+transactions, 2,984 pairs involved only a single purchase,
+12 pairs involved two purchases, and 2 pairs involved three
+purchases, indicating that the vast majority of buyer-dataset
+
+relationships ended after a single transaction (Fig. 3c). All
+datasets that were purchased multiple times by the same
+buyer exhibitedupdate frequencylevels of medium or high,
+characteristic of dynamic data (e.g., GlobalFootballPlayerPer-
+formanceMetrics2024). This pattern suggests that repeated
+purchases were likely motivated by content changes associ-
+ated with dataset version updates. In contrast, regular repeat
+purchases are common in real data marketplaces, yet the
+frequency of such behavior in our simulation was noticeably
+lower. One possible explanation is that buyers did not fully
+recognize or exploit the update frequency of datasets. For ex-
+ample, if buyers were able to identify throughsearchdatasets
+that matched their analytical objectives and had high update
+frequencies, and then plan for periodic re-purchases within
+plan, the simulation might better reproduce the continuous
+purchasing behavior observed in real markets.
+Network Metric: Buyer–Seller Transaction Graph
+To evaluate the structural properties of the market, we
+represented the transaction history as a buyer-seller bipartite
+graph and analyzed its network characteristics. Based on the
+simulation results, the network exhibited an average degree of
+4.48. Fitting the degree distribution to the power-law yielded
+an estimated exponent of 2.26, indicating a scale-free structure
+(Fig. 4c). For comparison, the analysis of Ocean Protocol’s
+real transaction data produced an average degree of 3.02 and
+a power-law exponent of 2.08, suggesting that our simulation
+successfully reproduced the structural features of buyer-seller
+relationships observed in real data marketplaces. The comple-
+mentary cumulative distribution function of the node degree
+provides visual confirmation of this scale-free property. The
+highest degree nodes were all sellers. The most connected
+seller node had 192 links and owned the data “UrbanAirQual-
+ityAndMeteorologicalInterrelationship2024”, which recorded
+the highest transaction count in the entire simulation.
+Dynamic Metrics: Temporal Market Dynamics
+To evaluate the temporal persistence of market activity,
+we calculated the autocorrelation coefficient of the transac-
+tion count over time. In the simulation, the autocorrelation
+coefficient of total market transactions was 0.939, indicating
+strong persistence. Once market activity became active, a high
+transaction volume tended to be maintained in subsequent
+steps. In contrast, the same metric computed from real-world
+transaction data of Ocean Protocol was 0.516, suggesting
+that while real data markets also exhibit periods of sustained
+activity, their persistence is considerably weaker than that
+observed in the simulation.
+The excessively high autocorrelation coefficient likely orig-
+inates from the participant-entry mechanism. In our model,
+steps with a large number of transactions attract more new
+participants, many of whom begin by selectingplanand typ-
+ically do not make their firstbuydecision until three or more
+steps later. As a result, once a period of heavy trading occurs,
+the market experiences a chain reaction of new entries and
+subsequent purchases over several steps, making it less likely
+for the transaction volume to decline. This cascading demand
+growth is considered a key driver of the high autocorrelation
+coefficient observed in the simulation.
+B. Macro-Level Analysis: Formation of market trends
+In our simulation, we partially incorporated a mechanism
+in which new market participants considered existing market
+trends. This design allowed us to observe the emergence and
+evolution of field-specific demand trends over time. For the
+analysis, all datasets traded at each step were classified into
+10 predefined fields based on the domains assigned at the time
+of data generation. At the start of the simulation, the interests
+of participants were evenly distributed across fields, and the
+market began in a state of diverse but sparse demand. Figure
+5 shows a heatmap with fields and simulation steps on the
+vertical and horizontal axes, respectively. The color intensity
+of each cell represents the field-specific share of transactions
+within each step, weighted by the total transaction volume of
+each step.
+This visualization reveals the temporal dynamics. During
+the initial phase, transactions were almost uniformly dis-
+tributed across the fields. At step 20, short-lived surges of
+concentrated demand appeared in fields such as cybersecurity.
+After step 25, cybersecurity and social media emerged as the
+dominant fields driving the market. Toward the end of the
+simulation, social media demand continued to grow, while in-
+terest in cybersecurity declined, giving way to a late-stage rise
+in environmental science. These patterns of trend emergence
+and subsequent shifts mirror the phenomena found in real
+data marketplaces, where general-purpose markets coexist with
+niche markets focused on specialized domains. The ability of
+our simulation to reproduce such dynamics provides useful
+insights into market design, including strategies to either
+stimulate toward specific fields or sustain diversified, stable
+demand over time.
+C. Micro-level Behavioral Analysis
+Figure 6 illustrates the time evolution of the action ratio
+for both sellers and buyers, each smoothed with a three-step
+moving average.
+Seller behavior
+Early in the simulation (steps 0–10), sellers actively engaged
+in providing and updating data to populate the marketplace
+and improve their offerings. As the marketplace matured, the
+share of these productive actions declined sharply, and the
+dominant action shifted todo nothing. By step 15,do nothing
+accounted for more than 60% of seller actions, increasing to
+nearly 80% by step 40. This transition suggests that most
+sellers quickly stabilized their strategies, opting to maintain
+existing datasets rather than continually adjusting prices or
+refreshing data.
+Buyer behavior
+For buyers, theplanaction initially dominated as new
+entrants explored the market and formulated purchasing strate-
+gies. From around step 15, the shares of buying and analyzing
+began to grow steadily, while searching slowly diminished.
+
+(a) Number of transactions
+(b) Cumulative count
+(c) Degree distribution
+Fig. 4: Number of data transactions, cumulative count of simulation components, and degree distribution of buyer-seller network.
+TABLE IV: Macro-level results, reproduction level relative to real data, and their micro-level causal mechanisms
+Macro-level metrics Reproduction Underlying micro-level behavior
+Frequency of data purchases Good Early sellers activelyprovide dataandupdate datacreating a skewed supply.
+Frequency of purchases per buyer Poor Buyers spend early steps onplanandsearch, with fewbuyactions.
+Frequency of repeated purchases of the same data Poor Most buyers may not incorporate datasetupdate frequencyinto theirplan.
+Degree distribution of buyer–seller bipartite graph Good High-quality sellers become hubs through earlyprovide dataand subsequentdo nothing.
+Autocorrelation of transaction volume over time Overestimated Sellerdo nothingstabilizes prices and supply; buyers respond with persistentbuyoranalyze.
+Fig. 5: Heatmap for trend
+(a) Action Ratio (Seller)
+(b) Action Ration (Buyer)
+Fig. 6: Time-evolution of the seller and buyer action ratios
+smoothed with a three-step moving average. The light gray
+shaded area (steps 15–25) and the darker gray shaded area
+(steps 25–40).
+This evolution reflects the transition from market exploration
+to regular purchasing and post-purchase analysis of datasets.
+By the final phase,buyandanalyzeaccounted for more than
+40% of buyer actions, suggesting that buyers increasingly
+engaged in repeated or analytical usage of the dataset they
+had acquired.
+Linking micro to macro phenomena
+Table IV summarizes for the results of each metric. The
+stabilization of seller behavior (dominance ofdo nothing) ef-
+fectively froze prices and the composition of available datasets.
+This supply-side stability reduced uncertainty for buyers, en-
+abling them to shift from exploratorysearchto persistentbuy
+andanalyzeactions. As buyers repeatedly analyzed and re-
+purchased data with confidence in stable pricing, the overall
+transaction counts remained consistently high, producing the
+strong temporal autocorrelation observed at the market level.
+Moreover, repeated analysis of specific datasets fostered the
+late-stage concentration of demand in particular fields such as
+social media and environmental science. In this way, individual
+micro-decisions coalesced into macro-level regularities, where
+a stabilized supply landscape and sustained analytical demand
+reinforced each other to maintain and amplify market-wide
+trends.
+VI. CONCLUSION
+We presented an LLM-MAS for simulating strategic and
+goal-oriented data marketplaces. Unlike conventional rule-
+based simulations, our framework enabled buyer and seller
+agents to reason in natural language, execute diverse strategies,
+and adapt to dynamic market conditions. Evaluation against
+
+real transaction data showed that LLM-MAS reproduced es-
+sential market features, such as scale-free transaction struc-
+tures and buyer-seller networks, and captured the emergence
+of field-specific demand trends. These results highlight the
+potential of LLM-based agents to bridge micro-level decision
+making and macro-level market dynamics. These advances
+establish a foundation for more realistic market simulations
+and provide actionable insights for the design of future data
+marketplaces.
+Despite these achievements, certain limitations remain. Dis-
+crepancies were observed in three metrics: (1) the number
+of transactions per buyer, (2) the number of transactions per
+(buyer, data) pair, and (3) the autocorrelation coefficient of
+transaction volumes over time. These gaps are likely influ-
+enced by the simplified modeling of participant entry. Future
+work should explore more sophisticated mechanisms, such
+as adaptive entry rules, incentive mechanisms, or LLM-based
+decision models, to achieve greater fidelity. Additionally, the
+current implementation restricts data to tabular formats and
+metadata-based analysis. While LLM hallucination is often
+cited as a threat to validity, its impact is limited in our setting.
+This is because agents are restricted to a finite set of actions,
+and metrics are computed from transactions rather than from
+textual claims. It is also important to refine the prompt
+design so that buyers better understandupdate frequency.
+Specifically, when data with a high update frequency that
+aligns with their analytical objectives is discovered through
+search, the prompt should be improved to enable actions
+such as planning a regular subscription in the next plan.
+Extending the framework to include richer data types (e.g.,
+text, images) and enabling post-purchase analysis with actual
+samples would allow agents’ strategies to evolve from genuine
+analytical feedback, thereby enhancing realism and decision-
+support potential.
+ACKNOWLEDGMENT
+This study was supported by the joint research project with
+Toyota Motor Corporation and JST PRESTO (JPMJPR2369).

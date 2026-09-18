@@ -1,0 +1,1384 @@
+record_id: arxiv:2605.04251
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2605.04251
+fetched_title: Root-Cause-Driven Automated Vulnerability Repair
+fetched_at: 2026-09-18T19:00:13Z
+
+Root-Cause-Driven Automated Vulnerability Repair
+Hulin Wang
+Arizona State University
+Tempe, AZ, USA
+hwang551@asu.edu
+Zion Leonahenahe
+Basque
+Arizona State University
+Tempe, AZ, USA
+zbasque@asu.edu
+Jie Hu
+Arizona State University
+Tempe, AZ, USA
+jiehu12@asu.edu
+Ati Priya Bajaj
+Arizona State University
+Tempe, AZ, USA
+atipriya@asu.edu
+Yibo Liu
+Arizona State University
+Tempe, AZ, USA
+yiboliu@asu.edu
+Samuel Zhu
+Arizona State University
+Tempe, AZ, USA
+sjzhu@asu.edu
+Giorgi Kobakhia
+Arizona State University
+Tempe, AZ, USA
+gkobakhi@asu.edu
+Nikhil Chapre
+Arizona State University
+Tempe, AZ, USA
+nchapre@asu.edu
+Will Rosenberg
+Arizona State University
+Tempe, AZ, USA
+whrosenb@asu.edu
+Siddharth Mishra
+Arizona State University
+Tempe, AZ, USA
+smish149@asu.edu
+Aditya Maheshbhai
+Gabani
+Arizona State University
+Tempe, AZ, USA
+agabani@asu.edu
+Moritz Schloegel
+CISPA Helmholtz Center
+for Information Security
+Saarbrücken, Germany
+moritz.schloegel@cispa.de
+Adam Doupé
+Arizona State University
+Tempe, AZ, USA
+doupe@asu.edu
+Yan Shoshitaishvili
+Arizona State University
+Tempe, AZ, USA
+yans@asu.edu
+Ruoyu Wang
+Arizona State University
+Tempe, AZ, USA
+fishw@asu.edu
+Tiffany Bao
+Arizona State University
+Tempe, AZ, USA
+tbao@asu.edu
+Abstract
+Recent LLM-based systems have made automated vulnerability
+repair increasingly practical, but two challenges remain. First, with-
+out strong signals about where a bug originates, repair agents drift
+toward shallow edits that silence the observed failure while leaving
+the underlying defect unresolved. Second, finding the root cause
+for bugs is hard: even developers familiar with the codebase fre-
+quently produce fixes that address symptoms rather than the root
+cause, and LLM-based agents, operating with noisier context and
+less program understanding, are no exception.
+We present Kumushi1, a root-cause-driven patching agent that
+addresses both challenges by combining diversified dynamic fault
+localization with evidence-weighted ranking to focus the LLM on
+the code most relevant to the defect. To rigorously measure whether
+Kumushi produces genuinely better patches, we also introduce a
+two-tier patch quality metric that pairs automated oracle validation
+with structured expert assessment of patches.
+1Kumushi: “Kumu” is Hawaiian for “root, ” or “teacher, ” and “shi” is Chinese for
+“teacher”; together, the term denotes a teacher of root cause.
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than the
+author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or
+republish, to post on servers or to redistribute to lists, requires prior specific permission
+and/or a fee. Request permissions from permissions@acm.org.
+Anonymous Submission to ACM CCS 2017, Dallas, Texas
+©2017 Copyright held by the owner/author(s). Publication rights licensed to ACM.
+ACM ISBN 978-x-xxxx-xxxx-x/YYYY/MM
+https://doi.org/10.1145/nnnnnnn.nnnnnnn
+Evaluated on 178 C/C++ vulnerabilities,Kumushisubstantially
+outperforms prior specialized repair agents under automated eval-
+uation while matching a frontier commercial coding agent. Expert
+assessment then reveals differences that oracles cannot: Kumushi
+produces more root-cause fixes and fewer superficial patches, and
+is preferred in the majority of decisive pairwise comparisons. To-
+gether, these results demonstrate that progress in automated vul-
+nerability repair requires not only stronger patching systems, but
+also richer evaluation methods capable of distinguishing genuine
+fixes from oracle-passing ones.
+CCS Concepts
+•Security and privacy → Use https://dl.acm.org/ccs.cfm to gen-
+erate actual concepts section for your paper.
+Keywords
+automated program repair, patch generation, root cause
+1 Introduction
+Automated vulnerability repair is becoming increasingly critical as
+the volume of disclosed vulnerabilities continues to grow. Modern
+fuzzing infrastructure, such as OSS-Fuzz [20], has found thousands
+of bugs accompanied by reproducible proofs of concept (PoCs).
+More recently, efforts such as Project Glasswing [4] have uncov-
+ered thousands of more vulnerabilities in critical software and
+show no sign of waning. The resulting backlog far outpaces devel-
+opers’ triaging capacity, creating a strong demand for tools that can
+quickly generate correct patches for vulnerable source code [36].
+Recent advances in large language models (LLMs) have given rise
+to a new class of LLM-based patching agents [30, 34, 56, 57, 61] that
+1
+arXiv:2605.04251v1 [cs.CR] 5 May 2026
+
+Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+Hulin Wang, Zion Leonahenahe Basque, Jie Hu, Ati Priya Bajaj, Yibo Liu, Samuel Zhu, Giorgi Kobakhia, Nikhil Chapre, Will Rosenberg, Siddharth Mishra, Aditya Maheshbhai
+Gabani, Moritz Schloegel, Adam Doupé, Yan Shoshitaishvili, Ruoyu Wang, and Tiffany Bao
+address this problem through an iterative workflow: the agent first
+localizesthe fault, thensynthesizesa candidate patch, and finally
+validatesit against replay-based test oracles comprising the original
+PoC and the developer test suite. If validation fails, the agent feeds
+the error signal back to drive the next round of localization and
+patch generation. The loop repeats until all oracles pass. Prior work
+has substantially improved this iterative loop by enabling agents to
+leverage program analysis techniques, such as static analysis [57],
+symbolic execution [56], and dynamic analysis approaches [61].
+Despite recent advances in agentic patching, we observe that
+existing patching agents fail to reliably address the root causes of
+vulnerabilities and generate incomplete or incorrect patches. First,
+root cause localization is fundamentally limited by the underlying
+analysis techniques. Static approaches, such asPatchAgent[ 57],
+cannot precisely resolve indirect calls, leading to incorrect localiza-
+tion in cases like the heap out-of-bounds vulnerability in mruby [35].
+In contrast, dynamic approaches based on symbolic execution (e.g.,
+LoopRepair[ 56]) suffer from poor scalability and fail to handle this
+case in practice. Second, LLM-based patch generation is unstable
+due to its sensitivity to noisy context. Even when the correct fix
+location is identified, agents frequently drift and produce incorrect
+edits [2, 59]. For example, when fixing a heap buffer overflow in
+hunspell [40],PatchAgentcorrectly identifies the fix location but
+ultimately patches a nearby incorrect location, distracted by irrele-
+vant context. Both limitations are critical and must be resolved for
+identifying and fixing root causes effectively.
+In this paper, we present Kumushi, a root cause-driven patching
+agent that addresses the issues identified above. To balance the ad-
+vantages and limitations of static and dynamic analyses, Kumushi
+employsdiversified dynamic fault localization: instead of relying on
+static analysis alone, it collects execution evidence from a family of
+crash-triggering inputs, exposing root cause-correlated functions
+that a single trace would not surface. To prevent LLM’s context drift,
+Kumushi employs anevidence-weighted rankingstage that consoli-
+dates the candidate pool into a ranked set of Functions of Interest,
+which concentrates the agent’s attention on the most crash-relevant
+code before patch generation begins.
+We evaluate the effectiveness ofKumushi and existing approaches
+in repairing the root causes of software vulnerabilities on real-world
+open-source projects. During the development of evaluation, we
+observe that assessing root cause repair is inherently challenging
+due to the lack of areliable ground truth. This creates a chicken-
+and-egg problem: identifying the root cause of a vulnerability is
+itself non-trivial, which makes it difficult to determine whether a
+patch correctly addresses it. Automatic root cause identification
+could be an interesting solution, but it remains an open research
+problem. Prior work usually treats developer patches as ground
+truth; however, studies have shown that a significant fraction of
+developer patches fail to address the underlying defect. Even devel-
+opers deeply familiar with the codebase frequently produce fixes
+that target symptoms rather than root causes [26, 32, 51].
+An alternative is to rely on replay-based oracles [ 24], which
+re-execute the original PoC and developer test suites to verify that
+a patch suppresses the observed crash while preserving existing
+functionality. However, these oracles, analogous to dynamic testing
+in Programming Language theory, are complete but not sound2: a
+patch may eliminate the observed failure and pass all tests while
+leaving the underlying defect reachable through alternative exe-
+cution paths [51], even when test suites are augmented with au-
+tomated techniques such as fuzzing. This coverage gap limits the
+ability of oracle-based evaluation to distinguish true root-cause
+fixes from superficial repairs. Therefore, accurately assessing patch
+quality requires deeper analysis beyond what automated oracles
+alone can provide. However, such analysis typically requires secu-
+rity expertise and substantial manual effort, which does not scale to
+comprehensive, real-world evaluations. Consequently, it remains
+difficult to design an evaluation methodology that balances accu-
+racy and practicality for large-scale, real-world systems.
+To effectively evaluate Kumushi, we introduce a two-tier root-
+cause repair quality metric that combines automated oracle valida-
+tion (“tier 1”) with structured expert assessment (“tier 2”) of patch
+completeness and correctness.
+This framework enables a more rigorous evaluation of auto-
+mated vulnerability patching systems such as Kumushi and pro-
+vides stronger evidence of its ability to generate genuine root-cause
+fixes compared to existing state-of-the-art patching tools.
+We evaluated Kumushi on 178 C/C++ vulnerabilities against
+three state-of-the-art works from academia and industry:PatchA-
+gent[ 57],LoopRepair[ 56], and OpenAI’sCodex[ 37]. Under tier-1
+oracle-based evaluation, Kumushi reaches a plausible patch rate
+of 85%, outperformingPatchAgent(72%) andLoopRepair(2%),
+confirming the effectiveness of our root cause-driven localization.
+However, we observe that Kumushi andCodexare statistically
+indistinguishable under all three replay-based oracles: replaying
+the PoC, executing the test suite, and replaying fuzzer-generated
+variant PoCs. This is a direct manifestation of the oracle coverage
+gap identified above. Both tools produce a similar percentage of
+plausible patches, but automated oracles alone cannot tell us which
+tool produces better patches.
+Applying tier-2 expert assessment provides the deeper analy-
+sis needed to distinguish the two: Kumushi produces more root-
+cause fixes and fewer superficial patches thanCodex. On the 144
+bugs where both tools produced a plausible patch, human experts
+conducting an blind assessment preferred Kumushi on 68 (47%),
+Codexon 39 (27%), and judged 37 (26%) cases as equivalent; a sign
+test on the 107 decisive pairs gives 𝑝= 0.0065, confirming that
+Kumushi produces a statistically significantly greater number of
+better patches when bug difficulty is controlled.
+Contributions:We make the following contributions:
+• We identify two recurring limitations in state-of-the-art LLM-
+based patching tools: static-only fault localization consistently
+fails to pinpoint root causes, and unfiltered context causes agents
+to pivot toward crash-site suppression rather than root-cause
+repair. We further identify that existing oracle-based evaluation
+cannot reliably differentiate genuine root-cause fixes from super-
+ficial ones.
+• We propose a root cause-driven patching approach that addresses
+both limitations through diversified dynamic fault localization
+2In PL theory, a system is sound if a program that passes the system’s checking will
+not exhibit certain forbidden behaviors at runtime.
+2
+
+Root-Cause-Driven Automated Vulnerability Repair Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+and evidence-weighted FOI ranking, and implement and open-
+sourceKumushias a prototype of this approach.
+• We conduct a two-tier evaluation on 178 C/C++ vulnerabilities.
+Kumushi outperformsPatchAgentby 18% in plausible patches
+(tier 1), and human experts prefer Kumushi patches over those
+ofCodexby a 20% margin (tier 2). Notably, this preference gap
+is invisible to automated oracles and emerges only under human
+judgment.
+2 Background and Motivation
+We briefly discuss relevant background and investigate patch qual-
+ity of existing approaches.
+2.1 LLM-based Automated Program Repair
+Software vulnerability repair has long been studied under the um-
+brella of Automated Program Repair (APR). Early approaches re-
+lied on templates [15, 29, 33, 46], search-based mutations [17, 21],
+semantic-based approaches[16, 18, 25, 44], and learning-based mod-
+els [9, 62] to synthesize candidate patches. Recent advances in LLMs
+have changed the landscape, enabling repair tools that reason over
+code at the semantic level. LLM-based patch generation follows two
+general approaches. Prompt-based techniques [30, 34] query the
+model directly with engineered prompts that supply the bug report,
+surrounding code context, and optional chain-of-thought scaffold-
+ing, then treat the model’s response as a candidate patch. On the
+other hand, agent-based techniques [56, 57, 61] embed the LLM in
+an iterative loop equipped with tools for code navigation, compi-
+lation, and test execution, allowing the agent to gather evidence,
+propose patches, and refine them across rounds. Within the agent-
+based approach, state-of-the-art systems differ chiefly in how they
+localize the root cause:PatchAgentequips the LLM with code-
+navigation tools (e.g., viewcode) and delegates localization entirely
+to the model. Starting from the sanitizer report, the agent retrieves
+source context iteratively and reasons about the defect statically,
+with no dynamic signal beyond the crash stack.LoopRepairlocal-
+izes through concolic execution. Replaying the PoC under KLEE, it
+tracks how crash-relevant input bytes propagate through the pro-
+gram, retains the program points that carry the full taint, and ranks
+them by their distance to the crash. Each candidate is paired with
+a crash-free constraint, producing a semantically grounded set of
+suspect locations.CodeRover-Slocalizes through dynamic tracing.
+The PoC is executed on an instrumented binary that captures the full
+caller/callee graph of the buggy run. Functions that executed but are
+absent from the crash stack are resolved to source symbols and ap-
+pended to the sanitizer report, giving the agent execution-grounded
+seeds beyond what the bare stack trace provides. More recently,
+general-purpose coding agents [3, 37, 39] have demonstrated strong
+competence on software-engineering benchmarks [27], vulnerabil-
+ity reproduction [50], PoC generation [31], code review [63] and
+can be applied to vulnerability repair tasks [31, 58] with minimal
+task-specific configuration efforts.
+2.2 Patch Quality Evaluation in Practice
+A high-quality patch should repair the faulty invariant at the source
+of a vulnerability rather than merely mitigate the observed crash.
+Verifying this property is itself a research problem, but two evalua-
+tion methods are common in practice: manual expert review and
+dynamic oracle validation.
+In expert reviews, a reviewer reconstructs the root cause from
+the crash report and PoC behavior and judges whether the patch
+addresses the underlying defect rather than guarding the crash site.
+The judgment is usually reliable but labor-intensive, and it does
+not scale to address the size of modern vulnerability backlogs.
+In terms of automated validation, the field usually relies on
+replay-based oracles, including PoC replay, developer test suite re-
+execution, and fuzzing-based variant exploration [24]. PoC replay
+checks if the reported crash no longer reproduces after the patch
+has been applied [ 34, 56]. Similarly, developer test suites are re-
+executed to check if documented behavior is preserved [ 42, 57].
+Fuzzing campaigns seeded from the original PoC can be used to
+explore nearby inputs and provide a stronger guard against variants
+that re-trigger the defect [26, 51].
+We observe that these oracles are complete but not sound. A
+patch may pass every replay-based check while leaving the un-
+derlying defect reachable through alternative execution paths [51].
+Two patches that pass the same oracle suite can therefore differ
+substantially in whether they repair the root cause.
+2.3 Preliminary Study
+To understand the limitations of state-of-the-art LLM-based patch-
+ing tools in practice, we conduct a preliminary study. We first run
+10 independent trials ofPatchAgentfor each bug and identify
+24 bugs that it fails to patch in every run. Using this subset of
+bugs, we examine whether other state-of-the-art tools, including
+LoopRepair[56], exhibit similar limitations.
+We observe thatPatchAgentfails to locate or examine the cor-
+rect fix location for 9 out of 24 bugs, suggesting that static analysis
+alone is insufficient to pinpoint root causes. We use the developer
+patch as the definition of the correct fix location for these cases.
+While tools such asLoopRepairincorporate dynamic information,
+for instance, constraints derived from symbolic execution, they face
+significant scalability and generality challenges. In our evaluation,
+the KLEE symbolic execution engine used byLoopRepairfailed to
+execute on all 24 targets, producing no patches. From these obser-
+vations, we believe our system needs to use lightweight dynamic
+analysis that avoids the overhead of formal symbolic execution
+while still grounding the repair process in runtime evidence.
+Throughout our experiment, we also observe that thePatchA-
+gent’s reasoning frequently surfaces the right location, but lengthy
+call chains, unrelated source files, and tangential snippets accumu-
+late alongside it. Under this noise, the LLMs drift from the correct
+fix sites and edits elsewhere. In our study, 9 out of 24 bugs follow
+this drift pattern: the LLM initially examines the correct line, but
+the surrounding context pulls it away. In another 6, it stays on the
+correct line but repeatedly produces patches that either fail to com-
+pile or fail to mitigate the crash, exhausting its repair budget. These
+15 cases suggest that even when the correct location is identified,
+ineffective context filtering remains a critical barrier to successful
+repair.
+In summary, these two observations motivateKumushi’s design:
+(1)Static analysis alone cannot pinpoint the root cause.
+3
+
+Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+Hulin Wang, Zion Leonahenahe Basque, Jie Hu, Ati Priya Bajaj, Yibo Liu, Samuel Zhu, Giorgi Kobakhia, Nikhil Chapre, Will Rosenberg, Siddharth Mishra, Aditya Maheshbhai
+Gabani, Moritz Schloegel, Adam Doupé, Yan Shoshitaishvili, Ruoyu Wang, and Tiffany Bao
+(2)Unfiltered context drowns out the correct fix site.
+3Kumushi: Root-Cause-Driven Patch
+Generation
+Motivated by these observations, we propose Kumushi, a dynamic-
+diversified, root-cause-focused, agentic patch generation frame-
+work that jointly addresses fault localization accuracy and patch
+quality. As shown in Figure 1,Kumushi accepts three inputs (a san-
+itizer report, the original proof-of-concept (PoC), and the project
+codebase) and operates through three tightly coupled stages. First,
+Diversified Fault Localizationconstructs a failure-relevant candi-
+date pool. It combines crash-stack extraction from the sanitizer
+report, dynamic function-call traces from fuzzer-generated crash
+variants of the original PoC, and static dependency analysis. Sec-
+ond,Evidence-Weighted FoI Rankingconsolidates the pool into a
+focused top-20 set of Functions of Interest. It scores each candi-
+date against crash-class-conditioned evidence tags, then applies a
+diversity-aware rerank so the patch agent receives distinct hypothe-
+ses across source files. Finally,Agentic Patch Generationconsumes
+the ranked FoIs as context. The patch agent iteratively explores the
+codebase and synthesizes candidate patches, while an automated
+verifier checks each edit against oracles. The agent emits a patch
+only when all three checks pass. The remainder of this section
+details each stage.
+3.1 Stage 1: Diversified Fault Localization
+Stage 1 collects a broad pool of functions likely correlated with the
+vulnerability’s root cause. Stage 2 then consolidates, scores, and
+filters this pool into the focused top-20 FoI set that guides patch
+generation. Motivated by the localization limitations identified
+in section 2, Kumushi addresses both the coverage gap of static-
+only approaches and the scalability limitations of heavyweight
+dynamic analysis through a two-step collection process.
+Dynamic FoI Collection via Fuzzing.Rather than reasoning from
+a single crashing execution, Kumushi first diversifies the original
+PoC using AFL++ [ 11] (v4.40c) in crash exploration mode with
+a 12-hour time budget per bug. In crash exploration mode, the
+fuzzer takes the original crashing input as a seed and mutates it to
+generate new inputs, retaining only those that still crash the target.
+Aurora [5] observed that crash variants derived from the same seed
+tend to trigger the same underlying bug via different execution
+paths. The resulting family of variant inputs therefore exposes
+more root-cause-correlated functions than any single trace alone.
+Crash exploration may occasionally produce inputs that trigger a
+different bug. Stage 2’s evidence-weighted scoring down-weights
+functions that appear only in a minority of traces, mitigating such
+outliers.
+For each variant in the diversified PoC family, Kumushi instru-
+ments the target binary with function-entry hooks and replays the
+variant under the instrumented binary. Every function executed on
+the path to the crash is emitted as a candidate FoI and enters the
+pool.Kumushiadditionally parses the ASan report of the original
+PoC and extracts every function named on the crash stack as a
+candidate FoI. Prior study found that the fix for roughly 60% of
+cases patched a function on the crash stack [10]. The union of all
+per-variant execution traces and the crash-stack functions forms
+the dynamic candidate pool.
+Static FoI Augmentation via Dependency Analysis.Dynamic
+tracing captures functions that actually execute but may miss func-
+tions that influence the crash site through data dependencies not ex-
+ercised by the available inputs. To augment FoI coverage,Kumushi
+applies CodeQL static dependency analysis [19], but deliberately re-
+stricts it to the subset of functions that appear in the original PoC’s
+ASan report. Applying static analysis to all dynamic candidates
+would re-introduce the over-approximation problem, exploding
+the candidate pool with functions only loosely related to the crash.
+By anchoring static analysis to the ASan report subset, Kumushi
+obtains the precision benefits of crash-stack grounding while still
+recovering candidates that dynamic tracing alone would miss.
+Concretely, CodeQL’s intra-procedural dataflow query (DataFlow
+::localFlow) identifies variables whose values flow into the crash-
+line variables within the crash site function. A second CodeQL
+query enumerates all functions that read or write variables of match-
+ing name and access type. Whole-program dataflow is out of scope
+at our evaluation scale.
+Beyond the local dataflow analysis, we take up to ten call-stack
+functions from the sanitizer report asanchorsand perform a bounded
+bidirectional breadth-first traversal of the call graph: upstream to
+callers and downstream to callees. For spatial and temporal bugs
+we include allocation frames; for temporal bugs we also include
+free frames. For each discovered function 𝑓 , we track three signals:
+the number of anchors from which 𝑓 is reachable,|anchors(𝑓)| ;
+the number of call edges landing on 𝑓 , edgehits(𝑓) ; and the shortest
+distance from any anchor to 𝑓 , mindepth(𝑓) . A function reached by
+many anchors, via many edges, at shallow depth is more likely to
+be implicated in the crash. We rank candidates lexicographically by
+⟨−|anchors|,−edge hits,min depth⟩ and retain the top 300 to bound
+pool growth. If too few candidates are returned, we widen the
+search by adding more call-stack, allocation-stack, and free-stack
+functions and merge the results.
+After both steps, Kumushi merges the dynamically diversified
+candidates and the statically augmented candidates into a single
+pool of crash-correlated FoIs. Stage 2 then consolidates, scores, and
+ranks this pool.
+3.2 Stage 2: Evidence-Weighted FoI Ranking
+Stage 2 takes the merged candidate pool from Stage 1 and produces
+a focused, ranked top-20 FoI set that serves as the repair context
+for the patch agent. Each candidate in the pool carries one or more
+source tags indicating which collection step contributed it. The tags
+mark a function as appearing on the crash stack, in a per-variant
+dynamic execution trace, on an allocation or free stack from the
+sanitizer, at a sanitizer-reported object-origin site, or in the static
+variable-dependency results. A candidate contributed by multiple
+steps carries multiple tags, and the scoring step below uses this
+overlap as its primary signal.
+We first consolidate the pool, discarding functions that cannot
+plausibly be the defect site: fuzzing harnesses and entry wrap-
+pers (e.g., LLVMFuzzerTestOneInput), standard library primitives
+(memcpy, malloc, and similar), and candidates rooted in test or
+fuzzer directories. Duplicates contributed by multiple steps are
+4
+
+Root-Cause-Driven Automated Vulnerability Repair Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+Diversified Fault
+Localization
+Evidence Weighted
+FOI Ranking
+Static FOI
+Augmentation
+Dynamic FOI
+Collection
+Ranked
+FOI
+Sanitizer
+Report
+Original
+PoC
+Project
+Code
+Agentic Patch Generation
+LLM Agent
+Patch Verifier
+FailedVerify
+Patch
+Code
+Success
+FOIs
+Deduplication
+& Ranking
+Figure 1: Overview of Kumushi. Given a sanitizer report, crash input, and project codebase, the Diversified Fault Localization
+stage produces a pool of Functions of Interest (FoIs); the Evidence-Weighted FoI Ranking stage consolidates and ranks them
+into a top-20 list; and the Agentic Patch Generation stage iteratively produces and verifies a patch, looping back with additional
+information on each failure until the patch is validated.
+fused into a single record whose tag set is the union of the origi-
+nals’. We then score each surviving candidate. Tag weights depend
+on the crash class. For temporal errors such as use-after-free, the
+free stack carries the greatest weight; for contract violations such as
+null dereference, the crash stack carries it instead. To prevent corre-
+lated sources from being counted multiple times, we first partition
+tags into evidence families.
+For instance, free-stack, allocation-stack, and object-origin share
+one family because all three describe the same allocation event.
+Within a family 𝑓 , Kumushi aggregates the active tag weights using
+an OWA-style operator [55]:
+𝑠𝑓 =min
+
+𝑐 𝑓 , 𝑤(1)+𝛼
+∑︁
+𝑖≥2
+𝑤(𝑖)
+
+,(1)
+where 𝑤(1)≥𝑤(2)≥. . . are the bug-class weights of the active
+tags in that family, 𝛼< 1discounts additional same-family tags
+to reflect correlation rather than independence, and 𝑐 𝑓 limits the
+maximum contribution of family𝑓.
+Intuitively, the strongest tag in a family determines the primary
+contribution, while the remaining tags provide only attenuated
+reinforcement, since tags from the same family often witness the
+same underlying fact. The cap𝑐 𝑓 encodes the maximum confidence
+that the family can contribute in principle. For example, stack-trace
+evidence, which places the function directly on the crashing control
+flow, contributes more than call-trace evidence, which shows only
+that the function executed.
+We then combine the family-level scores with a noisy-OR [43]:
+𝑠=1−
+Ö
+𝑓
+(1−𝑠 𝑓),(2)
+under the standard assumption that evidence families provide in-
+dependent support for defectiveness. Example 1 illustrates the re-
+sulting behavior. A single strong evidence family can substantially
+raise the final score, while weak or missing families do not pull
+down the contribution of stronger ones. The two operators serve
+complementary purposes. The OWA-style aggregation controls re-
+dundancy within a family, where multiple tags may be correlated
+observations of the same event. The noisy-OR combines support
+across families, where each family represents a distinct source by
+which a defect may manifest.
+Given a score per candidate, the ranker produces the final list
+in two passes. We first rank by raw score, then apply a file-level
+diversity rerank to the tail. The rerank prefers candidates from
+source files not yet selected, so the patch agent receives distinct
+hypotheses rather than near-duplicates from the same file. We then
+truncate the list to match the patch agent’s context budget.
+Example 1.Consider three use-after-free FoIs drawn from the same
+tag vocabulary (stack-trace0 .85,free-stack0 .90,alloc-stack0 .65,
+object-origin0 .55; 𝛼=0.25, 𝑐crash=0.97, 𝑐alloc=0.95). By tag-family
+taxonomy,stack-traceis a crash-stack tag, whilefree-stack,alloc-
+stack, andobject-originare allocation-family tags. Each FoI fires its
+own subset.
+(1)do_close firesstack-trace(crash family) and bothfree-stack
+andalloc-stack(allocation family). It scores0.9925:
+• allocation family: 𝑠alloc =min( 0.95, 0.90+ 0.25· 0.65)= 0.95
+•crash-stack family:𝑠 crash =min(0.97,0.85)=0.85
+•noisy-OR:𝑠=1−(1−0.85)(1−0.95)=0.9925
+(2) A FoI witnessed only by allocation-family tags — with any com-
+bination offree-stack,alloc-stack, andobject-originactive —
+cannot exceed calloc =0.95 , since no crash-family term enters the
+noisy-OR.
+(3) A FoI tagged only bystack-traceon the crash stack scores0.85.
+The ordering0 .85 < 0.95 < 0.9925makes the design choice visible:
+no amount of within-family evidence, even at saturation, overtakes a
+candidate witnessed across two independent families. Kumushi ranks
+breadth of evidence above depth.
+3.3 Stage 3: Agentic Patch Generation
+The patch agent is an LLM agent driven by a structured prompt
+and a small tool set. The prompt supplies the sanitizer report, the
+top-20FoIs together with their source code, an explore-then-edit
+workflow, and fix-quality guidelines for patching vulnerabilities.
+We equip the agent with read-only tools to navigate the clang-
+indexed codebase, a string-substitution tool to edit source files, and
+a verifier to validate patches. Every run operates on a freshly copied,
+git-baselined working directory so that the agent can explore the
+codebase and edit files without affecting the original codebase.
+5
+
+Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+Hulin Wang, Zion Leonahenahe Basque, Jie Hu, Ati Priya Bajaj, Yibo Liu, Samuel Zhu, Giorgi Kobakhia, Nikhil Chapre, Will Rosenberg, Siddharth Mishra, Aditya Maheshbhai
+Gabani, Moritz Schloegel, Adam Doupé, Yan Shoshitaishvili, Ruoyu Wang, and Tiffany Bao
+After each edit, the patch verifier applies three progressively
+stricter validation checks: compiling the patched project under Ad-
+dressSanitizer, replaying the original crashing PoC, and re-executing
+the project’s existing test suite. If any check fails, the verifier re-
+turns the failure output to the agent to guide its next exploration or
+edit. The agent then can refine its hypothesis and try again. Until
+the first time the patch passes all three checks, the run terminates
+and the agent emits the patch. The agent runtime caps each run at
+150 turns to prevent infinite loops.
+4 Evaluation
+We design experiments to study three research questions:
+• RQ1: How do LLM-based patching agents compare under dy-
+namic oracle-based evaluation?
+• RQ2: How do root-cause-driven and general-purpose LLM-based
+patching agents differ in patch comprehensiveness, and what
+repair strategies and failure modes characterize each?
+• RQ3: What factors drive patch quality differences between root-
+cause-driven and general-purpose LLM-based patching agents,
+and what do they reveal about the strengths and limitations of
+root-cause-anchored patching?
+4.1 Experiment Setup
+Tools.We compare Kumushi against three state-of-the-art tech-
+niques that represent the spectrum of LLM-based patch generation.
+• PatchAgent[ 57] relies on the LLM alone for agentic fault
+localization and patch synthesis, iteratively refining candidate
+patches against the original PoC and developer test suite until the
+repair budget is exhausted. It uses no dynamic analysis beyond
+oracle replay validations.
+• LoopRepair[ 56] augments the LLM-based repair loop with
+symbolic execution: it runs KLEE on the original PoC’s execution
+path to extract path constraints and taint traces that predict
+patch locations before delegating patch synthesis to an LLM. We
+configured it to use the same PoC-replay and test-suite oracle as
+PatchAgent for validation.
+• Codex[ 37] is a general-purpose coding agent. We configure it
+with the original PoC, the developer test suite, and the project
+codebase, and prompt it to perform agentic patch generation,
+letting it autonomously decide how to explore the codebase and
+produce a patch. Unlike Kumushi, it receives no pre-computed
+fault-localization context and no fix-quality guidelines.
+To ensure a fair comparison, all techniques use gpt-5.2-2025-12-
+11 [38], the latest model while we ran the experiment, as the un-
+derlying large language model backend.
+Dataset.We evaluate on the 178-bug benchmark introduced by
+Yu et al. [57], which spans 30 open-source C/C++ projects ranging
+from 5k to 1M source lines of code (SLOC). Each bug ships with an
+AddressSanitizer (ASan) crash report, a crash input, and a script
+to run test suites. We group ASan crash labels into five classes
+based on the ASan report label; Table 1 gives the class definitions.
+Appendix B lists the full set of targets.
+Table 1: Overview of the 178-bug benchmark.
+Size (SLOC) #Proj. Spatial UAF NPD Num Other
+Small (<50 k) 10 25 6 2 1 5
+Medium (50 k–250 k) 13 40 6 5 4 7
+Large (>250 k) 7 52 11 11 1 2
+Total 30 117 23 18 6 14
+Spatial: heap-, stack-, or global-buffer overflow, or heap out-of-bound read.
+UAF: use-after-free, double-free, and invalid-free.
+NPD: null-pointer dereference.
+Num: divide-by-zero, integer overflow, and invalid bit-shift.
+Other: sanitizer-unclassified crashes including unknown-read/write,
+SEGV-on-unknown-address, and API-contract violations.
+Prompt.The prompt for Kumushi’s patching agent includes the
+root-cause analysis summary, the sanitizer report, the overall work-
+flow, and the patching guidelines. Appendix C shows the complete
+prompt.
+Token usage.Table 2 reports per-bug mean and median token
+consumption and estimated cost for each system. All four systems
+use GPT-5.2 under their default repair budgets.
+Table 2: Token usage and estimated cost (using GPT-5.2).
+Mean Median
+System Tokens Cost Tokens Cost
+PatchAgent44,899 $0.16 43,255 $0.16
+LoopRepair83,936 $0.30 50,046 $0.18
+Codex239,848 $0.86 130,830 $0.47
+Kumushi1,120,538 $4.02 517,992 $1.86
+4.2 Root Cause Assessment Metric
+To rigorously measure the performance of each tool and compare
+the generated patches comprehensively, we introduce a two-tier
+patch quality metric that combines the scalability of automated
+oracles with the precision of human assessment.
+Our two-tier metric design considers both evaluation precision
+and scalability. Automated oracles such as PoC replay, test suites,
+and fuzzing are cheap to run at scale but passing them does not
+prove the underlying defect has been fixed [ 24], as a patch may
+suppress the observed failure while leaving the root cause unad-
+dressed. Human review can determine whether a patch fixes the
+root cause, but applying it to every generated patch is prohibitively
+expensive, taking 16 minutes per patch [47]. Our metric addresses
+this tension by running automated oracles first to eliminate failed
+patches, then forwarding only the surviving plausible patches to
+human raters who assess whether the root cause has been resolved.
+Since the oracle stage requires only the patch, the crash report,
+and the program code base, our metric works for patches from any
+repair system.
+4.2.1 Tier 1: Dynamic Oracle Validation.Three oracles cover the
+most common checks for validating LLM-generated patches [24]:
+PoC replayconfirms that a reported crash no longer triggers. The
+developer test suitechecks that documented behavior still holds.
+6
+
+Root-Cause-Driven Automated Vulnerability Repair Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+AFL++ crash exploration, seeded from the PoC and run for 12 hours
+on the project’s harness, detects patches that silence the reported
+crash but leave the defect reachable through mutated inputs.
+We categorize each generated patch into one of three outcomes
+under progressively stricter dynamic oracles:
+• No Patch: the patch fails to compile, or mitigate the original PoC
+crash, or pass the developer’s existing test suite.
+• Partial Patch: the patch passes compilation, PoC replay, and
+the developer test suite, but does not suppress all variant crashes
+discovered through 12 hours of AFL++ crash-exploration fuzzing
+against the project’s own harness.
+• Plausible Patch: the patch passes every dynamic check above,
+including suppression of all AFL++-discovered variant crashes
+within the 12-hour exploration budget.
+4.2.2 Tier 2: Structured expert assessment.We forward patches
+that pass all three dynamic oracles to human raters, who evaluate
+each patch along two orthogonal axes and then, for Kumushi and
+Codexpairs, apply a pairwise comparison rubric. The primary axis
+captures whether the patch addresses the underlying defect:
+• Root-Cause Fix: the patch directly repairs the underlying defect
+identified from the crash report and PoC, eliminating the faulty
+invariant at its source.
+• Symptom Fix: the patch prevents or reduces the crash without
+addressing the underlying defect, leaving related execution paths
+potentially vulnerable.
+The secondary axis is a boolean flag, has_unrelated_changes,
+set whenever the diff contains modifications orthogonal to the root
+cause. We track this flag because LLM-based tools occasionally edit
+code beyond the scope of the root cause: reformatting, refactoring
+adjacent functions, or making drive-by changes. These edits inflate
+apparent productivity, add review burden, and risk regressions.
+Surfacing such edits as a separate signal lets us distinguish a clean
+root-cause fix from a correct fix bundled with unwanted changes.
+We recruited eight raters (graduate students with research experi-
+ence in software security and with more than 1 year of vulnerability
+research experience). For each bug, three raters first reconstruct the
+runtime environment in Docker to run the PoC, then identify the
+root cause from the crash report and observed PoC behavior. Both
+Kumushi andCodexgenerated patches against identical Docker
+environments; only the patch-generation agent differed, controlling
+for confounders in the reproduction setup. We consult the original
+developer patch as a reference only and do not treat it as ground
+truth, since upstream fixes are themselves frequently incomplete
+or symptom-level [26, 51].
+To mitigate source bias, we anonymizeCodexand Kumushi
+outputs as tool_a and tool_b; the mapping is disclosed only after
+labeling is complete. Labeling proceeds in independent rounds: each
+rater labels every patch in isolation without access to the others’
+judgments, and raters rotate across batches of bugs across rounds.
+In each round, the rater assigns a primary label (root-cause fix or
+symptom fix) and writes a justification that references the identified
+root cause. After a dedicated scan for out-of-scope edits, the rater
+sets the has_unrelated_changes flag. Raters record every flagged
+edit in a shared spreadsheet, along with their rationales. Only after
+both patches have been labeled in isolation raters apply the pairwise
+comparison rubric. Correctness takes priority: a root-cause fix out-
+ranks a symptom fix. When both patches repair the root cause, the
+rater breaks ties first bysemantic precision, preferring the patch that
+targets the faulty invariant without broadening scope. The number
+of unrelated changes serves as the second tiebreaker. When nei-
+ther patch reaches the root cause in our evaluation, we fall back to
+comprehensiveness, preferring the patch that covers more affected
+execution paths, edge cases, and related failure modes. Raters label
+clear dominance cases directly, reserve the rubric for close calls,
+and log all rationales for post-hoc audit. After three rounds, we use
+majority vote to determine the final label and provide inter-rater
+reliability statistics in Table 7.
+Pairwise Comparison Rubric.The rubric is lexicographic on:
+(1) Correctness.When one patch repairs the root cause and the
+other only suppresses the reported crash, prefer the root-cause
+fix. When both patches repair the root cause, prefer the one with
+stricter semantic alignment to the defect, which is the patch that
+targets the faulty invariant without broadening scope. Unrelated
+changes weigh against a patch underhas_unrelated_changes;
+when counts are close, raters exercise judgment rather than
+apply a fixed threshold.
+(2) Comprehensiveness.When neither patch repairs the root
+cause, prefer the symptom fix that covers more of the relevant
+execution paths, edge cases, and related failure modes stemming
+from the same defect. Unrelated changes again weigh against
+the patch under the same judgment-based weighting.
+4.3 RQ1: Patching Capability
+To answer RQ1, we run Kumushi against three baselines on 178
+C/C++ vulnerabilities under three dynamic oracles: PoC replay,
+developer test suite, and 12h of AFL++ variant-crash exploration
+per bug. Table 3 reports the full outcome distribution. We classify
+each patch as No Patch, Partial Patch, or Plausible Patch. Kumushi
+substantially outperformsPatchAgentandLoopRepair, confirm-
+ing the effectiveness of root-cause-driven localization. Kumushi
+andCodex, however, are statistically indistinguishable under all
+three oracles, revealing a ceiling on what oracle-based metrics can
+discriminate at the frontier.
+Table 3: Patch quality across 178 C/C++ vulnerabilities,
+judged by dynamic oracles.
+Tool No Patch Partial Patch Plausible Patch
+PatchAgent13.5% (24) 14.6% (26) 71.9% (128)
+LoopRepair97.2% (173) 0.6% (1) 2.2% (4)
+Codex2.2% (4) 11.8% (21) 86.0% (153)
+Kumushi1.7% (3) 12.9% (23) 85.4% (152)
+Per-tool breakdown.PatchAgentproduces no patch on 13.5% of
+bugs and only partial patches on another 14.6%, for a combined
+failure rate of 28.1%. The partial-patch cases suppress the reported
+crash but fail under AFL++ variants; the no-patch cases concentrate
+on bugs where static context retrieval returned code irrelevant to
+the defect.
+LoopRepairfails on 97.2% of bugs. Its symbolic-execution com-
+ponent (KLEE) compiled on 68 of the 178 targets and produced
+7
+
+Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+Hulin Wang, Zion Leonahenahe Basque, Jie Hu, Ati Priya Bajaj, Yibo Liu, Samuel Zhu, Giorgi Kobakhia, Nikhil Chapre, Will Rosenberg, Siddharth Mishra, Aditya Maheshbhai
+Gabani, Moritz Schloegel, Adam Doupé, Yan Shoshitaishvili, Ruoyu Wang, and Tiffany Bao
+usable output on only 5, leavingLoopRepairwithout localization
+input on the rest of the benchmark. Beyond this implementation
+limitation, symbolic execution is more expensive than the dynamic
+tracing Kumushi uses. Even on targets where KLEE succeeds, its
+per-target cost cannot scale to the diversified multi-input tracing
+Kumushiperforms across the AFL++ variant family.
+98 Both
+144
+Kumushi Codex
+Figure 2: Comparison of Kumushi andCodexon plausible
+patch classification. The two systems overlap on 144 bugs;
+Kumushi uniquely patches 8 andCodexuniquely patches 9.
+Kumushi andCodexproduce nearly identical outcome distri-
+butions under all three oracles (Table 3). Among the 161 bugs
+where either tool produced a plausible patch, only 144 are shared:
+Kumushi patches 8 bugs thatCodexmisses, andCodexpatches 9
+that Kumushi misses (Figure 2). The aggregate counts are indistin-
+guishable, but the tools fix different sets of bugs. The indistinguisha-
+bility of Kumushi andCodexunder all three oracles is not evidence
+of equivalent patch quality; it is evidence that oracle-based metrics
+cannot separate frontier tools at this level. RQ2 applies tier-2 human
+assessment to examine what the oracles cannot see.
+4.4 RQ2: Patch Comprehensiveness
+To answer RQ2, we examine whether Kumushi andCodexdiffer
+in the quality of the plausible patches they produce, a dimension
+that the three oracle metrics in RQ1 cannot capture. Three raters
+independently label all 305 plausible patches (152 from Kumushi
+and 153 fromCodex) along two axes following the tier-2 proto-
+col in Section 4.2.2: a root-cause vs. symptom judgment and a
+boolean has_unrelated_changes flag. We then characterize the
+repair strategies each tool employs through open coding, yield-
+ing eight root-cause fix strategies and nine symptom-fix failure
+strategies.
+Tier-2 labeling reveals that Kumushi produces more root-cause
+fixes and fewer symptom fixes thanCodex, and that the two tools
+diverge in the kind of repair they produce when they fall short of
+the root cause.
+Aggregated results.Across 305 labeled patches, Kumushi produces
+more root-cause fixes thanCodex(84.9% vs. 77.8%; 129 vs. 119,
+Table 4), indicating that Kumushi generates more comprehensive
+and correct patches thanCodexoverall. The root-cause fix gap
+falls short of 𝑝< 0.05at this sample size; the unpaired aggregate
+comparison has limited statistical power, and the per-bug paired
+analysis in RQ3 is better suited to detect the difference.
+Kumushi also produces more patches containing unrelated edits
+thanCodex(28.3% vs. 21.6%; 43 vs. 33, Table 4). This higher rate
+does not signal lower patch quality from Kumushi. Within each
+tool, the unrelated-edit rate is consistent across root-cause fixes
+and symptom fixes (29.5% vs. 21.7% for Kumushi; 22.7% vs. 17.6%
+forCodex), with neither within-tool difference reaching statistical
+significance (𝑝> 0.05for both). Unrelated edits therefore reflect a
+stable property of each tool’s editing behavior rather than a signal of
+patch incorrectness, and the higher unrelated-edit rate in Kumushi
+does not account for its root-cause fix advantage overCodex.
+Table 4: Patch quality and unrelated change rate per tool.
+Tool Patch Quality Count With
+Unrelated
+Without
+Unrelated
+Codex
+root-cause fix 119 27 92
+symptom fix 34 6 28
+total 153 33 120
+Kumushi
+root-cause fix 129 38 91
+symptom fix 23 5 18
+total 152 43 109
+Repair strategy analysis.We next group each patch by its primary
+repair strategy through open coding, yielding eight root-cause
+fix strategies and nine symptom-fix strategies (full definitions in
+Appendix A). Table 5 and Table 6 present the strategy name and
+per-tool counts for root-cause fixes and symptom fixes, respectively.
+Among each tool’s root-cause fixes (Table 5), the per-tool cate-
+gory distributions are broadly similar: both lean on bound checks
+(35% forCodex, 33% for Kumushi) and API-contract enforcement.
+The one notable difference is invariant validation, where Kumushi
+produces three times as many fixes asCodex(12 vs. 4). This is
+consistent with Kumushi’s diversified fault localization more often
+surfacing the upstream producer where the invalid input enters the
+system, rather than anchoring at the downstream consumer where
+the crash surfaces.
+Table 5: Root-cause fix strategies (𝑛=248after audit).
+CategoryCodex KumushiTotal
+Bound check 42 43 85
+API contract 21 21 42
+Size arithmetic 20 19 39
+Control-flow fix 13 12 25
+Ownership repair 11 12 23
+Invariant validation 4 12 16
+State sync 7 7 14
+Type representation 1 3 4
+Total 119 129 248
+Among symptom fixes (Table 6), the two tools diverge more
+sharply.Codexproduces nearly twice as many crash-site guards
+as Kumushi (13 vs. 7) and is alone in producing trigger blocks (3
+8
+
+Root-Cause-Driven Automated Vulnerability Repair Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+vs. 0); both are narrow patches that silence the observed failure
+without enforcing the general invariant. Kumushi’s symptom fixes
+spread more evenly across categories with no single failure mode
+dominating, suggesting that whenKumushi does not reach the root
+cause it does so for more varied reasons rather than consistently
+drifting to the crash site.
+Together, the aggregate gap and the categorical asymmetries
+agree. Kumushi more often repairs the defect at its source, while
+Codexmore often patches at the crash site. RQ3 confirms this
+difference with a paired within-bug comparison and illustrates its
+qualitative character through case studies.
+Table 6: Symptom-fix strategies (𝑛=57after audit).
+CategoryCodex KumushiTotal
+Crash-site guard 13 7 20
+Downstream guard 4 5 9
+Value masking 4 4 8
+Corrupt-state tolerance 4 4 8
+Trigger block 3 0 3
+Incomplete coverage 2 1 3
+Lifetime masking 2 1 3
+Wrong location 1 1 2
+Ineffective guard 1 0 1
+Total 34 23 57
+Inter-rater reliability.For each label we report three statistics in
+Table 7: Fleiss’s 𝜅 [12], the raw observed agreement (mean of the
+three pairwise rater-agreement rates), and the prevalence of the
+positive class. We compute the patch quality and unrelated-change
+labels over the 161-bug union and the pairwise winner label over
+the 144-bug intersection where both tools produced a plausible
+patch. We treat abstentions as their own category.
+Onpatch quality, raw agreement is0 .81/0.86(Codex/ Kumushi)
+at a positive-class (root-cause fix) prevalence of0 .75/0.83, giving
+𝜅= 0.57/0.62. The relatively low 𝜅 reflects prevalence compres-
+sion rather than rater disagreement [ 7]: when the positive class
+dominates, chance agreement is high and 𝜅 deflates even when
+raters largely agree. The root-cause vs. symptom-fix label, assigned
+after raters first identified each bug’s root cause, is reproducible
+across rounds. Onunrelated change, raw agreement is0.84/0.74at
+a near-balanced prevalence of0 .25/0.32, giving 𝜅= 0.64/0.47. The
+moderate 𝜅 for Kumushi unrelated changes reflects the inherent
+subjectivity in judging whether an edit is within or outside the
+scope of the defect, rather than systematic rater disagreement.
+Manual labeling surfaces two classes of differences the oracles
+in RQ1 could not detect: an aggregate gap on root-cause-fix and
+unrelated-edit rates, and categorical asymmetries in the kinds of
+repairs each tool produces. We characterize each below. RQ3 ad-
+dresses whether the aggregate gap is statistically significant, using a
+paired within-bug comparison that has more statistical power than
+comparing the total counts at this sample size. RQ2 surfaces what
+differs between the two tools. Whether those differences translate
+into a per-bug preference, and which tool that preference favors, is
+the question RQ3 answers.
+3968 Same
+37
+Kumushi Codex
+Figure 3: Human preference between Kumushi andCodex
+plausible patches. Raters prefer Kumushi for 68 patches and
+Codexfor 39, with 37 rated equivalent.
+Table 7: Inter-rater agreement on RQ2 per-patch labels and
+RQ3 pairwise winner label.Prev. (+): positive-class prevalence
+among non-missing ratings.Agree: mean pairwise observed
+agreement.𝜅: Fleiss’s chance-corrected agreement.
+Label (positive class) Tool Prev. (+) Agree𝜅
+Patch quality (root cause) Codex0.75 0.81 0.57
+Kumushi0.83 0.86 0.62
+Unrelated change (True) Codex0.25 0.84 0.64
+Kumushi0.32 0.74 0.47
+Winner (pairwise) — — 0.68 0.54
+4.5 RQ3: Pairwise Patch Quality Analysis
+To answer RQ3, three raters apply the pairwise comparison rubric
+(Section 4.2.2) to the 144-bug intersection where both Kumushi
+andCodexproduced a plausible patch, ranking correctness first
+and comprehensiveness second. This paired design removes bug-
+difficulty noise and gives the test enough statistical power to con-
+firm the quality gap that RQ2 could only suggest directionally.
+Figure 3 summarizes the outcome: Kumushi is preferred on 68
+(47%),Codexon 39 (27%), and the two are tied on 37 (26%). Among
+the 107 decisive bugs where raters reached a clear preference,
+Kumushi wins 63.6% of comparisons; a sign test gives 𝑝= 0.0065
+with a 95% confidence interval of (54.4%, 72.7%) for Kumushi’s
+win-rate, confirming that the directional gap observed in RQ2 is sta-
+tistically significant after controlling for bug difficulty. Inter-rater
+agreement on the winner label is moderate (𝜅= 0.54, Table 7), so
+the pairwise judgment is reproducible across raters and not driven
+by a single rater’s call.
+In the majority of bugs where Kumushi is preferred, its diversi-
+fied fault localization surfaces the producer-side defect alongside
+the ASan-named crash site, allowing Kumushi to repair the invari-
+ant rather than guard the symptom; Cases A and B illustrate this
+pattern. Case C illustrates a different dynamic: aCodex-wins case
+in which the decisive evidence emerged only after synthesizing aux-
+iliary analysis code at repair time, a capability outside Kumushi’s
+design.
+9
+
+Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+Hulin Wang, Zion Leonahenahe Basque, Jie Hu, Ati Priya Bajaj, Yibo Liu, Samuel Zhu, Giorgi Kobakhia, Nikhil Chapre, Will Rosenberg, Siddharth Mishra, Aditya Maheshbhai
+Gabani, Moritz Schloegel, Adam Doupé, Yan Shoshitaishvili, Ruoyu Wang, and Tiffany Bao
+4.5.1 Case A: libxml2 Cursor Underflow Across Halt Boundary.We
+use Case A as an example to show thatCodexmisses the root cause
+location because of missing dynamic information.
+The bad state originates inxmlHaltParser at parserInternals
+.c:289; on a failed buffer grow, it assigns the parser cursor to a
+one-byte global, ctxt->input->cur = BAD_CAST"" , leaving base
+== cur == end on a one-byte string. The mutation that vio-
+lates the post-halt invariant occurs in xmlParseNCNameComplex
+(parser.c:3434); when its lookahead returns c == 0 after a halt,
+it computes ctxt->input->cur -= l with l > cur - base , un-
+derflowing below the global. ASan reports the subsequent read at
+xmlParseQName (parser.c:8867), where the caller dereferences
+the underflowed cursor while testing for ‘:’. The producer site,
+the underflow site, and the crash site each sit in a distinct function.
+1// Producer (parserInternals.c:289):
+2// xmlHaltParser leaves cur on a 1-byte
+3// global -- base == cur == end
+4ctxt->input->cur = BAD_CAST"";
+5ctxt->input->base = ctxt->input->cur;
+6ctxt->input->end = ctxt->input->cur;
+7
+8// Underflow site (xmlParseNCNameComplex):
+9if(c == 0) {
+10
+11// Codex (SF-4, corrupt_state_tolerance):
+12+if(ctxt->instate == XML_PARSER_EOF)
+13+return(NULL);
+14ctxt->input->cur -= l;
+15GROW;
+16+if(ctxt->instate == XML_PARSER_EOF) {
+17+ ctxt->input->cur = ctxt->input->base;
+18+return(NULL);
+19+ }
+20
+21// Kumushi (RCF-1, bound_check):
+22+ ptrdiff_t back = l;
+23+if(ctxt->input->cur
+24+ - ctxt->input->base < back)
+25+ back = ctxt->input->cur
+26+ - ctxt->input->base;
+27+ ctxt->input->cur -= back;
+28GROW;
+29if(ctxt->instate == XML_PARSER_EOF)
+30return(NULL);
+31ctxt->input->cur += back;
+32c = CUR_CHAR(l);
+33}
+Listing 1: Both tools patch parser.c:3434; the asymmetry
+is in mechanism.Codexguards the EOF-state transitions
+around the underflow site (SF-4 corrupt_state_tolerance);
+Kumushi clamps the cursor arithmetic so the subtraction
+cannot underflow (RCF-1bound_check).
+Kumushi’s Stage-2 ranking surfaced xmlHaltParser as a top
+FoI on the object-origin tag, with the line ctxt->input->cur =
+BAD_CAST"" pre-loaded into first-turn context. With the post-halt
+cursor state visible, the agent recognized the invariant cur >=
+base and patched the underflow site by clamping the subtraction
+at the cursor extent with back = min(l, cur - base) (RCF-1
+bound_check, Listing 1). The clamp enforces cur >= base at the
+subtraction site, so the underflow cannot occur whether or not the
+parser’sinstatehas transitioned to EOF.
+Codex’s exploration anchored at the ASan-named consumer
+and walked the call chain throughxmlParseNCName into xmlParse
+NCNameComplex.Codexgrep’d the codebase for input->cur -= ,
+found one occurrence at parser.c:3434, and read that as proof
+the bug lived only there; it never opened xmlHaltParser, even
+though the ASan report named the producer file as hosting the
+underflowed buffer. Without the halt-state fact,Codexframed the
+bug as an EOF-transition flaw and patched the same line with
+instate guards around GROW, including a post-GROW reset of cur
+to base that re-aligns the cursor after the corrupt state has already
+been created rather than preventing its creation (SF-4 corrupt_
+state_tolerance, Listing 1). The guards fire only when instate
+has reached EOF, so any halt path that reaches the subtraction
+before that transition does so unguarded.
+Case A shows that two agents can patch the same line under
+different invariants, with Stage-2 evidence deciding which invariant
+gets encoded. This sharpens the localization bottleneck named in
+observation (1) of section 2.3. Without dynamic information about
+the upstream producer, theCodexreaches the patch site but cannot
+recover the invariant that the producer violates.
+4.5.2 Case B: libsndfile IMA-ADPCM Block Decode.We use Case B
+as an example to show thatCodexreaches the upstream invariant
+in its reasoning, then drops it after a context-expansion step pulls
+in irrelevant code.
+The defect is a parser-boundary trust violation in the WAV/W64
+IMA-ADPCM reader. The nibble-unpack loop in wavlike_ima_
+decode_block assumes its payload is an exact multiple of4 ×
+channels bytes (eight nibbles per channel per iteration). A mal-
+formed fmt chunk advertising an inconsistent block-alignment
+makes the cached block geometry, sample count, and decode loop
+disagree, so the loop walks past the sample buffer. The producer
+is ima_reader_init, whose WAV/W64 switch arm already vali-
+dates samplesperblock against a derived count but does not check
+that blocksize - 4 * channels is a positive multiple of 4 *
+channels.
+1// Nibble-unpack: layout invariant
+2while(blockindx < blocksize) {
+3for(chan ...) {
+4for(k = 0; k < 4; k++)
+5samples[indx] = ...; // OOB
+6} }
+7
+8// Codex (SF-1, crash_site_guard):
+9+if(indxstart >= total)break;
+10for(chan ...) {
+11for(k = 0; k < 4; k++)
+12+if(indx < total)
+13samples[indx] = ...;
+14}
+15
+16// Kumushi (RCF-6, invariant_validation):
+17+if(blockalign < 4 * channels ||
+18+ (blockalign - 4 * channels)
+19+ % (4 * channels) != 0)
+20+returnSFE_WAV_BAD_BLOCKALIGN;
+Listing 2:Codexstates the upstream invariant but does
+not apply it, guarding writes at the crash site instead (SF-
+1 crash_site_guard). Kumushi encodes the same invariant
+at the producer (RCF-6invariant_validation).
+Kumushi’s Stage-2 ranking placed ima_reader_init at the top
+of the FoI list, above the ASan-namedwavlike_ima_decode_block,
+10
+
+Root-Cause-Driven Automated Vulnerability Repair Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+contributed by CodeQL’s intra-procedural dataflow tag and the
+dynamic call trace; the surrounding switch arm and the existing
+samplesperblock guard were pre-loaded into first-turn context.
+The agent extended the same arm with the missing divisibility pre-
+condition, returning SFE_WAV_BAD_BLOCKALIGN when the input vi-
+olates the nibble-layout invariant (RCF-6 invariant_validation,
+Listing 2).
+Codex’s trace identifies the same invariant and then drops it.
+After reading the decode loop and the init function,Codexstated
+the upstream check explicitly, that (blockalign - 4*channels)
+should be divisible by (4*channels). After a call-graph sweep on
+decode_block broadened context with the encoder, the read-block
+helper, and the seek paths,Codexdropped the divisibility precon-
+dition in favor of in-loop bounds clamping. Only the floor check
+blocksize < 4 * channels survived into the emitted patch, which
+guards each indexed write at the consumer site rather than reject-
+ing the malformed geometry upstream (SF-1 crash_site_guard,
+Listing 2).
+Case B instantiates observation (2) of section 2.3. When unfiltered
+context expands during exploration, even a correctly identified up-
+stream check can be displaced by off-path code patterns.Kumushi’s
+Stage-2 ranking places the upstream initializer at the agent’s first
+read, so the call-graph drift that displaces the right invariant in
+Codex’s exploration never has the chance to occur.
+4.5.3 Case C: mruby Heap Buffer Overflow.We use Case C as an
+example to show that a defect that lies outsideKumushi’s reach. The
+root cause resides in the compiler’s bytecode generator, separated
+from the crash by thousands of frames in the call graph. This places
+it outside the scope of Kumushi’s static analysis and renders it
+indistinguishable from normal behavior under dynamic analysis.
+The proof of concept ~(:regex or 1*1) triggers a heap-buffer-
+overflow at vm.c:1120, where the VM indexes a one-entry literal
+pool with b = 1 . The crash site, however, is not the defect site.
+The underlying bug is in gen_uniop (codegen.c:1137), the only
+unary peephole rewrite path that lacks a no_peephole() guard.
+As Listing 3 shows, the failing case rewrites OP_LOADI_1 (2 bytes)
+into OP_LOADINEG (3 bytes) after an OP_JMPIF target has already
+been patched. The jump target therefore remains at the old byte
+offset and lands in the middle of the rewritten instruction, so the
+VM decodes operand byte 0x02 as a fresh opcode and eventually
+reads past the literal pool.
+1before rewrite:
+22:OP_JMPIFr3, +8 // target = 10
+38:OP_LOADI_1r3 // 2 bytes
+410: <next instruction>
+5after gen_uniop folds ~1 to -2:
+62:OP_JMPIFr3, +8 // still targets 10
+78:OP_LOADINEGr3, 2 // 3 bytes
+810: 0x02 // jump lands in operand byte
+Listing 3: Bytecode drift after peephole rewrite.
+gen_uniop runs during compilation, hundreds of frames before
+vm.c:1120, and the bytecode buffer that links compiler to VM
+is opaque to static dataflow. Kumushi’s evidence sources score
+candidates by uniqueness in the trace and connectivity through
+dataflow tags, but no dataflow edge leads back to the rewriter
+1static mrb_bool
+2gen_uniop(codegen_scope*s,mrb_symsym,uint16_tdst)
+3{
+4if(no_peephole(s))return FALSE;
+5structmrb_insn_data data =mrb_last_insn(s);
+6...
+7}
+Listing 4: Minimal guard for unary peephole folding.
+and bytecode-generation routines appear throughout the trace, so
+neither signal surfaces it. Kumushi therefore cannot localize the
+root cause and emits a patch that validates the decoded literal-pool
+index b before the VM reads pool[b] (SF-1 crash_site_guard).
+The patch suppresses the observed crash but does not repair the
+violated compiler invariant.
+TheCodexrun, by contrast, generated a bytecode disassembler
+during repair, exposed the one-byte drift in Listing 3, and traced
+the problem back to a missing no_peephole() condition on the
+unary folding path. Its patch inserts the guard at the caller-side fold
+site in codegen.c, blocking the same unguarded fold path as the
+ground-truth fix, which places the check inside gen_uniop (RCF-4
+control_flow_fix, Listing 4).
+Case C demonstrates that crash-anchored ranking misses de-
+fects whose decisive evidence emerges only at repair time.Codex
+reached the rewriter because a general-purpose coding agent can
+construct a custom program-analysis tool when its reasoning re-
+quires one. Kumushi’s current Stage-2 evidence sources have no
+edge to follow back across the encoded-bytecode boundary, so this
+class of bugs is unreachable by the present pipeline.
+Takeaway.In summary, the three cases identify the factors that
+drive the quality gap. Kumushi’s evidence-weighted ranking sur-
+faces upstream producers that the ASan stack does not name (Case A)
+and places them at the agent’s first read, preempting the call-graph
+drift that displaces the right invariant duringCodex’s exploration
+(Case B). Both moves push patches toward root-cause categories
+(RCF-1 bound_check, RCF-6 invariant_validation) rather than
+crash-site or downstream guards. Root-cause-anchored patching’s
+strength comes from grounding the agent in evidence the LLM can-
+not recover by reading code alone. Its limitation appears when the
+decisive evidence sits behind a boundary that no static or dynamic
+source can cross (Case C), in which case a general-purpose agent
+that synthesizes its own analysis tool can outperform it.
+5 Related Work
+Automated Program Repair.Automated program repair (APR)
+has been extensively studied for generating patches that transform
+defective or vulnerable programs into correct or secure ones. Exist-
+ing APR techniques can be broadly categorized into search-based,
+template-based, semantic-based, and learning-based approaches.
+Search-based repair.Search-based approaches formulate patch
+generation as a search problem over a space of program vari-
+ants [17, 21]. GenProg [21], for example, generates candidate vari-
+ants through mutation and crossover and evaluates them against
+test suites. Fix2Fit [17] further incorporates fuzzing to refine the
+search space and guide the generation of crash-avoiding patches.
+11
+
+Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+Hulin Wang, Zion Leonahenahe Basque, Jie Hu, Ati Priya Bajaj, Yibo Liu, Samuel Zhu, Giorgi Kobakhia, Nikhil Chapre, Will Rosenberg, Siddharth Mishra, Aditya Maheshbhai
+Gabani, Moritz Schloegel, Adam Doupé, Yan Shoshitaishvili, Ruoyu Wang, and Tiffany Bao
+Template-based repair.Template-based approaches rely on pre-
+defined patch patterns or repair templates to produce candidate
+fixes [15, 29, 33, 46, 52]. BovInspector [15] uses safe API templates
+to repair buffer-overflow vulnerabilities. RegexScalpel [33] employs
+regular-expression templates to mitigate ReDoS vulnerabilities.
+VFix [52] uses two sets of repair templates to address null-pointer-
+dereference vulnerabilities.
+Semantic-based repair.Semantic-based approaches exploit pro-
+gram semantics, vulnerability properties, or inferred constraints to
+synthesize patches [16, 18, 23, 25, 44, 48, 60]. SAVER [23] constructs
+constraints from variable states and control-/data-flow graphs to
+generate repairs. ExtractFix [18] derives crash-free constraints and
+uses them to synthesize candidate patches. VulnFix [60] infers pro-
+gram invariants and leverages them to guide vulnerability repair.
+Learning-based repair.More recently, learning-based APR tech-
+niques have used neural models and large language models to
+translate vulnerable code into repaired code [8, 13, 14, 22, 62]. Vul-
+Repair [14], for instance, fine-tunes CodeT5 [49] for vulnerability
+repair. Other work has explored prompting strategies that improve
+the ability of LLMs to generate security patches [30, 34, 42].
+Root Cause Analysis.Root cause analysis aims to identify the
+program locations and execution conditions responsible for a fail-
+ure or vulnerability. Prior work has shown that combining static
+and dynamic analysis can improve the localization of root causes
+and provide useful guidance for patch generation [ 52]. Existing
+techniques diagnose bugs and vulnerabilities using statistical, trace-
+based, and semantic information.
+Statistical root cause analysis.Statistical techniques rank candi-
+date program locations according to their correlation with failing
+executions [1, 6, 28, 41]. AURORA [6] compares traces from crash-
+ing and non-crashing inputs and uses statistical analysis to identify
+likely root-cause locations. Such techniques are effective when suf-
+ficient execution evidence is available, but their accuracy depends
+on the quality and diversity of the collected traces and may degrade
+when failures are triggered by complex semantic conditions.
+Semantic root cause analysis.Semantic techniques use program
+reasoning to explain how a proof-of-concept input reaches a vul-
+nerable state [53, 54]. ARCUS [54], for example, builds on symbolic
+execution with angr [45] to trace a vulnerability and identify its root
+cause. Compared with statistical techniques, semantic approaches
+can provide more precise explanations of vulnerability-triggering
+conditions, but they often depend on heavyweight program analy-
+ses and may face scalability challenges on complex programs.
+6 Discussion
+Oracle-Based Evaluation Is No Longer Sufficient.The auto-
+mated vulnerability repair community has long acknowledged that
+replay-based oracles are an imperfect proxy for patch quality[24].
+A patch may suppress the observed failure while leaving the un-
+derlying defect intact. The community recognized this limitation
+but tolerated it. When the field’s best tools produced meaningfully
+different oracle-passing rates, oracle-based evaluation could still
+discriminate between them.PatchAgent,LoopRepair, and earlier
+prompt-based approaches produce meaningfully different plausible
+patch rates (71.9%, 2.2%, respectively), and oracle metrics alone are
+sufficient to rank them.
+We find that oracle-based evaluation no longer separates the
+latest LLM-based agents. Our evaluation shows that Kumushi, a
+specialized root-cause-driven agent, andCodex, a general-purpose
+coding agent, are statistically indistinguishable under all three ora-
+cles, yet expert assessment reveals a significant quality gap in favor
+of Kumushi (𝑝= 0.0065). This is not an artifact of our benchmark
+or our tools. It reflects a structural shift in agent capability. General-
+purpose coding agents now reliably produce oracle-passing patches
+across a wide range of vulnerability types, saturating the metric
+the community has long relied on.
+The implication for the APR community is direct. As coding
+agents continue to improve, oracle-passing rate will fail to separate
+tools that produce root-cause fixes from those that produce symp-
+tom patches. Therefore, they require evaluation methods capable
+of assessingwhata patch fixes, notwhetherthe observed crash is
+suppressed. The two-tier metric introduced in this work is one step
+in that direction, pairing automated oracles with structured expert
+assessment of patch comprehensiveness. We hope future work can
+build automated proxies for expert judgment that can flag symptom
+patches before they are counted as successes.
+Limitations of Crash-Anchored Localization. Kumushi’s root-
+cause-driven design assumes the defect site is reachable from the
+crash site through static or dynamic evidence. This assumption
+holds for the majority of bugs in our benchmark, where the pro-
+ducer, the underflow site, and the crash site are connected by
+dataflow edges or execution traces that Stage 1 can collect and
+Stage 2 can rank. Case C shows where it breaks down. When the
+defect site is separated from the crash by an opaque boundary, such
+as an encoded bytecode buffer or an inter-process channel, no static
+dataflow edge and no dynamic trace leads back to it. Evidence-
+weighted ranking cannot surface what no evidence source can
+reach.
+This is a structural limit of crash-anchored localization, not an im-
+plementation gap specific to Kumushi. Any approach that grounds
+localization in crash-site evidence will face the same issue. Case C
+also illustrates what can fill the gap. A general-purpose agent that
+synthesizes its own analysis tools at repair time can cross bound-
+aries that pre-computed evidence sources cannot. The tradeoff is
+that such agents operate without the focused context that evidence-
+weighted ranking provides, making them more susceptible to the
+drift pattern that motivatesKumushi’s design in the first place.
+Two additional scope constraints bound the current prototype.
+First, the quality of Stage 1’s candidate pool depends on how many
+distinct crash paths the fuzzer finds within the time budget. Bugs
+with narrow trigger conditions may not diversify enough to expose
+root-cause-correlated functions beyond the crash stack. Second, the
+pipeline currently assumes sanitizer instrumentation and fuzzing
+infrastructure, which limits direct applicability to languages and
+ecosystems where such tooling is unavailable. We leave extending
+Kumushito them to future work.
+Toward Automated Patch Quality Validation.Manual expert
+assessment, as applied in our tier-2 evaluation, does not scale to the
+patch volumes that LLM-based repair pipelines now produce. Our
+evaluation required approximately 16 minutes per patch [47], and
+even with eight raters working in parallel, coverage was bounded
+12
+
+Root-Cause-Driven Automated Vulnerability Repair Anonymous Submission to ACM CCS 2017, Due 19 May 2017, Dallas, Texas
+by the 144-bug intersection where both tools produced a plausi-
+ble patch. As repair systems improve and benchmarks grow, this
+bottleneck will become more acute.
+Our taxonomy of symptom-fix strategies in Table 6 suggests
+a path forward. The nine failure modes we identify are not arbi-
+trary. Crash-site guards, downstream guards, and trigger blocks
+share a structural signature in which the patch modifies code at
+or near the ASan-reported crash site without touching any func-
+tion that the evidence-weighted ranking would have flagged as a
+root-cause candidate. Value masking and corrupt-state tolerance
+leave the producer intact while suppressing its observable effect.
+These structural fingerprints are in principle detectable without
+human review. An automated checker can compare the patch’s edit
+locations against the FoI ranking, determine whether the modified
+code touches a producer or only a consumer, and flag patches whose
+diffs are confined to the crash stack. We hope future work uses this
+taxonomy as a foundation for automated validators that can triage
+symptom patches before they reach a human reviewer, closing the
+scalability gap that tier-2 assessment currently cannot bridge.
+7 Conclusion
+This work introduces Kumushi, a vulnerability patching system
+that addresses two limitations of existing LLM-based tools: (1) static-
+only fault localization that fails to pinpoint root causes, and (2)
+unfiltered context that drives agents toward crash-site suppres-
+sion instead of root-cause repair. In particular, Kumushi uses two
+innovative techniques: diversified fault localization and evidence-
+weighted context ranking. Based on our evaluation of patching
+178 C/C++ vulnerabilities, Kumushi generates plausible patches for
+over 90% of vulnerabilities under the replay-based oracle and pro-
+duces more high-quality patches than commercial general-purpose
+coding agents under blind human expert assessment, which outper-
+forms the state-of-the-art automatic root cause repair techniques
+in both academia and industry.

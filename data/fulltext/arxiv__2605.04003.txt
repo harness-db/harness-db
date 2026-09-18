@@ -1,0 +1,1102 @@
+record_id: arxiv:2605.04003
+source_used: arxiv_pdf
+fetched_url: https://arxiv.org/pdf/2605.04003
+fetched_title: PHYSICS-GROUNDEDMULTI-AGENTARCHITECTURE FOR TRACEABLE, RISK-AWAREHUMAN–AI DECISIONSUPPORT IN MANUFACTURING
+fetched_at: 2026-09-18T19:00:30Z
+
+PHYSICS-GROUNDEDMULTI-AGENTARCHITECTURE FOR
+TRACEABLE, RISK-AWAREHUMAN–AI DECISIONSUPPORT IN
+MANUFACTURING
+Danny Hoang1 Ryan Matthiessen2 Christopher Miller2 Nasir Mannan2
+Ruby ElKharboutly3 David Gorsich4 Matthew P. Castanier4 Farhad Imani1∗
+1School of Mechanical, Aerospace, and Manufacturing Engineering, University of Connecticut, Storrs, CT, USA
+2Connecticut Center for Advanced Technology, East Hartford, CT, USA
+3Quinnipiac University, Hamden, CT, USA
+4DEVCOM Ground Vehicle Systems Center, Warren, MI, USA
+ABSTRACT
+High-precision CNC machining of free-form aerospace components requires bounded compensations
+informed by inspection, simulation, and process knowledge. Off-the-shelf large language model
+(LLM) assistants can generate text, but they do not reliably execute risk-constrained multi-step nu-
+merical workflows or provide auditable provenance for high-stakes decisions. We present multi-agent
+knowledge analysis (MAKA), a human-in-the-loop decision-support architecture that separates intent
+routing, tools-only quantitative analysis, knowledge graph retrieval, and critic-based verification that
+enforces physical plausibility, safety bounds, and provenance completeness before recommendations
+are surfaced for human approval. MAKA is instantiated on a Ti-6Al-4V rotor blade machining testbed
+by fusing virtual-machining path-tracking error fields, cutting-force and deflection simulations, and
+scan-based 3D inspection deviation maps from 16 blades. The analysis decomposes deviation into
+an evidence-linked pathing component, a drift-based wear proxy capturing systematic evolution
+across parts, a residual systematic compliance term, and a variability proxy for instability-aware
+escalation. In a three-level tool-orchestration benchmark (single-step through≥3-step stateful se-
+quences), MAKA improves successful tool execution by up to 87.5 percentage points relative to
+an unstructured single-model interaction pattern with identical tool access. Digital twin what-if
+studies show MAKA can coordinate traceable compensation candidates that reduce predicted surface
+deviation from order 10−2 in to approximately±10−3 in over most of the blade within the simulation
+environment, providing a pre-deployment verification signal for risk-aware human decision-making.
+1 Introduction
+Advanced computer numerical control (CNC) manufacturing systems are increasingly embedded in complex production
+environments in which cutting mechanics, structural compliance, servo control, fixturing, sensing, and part geometry
+interact in strongly nonlinear and state dependent ways [ 1, 2, 3]. Achieving consistent part quality in this setting
+requires decisions that reconcile heterogeneous evidence streams under stringent tolerance, throughput, and safety
+constraints. Micrometer level requirements are often specified for critical free form surfaces, yet the limiting factor in
+many industrial workflows is not the availability of data. The limiting factor is the lack of integrated and accountable
+interpretation that converts multi source evidence into bounded actions with explicit justification. Conventional process
+planning pipelines and basic statistical monitoring typically treat operations or features in isolation and therefore provide
+no unified view of simulation outputs, inspection metrology, and prior machining knowledge [4]. This fragmentation is
+increasingly misaligned with modern manufacturing practice where engineering decisions must be justified, auditable,
+and robust to uncertainty.
+∗Corresponding author: farhad.imani@uconn.edu
+DISTRIBUTION STATEMENT A. Approved for public release; distribution is unlimited. OPSEC9768
+arXiv:2605.04003v1 [cs.MA] 5 May 2026
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+In standard industrial practice, tool paths are generated and verified offline in computer aided manufacturing (CAM) and
+virtual machining environments [5], while process parameters are tuned using a combination of design of experiments
+studies, empirical rules, and shop floor experience [6, 7]. Quality control is then performed downstream via sparse
+inspection and statistical process control charts, which summarize deviations at a limited set of features but provide
+only coarse diagnostics of underlying error mechanisms [ 8]. These stages are typically connected through manual
+interpretation rather than through a formal evidence fusion and verification pipeline. As a result, rich multimodal
+information available in modern CNC manufacturing systems [9, 10], including deflection simulations, virtual machine
+path tracking predictions, dense scan derived deviation fields, machine telemetry, and documented best practices remains
+distributed across software tools and data silos. The absence of a consistent mechanism for coordinate consistent fusion,
+provenance tracking, and risk bounded recommendation makes it difficult to deploy automated decision support that
+humans can rely on in high consequence settings.
+These limitations become more pronounced for non prismatic, free-form components where local geometry [11], tool
+engagement [12], and fixture stiffness vary continuously along the tool path [ 13]. In such settings, offline one shot
+planning struggles to keep up with variability introduced by changes in machines, tooling, materials, and fixturing
+configurations across production systems. Even small modifications to any of these elements can invalidate previously
+calibrated parameter sets and degrade transferability of best settings between nominally similar setups. Engineers are
+therefore often forced into iterative trial and error adjustment of offsets, tool paths, and parameters [ 14, 15]. At the
+same time, attributing observed geometric deviation to specific contributors such as path tracking error, tool wear, or
+workpiece compliance requires combining imperfect models and noisy measurements [16]. Incorrect attribution directly
+leads to incorrect compensation and costs that include scrap, rework, tool damage, and schedule disruption.
+Large language models (LLMs) offer capabilities that are attractive for industrial decision support, including natural
+language interaction for operators [17, 18], automated organization and summarization of heterogeneous artifacts [19,
+20], and coordination across multiple software tools through tool calling patterns [21, 22]. In principle, an LLM enabled
+assistant could read simulation reports [23], interpret metrology outputs [24], consult machining studies, and propose
+targeted updates to tool paths and process parameters [25]. In practice, off the shelf LLMs are not designed for high
+stakes industrial workflows. They lack explicit representations of machine kinematics, cutting mechanics, and CAM and
+CNC constraints, are vulnerable to hallucination and inconsistent numerical reasoning, and provide weak guarantees of
+provenance, repeatability, and bounded action, which are central requirements for trustworthy human AI collaboration
+in production environments [26]. These limitations are amplified by resource and security constraints at or near the edge,
+where extensive retraining and unconstrained multimodal reasoning are impractical. Effective human AI symbiosis
+in CNC manufacturing therefore requires architectures that constrain machining critical computation to deterministic
+tools, retrieve domain knowledge with traceable evidence, and verify candidate actions against physical plausibility and
+safety bounds before they are presented for human decision making.
+We introduce the multi agent knowledge analysis (MAKA) framework as an LLM driven agentic decision support
+layer for CNC manufacturing systems. Rather than treating the LLM as a monolithic generator of machining strategies,
+MAKA decomposes the evidence to recommendation pipeline into specialized auditable roles aligned with risk aware
+industrial symbiosis. A Central agent performs intent interpretation and task routing. An Analysis agent is constrained
+to tools only quantitative computation. A Knowledge Graph agent performs evidence linked retrieval over domain
+knowledge constructs. A Critic agent evaluates whether candidate outputs are coherent, physically plausible, within
+safety bounds, and supported by explicit provenance before they are surfaced for human review. This separation of
+concerns supports accountable operation because machining critical quantities are produced through deterministic
+tool calls and traceable retrieval rather than through unconstrained text generation. By offloading bound checking,
+consistency checks, and provenance completeness to the Critic agent, MAKA reduces the cognitive burden of multi
+modal evidence synthesis and enables the human expert to focus on higher level tradeoffs such as quality, tool life, and
+cycle time.
+We instantiate MAKA on an aerospace application, the production of Ti-6Al-4V titanium rotor blades on industrial
+CNC equipment. MAKA fuses evidence across the manufacturing digital thread, including virtual machining outputs
+for path tracking deviation, cutting force and workpiece deflection simulations, and dense scan based inspection
+deviation maps acquired across multiple manufactured blades, together with a machining knowledge graph derived
+from a curated corpus of technical literature capturing machining mechanisms and constraints across multiple CNC
+manufacturing systems. The agents structure this evidence into interpretable deviation attributions including pathing,
+a tool wear proxy, and a residual compliance term, then synthesize candidate compensation strategies expressed as
+tool path modifications, tool length and radius offsets, and process parameter adjustments with provenance linked
+explanations and verification checks. The contributions of this work are threefold. First, we present a physics grounded
+adaptation of LLM based decision support for CNC manufacturing via explicit tool interfaces and knowledge graph
+integration that operationalizes accountable human oversight. Second, we propose an agent based architecture that
+improves reliability of multi step industrial tool orchestration under resource constraints through separation of intent
+2
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+routing, computation, retrieval, and verification. Third, we demonstrate within an industrial digital twin toolchain,
+using virtual machining and physics based simulation environments, that multimodal data fusion combining simulation
+outputs, scan derived deviation fields, and symbolic machining knowledge can be executed within a single traceable
+decision support workflow that provides a verified pre deployment baseline for risk aware human decision making.
+The remainder of the paper is organized as follows. Section 2 brief review of related work in manufacturing knowledge
+systems, LLM-based decision support, CNC automation, and geometric error modeling, along with their limitations.
+Section 3 presents the MAKA architecture as an agentic layer for CNC manufacturing systems, detailing the roles of
+the central, analysis, knowledge, and critic agents and the associated agentic tools. Section 4 describes the experimental
+setup used to evaluate MAKA on rotor blade machining. Section 5 reports the results on physics-based deviation
+decomposition, automated parameter selection, and toolpath compensation. Finally, Section 6 discusses limitations and
+opportunities for deploying such agentic LLM frameworks in broader CNC manufacturing environments.
+2 Research Background
+In industrial systems, human–AI decision support is not achieved by adding a conversational interface alone; it requires
+that the AI system (i) integrate heterogeneous evidence across the manufacturing digital thread, (ii) remain grounded
+in validated physics and deterministic computation where required, (iii) expose provenance and uncertainty in forms
+that support human oversight, and (iv) enforce bounded autonomy through verification and safety checks before
+recommendations are acted upon. We organize the background along four main axes: (i) knowledge graph, ontology,
+and skill-based infrastructures for representing manufacturing knowledge capabilities; (ii) LLM-based knowledge
+assistants and multi-agent frameworks for tool-using decision support in production systems; (iii) LLM-based CNC
+programming and monitoring, where reliability and verification are central; and (iv) data-driven models of geometric
+error in aero-engine blades and related thin-walled, free-form parts.
+A long-standing response to fragmentation in manufacturing knowledge is to formalize process knowledge and system
+capabilities into explicit, machine-interpretable structures. Knowledge graph-based process planning frameworks
+encode parts, operations, resources, and precedence constraints as symbolic graphs and use graph reasoning to support
+computer-aided process planning, reuse, and consistency checking [ 27]. These representations help capture best
+practices and make dependencies explicit, which is valuable for interoperability and lifecycle management; however,
+they typically operate at the level of discrete operations and resources rather than spatially resolved process physics, and
+they rarely represent dense simulation fields, scan-derived deviation maps, or uncertainty in a way that directly supports
+high-stakes compensation decisions on free-form geometries. In parallel, skill-based architectures for production
+systems expose machine capabilities as standardized skills that can be orchestrated at runtime across heterogeneous
+equipment [28]. Skill-based approaches advance modularity and reconfigurability, but they often treat the internal
+machining process as a black box and provide limited support for fusing simulation, metrology, and expert heuristics into
+an auditable causal account of why a part deviates and which bounded interventions are appropriate. This creates a gap
+between what a system can do (skills, operations) and why a particular action is recommended (evidence, provenance,
+physical plausibility), a gap that becomes acute when decisions must be justified to human experts and recorded for
+accountability.
+More recently, LLMs have been explored as a way to unlock unstructured manufacturing knowledge and provide
+conversational interfaces to complex production systems. Survey work on LLMs for manufacturing highlights oppor-
+tunities across the product lifecycle, including design assistance, documentation mining, and decision support, and
+emphasizes retrieval augmented generation (RAG) and tool use as key patterns for integrating domain knowledge
+and software systems [29]. Empirical studies of LLM-powered knowledge sharing on the shop floor demonstrate that
+operators can query manuals, procedures, and historical reports more effectively than with keyword search alone [30].
+These contributions are important for human-centric industrial interaction, but most remain predominantly text-centric;
+they reason over documents and structured tables rather than over the multimodal artifacts that dominate machining
+decisions (e.g., CAM outputs, virtual machining fields, scan-derived deviation maps, or CNC telemetry). Moreover,
+they typically do not enforce bounded autonomy or provide systematic mechanisms for provenance completeness
+(linking each numeric or procedural recommendation to a verifiable source) and risk-aware verification (rejecting or
+escalating recommendations that violate physical plausibility or safety constraints).
+A complementary strand of work embeds LLMs into multi-agent or agent-based manufacturing architectures. In such
+systems, language models interpret human instructions, decompose tasks, and coordinate agents that ultimately execute
+operations and may emit machine control programs [31]. Other frameworks translate informal textual specifications
+into structured process plans using LLM-based pipelines for task decomposition and workflow synthesis, sometimes
+combined with verification layers (e.g., state-machine checking) to ensure basic logical correctness before deployment
+on industrial platforms [32]. These approaches are promising for interoperability and adaptive autonomy, but their
+3
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Table 1: Capabilities of representative related work compared with MAKA framework.
+Model KG / Skills LLM Multi Agent Physics Decomposition Digital Twin Verification Tool Orchestration
+Xiao et al. [27]✓× × × × ×
+Hossfeld & Wortmann [28]✓× × × × ×
+Li et al. [29]×✓× × × ×
+Freire et al. [30]×✓× × × ×
+Lim et al. [31]×✓ ✓× ×✓
+Ni et al. [32]×✓× × ×✓
+Hoang et al. [18]✓ ✓× × × ×
+Mao et al. [33]×✓ ✓× ×✓
+Li & Corney [23]×✓× × × ×
+Jeon et al. [25]×✓× × × ×
+Šket et al.; Abdelaal et al. [34, 35]×✓× × × ×
+Yang et al. [36]× × ×✓× ×
+MAKA (Ours)✓ ✓ ✓ ✓ ✓ ✓
+support for risk-aware symbiosis is often limited by two factors: (i) numerical and physical computations are still
+frequently performed within the language model loop without strong deterministic guarantees, and (ii) verification
+focuses on syntactic or logical consistency rather than on physically grounded plausibility, bounded action constraints,
+and provenance completeness over heterogeneous manufacturing evidence.
+To improve numerical reliability and transparency, several systems couple LLMs with structured manufacturing
+knowledge. Knowledge graph-augmented frameworks build machining knowledge graphs from technical documents,
+vendor datasheets, and prior process plans, and use RAG over these graphs to answer CNC process planning queries
+with traceable numerical recommendations [18]. Multi-agent retrieval frameworks further decompose retrieval, ranking,
+and answer generation into specialized agents to integrate information from diverse manufacturing sources [ 33].
+In mechanical engineering more broadly, multimodal systems such as MechRAG integrate CAD and computer
+aided engineering (CAE) assets into LLM responses, enabling conversational access to simulation results and model
+artifacts [23]. CNC-focused assistants like ChatCNC attach LLMs to real-time machine data streams to provide
+conversational monitoring and diagnostics [25]. Collectively, these works demonstrate that LLMs can be grounded in
+structured knowledge, multimodal engineering artifacts, and live telemetry. Nonetheless, they often stop short of (i)
+performing physics-aware decomposition of geometric error into interpretable contributors under explicit assumptions,
+(ii) orchestrating deterministic analysis tools through an auditable tool-call interface, and (iii) enforcing a verification
+gate that manages risk by bounding recommendations and escalating ambiguous cases to human experts.
+At the same time, several studies have evaluated or proposed LLM-based generation of CNC programs directly from
+natural language descriptions or simple geometric sketches, highlighting both the promise and the risks of treating
+toolpath synthesis as a pure text generation task [37, 25]. Comparative evaluations show that general purpose LLMs
+can emit syntactically valid G-code, but that the resulting programs often require nontrivial human correction and
+verification, particularly for complex geometries or nonstandard machine configurations [ 34]. More specialized
+frameworks introduce domain-specific fine-tuning, retrieval, and self-correction loops, along with syntactic and
+geometric validation [35], yet they still operate largely outside of physics-based digital twin environments and often
+rely on a single language model to make intertwined geometric, physical, and process decisions. The AI system should
+not be treated as an unconstrained generator of machining strategies, but as an orchestrator of validated planning and
+physics tools, equipped with explicit verification and provenance mechanisms that reduce automation bias and support
+accountable human approval.
+In parallel to these LLM-centric developments, there is a rich body of work on data-driven modeling of error distributions
+in thin-walled aero-engine blades and similar components. For example, Gaussian-mixture-model-based frameworks
+have been proposed to predict full-field milling error distributions for blades and impellers across different process
+conditions, using experimental data to characterize complex spatial patterns of deviation [36]. Such models capture
+important aspects of the underlying process behavior and can provide informative priors for compensation. However,
+they are usually developed as standalone prediction tools, with limited integration into broader decision-making
+pipelines that also incorporate virtual machining, physics-based deflection simulation, and symbolic knowledge of
+machining constraints. They also rarely expose an evidence-linked explanation of how contributors such as path-tracking
+error, tool wear (or wear proxies), and compliance effects combine to yield observed deviation patterns on a specific
+production system.
+Table 1 summarizes representative contributions, emphasizing their implementation focus and the resulting limitations
+for risk-aware decision support on complex free-form geometries. As the table indicates, prior approaches either (i)
+emphasize symbolic knowledge representations modularity without deeply engaging with multi-modal machining
+physics and inspection evidence, (ii) focus on text-centric or monitoring-oriented use of LLMs that do not translate
+4
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Critic Agent
+Central Agent
+User
+Knowledge Graph
+Query
+Database
+Knowledge Agent
+Image
+Inspection
+Simulation
+Historical Data
+Tools Tools
+Search Dynamic
+DepthRank
+Tool WearParameter
+StatisticsDeflection
+Feedback
+Feedback
+2 33
+1
+6 44
+5
+67
+8
+ContextContext
+Analysis Agent
+Central Agent
+Commands:
+You answer using
+Knowledge Graph tools
+ONLY.
+-If the graph is not
+initialized, call ‘kg_initial’.
+-Then call ‘kg_retrieve’
+with the user's question.
+-Do NOT paraphrase or
+invent facts.
+Central Agent:
+Use inspection tools on
+inspection.csv (parts 10–20) to
+compute deflection & total
+deviation per pair.
+Don’t calculate numbers yourself;
+call tools.
+Context:
+–Selected parts: [10, …, 20]
+–CSV path: inspection.csv
+–pairs_resultpresent? False
+–pair_statspresent? False
+Initialize
+Knowledge Agent Actions
+Inference
+Execute
+Retrieve
+Analysis Agent Actions
+Thinking Tool Call
+Execute
+Calculations
+Figure 1: Multi-agent knowledge framework for CNC manufacturing. The Central, Knowledge Graph, Analysis, and
+Critic agents collaborate in an eight-step loop: (1) user query, (2 to 3) central planning and routing, (4) downstream
+analysis and knowledge retrieval, (5 to 7) critic evaluation and refinement, and (8) recommendation returned for human
+review and downstream CAM implementation.
+detailed geometric analysis into bounded, auditable modifications to tool paths or offsets, or (iii) treat CNC programming
+itself as a text generation problem with limited physics grounding and incomplete reliability guarantees.
+3 Methodology
+The multi agent knowledge analysis framework comprises four agents (Central, Knowledge Graph, Analysis, and Critic)
+that collaborate to answer and execute decision-support queries arising within a CNC manufacturing workflow. Figure 1
+summarizes the procedure as an eight-step loop. 1 A natural language query is provided by a user or a higher-level
+planning system. 2 The Central agent (CA) interprets the query in the context of the current manufacturing state,
+such as the active machine, toolpath, datasets, and previously computed summaries. 3 The CA constructs a plan and
+routes sub-tasks to either the Analysis agent (AA) for tool-grounded quantitative computation or the Knowledge Graph
+agent (KGA) for evidence retrieval from the machining knowledge graph. 4 The downstream agents execute their
+sub-tasks using deterministic tools and retrieval operators to produce intermediate results, such as deviation attributions,
+compensation candidates, and evidence-linked constraints. 5 These candidate outputs are passed to the Critic agent
+(CRA). 6 The CRA checks logical coherence, physical plausibility, compliance with safety bounds, and provenance
+completeness. 7 If any check fails, the CRA issues a revised instruction for refinement or escalates to the human
+when verification is insufficient. 8 Otherwise, the accepted recommendation and its audit trail are returned to the
+CA and surfaced to the user for review prior to downstream CAM implementation. This loop implements an iterative
+decision-support workflow from a natural language intent to tool-grounded analysis and traceable recommendations.
+The subsections below define each agent and the constraints that enforce deterministic computation, evidence grounding,
+and risk-aware escalation.
+3.1 Central Agent
+The Central agent is the interface between the user and downstream agents. At turnt, the CA receives the user query
+qt and the internal statest, wherest contains references to loaded resources, cached intermediate results, and agent
+invocation history. Let Q denote the space of user queries, S the state space, A the set of available downstream agents,
+5
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+and ˜Qthe space of structured agent-specific instructions. The CA implements a routing policy
+(at,˜qt,s +
+t ) =π C(qt,s t)(1)
+whereat∈A specifies the next agent, ˜qt∈ ˜Q is a structured instruction tailored to that agent, ands+
+t ∈S is the updated
+state. In implementation,πC combines a language-model router with schema validation and a deterministic fallback.
+The router is constrained to emit a JSON object with fields that include the selected agent identifier, a normalized
+instruction string, required input references (files, part indices, tool identifiers), and an explicit list of requested tool
+categories. A JSON-schema validator defines the condition under which the output is considered valid. If validation
+fails, the CA falls back to a deterministic heuristicπD based on task keywords and available resources. Prior to routing,
+the CA applies a preprocessing updatesp
+t =u C(qt,s t) to extract structured entities (e.g., part ranges, file paths, reset
+flags) so routing is evaluated on(q t,s p
+t ).
+3.2 Analysis Agent
+The Analysis agent performs data- and tool-centric reasoning. At turnt, the AA receives the routed instruction ˜qt, the
+current statest, and external resourcesrt (data handles, tool APIs, simulation artifacts). The AA is constrained so that
+any non-trivial numerical quantity included in its output must be produced by deterministic tools. LetT={T 1,...,T M}
+be the tool library. The AA selects a finite tool-call sequenceτ1:K = ((j1,x 1),...,(j K,x K)) and executes it to obtain
+outputszk =T jk(xk),k= 1,...,K . The AA returns a structured resultyA
+t together with an updated statest+1 that
+caches reusable artifacts and provenance metadata.
+To enforce tool grounding,yA
+t includes (i) a list of tool calls with arguments, (ii) tool outputs, and (iii) a provenance
+map that assigns each reported scalar or vector quantity to a specific tool output identifier. The CRA (Section 3.4)
+verifies that any numeric quantity in the final recommendation can be traced to this provenance map.
+3.3 Knowledge Graph Agent
+The Knowledge Graph agent answers conceptual, relational, and constraint queries over a symbolic graph Gt =
+(Vt,E t,R t) of entities, typed relations, and labeled edges. Given ˜qt andst, the KGA performs retrieval to build a
+contextct =R K(˜qt,G t) and then produces an answer yK
+t using the retrieved evidence together with any relevant
+observations carried ins t.
+Retrieval uses semantic embedding matching over graph triples and associated textual contexts. Letf(·)∈R d be a
+shared embedding model. Each stored item i is a quadrupleτi = (si,r i,o i,c i) with a triple text representation and
+an associated contextci. For query embedding qt =f(˜qt), each item receives a combined scoresi = cos(qt,v i) +
+λcos(q t,u i) where vi embeds the concatenation (si,r i,o i,c i), ui embeds ci, and λ∈[0,1] weights contextual
+alignment. To control computation, an initial pre-pool P is formed by selecting the topp= min(N,max(m,⌊αN⌋))
+items under the base triple similarity cos(qt,v i), whereN is the number of stored items,α is a pruning fraction, andm
+is a minimum retained count. Within P, a data-adaptive inclusion floorτ=µ+zσ is computed from the meanµ and
+standard deviationσ of{si :i∈P} . The initial candidate set C0 is formed from items withsi≥τ , with a fallback to a
+fixed top-k0 if empty and withk bounded within [kℓ,k u]. To capture multi-hop evidence, a bounded neighborhood
+expansion is applied to C0 using depthdM and a capped beam widthbM , with a visited set to prevent revisiting the
+same triple. The retrieved contextc t is the set of selected triples and their supporting contexts.
+For synthesis, the KGA returns (i) a structured answer and (ii) an evidence list of triple identifiers that support each
+claim. The CRA verifies that claims presented as constraints or best practices are supported by retrieved evidence
+identifiers, otherwise they are flagged for refinement or escalation.
+3.4 Critic Agent
+The Critic agent evaluates candidate outputs from downstream agents and enforces risk-aware acceptance criteria before
+recommendations are surfaced. After an agent produces a candidate answeryt, the CRA receives (qt,y t,s t) and returns
+a decision together with a possible refinement instruction. We model the critic output as
+(dt,a t+1,˜qt+1,s +
+t ) =π R(qt,y t,s t),(2)
+wheredt∈{accept,revise,escalate} . Ifdt = accept, the system returnsyt together with its audit trail. Ifdt = revise,
+the CRA selectsat+1∈A and emits ˜qt+1 for refinement. Ifdt = escalate, the system returns a structured report that
+includes the candidate recommendation, the failed checks, and the minimal additional information required from a
+human operator or engineer.
+6
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+The CRA evaluates four classes of checks: intent alignment with qt, tool-grounding completeness (every numeric
+quantity must map to an AA tool output identifier), evidence grounding for retrieved constraints (every KG claim must
+cite retrieved triple identifiers), and safety checks that enforce physical plausibility and bounded action constraints (for
+example, maximum allowable offset magnitudes and sign consistency with declared coordinate conventions). A scalar
+quality scoreJ(q t,y t,s t)∈[0,1] may be computed internally, but acceptance is not determined byJ alone; acceptance
+requires that the explicit checks above pass.
+To guarantee termination, a critic budget L∈N limits the number of refinement iterations per user query. Let nt
+denote the number of CRA invocations for the current query. If nt≥L and the candidate answer has not satisfied
+the acceptance criteria, the CRA returnsdt = escalate rather than forcing acceptance. In deployments that support
+interactive symbiosis, the CRA decision can be overridden by an explicit human approval signal, which is recorded as
+part of the audit trail.
+3.5 Agentic Tools
+Within the rotor blade case study, the MAKA system predicts and compensates geometric deviation by integrating three
+classes of evidence: virtual machining path-tracking error, inspection-derived deviation fields, and process knowledge
+constraints. The analysis separates systematic contributors that can be linked to explicit evidence from a residual
+term that captures compliance and other unmodeled systematic effects. The tool library as shown in Table 2 exposes
+deterministic functions that load data, compute statistics, map simulation fields to inspection locations, estimate drift
+and variability proxies from multi-part data, and compute compensation offsets under a simplified tool-geometry model.
+While the tool implementation in this case study utilizes rotor blade specific nomenclature (e.g., rb prefixes), the
+MAKA architecture treats these as modular skills adhering to a generic geometric interface. The agents reason over
+standardized inputs (point clouds, deviation vectors, metadata) rather than hard-coded geometry logic. Consequently,
+adapting this framework to a different component (e.g., an engine casing) requires only the substitution of the underlying
+computational libraries (the tool layer) without retraining the agentic reasoning or restructuring the orchestration logic.
+Inspection and simulation alignment.For each inspection pair k and part n∈ {1,...,N} , let δP
+k,n and δS
+k,n
+denote the signed normal deviations measured on the pressure and suction surfaces after scan-based registration to
+the nominal CAD model. The paired measurement is summarized as the combined thickness-direction deviation
+vk,n =δ P
+k,n +δ S
+k,n. Under the paired-surface sign convention, the corresponding per-surface deviation issk,n =v k,n/2.
+The tool compute_inspection_pairs constructs the set of matched pairs and provides{δP
+k,n,δ S
+k,n}k,n together with
+the derived vk,n andsk,n. The tool fetch_inspection_slices returns selected subsets and caches normalized
+representations.
+Run MyVirtual Machine provides a simulated path-tracking error field that is projected onto the same inspection keysk
+through a deterministic mapping operator that aligns simulation outputs and inspection locations in the CAD frame. Let
+rk denote the simulated combined deviation at pairk asvk,n, and define the per-surface pathing deviation aspk =r k/2.
+The toolrb_compute_pathing_devimplements this projection and returnsp k.
+Multi-part decomposition using drift and variability proxies.For each pair k, define the non-pathing deviation for
+partn asuk,n =s k,n−p k. To separate systematic drift from dispersion, we fit a per-pair affine model over part index,
+uk,n =c k +b k(n−1) +ϵ k,n, whereck is a baseline systematic term,bk is a drift rate per part, andϵk,n is a zero-mean
+residual. The least-squares drift estimator isbk =
+PN
+n=1(n−¯n)(uk,n−¯uk)PN
+n=1(n−¯n)2 , with ¯n= (N+ 1)/2 and ¯uk = 1
+N
+PN
+n=1uk,n,
+and the baseline term isck = ¯uk−b k(¯n−1). The drift magnitude at the last observed part iswd
+k =b k(N−1) . The
+residual dispersion is quantified asw v
+k =
+q
+1
+N−2
+PN
+n=1ϵ2
+k,n forN≥3, whereϵ k,n =u k,n−c k−b k(n−1).
+In this decomposition, wd
+k is a drift proxy that is consistent with systematic evolution across part index, and wv
+k
+is a variability proxy that captures process instability and unmodeled fluctuations. The methodology does not
+equate wv
+k with a physical wear state. Instead, wv
+k is used as a risk indicator for verification and escalation.
+The tools rb_compute_wear_drift and rb_compute_process_variability implement these estimators, while
+rb_compute_residual_systematicreturns the baseline termc k.
+For reporting and downstream reasoning, the mean surface deviation is ¯sk = 1
+N
+PN
+n=1sk,n and the predicted surface
+deviation for a target part indexn⋆ is ˆsk(n⋆) =p k +c k +b k(n⋆−1) . The residual term ck is interpreted as a residual
+systematic compliance term that includes stiffness-related effects and other systematic deviations not captured by
+rigid-body path-tracking simulation and drift. It is not uniquely identifiable as deflection alone.
+Stable attribution ratios for decision support.To avoid numerical instability in ratio metrics, attribution uses
+magnitudes and an ϵ-floor. For a target part n⋆, define the component magnitudes pa
+k =|p k|, ca
+k =|c k|, and
+7
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Table 2: Main tool categories exposed to MAKA for rotor blade analysis and compensation. Implementation identifiers
+are provided to support reproducibility.
+Category Tool Description
+Data loadingcompute_inspection_pairs ,
+fetch_inspection_slices
+Load scan-based inspection measurements,
+construct paired pressure and suction statis-
+tics, and return cached normalized subsets
+for selected parts and pair keys.
+Statistics and index-
+ing
+rb_compute_values,
+rb_compute_average,
+rb_compute_std_dev,
+rb_compute_level,
+rb_compute_position_in_level
+Provide per-pair values and summary statis-
+tics and assign spanwise level and within-
+level position indices used for aggregation.
+Pathing projectionrb_compute_pathing_dev Project RMVM path-tracking error onto in-
+spection keys in a common CAD frame and
+return per-surface pathing deviationp k.
+Drift and variability
+proxies
+rb_compute_wear_drift,
+rb_compute_process_variability,
+rb_compute_residual_systematic
+Estimate drift bk and derived drift magni-
+tudewd
+k, residual dispersionwv
+k, and base-
+line systematic termck from multi-part non-
+pathing deviations.
+Attribution metricsrb_compute_attribution_fractions Compute numerically stable attribution frac-
+tions and variability indicators used for risk-
+aware verification and summarization.
+Compensation geom-
+etry
+rb_compute_tool_length,
+rb_compute_radius_offset,
+rb_compute_pair_tool_comp
+Map a selected signed correction ∆k to ax-
+ial and radial offsets under the fixed-tilt
+model and returnt k = [tr,k,t l,k]⊤.
+Knowledge retrievalkg_initial,kg_retrieve Build and query the machining knowl-
+edge graph and return evidence-linked con-
+straints and best practices for verification
+and bounded action.
+wa
+k =|b k(n⋆−1)| , and define the total magnitude ak =p a
+k +c a
+k +w a
+k +ϵ with small ϵ >0. The corresponding
+attribution fractions areϕp
+k =p a
+k/ak,ϕc
+k =c a
+k/ak, andϕd
+k =w a
+k/ak. The variability proxy is summarized separately
+asψv
+k =w v
+k/(|ˆsk(n⋆)|+ϵ) and is used by the CRA to flag low-confidence locations where compensation should be
+conservative or escalated for human judgment.
+Compensation geometry under fixed tool tilt.The tool is mounted at a fixed tilt angle θ= 25◦ relative to the local
+reference axis used for compensation. Let ∆k denote a signed equivalent correction along the tool axis required at pair
+k for a selected component (for example, the drift component atn⋆, or a bounded correction derived fromck). Under
+the fixed-tilt model, the corresponding axial and radial offset components aretl,k = ∆k cosθ andtr,k = ∆k sinθ . The
+tools rb_compute_tool_length, rb_compute_radius_offset, and rb_compute_pair_tool_comp implement
+this mapping and return compensation vectors tk = [tr,k,t l,k]⊤ that are then applied as radius and length offsets within
+the CAM environment. The CRA enforces bounds on|tr,k| and|tl,k| using knowledge graph-derived constraints and
+shop-floor limits before any recommendation is accepted.
+Knowledge retrieval for constraints and best practices.The knowledge graph tools kg_initial and kg_retrieve
+provide evidence-linked constraints, empirical rules, and known failure modes relevant to titanium machining and offset
+application. Retrieved constraints are represented as triple identifiers with supporting text spans. The CRA verifies that
+any constraint referenced in an accepted recommendation is backed by retrieved evidence identifiers, and otherwise
+triggers refinement or escalation.
+8
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+OperationsTrak VMC10siPart
+Simulation Manufacturing Finished Part
+Sinumerik
+Inspection Measurement
+Roughing FinishingSemi Finish
+Inspection Points
+Surface Scan
+Measurement
+Material
+Grade 5
+Titanium
+Roughing Tool
+Finishing Tool
+Carbide Ball End Mill
+4 Flute
+1/2" Mill Diameter
+Carbide End Mill
+6 Flute
+1/4" Diameter
+Figure 2: Illustration of the experimental workflow from part design, to manufacturing simulation, manufacturing using
+a 4-axis Trak VMC10si, and inspection measurements using a GOM ATOS ScanBox.
+4 Experimental Design
+We evaluate the MAKA framework along four axes that map directly to the results section. First, we measuretool-
+orchestration reliabilityon rotor blade analytics tasks, where the agent must select and sequence domain tools to
+compute deviation components and compensations from inspection data. Second, we isolate the marginal contribution
+of MAKA’scritic moduleusing paired runs with and without critic-mediated repair under controlled routing degradation.
+Third, we quantify the impact ofknowledge graph (KG) groundingon quantitative machining question answering using
+paired KG versus no-KG trials in both open-ended and multiple-choice formats. Finally, we present anend-to-end case
+studyin which inspection-derived boundary conditions and digital twin signals are converted into staged compensation
+actions that are verified in the digital twin before deployment.
+4.1 Manufacturing case study and inspection data
+The MAKA framework was evaluated using an experiment on the manufacturing of a rotor blade conducted at the
+Connecticut Center for Advanced Technology (CCAT). Figure 2 summarizes the overall fabrication, simulation, and
+inspection workflow. Ti-6Al-V titanium rods with a diameter of 1 1/4 in (31.75 mm) were used to manufacture a rotor
+blade with a length of 3 in (76.2 mm) designed at CCAT. Siemens NX CAM was used to generate baseline tool paths
+required to manufacture the rotor blade on a 4-axis Trak VMC10si.
+As shown in Figure 3, ten operations are required to manufacture the blade: (1) tip engage, (2) top half rough, (3) top
+half semi-finish, (4) bottom half rough, (5) bottom half semi-finish, (6) platform outer rough, (7) platform outer finish,
+(8) platform top finish, (9) blade finish, and (10) tip finish. From these operations, four test cuts were selected to modify
+tool usage and update tool paths based on expert observations to minimize tool wear and improve surface finish. A
+four-flute 1/2 in TiAlN-coated carbide ball end mill was selected for all roughing and semi-finishing operations, and a
+six-flute 1/4 in solid carbide undercutting end mill was used for finishing operations. The tool was offset at an angle of
+25 degrees relative to the part during machining (Figure 3a).
+A total of 16 rotor blades were created and measured for geometric deviation relative to the nominal CAD model using a
+GOM ATOS ScanBox. For each blade, surface scans were registered to the nominal model and deviation measurements
+were recorded at labeled inspection points. We defined 30 inspection points distributed across the blade surface and
+arranged them into matched pairs across the pressure and suction sides using a consistentpair-keyconvention of the
+formi+(i+15) (e.g., 2+17, 3+18, . . . ,16+31) so corresponding locations on the two sides could be directly compared.
+After measuring deviations, inspection data for all blades were exported to CSV and aggregated for subsequent analysis.
+These inspection deviations serve as the ground-truth geometric error signal that MAKA analyzes and attempts to
+reduce via compensation.
+9
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Operation 1 –Tip Engage Operation 2 –Top Half Rough Operation 3 –Top Half Semi Finish Operation 4 –Bottom Half RoughOperation 5 –Bottom Half Semi Finish
+Operation 6 –Platform Outer Rough
+Operation 7 –Platform Outer Finish Operation 8 –Platform Top Finish Operation 9 –Blade Finish Operation 10 –Tip Finish
+a)
+b)
+Angle: NormalAngle: 25°
+Figure 3: Experimental setup where (a) the spindle is set at an angle of25◦ relative to the blade and (b) all ten operations
+required to manufacture the rotor blade.
+4.2 Digital twin signals and deviation decomposition
+MAKA forms an aggregate estimate of total geometric deviation by combining three complementary error signals with a
+residual term. The first signal captures cutting-induced workpiece deflection, the second captures machine path-tracking
+deviation, and the third captures systematic drift across parts as a proxy for wear-related evolution. Together, these
+signals provide a structured decomposition that separates deformation-driven effects, kinematic execution errors, and
+time-varying changes that accumulate over a production run.
+Workpiece deflection is estimated using ThirdWave simulations that model how the blade deforms as the tool engages
+the pressure and suction sides under candidate process parameters such as spindle speed, feed rate, and surface feet per
+minute. The resulting deflection fields provide a physics-based estimate of deformation-induced deviation along the tool
+path, which allows MAKA to screen parameter sets toward reduced deflection sensitivity and to prioritize corrective
+actions in regions predicted to be most compliant.
+Path-tracking deviation is estimated using Siemens Run MyVirtual Machine by comparing the predicted executed tool
+motion to the nominal G-code trajectory. These virtual machining results capture systematic tracking errors that arise
+from machine kinematics and controller behavior, and they provide a trajectory-following deviation field that MAKA
+can use to propose toolpath compensations aimed at counteracting repeatable execution bias.
+Wear-related evolution is inferred directly from inspection measurements by tracking systematic drift in deviation
+patterns across the sequence of manufactured blades at fixed inspection pairs. Persistent, progressive changes across
+parts are treated as a proxy for wear-driven changes in effective tool geometry and engagement conditions. This
+drift-based signal is useful because it summarizes time-dependent behavior that is not captured by a single static
+simulation or a single part, and it provides a basis for wear-aware updates and conservative bounding when the process
+becomes less stable.
+After accounting for predicted path-tracking effects and deflection trends and estimating drift-based evolution, any
+remaining systematic structure is treated as a residual compliance contribution. This residual term is intended to absorb
+unmodeled or partially calibrated effects and to prevent the decomposition from forcing all unexplained structure into
+one of the explicit contributors, which would otherwise lead to overconfident or misdirected compensations.
+10
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Table 3: Overview of source documents and their corresponding knowledge graph sizes.
+Document Description Knowledge Graph Size
+Optimization of cutting tem-
+perature and surface rough-
+ness in CNC turning of Ti-
+6Al-4V alloy using response
+surface methodology [38]
+Introduced Response Surface Methodology to optimize
+cutting speed, feed rate, and depth of cut in dry CNC
+turning of Ti-6Al-4V alloy, aiming to minimize tool-chip
+interface temperature and surface roughness.
+# of triples: 827
+# of unique entities: 978
+# of unique relations: 324
+Evaluation of tool wears
+mechanism considering ma-
+chining parameters and per-
+formance parameters for tita-
+nium alloy in turning opera-
+tion on CNC [39]
+Experimentally studies CNC turning of Ti-6Al-4V to eval-
+uate how machining parameters (cutting speed, feed, depth
+of cut, and rake angle) affect tool wear, tool life, and sur-
+face roughness.
+# of triples: 673
+# of unique entities: 802
+# of unique relations: 249
+Sustainable green cutting
+fluid for interpreting opti-
+mization of process vari-
+ables while machining on
+various CNC manufacturing
+systems—an experimental
+approach for exploring [40]
+Compares several eco-friendly cutting fluids and finds that
+aerosol-mist neem oil is the most sustainable and effec-
+tive choice for machining Ti-6Al-4V on CNC lathe and
+turn-mill systems, improving surface finish and reducing
+temperatures, especially in 4-axis turn-milling.
+# of triples: 541
+# of unique entities: 707
+# of unique relations: 239
+Analysis of machining de-
+formation for adaptive CNC
+machining technology of
+near-net-shaped jet engine
+blade [41]
+Develops and validates a rigid–flexible coupling fixture
+using PEEK-GF30 multi-point supports and an empirical
+cutting force model to analyze and control machining
+deformation of near-net-shaped TC4 jet engine blades in
+adaptive CNC machining.
+# of triples: 660
+# of unique entities: 914
+# of unique relations: 339
+Within MAKA, these components are computed through the rotor blade analysis tool suite,
+including rb_compute_pathing_dev, rb_compute_surface_dev, rb_compute_wear_drift,
+rb_compute_process_variability, and rb_compute_residual_systematic, and then combined into
+the decomposed representation used to generate compensation actions through modified tool paths and adjusted process
+parameters. Although direct point-to-point numerical agreement between simulation outputs and physical scans
+is not the primary objective, we observed strong topological alignment between the simulated and measured error
+distributions. ThirdWave consistently highlights the blade tip and leading edge as regions of maximum deflection,
+which matches the high-deviation zones observed in inspection across the 16 blades. This qualitative spatial agreement
+supports use of the digital twin as a directional guide for decision-making, while the residual term provides flexibility to
+reconcile absolute magnitudes and remaining systematic effects.
+4.3 Knowledge graph construction
+The knowledge graph used in this experiment was constructed from a curated set of technical documents on machining Ti-
+6Al-4V (Table 3), spanning cutting temperature and surface roughness optimization, tool wear mechanisms, sustainable
+cutting fluids, and machining deformation control in near-net-shaped jet engine blades. Together, these sources cover
+process parameters (cutting speed, feed, depth of cut, rake angle), performance measures (surface roughness, tool wear,
+tool life, cutting temperature), coolant strategies (including sustainable cutting fluids), and fixturing and deformation
+behavior in adaptive machining. The integrated KG contains 2701 triples over 3401 unique entities and 1151 unique
+relation types.
+The KG was constructed automatically using the open-sourced gpt-oss-120b model served locally via an
+OpenAI-compatible HTTP API (LM Studio). Each paper was converted to Markdown and processed by a
+Python pipeline that splits text into overlapping windows (up to 1000 characters with a 500-character overlap).
+For each window, a prompt marks a central extraction region ( CHUNK_MAIN) and surrounding context windows,
+and specifies a strict five-field triple format: ENTITY_1 <TAB> RELATIONSHIP_TYPE <TAB> ENTITY_2 <TAB>
+"RELATIONSHIP_DESCRIPTION" <TAB> FIGURE_REFERENCE . Triples are extracted from CHUNK_MAIN only; sur-
+rounding context is used solely to resolve references to tables/figures. A post-processing stage enforces TSV consistency,
+repairs minor formatting errors, and propagates table references to related cell triples using schema triples. Triples are
+written per-document and then aggregated into the global KG used in subsequent experiments.
+11
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+4.4 Evaluation protocols
+4.4.1 Tool-use depth protocol (L1/L2/L3)
+To quantify tool-orchestration reliability on rotor blade analytics, we constructed 75 natural language questions that
+require computing deviation components and/or compensation values from inspection-derived signals. We group these
+into three tool-use depths:L1requires a single correct tool invocation;L2requires exactly two dependent tool calls
+with correct intermediate-result propagation; andL3requires three or more calls, stressing longer-horizon planning,
+state tracking, and dependency management. For each question, we compare the agent’s called-tool sequence (tools,
+order, and arguments) against a reference implementation derived from expert-designed CCAT scripts. We report
+tool-selection pass rate (%) as the fraction of queries where the required tools are invoked with valid arguments and
+dependency ordering.
+4.4.2 Critic agent evaluation
+To quantify the contribution of the critic module within MAKA, we conducted a paired controlled evaluation in which
+each query was executed twice under matched conditions using the same base model family, question prompt, and
+initialization: one run with critic-mediated control and one run without critic mediation. In the critic-enabled condition,
+the execution path permits iterative validation and repair through critic decisions (e.g., retry or routing actions) before
+termination, whereas in the no-critic condition execution proceeds directly from routing and task agents to finalization
+without an explicit repair stage. This design isolates the marginal effect of critic intervention from confounds due to
+model choice or prompt variation. To test robustness to orchestration faults, we introduce controlled degradation at
+the first routing stage by deterministically removing a fixed fraction of required tool hints (default drop probability
+0.3). Each trial is assessed against the query-specific required-tool specification (excluding infrastructure-only helper
+calls), and performance is recorded using tool-selection precision, recall, and F1. In addition to mean F1, we report
+improved-tool rate (fraction of paired queries where critic-enabled F1 exceeds no-critic F1), reduced-missing rate
+(fraction where critic reduces the count of missing required tools), and full-recovery rate over degraded cases (fraction
+of degraded trials where no-critic misses at least one required tool but the critic-enabled run recovers to zero missing
+required tools).
+4.4.3 Knowledge graph agent evaluation protocol
+Knowledge graph (KG) agent performance was evaluated in two linked phases using paired KG versus no-KG runs with
+the same base model family and identical question prompts: an open-ended quantitative phase and a multiple-choice
+phase derived from the same underlying items. The open-ended bank of 75 questions was programmatically constructed
+from the titanium machining sources and contains quantitative decision-style questions that require selecting operating
+points under thermal, roughness, wear, and throughput constraints, together with boundary and extrapolation checks,
+fixture-force reasoning, and speed-window compliance. Each item includes explicit ground-truth numeric targets,
+required terms, and scoring tolerances. The multiple-choice bank was generated from the same items by converting each
+ground-truth answer into one correct option and creating deterministic distractors via seeded numeric perturbations that
+remain outside acceptance tolerances. Performance reporting focuses on average numerical score versus average time
+per question for open-ended responses, and accuracy versus average time per question for multiple-choice responses,
+where time per question quantifies the inference-time overhead of KG retrieval relative to its corresponding gain in
+answer quality.
+5 Experimental Results
+MAKA was implemented in Python with a PostgreSQL backend used to store and query the machining knowledge
+graph. We report results in the same order as the experimental design: (i) tool-use reliability on rotor blade analytics
+tools, (ii) critic ablation under degraded routing, (iii) KG grounding ablation on quantitative machining QA, and (iv) an
+end-to-end case study demonstrating how inspection- and twin-derived signals are translated into staged compensation
+actions verified in the digital twin.
+We first evaluate whether the agent can correctly select and sequence rotor blade analysis tools needed
+to compute deviation components and compensation values from inspection data. Queries require com-
+posing tools such as rb_compute_surface_dev, rb_compute_pathing_dev, rb_compute_wear_drift,
+rb_compute_process_variability, and rb_compute_residual_systematic under increasing tool-chain depth
+(L1–L3). Tool-use pass rate (%) is computed against expert reference scripts, counting a query as correct only when
+required tools are called with valid arguments and in dependency-consistent order.
+12
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Figure 4: Comparison between MAKA and a single large language model in terms of pass rate (%) for correct tool
+usage.
+Table 4: Example of querying tool compensation using the MAKA framework.
+Execution (CLI):
+Central Agent –- What would you like to do?
+> load ’./Inspection_Aggregated.csv’ and give me compensation for parts 4 to 16
+Model analysis:
+The fileInspection_Aggregated.csvis loaded, pairwise statistics are computed, and tool compensation values are returned for inspection pairs 4–16. Here,Trc
+denotes tool radius compensation andTlcdenotes tool length compensation:
+Pair Key Trc Tlc
+2+17 0.001164 0.002497
+3+18 0.001030 0.002209
+4+19 0.001063 0.002280
+5+20 0.001104 0.002367
+6+21 0.001138 0.002440
+7+22 0.001253 0.002686
+8+23 0.001466 0.003144
+9+24 0.001290 0.002766
+10+25 0.001356 0.002909
+11+26 0.001513 0.003245
+12+27 0.001475 0.003163
+13+28 0.001556 0.003337
+14+29 0.001670 0.003581
+15+30 0.001528 0.003278
+16+31 0.001620 0.003474
+Figure 4 summarizes pass rates across three levels of tool-use depth (25 questions per level) and multiple open-
+source tool-trained models (GPT-OSS-20b, Granite-4H-Tiny, Ministral3-14b, Qwen3-VL-30b, Qwen3-VL-4b, and
+Qwen3-VL-8b). For L1 questions requiring a single tool invocation, both MAKA and single-LLM baselines achieve
+high pass rates, including perfect performance for stronger models such as GPT-OSS-20b and Ministral3-14b, while
+MAKA provides additional uplifts for weaker models (up to 20% for Qwen3-VL-8b). As tool-use depth increases,
+differences become more pronounced: MAKA provides substantially larger gains on L2 (two dependent calls with
+correct intermediate propagation) and L3 (three or more calls with longer-horizon state tracking), where single-LLM
+baselines more frequently fail due to incorrect sequencing, invalid arguments, or loss of intermediate state. Overall,
+these results indicate that MAKA’s coordination and cross-step verification primarily reduce orchestration failures in
+compositional tool-use tasks rather than simply improving single-step tool execution.
+Table 4 shows an example interaction in which the user requests compensation values over a selected part window.
+MAKA loads the aggregated inspection file, computes required pairwise statistics, and returns compensation values at
+each inspection pair key. This example is representative of the tool-use setting evaluated in Figure 4: the agent must
+map a high-level request onto the correct rotor blade tools, respect dependencies among intermediate computations, and
+return numerically valid outputs in the expected format.
+Figure 5 reports the critic-agent evaluation described in Section 4.4.2. Each query is executed twice under matched
+conditions (critic-enabled vs no-critic), and deterministic first-step degradation removes a fraction of tool hints to
+probe recovery under orchestration stress. Across GPT-OSS-20b, Granite-4H-Tiny, Ministral3-14b, Qwen3-VL-30b,
+Qwen3-VL-4b, and Qwen3-VL-8b, each model is tested on 75 paired queries (450 paired trials total). Of these, 423
+trials are degraded (some queries have no removable hints under the perturbation rule), enabling direct measurement
+13
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+a) b)
+Figure 5: Critic agent ablation across six base models comparing critic-enabled and no-critic execution. (a) Average
+tool-selection F1 for each model with critic versus without critic. (b) Critic-value metrics from paired runs: improved
+tools (%), reduced missing required tools (%), and full recovery (%) under degraded routing conditions.
+a) b)
+Figure 6: Knowledge graph evaluation across six base models using paired runs with and without KG retrieval. (a)
+Open-ended quantitative performance: average numerical score versus average time per question. (b) Multiple-choice
+performance: accuracy versus average time per question. Connected pairs show the shift from no-KG to with-KG,
+illustrating quality gains and inference-time overhead.
+of repair behavior under missing-dependency conditions. As shown in Figure 5a), the no-critic condition remains
+confined to a low F1 band between 0.2492 and 0.3137, whereas the critic-enabled condition rises to 0.5722 through
+0.7511, and mean F1 increases from 0.2919 to 0.6697 across models. Absolute F1 gains are +0.2690 (Granite-4H-Tiny),
++0.4360 (Ministral3-14b), +0.4079 (GPT-OSS-20b), +0.4374 (Qwen3-VL-30b), +0.3469 (Qwen3-VL-4b), and +0.3696
+(Qwen3-VL-8b). Figure 5b) clarifies the mechanism: critic-enabled runs improve tool quality on 58.67% of paired
+trials on average, reduce missing required tools on 62.22%, and achieve full recovery on 61.19% of degraded trials.
+Qwen3-VL-30b exhibits the strongest recovery profile (78.67% improved tools, 84.00% reduced missing, 81.08% full
+recovery), while even the weakest recovery profile remains positive (GPT-OSS-20b at 34.67%, 38.67%, and 45.00%).
+These results show that the critic functions as an explicit reliability layer that repairs missing dependencies, corrects
+incomplete tool chains, and prevents early routing errors from propagating into final answers.
+Figure 6 summarizes paired KG versus no-KG evaluation across the same six base models using 75 questions per
+model in each task format. In Figure 6a), every model moves from the no-KG point to a higher numeric score with KG
+enabled, increasing the cross-model mean from 0.3462 to 0.4736 (+0.1274), while average time per question increases
+from 0.7305 s to 2.6496 s (+1.9191 s). The largest open-ended gains occur for GPT-OSS-20b (+0.2418), Qwen3-VL-4b
+(+0.2262), and Qwen3-VL-8b (+0.1829). Granite-4H-Tiny improves moderately (+0.0911), while Qwen3-VL-30b and
+Ministral3-14b show smaller but still positive gains (+0.0048 and +0.0175), consistent with stronger no-KG baselines
+14
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+and diminishing marginal returns when parametric knowledge is already strong. In Figure 6b), the same trend appears
+for multiple-choice accuracy: mean accuracy rises from 0.4733 to 0.5733 (+0.1000), with average latency increasing
+from 0.2413 s to 1.6002 s (+1.3588 s). The largest MCQ uplifts are Qwen3-VL-4b and Qwen3-VL-8b (+0.1600
+each), and GPT-OSS-20b both improves (+0.1200) and achieves the highest with-KG accuracy (0.7067). Overall, KG
+grounding provides reliable average gains in quantitative correctness and answer selection, with the largest benefits
+concentrated in models that most need external numeric evidence integration, and with a stable and interpretable latency
+tradeoff.
+We close with an end-to-end case study that follows a complete MAKA loop from digital twin evidence and inspection
+measurements to a staged compensation plan that is verified in a high-fidelity digital twin prior to any shop-floor
+deployment. The intent is not to claim that any single simulation output numerically reproduces the scan data point
+by point. Instead, this case study shows that MAKA can extract directional guidance from physics-based simulation,
+reconcile that guidance with measured deviation structure and its evolution across parts, and translate the combined
+evidence into compensation actions that are auditable and bounded by uncertainty.
+In this case study, MAKA receives three complementary inputs. ThirdWave provides deflection fields that indicate
+where the blade is most compliant and how sensitive that compliance is to changes in spindle speed and feed. The
+inspection scans provide the ground-truth geometric error signal relative to the nominal model at paired locations across
+the pressure and suction sides, revealing where systematic shape bias concentrates on the blade. Multi-part statistics
+derived from the inspection history summarize systematic evolution and dispersion at each inspection pair. MAKA
+uses these as proxies for wear-driven changes and process instability. These signals serve distinct roles. Simulation
+supplies a physics-based sensitivity map. Inspection supplies the realized error topology. Drift and variability provide a
+confidence and risk envelope that governs how aggressively compensation should be applied.
+Figure 7 shows ThirdWave deflection simulations for two representative parameter sets selected to contrast an original
+Siemens NX recommendation with an alternative derived from expert machinist practice. Tool geometry, engagement
+conditions, and fixturing are held constant so the differences in the predicted fields are primarily attributable to spindle
+speed and feed. Beyond identifying a single minimum-displacement value, the simulations act as a screening mechanism
+that localizes deformation hot spots along the blade and establishes which parameter regimes are likely to reduce
+compliance-driven error. In thin-walled blade regions that behave like a cantilever, reductions in feed per tooth typically
+reduce cutting force peaks and can suppress elastic deflection, while increases in cutting speed can introduce thermal
+and wear considerations that must be evaluated in parallel. For this reason, MAKA treats the best-performing parameter
+set in the simulation as a candidate operating point that must be contextualized against stability, tool life, coolant
+strategy, and machine capability rather than as a universally optimal choice.
+Table 5 illustrates how MAKA converts the deflection visualization into an actionable recommendation in response to a
+natural language request. The agent identifies the minimum-displacement candidate across the shown parameter grid
+and then enumerates deployment considerations that are consistent with machining constraints. This step is important
+for closing the loop between physics and process engineering. The twin narrows the candidate space toward lower
+deformation sensitivity, and the KG-grounded considerations make explicit the failure modes that can negate those
+gains in practice, including accelerated wear at higher SFM, chatter margins, surface integrity effects, and coolant
+demands. MAKA therefore does not stop at ranking parameter sets. It surfaces the trade-offs that an engineer would
+normally check before committing to an update.
+While deflection screening addresses deformation sensitivity, inspection history is required to separate stable, com-
+pensable bias from evolving behavior that should be handled conservatively. Table 6 shows how MAKA analyzes a
+wear-percentage envelope derived from inspection deviations over a selected part window. The key analytical signal is
+the envelope shape across inspection pairs. A narrow separation between minimum and maximum curves indicates
+that evolution is relatively consistent and can be treated as bounded drift. Widening separation indicates growing
+instability or mixed contributors that are not captured by a single drift trajectory. Envelope widening is a warning
+flag. It reduces confidence in applying aggressive offsets at those locations and instead favors bounded compensation,
+increased inspection frequency, or earlier tool-change thresholds. This drift and variability analysis therefore provides
+the gating logic that prevents MAKA from over-correcting regions where the process is no longer stable.
+In addition to producing numeric recommendations, MAKA is designed to provide explanations that a process
+engineer can audit. Table 7 illustrates this interpretability pathway. The agent takes a deflection trend summary
+and retrieves supporting causal relationships from the machining KG to produce a mechanism-level narrative for
+why deformation occurs. The retrieved factors include cutting deformation as the primary mechanism, sensitivity
+to cutting-force dynamics, low stiffness due to thin-walled cantilever geometry, stress concentration near clamping
+heads, and interactions between speed and wear. These factors justify why parameter tuning is a plausible corrective
+lever when deformation dominates, and they also highlight conditions under which the same parameter changes could
+increase risk, including higher wear rates or reduced stability margin. This makes the resulting compensation plan less
+15
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+0.00501 0.00053 0.00419 0.00240 0.00089 0.00441
+0.00089 0.00010 0.00038 0.00066 0.00027 0.00086
+SFM:240Feed/tooth: 0.0007 Spindle Speed: 3667 (rpm) Feed rate: 15.4 ipm
+SFM:60Feed/tooth: 0.0041 Spindle Speed: 917 (rpm) Feed rate: 22.8 ipm
+a)
+b)
+Force Calculation
+Location Pt: 1
+Inspection Pt: 4
+Force Calculation
+Location Pt: 2
+Inspection Pt: 3
+Force Calculation
+Location Pt: 3
+Inspection Pt: 2
+Force Calculation
+Location Pt: 4
+Inspection Pt: 17
+Force Calculation
+Location Pt: 5
+Inspection Pt: 18
+Force Calculation
+Location Pt: 6
+Inspection Pt: 19
+c)
+Figure 7: Deflection results. (a) The location where force calculations are applied. (b) Blade deflection for a spindle
+speed of 917 rpm and feed rate of 22.8 ipm. (c) Blade deflection for a spindle speed of 3667 rpm and feed rate of
+15.4 ipm.
+of a black box because the system attaches physical and empirical rationale that explains why a given corrective action
+is being proposed.
+Taken together, the deflection screening, drift and variability bounding, and KG-grounded explanations provide the
+evidence needed to justify staged compensation rather than a single monolithic correction. Toolpath updates are most
+effective when the observed error is spatially consistent and aligns with kinematic or path-tracking signatures. Parameter
+updates are most effective when the digital twin indicates high compliance sensitivity and the inspection error topology
+matches predicted deformation hot spots. Wear-aware bounding becomes critical when drift and variability indicate
+evolving behavior that would otherwise cause over-correction. This staged structure is reflected in the subsequent
+compensation verification (Figure 8), where successive steps reduce predicted deviation magnitude from the10−2 in
+range toward the 10−3 in level by targeting distinct contributors in sequence, while using drift and variability as a
+safeguard against applying aggressive offsets in unstable regions.
+6 Conclusion
+This paper introduces the multi agent knowledge analysis (MAKA) framework as a physics-grounded, LLM-driven
+decision-support layer for CNC manufacturing, in which a Central agent, Analysis agent, Knowledge Graph agent,
+and Critic agent translate natural language intent into verifiable tool use, evidence-linked retrieval, and risk-aware
+recommendations suitable for human approval prior to downstream CAM implementation. The architectural separation
+of intent routing, deterministic computation, knowledge retrieval, and verification is designed to support human–AI
+symbiosis in high-stakes manufacturing by reducing the cognitive burden of multimodal data synthesis while preserving
+auditability, bounded action, and provenance.
+16
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Table 5: Example of analyzing simulation results using the MAKA framework.
+Execution (CLI)
+Central Agent - What would you like to do
+> analyze the simulation results and give the process parameters with the lowest deviation and then list any potential
+considerations when using these parameters ’./data/Simulation_results.png’
+Model analysis
+Final answer
+Based on the simulation results shown in the image, the process parameters with the lowest deviation, meaning the smallest displacement magnitude, are as follows.
+Top Row (SFM 60)
+•Feed per tooth0.0041
+•Spindle Speed917 rpm
+•Feed Rate22.8 ipm
+•Lowest Displacement0.00089 (seen in the 5th image from the left)
+Bottom Row (SFM 240)
+•Feed per tooth0.0007
+•Spindle Speed3667 rpm
+•Feed Rate15.4 ipm
+•Lowest Displacement0.00010 (seen in the 2nd image from the left)
+ConclusionThe parameters in thebottom row (SFM 240), specificallyFeed per tooth 0.0007, Spindle Speed 3667 rpm, Feed Rate 15.4 ipm, result in the lowest
+overall displacement magnitude (0.00010), indicating the most stable simulation outcome.
+Potential considerations when using these parameters
+1.Tool wear and life.Operating at higher SFM and spindle speed increases heat and can accelerate wear.
+2.Machine tool capability.Ensure the machine can sustain the spindle speed and feed without vibration.
+3.Material removal rate.Higher SFM changes MRR. Manage chip load and cutting forces accordingly.
+4.Surface finish.Lower deflection does not guarantee better finish. Verify with roughness checks.
+5.Coolant requirements.Higher cutting speeds may require more aggressive cooling.
+6.Process stability.Higher-speed regimes may be more chatter-sensitive if the system is not tuned.
+In the rotor blade case study, MAKA reliably orchestrated domain tools to align scan-based inspection deviations
+and virtual machining outputs at common inspection keys and to construct a physically interpretable decomposition
+consistent with the updated methodology. Specifically, pathing deviation was obtained from Run MyVirtual Machine
+projections, systematic evolution across parts was captured through a drift-based wear proxy estimated from multi-part
+inspection sequences, and the remaining systematic term was treated as a residual compliance contribution rather than
+being uniquely attributed to deflection. A variability proxy was also computed to characterize instability and to inform
+conservative recommendation and escalation when confidence was insufficient. This tool-grounded decomposition
+reproduces the structure of expert workflows while making the assumptions explicit and inspectable by the human
+operator and by the Critic agent verification gate.
+Beyond the case study demonstration, controlled ablations show that MAKA’s multi-agent decomposition is necessary
+for reliable performance once tasks require compositional tool use. In the multi-agent versus single-LLM evaluation,
+single-LLM baselines performed competitively on L1 queries that require only one tool call, but their performance
+degraded as soon as questions required dependent tool chains. MAKA delivered substantially larger gains on L2 and L3
+17
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Table 6: Example of analyzing tool wear results using the MAKA framework.
+Execution (CLI)
+Central Agent - What would you like to do
+> analyze the tool wear percentage ranges and explain what can be shown by the plot (parts 4 to 20)
+Model analysis
+Wear percentage envelope metrics are computed and displayed for the selected part window. All values are calculated and non-NULL.
+Final answer
+Based on the plot titled “Tool Wear % (Min/Max) by Inspection Pair”, here is what can be inferred.
+1.What is being summarized
+• The vertical axis represents a normalized wear indicator expressed as a percentage contribution relative to the local deviation baseline used in the
+analysis.
+• The horizontal axis lists inspection pair keys (for example “2+17” and “3+18”) that correspond to fixed locations on the blade where multi-part
+deviations were tracked.
+2.How the two series should be interpreted under the drift and variability methodology
+• The two curves can be interpreted as an envelope over the evaluated part window that summarizes systematic evolution across parts.
+• The separation between the curves provides an empirical indication of instability because a widening envelope implies that deviation evolution is
+not explained by a single tightly bounded drift trajectory.
+3.Key trends visible in the plot
+• Drift envelope growth.The envelope generally increases moving from left to right, indicating larger systematic evolution at later inspection
+locations.
+• Instability signature.The gap between the envelope bounds becomes larger for later pairs, consistent with increasing process instability or
+unmodeled variation.
+• Peak location.The largest envelope values occur near inspection pair “15+30”, suggesting a wear-sensitive region for tighter monitoring or
+conservative offset bounds.
+Summary.The plot summarizes a drift-based wear envelope across inspection pairs and indicates where envelope widening suggests instability, supporting maintenance
+thresholds and conservative compensation decisions.
+queries, including uplifts up to 87.5% on L2 and at least 32% on L3, where failures are dominated by orchestration errors
+rather than missing domain knowledge. These results indicate that separating intent routing, deterministic computation,
+and stateful multi-step execution is not an implementation convenience. It directly reduces invalid argument bindings,
+incorrect call ordering, and intermediate-state loss, which are precisely the failure modes that make single-agent tool
+use brittle in manufacturing decision-support settings.
+Critic and knowledge graph ablations further clarify why additional specialized agents are required to make this
+structure robust and trustworthy under realistic orchestration noise. Under controlled routing degradation, critic-enabled
+runs increased mean tool-selection F1 from 0.2919 to 0.6697 across models and achieved full recovery on 61.19% of
+degraded trials, demonstrating that explicit verification and repair is critical for preventing early routing faults from
+propagating into unusable or unsafe outputs. Similarly, knowledge graph grounding produced consistent improvements
+in quantitative machining answers, raising mean open-ended score from 0.3462 to 0.4736 and mean multiple-choice
+accuracy from 0.4733 to 0.5733, while adding a predictable latency overhead that remains negligible relative to
+machining cycle times. Taken together, these ablations show that the additional agents are not optional performance
+enhancements but explicit reliability mechanisms. Multi-agent orchestration provides the structure needed for correct
+tool chaining, the critic provides a recovery layer under missing or degraded dependencies, and the knowledge graph
+18
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Table 7: Example of using a knowledge graph to explain rotor blade deflection.
+Execution (CLI)
+Central Agent - What would you like to do
+> causes of this deflection for the rotor blade
+Model analysis (KG-enhanced)
+Based on the retrieved knowledge and the analysis summary, the primary cause of rotor blade deflection iscutting deformation, which directly leads to the final
+deformation of the blade. This deformation is influenced by several factors.
+1. Cutting force frequency.Deflection increases significantly when the cutting force frequency exceeds 1500 Hz. At frequencies between 800 and 1500 Hz,
+the deformation is relatively small.
+2. Blade structure.The blade’s complex structure, including its thin-walled body, free surface, and large curvature changes, makes it susceptible to
+deformation. Its stiffness is low due to its cantilever beam structure.
+3.Stress distribution.Stress is higher near the clamping heads, which can lead to localized deformation or stress concentration.
+4. Rotational speed and tool wear.While increasing rotational speed slightly reduces cutting forces, it can also increase tool wear, which may indirectly
+affect blade deformation.
+The observed trends in the deflection chart, such as high deflection at the start (for example pair2+17) and more negative deflection later (for example pair12+27),
+likely reflect variations in cutting conditions such as force frequency, spindle speed, or tool wear across inspection pairs.
+agent supplies evidence-linked numeric grounding and constraint-aware caveats that reduce hallucination risk and
+improve decision quality.
+By coupling these decomposed contributors with geometric compensation relationships under fixed tool tilt and with
+physics-based deflection simulation, MAKA generated actionable toolpath and parameter compensation candidates
+compatible with NX CAM. The effect of successive compensations was evaluated within a high-fidelity digital twin
+toolchain, providing a verified pre-deployment baseline for risk-aware human decision-making rather than a claim of
+physical closed-loop correction. Across the staged compensation sequence, the predicted deviation field progressed from
+large localized errors on the order of10−2 in to a predominantly near-nominal state within approximately±0.001 in over
+most of the surface, demonstrating that coordinated, tool-grounded reasoning can drive the simulated process toward a
+high-accuracy operating regime while preserving interpretability and traceability. The complete multi-agent reasoning
+and retrieval loop executes in 4.3 s. Relative to aerospace machining cycle times that are typically minutes to hours
+for complex rotor blades, this latency is negligible, rendering the computational overhead effectively inconsequential.
+As a result, MAKA can be invoked between machining stages to assimilate inspection data or process telemetry and
+inform subsequent decisions without inducing machine idle time, enabling practical inter-process decision support in
+production settings.
+Declaration of Competing Interest
+The authors declare that they have no known competing financial interests or personal relationships that could have
+appeared to influence the work reported in this paper.
+19
+
+Physics-Grounded Agents for Trustworthy Manufacturing
+Baseline Reduced
+Deflection
+Corrected Pathing
+Deviation
+Tool Wear
+Compensated
+Deviation (in)
+0.03
+0.027
+0.024
+0.021
+0.018
+0.012
+0.015
+0.009
+0.006
+0.003
+0.001
+-0.001
+Figure 8: Successive MAKA-driven compensations for toolpath adjustment, deflection-focused parameter tuning, and
+tool-wear-aware updates, verified in the high-fidelity digital twin.
+Acknowledgments
+This work was supported under Cooperative Agreement W56HZV-21-2-0001 with the U.S. Army DEVCOM Ground
+Vehicle Systems Center (GVSC), through the Virtual Prototyping of Autonomy Enabled Ground Systems (VIPR-GS)
+program; the National Science Foundation (grant no. 2434519); and the Department of Energy (grant no. DE-
+EE0011029). The authors gratefully acknowledge the valuable contributions from the Connecticut Center for Advanced
+Technology (CCAT) for this research.
