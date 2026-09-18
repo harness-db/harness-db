@@ -47,7 +47,7 @@ from kappa import cohen_kappa
 
 HUMAN_TO_FINAL = {"include": "include", "exclude": "exclude", "unsure": "include"}
 HUMAN_TO_3CLASS = {"include": "include", "exclude": "exclude", "unsure": "unsure"}
-SOURCE_BY_TIER = {"T0": "rule", "T1": "model_agree", "T2": "model_agree", "T4": "model_rule"}
+SOURCE_BY_TIER = {"T0": "rule", "T1": "model_agree", "T2": "model_agree", "T4": "model_rule", "T5": "model_tiebreak"}
 SCREENED_COLUMNS = [
     "record_id", "title", "year", "source", "tier", "tier_rule", "auto_decision", "human_sample_type",
     "human_decision", "exclusion_reason", "decided_at", "final_decision", "decision_source",
@@ -143,15 +143,17 @@ def stats(df: pd.DataFrame) -> dict:
         "all": _error_block(ve, {"include"}, {"include", "unsure"}),
         "T1_both_exclude": _error_block(ve[ve.tier == "T1"], {"include"}, {"include", "unsure"}),
         "T4_rule_exclude": _error_block(ve[ve.tier == "T4"], {"include"}, {"include", "unsure"}),
+        "T5_tiebreak_exclude": _error_block(ve[ve.tier == "T5"], {"include"}, {"include", "unsure"}),
     }
     out["verification"]["agreed_include"] = {
         "definition": "share of verify_include records the human excluded (strict) or did not include outright (lenient)",
         "all": _error_block(vi, {"exclude"}, {"exclude", "unsure"}),
         "T2_both_include": _error_block(vi[vi.tier == "T2"], {"exclude"}, {"exclude", "unsure"}),
         "T4_rule_include": _error_block(vi[vi.tier == "T4"], {"exclude"}, {"exclude", "unsure"}),
+        "T5_tiebreak_include": _error_block(vi[vi.tier == "T5"], {"exclude"}, {"exclude", "unsure"}),
     }
     # projected excluded-in-error count = error rate x number of auto-excludes (for the paper's limitations)
-    n_auto_ex = int(((df.decision_source.isin(["model_agree", "model_rule"])) & (df.final_decision == "exclude")).sum())
+    n_auto_ex = int(((df.decision_source.isin(["model_agree", "model_rule", "model_tiebreak"])) & (df.final_decision == "exclude")).sum())
     rate = out["verification"]["agreed_exclude"]["all"]["lenient_rate"]
     out["verification"]["projected_missed_by_auto_exclude"] = None if rate is None else round(rate * n_auto_ex)
     return out

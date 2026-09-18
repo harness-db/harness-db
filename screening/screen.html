@@ -41,7 +41,7 @@
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
   .meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 8px; }
   .chip { background: var(--chip); border-radius: 999px; padding: 1px 9px; font-size: 12px; }
-  .chip.conflict { color: var(--bad); } .chip.unsure { color: var(--warn); } .chip.verify_exclude, .chip.verify_include { color: var(--accent); }
+  .chip.conflict, .chip.tiebreak { color: var(--bad); } .chip.unsure { color: var(--warn); } .chip.verify_exclude, .chip.verify_include { color: var(--accent); }
   h2 { font-size: 20px; line-height: 1.3; margin: 4px 0 10px; }
   h2 a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--muted); }
   h2 a:hover { border-bottom-color: var(--accent); }
@@ -81,6 +81,7 @@
         <option value="">all sample types</option>
         <option value="conflict">conflict</option>
         <option value="unsure">unsure</option>
+        <option value="tiebreak">tiebreak</option>
         <option value="verify_exclude">verify_exclude</option>
         <option value="verify_include">verify_include</option>
       </select>
@@ -246,7 +247,9 @@
     if (rec.abstract) { ab.textContent = rec.abstract; ab.className = 'abstract'; }
     else { ab.textContent = 'No abstract in the record.'; ab.className = 'abstract empty'; }
     var v = $('votes'); v.textContent = '';
-    [[rec.vote_1, rec.model_1, rec.reason_1], [rec.vote_2, rec.model_2, rec.reason_2]].forEach(function (x) {
+    var votes = [[rec.vote_1, rec.model_1, rec.reason_1], [rec.vote_2, rec.model_2, rec.reason_2]];
+    if (rec.vote_3) votes.push([rec.vote_3, (rec.model_3 || '') + ' (tiebreak, ' + (rec.confidence_3 || '') + ' confidence)', rec.reason_3]);
+    votes.forEach(function (x) {
       var box = el('div', 'vote ' + (x[0] || ''));
       box.appendChild(el('b', null, x[0] || 'no vote'));
       box.appendChild(el('span', 'model', ' ' + (x[1] || '')));

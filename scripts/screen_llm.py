@@ -36,10 +36,19 @@ Two backends (``--backend``):
 Batches are resumable (ids already in the output are skipped), retried with exponential
 backoff, and can run in parallel (``--workers``).
 
+``--mode tiebreak`` (prompt ``ta-v2-tiebreak-2026-09-17``) is the decisive third vote of the
+triage (``scripts/screen_triage.py``, tier T5): the input records are the rows of
+``data/screening/triage.csv`` that the two-vote triage left to the human as ``unsure`` or
+``conflict`` (verification samples stay human); each record is sent with its title, abstract,
+year, source, url and both prior votes (vote, decision step, reason); the schema allows only
+``include`` / ``exclude`` plus a reason and a confidence (high / medium / low); the output is
+``data/screening/llm_votes_tiebreak.csv`` (``confidence`` replaces ``decision_step``).
+
 Usage:
     python scripts/screen_llm.py --backend claude-code --dry-run 50 --seed 20260917
     python scripts/screen_llm.py --backend claude-code --workers 3          # full run, resumable
     python scripts/screen_llm.py --backend api --model claude-sonnet-5 --dry-run 50
+    python scripts/screen_llm.py --mode tiebreak --backend claude-code --workers 8 --batch-size 40 --effort low
 """
 
 from __future__ import annotations
@@ -65,8 +74,11 @@ REPO = Path(__file__).resolve().parents[1]
 PROTOCOL = REPO / "docs" / "protocol_prisma_p.md"
 CANDIDATES = REPO / "data" / "raw" / "candidates.csv"
 OUT_DIR = REPO / "data" / "screening"
+TRIAGE = OUT_DIR / "triage.csv"
 
 PROMPT_VERSION = "ta-v1-2026-09-17"
+TIEBREAK_PROMPT_VERSION = "ta-v2-tiebreak-2026-09-17"
+TIEBREAK_SAMPLE_TYPES = ("unsure", "conflict")  # triage.csv rows the tiebreak takes over from the human
 DEFAULT_MODEL = {"api": "claude-sonnet-5", "claude-code": "opus"}
 PRICES_PER_M = {  # USD per million tokens (Anthropic list prices, 2026-06)
     "claude-sonnet-5": {"in": 2.00, "out": 10.00, "cache_read": 0.20, "cache_write": 2.50},
@@ -74,6 +86,7 @@ PRICES_PER_M = {  # USD per million tokens (Anthropic list prices, 2026-06)
     "claude-haiku-4-5": {"in": 1.00, "out": 5.00, "cache_read": 0.10, "cache_write": 1.25},
 }
 COLUMNS = ["record_id", "vote", "reason", "decision_step", "model", "prompt_version", "tokens_in", "tokens_out", "cost_usd"]
+TIEBREAK_COLUMNS = ["record_id", "vote", "reason", "confidence", "model", "prompt_version", "tokens_in", "tokens_out", "cost_usd"]
 ABSTRACT_CHARS = 1800  # per record; abstracts longer than this are cut (title always complete)
 
 VOTE_SCHEMA: dict[str, Any] = {
@@ -96,6 +109,33 @@ VOTE_SCHEMA: dict[str, Any] = {
     },
     "required": ["votes"],
     "additionalProperties": False,
+}
+
+TIEBREAK_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "votes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "record_id": {"type": "string"},
+                    "vote": {"type": "string", "enum": ["include", "exclude"]},
+                    "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "reason": {"type": "string"},
+                },
+                "required": ["record_id", "vote", "confidence", "reason"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["votes"],
+    "additionalProperties": False,
+}
+
+MODES = {  # mode -> (prompt version, JSON schema, output columns, per-vote extra field, default output file)
+    "vote": (PROMPT_VERSION, VOTE_SCHEMA, COLUMNS, "decision_step", "llm_votes.csv"),
+    "tiebreak": (TIEBREAK_PROMPT_VERSION, TIEBREAK_SCHEMA, TIEBREAK_COLUMNS, "confidence", "llm_votes_tiebreak.csv"),
 }
 
 
@@ -163,14 +203,79 @@ def system_prompt(ex: dict[str, str]) -> str:
     )
 
 
+TIEBREAK_PARAGRAPH = (
+    "Two earlier screeners disagreed or were unsure. Decide. Title/abstract screening is inclusive: include when the "
+    "record could plausibly describe a named system that runs a model in a loop with tools or an environment and that "
+    "could be coded from its paper, repository, or documentation; exclude only when the record is clearly a "
+    "model/training-only paper, a benchmark or dataset with no reference agent, a survey/position/evaluation-only paper, "
+    "a component without a loop (sandbox, MCP server, memory store, skills pack, protocol, tracing SDK), or outside the "
+    "scope (robotics) or window. Do not answer unsure."
+)
+
+
+def tiebreak_system_prompt(ex: dict[str, str]) -> str:
+    return (
+        "You are the deciding third screener in a pre-registered PRISMA 2020 systematic review of LLM agent harnesses "
+        "(HARNESS-Review). You vote on title and abstract only. Two earlier screeners have already voted on each record; "
+        "their votes, decision steps and reasons are given with the record.\n\n"
+        "== Harness definition (protocol section 3, verbatim) ==\n" + ex["definition"] + "\n\n"
+        "== Decision procedure, the steps decidable from a title and abstract (protocol section 3, verbatim) ==\n"
+        + ex["steps"] + "\n\n"
+        "== Eligibility criteria (protocol section 4, verbatim) ==\n" + ex["criteria"] + "\n\n"
+        "== Tie-break instruction ==\n" + TIEBREAK_PARAGRAPH + "\n\n"
+        "== How to vote ==\n"
+        "vote is include or exclude; there is no third option. "
+        "confidence is high when the title/abstract settles the decision, medium when it rests on a plausible reading, "
+        "low when the text barely lets you decide and full text could easily reverse it. "
+        "The reason is at most 30 words, concrete, and names the deciding feature of the text (not the earlier votes).\n"
+        "Answer with one JSON object {\"votes\": [...]}, one entry per input record, same record_id values, same order."
+    )
+
+
+def _clean(text: str | None) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _record_item(r: dict[str, str]) -> dict[str, Any]:
+    ab = _clean(r.get("abstract"))
+    if len(ab) > ABSTRACT_CHARS:
+        ab = ab[:ABSTRACT_CHARS] + " [...]"
+    return {"record_id": r["id"], "title": _clean(r.get("title")), "year": r.get("year") or "", "source": r.get("source") or "", "abstract": ab}
+
+
 def user_prompt(batch: list[dict[str, str]]) -> str:
-    items = []
-    for r in batch:
-        ab = re.sub(r"\s+", " ", r.get("abstract") or "").strip()
-        if len(ab) > ABSTRACT_CHARS:
-            ab = ab[:ABSTRACT_CHARS] + " [...]"
-        items.append({"record_id": r["id"], "title": re.sub(r"\s+", " ", r.get("title") or "").strip(), "year": r.get("year") or "", "source": r.get("source") or "", "abstract": ab})
-    return "Records to vote on (JSON):\n" + json.dumps(items, ensure_ascii=False)
+    return "Records to vote on (JSON):\n" + json.dumps([_record_item(r) for r in batch], ensure_ascii=False)
+
+
+def tiebreak_item(r: dict[str, str]) -> dict[str, Any]:
+    """One tiebreak input record: the vote-mode item plus url and the two prior votes."""
+    item = _record_item(r)
+    item["url"] = r.get("url") or ""
+    item["prior_votes"] = [
+        {"screener": k, "vote": r.get(f"vote_{k}") or "", "decision_step": r.get(f"step_{k}") or "", "reason": _clean(r.get(f"reason_{k}"))}
+        for k in (1, 2)
+    ]
+    return item
+
+
+def tiebreak_user_prompt(batch: list[dict[str, str]]) -> str:
+    return "Records to decide, each with the two earlier votes (JSON):\n" + json.dumps([tiebreak_item(r) for r in batch], ensure_ascii=False)
+
+
+def tiebreak_records(triage_path: Path = TRIAGE, candidates_path: Path = CANDIDATES) -> list[dict[str, str]]:
+    """triage.csv rows left to the human as unsure/conflict, with the abstract joined from candidates.csv."""
+    with open(candidates_path, encoding="utf-8", newline="") as fh:
+        abstracts = {r["id"]: r.get("abstract") or "" for r in csv.DictReader(fh)}
+    with open(triage_path, encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        missing = {"record_id", "needs_human", "human_sample_type", "vote_1", "vote_2", "step_1", "step_2"} - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"{triage_path} lacks columns {sorted(missing)}; re-run scripts/screen_triage.py first")
+        rows = [r for r in reader if r["needs_human"] == "1" and r["human_sample_type"] in TIEBREAK_SAMPLE_TYPES]
+    for r in rows:
+        r["id"] = r["record_id"]
+        r["abstract"] = abstracts.get(r["record_id"], "")
+    return rows
 
 
 def _order_votes(votes: list[dict[str, Any]], batch: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -206,13 +311,13 @@ def _api_cost(model: str, usage: Any) -> float:
     return (cin * p["in"] + cout * p["out"] + cr * p["cache_read"] + cw * p["cache_write"]) / 1e6
 
 
-def vote_batch_api(client: Any, model: str, system: str, batch: list[dict[str, str]], effort: str = "low") -> BatchResult:
+def vote_batch_api(client: Any, model: str, system: str, batch: list[dict[str, str]], effort: str = "low", schema: dict[str, Any] = VOTE_SCHEMA, prompt: Any = user_prompt) -> BatchResult:
     resp = client.messages.create(
         model=model,
         max_tokens=4096,
         system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": user_prompt(batch)}],
-        output_config={"effort": effort, "format": {"type": "json_schema", "schema": VOTE_SCHEMA}},
+        messages=[{"role": "user", "content": prompt(batch)}],
+        output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}},
     )
     if resp.stop_reason == "refusal":
         raise RuntimeError(f"refusal: {getattr(resp, 'stop_details', None)}")
@@ -239,11 +344,11 @@ def find_claude_exe() -> str | None:
     return str(real) if real.exists() else shim
 
 
-def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[dict[str, str]], effort: str | None = None) -> BatchResult:
-    cmd = [exe, "-p", "--output-format", "json", "--model", model, "--no-session-persistence", "--tools", "", "--system-prompt-file", str(system_file), "--json-schema", json.dumps(VOTE_SCHEMA)]
+def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[dict[str, str]], effort: str | None = None, schema: dict[str, Any] = VOTE_SCHEMA, prompt: Any = user_prompt) -> BatchResult:
+    cmd = [exe, "-p", "--output-format", "json", "--model", model, "--no-session-persistence", "--tools", "", "--system-prompt-file", str(system_file), "--json-schema", json.dumps(schema)]
     if effort:
         cmd += ["--effort", effort]
-    proc = subprocess.run(cmd, input=user_prompt(batch), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900, check=False)
+    proc = subprocess.run(cmd, input=prompt(batch), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900, check=False)
     if proc.returncode != 0:
         detail = proc.stderr.strip() or proc.stdout.strip()
         try:  # Claude Code reports usage-limit / API errors as a JSON envelope with a human-readable result
@@ -270,7 +375,10 @@ def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[
 # --------------------------------------------------------------------------------------
 
 
-def with_retries(fn: Any, log: logging.Logger, label: str, max_attempts: int = 6) -> BatchResult:
+RATE_LIMIT_RE = re.compile(r"rate.?limit|429|overloaded|too many requests|capacity", re.IGNORECASE)
+
+
+def with_retries(fn: Any, log: logging.Logger, label: str, max_attempts: int = 6, max_delay: float = 90.0) -> BatchResult:
     delay = 3.0
     for attempt in range(1, max_attempts + 1):
         try:
@@ -280,22 +388,27 @@ def with_retries(fn: Any, log: logging.Logger, label: str, max_attempts: int = 6
                 raise
             if "anthropic" in type(exc).__module__ and getattr(exc, "status_code", 500) < 500 and getattr(exc, "status_code", 500) != 429:
                 raise  # client-side API errors (400/401/403/404) are not retried
-            log.warning("%s: %s: %s; retry %d in %.0fs", label, type(exc).__name__, str(exc)[:160], attempt, delay)
-            time.sleep(delay)
-            delay = min(delay * 2, 90)
+            wait = delay * (2 if RATE_LIMIT_RE.search(str(exc)) else 1)  # rate limits back off harder
+            log.warning("%s: %s: %s; retry %d in %.0fs", label, type(exc).__name__, str(exc)[:160], attempt, wait)
+            time.sleep(wait)
+            delay = min(delay * 2, max_delay)
     raise RuntimeError("unreachable")
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--backend", choices=("api", "claude-code"), default="api")
+    p.add_argument("--mode", choices=tuple(MODES), default="vote", help="vote (default): every candidate, include/exclude/unsure; tiebreak: the triage's unsure/conflict records, include/exclude only")
     p.add_argument("--candidates", default=str(CANDIDATES))
-    p.add_argument("--out", default=None, help="votes CSV (default data/screening/llm_votes.csv; dry runs use llm_votes_dryrun.csv)")
+    p.add_argument("--triage", default=str(TRIAGE), help="tiebreak mode: triage.csv from scripts/screen_triage.py")
+    p.add_argument("--out", default=None, help="votes CSV (default data/screening/llm_votes.csv, tiebreak llm_votes_tiebreak.csv; dry runs use *_dryrun.csv)")
     p.add_argument("--model", default=None, help="api: claude-sonnet-5 (default); claude-code: opus (default) | sonnet | full id")
     p.add_argument("--batch-size", type=int, default=20)
     p.add_argument("--workers", type=int, default=1, help="parallel batches")
     p.add_argument("--effort", default=None, help="thinking effort: low|medium|high (api default low; claude-code default = CLI default)")
     p.add_argument("--max-consecutive-failures", type=int, default=5, help="stop the run (it is resumable) after this many batches fail permanently in a row, e.g. a usage-window limit")
+    p.add_argument("--max-attempts", type=int, default=6, help="attempts per batch before it counts as a permanent failure")
+    p.add_argument("--max-delay", type=float, default=90.0, help="cap on the exponential backoff between attempts (seconds; rate-limit errors wait twice this)")
     p.add_argument("--limit", type=int, default=0, help="stop after N new records (0 = all)")
     p.add_argument("--dry-run", type=int, default=0, metavar="N", help="vote on N random records into a separate file and report cost")
     p.add_argument("--seed", type=int, default=20260917)
@@ -304,10 +417,12 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=args.log_level.upper(), format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("screen_llm")
     model = args.model or DEFAULT_MODEL[args.backend]
+    prompt_version, schema, columns, extra_field, default_out = MODES[args.mode]
+    prompt_fn = tiebreak_user_prompt if args.mode == "tiebreak" else user_prompt
 
     ex = protocol_excerpts()
-    system = system_prompt(ex)
-    log.info("prompt %s: system block %d chars (definition %d, steps %d, criteria %d)", PROMPT_VERSION, len(system), len(ex["definition"]), len(ex["steps"]), len(ex["criteria"]))
+    system = tiebreak_system_prompt(ex) if args.mode == "tiebreak" else system_prompt(ex)
+    log.info("mode %s, prompt %s: system block %d chars (definition %d, steps %d, criteria %d)", args.mode, prompt_version, len(system), len(ex["definition"]), len(ex["steps"]), len(ex["criteria"]))
 
     if args.backend == "api":
         key = api_key()
@@ -323,7 +438,7 @@ def main(argv: list[str] | None = None) -> int:
         tmpdir = None
 
         def run_batch(batch: list[dict[str, str]]) -> BatchResult:
-            return vote_batch_api(client, model, system, batch, args.effort or "low")
+            return vote_batch_api(client, model, system, batch, args.effort or "low", schema, prompt_fn)
     else:
         exe = find_claude_exe()
         if not exe:
@@ -335,11 +450,15 @@ def main(argv: list[str] | None = None) -> int:
         log.info("claude-code backend: %s, model alias %r", exe, model)
 
         def run_batch(batch: list[dict[str, str]]) -> BatchResult:
-            return vote_batch_claude_code(exe, model, system_file, batch, args.effort)
+            return vote_batch_claude_code(exe, model, system_file, batch, args.effort, schema, prompt_fn)
 
-    with open(args.candidates, encoding="utf-8", newline="") as fh:
-        rows = list(csv.DictReader(fh))
-    out = Path(args.out) if args.out else OUT_DIR / ("llm_votes_dryrun.csv" if args.dry_run else "llm_votes.csv")
+    if args.mode == "tiebreak":
+        rows = tiebreak_records(Path(args.triage), Path(args.candidates))
+        log.info("tiebreak input: %d unsure/conflict records from %s", len(rows), args.triage)
+    else:
+        with open(args.candidates, encoding="utf-8", newline="") as fh:
+            rows = list(csv.DictReader(fh))
+    out = Path(args.out) if args.out else OUT_DIR / (default_out.replace(".csv", "_dryrun.csv") if args.dry_run else default_out)
     if out.name.lower().startswith(("votes", "rayyan", "asreview", "human")):
         print(f"refusing to write to {out}: looks like a human vote file", file=sys.stderr)
         return 2
@@ -367,8 +486,8 @@ def main(argv: list[str] | None = None) -> int:
     with out.open("w" if args.dry_run else "a", encoding="utf-8", newline="") as fh, ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
         w = csv.writer(fh)
         if new_file:
-            w.writerow(COLUMNS)
-        futures = {pool.submit(with_retries, (lambda b=b: run_batch(b)), log, f"batch {i + 1}/{len(batches)}"): b for i, b in enumerate(batches)}
+            w.writerow(columns)
+        futures = {pool.submit(with_retries, (lambda b=b: run_batch(b)), log, f"batch {i + 1}/{len(batches)}", args.max_attempts, args.max_delay): b for i, b in enumerate(batches)}
         for k, fut in enumerate(as_completed(futures), 1):
             batch = futures[fut]
             if fut.cancelled():
@@ -388,7 +507,7 @@ def main(argv: list[str] | None = None) -> int:
             consecutive_failures = 0
             per_in, per_out, per_cost = round(res.tokens_in / len(batch)), round(res.tokens_out / len(batch)), res.cost_usd / len(batch)
             for r, v in zip(batch, res.votes, strict=True):
-                w.writerow([r["id"], v["vote"], v["reason"][:200], v["decision_step"], res.model, PROMPT_VERSION, per_in, per_out, f"{per_cost:.6f}"])
+                w.writerow([r["id"], v["vote"], v["reason"][:200], v[extra_field], res.model, prompt_version, per_in, per_out, f"{per_cost:.6f}"])
             fh.flush()
             n += len(batch)
             tokens_in += res.tokens_in
@@ -404,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
     per_record = spent / n if n else 0.0
     secs = time.time() - t0
     summary = {
-        "backend": args.backend, "effort": args.effort, "batch_size": args.batch_size, "aborted_on_consecutive_failures": aborted, "records_voted": n, "records_failed": failed, "batches": len(batches), "workers": args.workers, "model": sorted(models) or [model], "prompt_version": PROMPT_VERSION,
+        "backend": args.backend, "mode": args.mode, "effort": args.effort, "batch_size": args.batch_size, "aborted_on_consecutive_failures": aborted, "records_voted": n, "records_failed": failed, "batches": len(batches), "workers": args.workers, "model": sorted(models) or [model], "prompt_version": prompt_version,
         "tokens_in": tokens_in, "tokens_out": tokens_out, "cache_read": cache_read, "cache_write": cache_write,
         "cost_usd": round(spent, 4), "cost_note": "Anthropic list-price equivalent; with --backend claude-code this is consumed as subscription usage, not billed",
         "cost_per_record_usd": round(per_record, 6), "extrapolated_cost_all_candidates_usd": round(per_record * len(rows), 2),

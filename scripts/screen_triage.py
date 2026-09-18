@@ -1,14 +1,19 @@
 #!/usr/bin/env python
-"""Title/abstract triage: two model votes -> tiers -> the smallest possible human queue.
+"""Title/abstract triage: two model votes (+ a decisive third) -> tiers -> the smallest possible human queue.
 
 Implements protocol Amendment 3 (docs/protocol_prisma_p.md, Amendments table, 2026-09-17):
 every record gets two independent model votes; the single human screener decides conflicts,
 unresolved 'unsure' records, and a random verification sample of model-agreed decisions.
+Records the two-vote triage would send to the human as `unsure` or `conflict` get a decisive
+third model vote (`scripts/screen_llm.py --mode tiebreak`, include/exclude only, with a
+confidence) and are re-tiered as T5; the human keeps only the three-way splits, the
+low-confidence contradictions and a verification sample.
 
 Inputs (read only):
     data/raw/candidates.csv                 one row per candidate (id, title, abstract, year, ...)
     data/screening/llm_votes.csv            first vote per record (Opus 5, Sonnet 5 fallback)
     data/screening/llm_votes_second.csv     second vote per record (Sonnet 5), still being written
+    data/screening/llm_votes_tiebreak.csv   third vote (Opus 5 tiebreak) for the unsure/conflict records
 
 Outputs:
     data/screening/triage.csv               one row per candidate with tier, rule, auto decision
@@ -22,14 +27,21 @@ Tiers (applied in order; the first that fires wins):
     T2  both models include                     -> full text; 5 % verification sample to the human
     T3  include vs exclude                      -> human (conflict)
     T4  at least one unsure                     -> rule R4 (see `apply_r4`); rest to the human
+    T5  a tiebreak vote exists                  -> rule T5 (see `apply_t5`): the tiebreak decides unless
+                                                   the three votes split three ways or a low-confidence
+                                                   tiebreak contradicts a definite prior vote; 3 %
+                                                   verification sample of the automatic decisions
     pending  second vote not yet available      -> re-run when coverage grows
+
+T5 is checked before T1-T4: a record with a tiebreak vote is one that T3/T4 had sent to the
+human, so the tiebreak rule replaces that outcome.
 
 Re-runnable: verification samples are chosen by a per-record hash of (seed, record_id), so a
 record's sample membership never changes when the script is re-run on more coverage, and human
 decisions already made stay attached to the right records.
 
 Usage:
-    python scripts/screen_triage.py [--candidates ...] [--votes1 ...] [--votes2 ...] [--out-dir ...]
+    python scripts/screen_triage.py [--candidates ...] [--votes1 ...] [--votes2 ...] [--votes3 ...] [--out-dir ...]
 """
 from __future__ import annotations
 
@@ -48,8 +60,11 @@ sys.path.insert(0, str(REPO / "scripts"))
 from kappa import cohen_kappa
 
 SEED = 20260917
+TIEBREAK_SEED = 20260916      # separate hash stream for the T5 verification sample
 VERIFY_EXCLUDE_RATE = 0.03   # T1 (both exclude) and R4a (rule exclude)
 VERIFY_INCLUDE_RATE = 0.05   # T2 (both include) and R4b (rule include)
+VERIFY_TIEBREAK_RATE = 0.03  # T5 automatic decisions (include and exclude alike)
+TIERS = ["T0", "T1", "T2", "T3", "T4", "T5", "pending"]
 WINDOW_START_YEAR = 2022     # criterion (c): first public release 2022-10-01 .. 2026-08-31
 WINDOW_START_YYMM = "2210"   # arXiv id month prefix of the window start
 WINDOW_END_YEAR = 2026
@@ -58,7 +73,8 @@ ABSTRACT_CHARS = 1500
 
 OUT_COLUMNS = [
     "record_id", "title", "year", "source", "url",
-    "vote_1", "model_1", "reason_1", "vote_2", "model_2", "reason_2",
+    "vote_1", "model_1", "reason_1", "step_1", "vote_2", "model_2", "reason_2", "step_2",
+    "vote_3", "model_3", "reason_3", "confidence_3",
     "tier", "tier_rule", "auto_decision", "needs_human", "human_sample_type",
 ]
 
@@ -244,16 +260,46 @@ def apply_r4(v1: str, s1: str, r1: str, v2: str, s2: str, r2: str, source: str =
     return "", "R4_human_unresolved"
 
 
-def assign_tiers(cands: pd.DataFrame, votes1: pd.DataFrame, votes2: pd.DataFrame) -> pd.DataFrame:
+def apply_t5(v1: str, v2: str, v3: str, conf3: str) -> tuple[str, str]:
+    """Rule T5 for records with a tiebreak vote (v3 in {include, exclude}, conf3 in {high, medium, low}).
+
+    Returns (auto_decision, rule) where auto_decision is 'include', 'exclude' or '' (human).
+
+    A prior vote *supports* the tiebreak when it equals v3 and *opposes* it when it is the other
+    definite vote (`unsure` neither supports nor opposes). The human gets the record iff
+      (a) three-way split: a definite prior vote opposes the tiebreak and none supports it
+          (include / exclude / unsure with no two agreeing), or
+      (b) low-confidence contradiction: the tiebreak is low-confidence and a definite prior vote
+          opposes it (even though the other prior vote supports it).
+    Otherwise the tiebreak decides: `T5_majority_<v3>` when a prior vote supports it (two of
+    three agree), `T5_tiebreak_<v3>` when both priors were unsure. The rule string carries the
+    confidence after a colon for the report.
+    """
+    priors = (v1, v2)
+    supported = v3 in priors
+    opposed = any(v in ("include", "exclude") and v != v3 for v in priors)
+    if opposed and not supported:
+        return "", f"T5_human_three_way_split:{conf3}"
+    if opposed and conf3 == "low":
+        return "", f"T5_human_low_confidence_contradiction:{conf3}"
+    return v3, f"T5_{'majority' if supported else 'tiebreak'}_{v3}:{conf3}"
+
+
+def assign_tiers(cands: pd.DataFrame, votes1: pd.DataFrame, votes2: pd.DataFrame, votes3: pd.DataFrame | None = None) -> pd.DataFrame:
     """One row per candidate with tier, tier_rule, auto_decision, needs_human, human_sample_type."""
     cands = cands.fillna("").astype(str)
     v1 = votes1.fillna("").astype(str).drop_duplicates("record_id", keep="last")
     v2 = votes2.fillna("").astype(str).drop_duplicates("record_id", keep="last")
     v1 = v1.rename(columns={"vote": "vote_1", "model": "model_1", "reason": "reason_1", "decision_step": "step_1"})
     v2 = v2.rename(columns={"vote": "vote_2", "model": "model_2", "reason": "reason_2", "decision_step": "step_2"})
+    if votes3 is None or votes3.empty:
+        votes3 = pd.DataFrame(columns=["record_id", "vote", "model", "reason", "confidence"])
+    v3 = votes3.fillna("").astype(str).drop_duplicates("record_id", keep="last")
+    v3 = v3.rename(columns={"vote": "vote_3", "model": "model_3", "reason": "reason_3", "confidence": "confidence_3"})
     df = cands.rename(columns={"id": "record_id"}).merge(
         v1[["record_id", "vote_1", "model_1", "reason_1", "step_1"]], on="record_id", how="left"
-    ).merge(v2[["record_id", "vote_2", "model_2", "reason_2", "step_2"]], on="record_id", how="left").fillna("")
+    ).merge(v2[["record_id", "vote_2", "model_2", "reason_2", "step_2"]], on="record_id", how="left"
+    ).merge(v3[["record_id", "vote_3", "model_3", "reason_3", "confidence_3"]], on="record_id", how="left").fillna("")
 
     tiers, rules, autos, needs, samples = [], [], [], [], []
     for row in df.itertuples(index=False):
@@ -267,6 +313,13 @@ def assign_tiers(cands: pd.DataFrame, votes1: pd.DataFrame, votes2: pd.DataFrame
             tier, rule, auto = "T0", t0, T0_DECISIONS[t0]
         elif not v1_ or not v2_ or same_model:
             tier, rule = "pending", ("same_model_second_vote" if same_model else "second_vote_missing" if v1_ else "first_vote_missing")
+        elif r["vote_3"] in ("include", "exclude"):
+            tier = "T5"
+            auto, rule = apply_t5(v1_, v2_, r["vote_3"], r["confidence_3"])
+            if auto and sample_hash(r["record_id"], TIEBREAK_SEED) < VERIFY_TIEBREAK_RATE:
+                need, sample = 1, f"verify_{auto}"
+            elif not auto:
+                need, sample = 1, "tiebreak"
         elif v1_ == "exclude" and v2_ == "exclude":
             tier, rule, auto = "T1", "both_exclude", "exclude"
             if sample_hash(r["record_id"]) < VERIFY_EXCLUDE_RATE:
@@ -313,9 +366,10 @@ def build_report(df: pd.DataFrame, kap: dict, n_second_pass_target: int | None) 
     n = len(df)
     L = ["# Title/abstract triage report", "", f"Generated {now} by `scripts/screen_triage.py` (seed {SEED}).", "",
          (f"Candidates: {n:,}. First votes present: {(df.vote_1 != '').sum():,}. Second votes present: {(df.vote_2 != '').sum():,} "
-          f"(second-vote coverage among non-T0 records: {((df.vote_2 != '') & (df.tier != 'T0')).sum():,} of {(df.tier != 'T0').sum():,})."), ""]
+          f"(second-vote coverage among non-T0 records: {((df.vote_2 != '') & (df.tier != 'T0')).sum():,} of {(df.tier != 'T0').sum():,}). "
+          f"Tiebreak votes present: {(df.vote_3 != '').sum():,}."), ""]
     L += ["## Tiers", "", "| tier | rule | n | auto_decision | to human |", "|---|---|---:|---|---:|"]
-    for tier in ["T0", "T1", "T2", "T3", "T4", "pending"]:
+    for tier in TIERS:
         sub = df[df.tier == tier]
         if sub.empty:
             L.append(f"| {tier} | - | 0 | | 0 |")
@@ -336,6 +390,8 @@ def build_report(df: pd.DataFrame, kap: dict, n_second_pass_target: int | None) 
           f"    - `R4a_both_negative`: both votes carry a step 1-3 negative signal (an `exclude` at step 1-3, or an `unsure` at step 1-3 whose reason matches survey / benchmark_only / dataset / position_paper / no_loop / no_actions) and no hedge -> exclude; a {VERIFY_EXCLUDE_RATE:.0%} verification sample goes to the human.",
           f"    - `R4b_include_plus_unsure_no_negative`: one `include` (decision_step none) + one `unsure` whose reason has no negative signal -> forwarded to full text; a {VERIFY_INCLUDE_RATE:.0%} verification sample goes to the human.",
           "    - `R4_human_unresolved`: everything else (unsure+unsure without two clean negatives, exclude at step 8 + unsure, include + unsure with a negative signal): human.",
+          ("- T5 (a tiebreak vote exists; checked before T1-T4): the records T3/T4 had sent to the human as `conflict` / `unsure` got a decisive third vote (`scripts/screen_llm.py --mode tiebreak`, prompt ta-v2-tiebreak-2026-09-17, include/exclude only, with a confidence high/medium/low). A prior vote supports the tiebreak when it is the same vote and opposes it when it is the other definite vote; `unsure` does neither. The human gets the record iff no two of the three votes agree on include or exclude (`T5_human_three_way_split`: include / exclude / unsure), or the tiebreak is low-confidence and contradicts a definite prior vote (`T5_human_low_confidence_contradiction`); sample type `tiebreak`. Otherwise the tiebreak decides: `T5_majority_include` / `T5_majority_exclude` (a prior vote agrees with it) or `T5_tiebreak_include` / `T5_tiebreak_exclude` (both priors were unsure); "
+          f"a {VERIFY_TIEBREAK_RATE:.0%} verification sample of the automatic decisions (hash(seed {TIEBREAK_SEED}, record_id)) goes to the human as `verify_include` / `verify_exclude`."),
           "- `pending`: the second vote is not available yet (or came from the same model as the first); re-run after the second pass advances.",
           ""]
     # human workload
@@ -346,7 +402,7 @@ def build_report(df: pd.DataFrame, kap: dict, n_second_pass_target: int | None) 
     L.append(f"| **total** | **{len(hq):,}** |")
     L += ["", f"At 15 s per title/abstract decision: {len(hq) * 15 / 3600:.1f} h; at 30 s: {len(hq) * 30 / 3600:.1f} h.", ""]
     # projection
-    two = df[df.tier.isin(["T1", "T2", "T3", "T4"])]
+    two = df[df.tier.isin(["T1", "T2", "T3", "T4", "T5"])]
     if len(two):
         rate_h = two.needs_human.mean()
         rate_ft = (two.auto_decision == "include").mean()
@@ -383,14 +439,27 @@ def build_report(df: pd.DataFrame, kap: dict, n_second_pass_target: int | None) 
     for r in t0.itertuples(index=False):
         L.append(f"| {r.tier_rule} | {r.record_id} | {str(r.title)[:80].replace('|', '/')} | {r.year} | {r.source} |")
     L.append("")
-    # R4 samples for auditing
-    for rule_prefix, label in (("R4a", "R4a rule excludes (random 25 for audit)"), ("R4b", "R4b rule includes (random 15 for audit)")):
+    # T5 confidence breakdown
+    t5 = df[df.tier == "T5"]
+    if len(t5):
+        L += ["## T5 tiebreak: rule x confidence", "", "| rule | high | medium | low | total | to human |", "|---|---:|---:|---:|---:|---:|"]
+        rule_key = t5.tier_rule.str.replace(r":.*$", "", regex=True)
+        for rule, g in t5.groupby(rule_key, sort=False):
+            c = g.confidence_3.value_counts()
+            L.append(f"| {rule} | {int(c.get('high', 0)):,} | {int(c.get('medium', 0)):,} | {int(c.get('low', 0)):,} | {len(g):,} | {int(g.needs_human.sum()):,} |")
+        L += ["", "Tiebreak vote vs prior votes: " + ", ".join(f"{k[0]}/{k[1]} -> {k[2]}: {n:,}" for k, n in t5.groupby(['vote_1', 'vote_2', 'vote_3']).size().items()), ""]
+    # R4 / T5 samples for auditing
+    audits = (("R4a", "R4a rule excludes (random 25 for audit)", 25), ("R4b", "R4b rule includes (random 15 for audit)", 15),
+              ("T5_majority_exclude", "T5 majority excludes (random 15 for audit)", 15), ("T5_tiebreak_exclude", "T5 tiebreak excludes, both priors unsure (random 15 for audit)", 15),
+              ("T5_majority_include", "T5 majority includes (random 10 for audit)", 10), ("T5_tiebreak_include", "T5 tiebreak includes, both priors unsure (random 10 for audit)", 10))
+    for rule_prefix, label, k in audits:
         sub = df[df.tier_rule.str.startswith(rule_prefix)]
         if sub.empty:
             continue
-        L += [f"## {label}", "", "| record_id | title | vote_1 / reason | vote_2 / reason |", "|---|---|---|---|"]
-        for r in sub.sample(min(len(sub), 25 if rule_prefix == "R4a" else 15), random_state=SEED).itertuples(index=False):
-            L.append(f"| {r.record_id} | {str(r.title)[:70].replace('|', '/')} | {r.vote_1}: {str(r.reason_1)[:110].replace('|', '/')} | {r.vote_2}: {str(r.reason_2)[:110].replace('|', '/')} |")
+        L += [f"## {label}", "", "| record_id | title | vote_1 / reason | vote_2 / reason | vote_3 / reason |", "|---|---|---|---|---|"]
+        for r in sub.sample(min(len(sub), k), random_state=SEED).itertuples(index=False):
+            v3 = f"{r.vote_3} ({r.confidence_3}): {str(r.reason_3)[:110].replace('|', '/')}" if r.vote_3 else "-"
+            L.append(f"| {r.record_id} | {str(r.title)[:70].replace('|', '/')} | {r.vote_1}: {str(r.reason_1)[:110].replace('|', '/')} | {r.vote_2}: {str(r.reason_2)[:110].replace('|', '/')} | {v3} |")
         L.append("")
     return "\n".join(L)
 
@@ -406,6 +475,7 @@ def write_queue(df: pd.DataFrame, cands: pd.DataFrame, json_path: Path, js_path:
             "sample_type": r.human_sample_type,
             "vote_1": r.vote_1, "model_1": r.model_1, "reason_1": r.reason_1,
             "vote_2": r.vote_2, "model_2": r.model_2, "reason_2": r.reason_2,
+            "vote_3": r.vote_3, "model_3": r.model_3, "reason_3": r.reason_3, "confidence_3": r.confidence_3,
         })
     payload = {"generated_at": datetime.now(UTC).isoformat(timespec="seconds"), "seed": SEED, "n": len(records),
                "sample_types": {k: int(v) for k, v in hq.human_sample_type.value_counts().items()}, "records": records}
@@ -420,6 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--candidates", default=str(REPO / "data/raw/candidates.csv"))
     p.add_argument("--votes1", default=str(REPO / "data/screening/llm_votes.csv"))
     p.add_argument("--votes2", default=str(REPO / "data/screening/llm_votes_second.csv"))
+    p.add_argument("--votes3", default=str(REPO / "data/screening/llm_votes_tiebreak.csv"), help="tiebreak votes (screen_llm.py --mode tiebreak); optional")
     p.add_argument("--second-pass-list", default=str(REPO / "data/screening/candidates_second_pass.csv"), help="records targeted by the running second pass (for the projection)")
     p.add_argument("--out-dir", default=str(REPO / "data/screening"))
     args = p.parse_args(argv)
@@ -427,11 +498,12 @@ def main(argv: list[str] | None = None) -> int:
     cands = pd.read_csv(args.candidates, dtype=str, keep_default_na=False)
     v1 = pd.read_csv(args.votes1, dtype=str, keep_default_na=False)
     v2 = pd.read_csv(args.votes2, dtype=str, keep_default_na=False) if Path(args.votes2).exists() else pd.DataFrame(columns=v1.columns)
+    v3 = pd.read_csv(args.votes3, dtype=str, keep_default_na=False) if Path(args.votes3).exists() else None
     target = None
     if Path(args.second_pass_list).exists():
         target = len(pd.read_csv(args.second_pass_list, dtype=str, keep_default_na=False, usecols=["id"]))
 
-    df = assign_tiers(cands, v1, v2)
+    df = assign_tiers(cands, v1, v2, v3)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     df[OUT_COLUMNS].to_csv(out_dir / "triage.csv", index=False, encoding="utf-8", lineterminator="\n")
@@ -439,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "triage_report.md").write_text(build_report(df, kap, target), encoding="utf-8")
     nq = write_queue(df, cands, out_dir / "human_queue.json", out_dir / "human_queue.js")
 
-    print(f"candidates {len(df):,}; tiers: " + ", ".join(f"{t}={int((df.tier == t).sum()):,}" for t in ["T0", "T1", "T2", "T3", "T4", "pending"]))
+    print(f"candidates {len(df):,}; tiers: " + ", ".join(f"{t}={int((df.tier == t).sum()):,}" for t in TIERS))
     print(f"human queue {nq:,}: " + ", ".join(f"{k}={v}" for k, v in df[df.needs_human == 1].human_sample_type.value_counts().items()))
     print(f"model-model kappa on n={kap['n_overlap']:,}: 3-class {kap['kappa_3class']:.3f}, binary {kap['kappa_binary']:.3f}")
     print(f"wrote {out_dir / 'triage.csv'}, {out_dir / 'triage_report.md'}, {out_dir / 'human_queue.json'}, {out_dir / 'human_queue.js'}")

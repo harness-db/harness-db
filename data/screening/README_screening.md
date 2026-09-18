@@ -1,7 +1,8 @@
 # Title/abstract screening: triage framework (Amendment 3)
 
-One page on how 27,747 candidates become title/abstract decisions with two model votes and one
-human screener, per `docs/protocol_prisma_p.md` Amendment 3 (2026-09-17). Everything below is
+One page on how 27,747 candidates become title/abstract decisions with two model votes, a
+decisive third model vote where the two disagree or hedge, and one human screener, per
+`docs/protocol_prisma_p.md` Amendment 3 (2026-09-17). Everything below is
 implemented in `scripts/screen_triage.py`, `screening/screen.html` and `scripts/screen_merge.py`;
 the numbers reach the paper only through `data/prisma_counts.json` and
 `data/screening/screening_stats.json`.
@@ -13,6 +14,7 @@ the numbers reach the paper only through `data/prisma_counts.json` and
 | `data/raw/candidates.csv` | frozen candidate set (27,747 rows) |
 | `data/screening/llm_votes.csv` | vote 1 per record: Claude Opus 5 for 21,480 records, Claude Sonnet 5 fallback for 6,267; prompt `ta-v1-2026-09-17` |
 | `data/screening/llm_votes_second.csv` | vote 2 (Claude Sonnet 5) for the 21,480 Opus-voted records, still being appended by a background job |
+| `data/screening/llm_votes_tiebreak.csv` | vote 3 (Claude Opus 5 via Claude Code, prompt `ta-v2-tiebreak-2026-09-17`) for every record the two-vote triage had sent to the human as `unsure` or `conflict`; `include` / `exclude` only, with a `confidence` (high / medium / low) instead of a decision step. Written by `python scripts/screen_llm.py --mode tiebreak --backend claude-code --workers 8 --batch-size 40 --effort low` (resumable) |
 
 Each vote is `include` / `exclude` / `unsure` with a one-line reason and the decision step of
 `docs/definition.md` section 5 that fired (1 no named system, 2 no loop, 3 no actions, 8 embodied
@@ -27,6 +29,7 @@ or date, `none` for include).
 | T2 | both models `include` | forward to full text | 5 % verification sample (`verify_include`) |
 | T3 | `include` vs `exclude` | human | every record (`conflict`) |
 | T4 | at least one `unsure` | rule R4 below | what R4 cannot resolve (`unsure`) + 3 % / 5 % of R4 excludes / includes |
+| T5 | a tiebreak vote exists (checked before T1-T4: it only exists for records T3/T4 had sent to the human) | rule T5 below | three-way splits and low-confidence contradictions (`tiebreak`) + 3 % of T5 automatic decisions (`verify_exclude` / `verify_include`) |
 | pending | second vote missing, or both votes from the same model | none | nothing yet; re-run the script |
 
 No upper date bound is taken from the paper date: a paper posted after 2026-08-31 can describe a
@@ -62,6 +65,35 @@ Applied to the two reasons and decision steps; the human gets everything the rul
 5. `R4_human_unresolved` -> human: everything else (unsure+unsure without two clean negatives,
    exclude at step 8 + unsure, include + unsure with a negative signal).
 
+### Rule T5 (records with a tiebreak vote)
+
+The tiebreak model sees the title, abstract, year, source, url and both prior votes with their
+decision steps and reasons, and must answer `include` or `exclude` (the prompt adds one
+paragraph to the protocol text: title/abstract screening is inclusive; exclude only what is
+clearly model/training-only, benchmark/dataset without a reference agent, survey/position/
+evaluation-only, a component without a loop, robotics, or outside the window). A prior vote
+*supports* the tiebreak when it is the same vote and *opposes* it when it is the other definite
+vote; `unsure` does neither (unsure never counts as agreement).
+
+1. `T5_human_three_way_split` -> human (`tiebreak`): a definite prior vote opposes the tiebreak
+   and none supports it, i.e. the three votes are include / exclude / unsure with no two
+   agreeing.
+2. `T5_human_low_confidence_contradiction` -> human (`tiebreak`): the tiebreak is
+   low-confidence and contradicts a definite prior vote (the other prior vote agrees with it).
+3. `T5_majority_include` / `T5_majority_exclude` -> the tiebreak decides: a prior vote agrees
+   with it (two of three agree).
+4. `T5_tiebreak_include` / `T5_tiebreak_exclude` -> the tiebreak decides: both priors were
+   `unsure`, so nothing opposes it (also when its confidence is low; the report lists the
+   rule x confidence table so this can be revisited).
+
+In short: human iff no two of the three votes agree on include or exclude, or the tiebreak vote
+is low-confidence and contradicts a prior definite vote. A 3 % hash sample
+(`sha1(f"{20260916}:{record_id}")`, a separate stream from the T1/T2 sample) of the T5
+automatic decisions goes to the human as `verify_exclude` / `verify_include`, and
+`screen_merge.py` reports their error rates separately (`T5_tiebreak_exclude` /
+`T5_tiebreak_include`). The rule string in `triage.csv` carries the confidence after a colon
+(`T5_majority_exclude:high`).
+
 R4a knowingly excludes survey/benchmark-only records that the protocol's step 10 would otherwise
 link to existing systems at full text; they add no system to `systems` (their bibliographies were
 already snowballed), and the verification sample measures the cost.
@@ -85,14 +117,18 @@ keystroke is saved in the browser's localStorage. "Export decisions.csv" downloa
 "Merge existing decisions.csv" loads a previous export (newer `decided_at` wins). Save exports as
 `data/screening/decisions.csv`.
 
-Verification records look like every other record (both model votes and the sample-type chip are
-visible for all records). Decide them on the title/abstract alone, not on the votes.
+Verification records look like every other record (all model votes, including the tiebreak vote
+with its confidence, and the sample-type chip are visible for all records). Decide them on the
+title/abstract alone, not on the votes.
 
 ## Commands, in order
 
 ```
 python scripts/screen_triage.py            # re-run whenever llm_votes_second.csv has grown
 #   -> data/screening/triage.csv, triage_report.md, human_queue.json, human_queue.js
+python scripts/screen_llm.py --mode tiebreak --backend claude-code --workers 8 --batch-size 40 --effort low
+#   -> data/screening/llm_votes_tiebreak.csv for the unsure/conflict rows of triage.csv (resumable)
+python scripts/screen_triage.py            # re-run: those records move to T5
 #   open screening/screen.html, decide, export -> data/screening/decisions.csv
 python scripts/screen_merge.py             # merge decisions; add --no-render to skip the diagram
 #   -> data/screening/screened.csv, screening_stats.json, data/prisma_counts.json, paper/figures/prisma_flow.*
@@ -107,14 +143,14 @@ and the PRISMA arithmetic check is only enforced once every candidate has a deci
 ## How the numbers reach the paper
 
 - `data/screening/screened.csv`: `final_decision` (include = sought for full text, exclude) and
-  `decision_source` (`rule` T0, `model_agree` T1/T2, `model_rule` R4, `human`, `human_unsure`)
+  `decision_source` (`rule` T0, `model_agree` T1/T2, `model_rule` R4, `model_tiebreak` T5, `human`, `human_unsure`)
   per record. A human decision always overrides an automatic one.
 - `data/prisma_counts.json`: `screened_title_abstract` (records with a decision),
   `excluded_title_abstract`, `sought_full_text`; `scripts/prisma_diagram.py` renders the flow.
 - `data/screening/screening_stats.json`: model-model kappa is in `triage_report.md`; human-vs-
   model kappa (3-class and binarised exclude-vs-forward) overall and per sample type; the
   agreed-exclude error rate (share of `verify_exclude` records the human did not exclude,
-  strict = human include, lenient = include or unsure, Wilson 95 % CI, split T1 vs R4a) and the
+  strict = human include, lenient = include or unsure, Wilson 95 % CI, split T1 vs R4a vs T5) and the
   agreed-include error rate; `projected_missed_by_auto_exclude` = lenient rate x number of
   automatic excludes, for the limitations section.
 - Report in the methods: the tier table of `triage_report.md`, the two kappas, the error rates
@@ -122,6 +158,8 @@ and the PRISMA arithmetic check is only enforced once every candidate has a deci
 
 ## Current state (see `triage_report.md` for the live numbers)
 
-Second-vote coverage is partial. Records with one vote stay `pending`; the 6,267 records whose
-first vote came from the Sonnet fallback need a further Opus pass to get two different-model
-votes (the API budget is spent; until then they stay pending and are reported as such).
+Second-vote coverage is 27,647 of 27,747 (100 records whose first vote came from the Sonnet
+fallback and have no different-model second vote stay `pending`). The tiebreak pass covers the
+13,483 records that the two-vote triage had left to the human as `unsure` / `conflict`; the
+human queue is now the T5 leftovers plus the verification samples (`triage_report.md`,
+"Human workload").

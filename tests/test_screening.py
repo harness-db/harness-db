@@ -248,3 +248,83 @@ def test_wilson_bounds():
     assert sm.wilson(0, 0) == (None, None)
     lo, hi = sm.wilson(0, 100)
     assert lo == 0.0 and 0.03 < hi < 0.04
+
+
+# ---------------------------------------------------------------- T5 tiebreak
+
+import screen_llm as sl
+
+VOTE3_COLS = ["record_id", "vote", "reason", "confidence", "model"]
+
+
+def vote3(rid, v, conf="high", reason="Named system loops over tools.", model="claude-opus-5"):
+    return {"record_id": rid, "vote": v, "reason": reason, "confidence": conf, "model": model}
+
+
+def run3(cands, v1, v2, v3):
+    return st.assign_tiers(pd.DataFrame(cands), pd.DataFrame(v1, columns=VOTE_COLS), pd.DataFrame(v2, columns=VOTE_COLS),
+                           pd.DataFrame(v3, columns=VOTE3_COLS)).set_index("record_id")
+
+
+@pytest.mark.parametrize("v1,v2,v3,conf,auto,rule", [
+    ("include", "exclude", "include", "high", "include", "T5_majority_include"),
+    ("include", "exclude", "exclude", "medium", "exclude", "T5_majority_exclude"),
+    ("include", "exclude", "exclude", "low", "", "T5_human_low_confidence_contradiction"),
+    ("unsure", "exclude", "exclude", "low", "exclude", "T5_majority_exclude"),        # low confidence but nothing contradicts
+    ("unsure", "exclude", "include", "high", "", "T5_human_three_way_split"),
+    ("include", "unsure", "exclude", "high", "", "T5_human_three_way_split"),
+    ("unsure", "unsure", "include", "medium", "include", "T5_tiebreak_include"),
+    ("unsure", "unsure", "exclude", "low", "exclude", "T5_tiebreak_exclude"),
+])
+def test_apply_t5(v1, v2, v3, conf, auto, rule):
+    a, r = st.apply_t5(v1, v2, v3, conf)
+    assert a == auto and r == f"{rule}:{conf}"
+
+
+def test_t5_end_to_end_and_precedence_over_t3_t4():
+    cands = [cand(r) for r in "abcd"]
+    v1 = [vote("a", "include"), vote("b", "unsure", "Benchmark; may ship agent.", "1"), vote("c", "include"), vote("d", "include")]
+    v2 = [vote("a", "exclude", step="1", model="claude-sonnet-5"), vote("b", "unsure", "Unclear.", "1", "claude-sonnet-5"),
+          vote("c", "exclude", step="1", model="claude-sonnet-5"), vote("d", "exclude", step="1", model="claude-sonnet-5")]
+    v3 = [vote3("a", "include"), vote3("b", "exclude", "medium", "Benchmark only."), vote3("c", "exclude", "low")]
+    df = run3(cands, v1, v2, v3)
+    assert df.loc["a", "tier"] == "T5" and df.loc["a", "auto_decision"] == "include" and df.loc["a", "human_sample_type"] in ("", "verify_include")
+    assert df.loc["b", "tier"] == "T5" and df.loc["b", "auto_decision"] == "exclude" and df.loc["b", "human_sample_type"] in ("", "verify_exclude")
+    assert df.loc["c", "tier"] == "T5" and df.loc["c", "needs_human"] == 1 and df.loc["c", "human_sample_type"] == "tiebreak"
+    assert df.loc["d", "tier"] == "T3" and df.loc["d", "human_sample_type"] == "conflict"     # no tiebreak vote yet
+    assert df.loc["a", "vote_3"] == "include" and df.loc["c", "confidence_3"] == "low" and df.loc["d", "vote_3"] == ""
+    assert set(df.reset_index().columns) >= set(st.OUT_COLUMNS)
+
+
+def test_t5_verification_sample_near_rate():
+    n = 4000
+    ids = [f"rec{i}" for i in range(n)]
+    df = run3([cand(r) for r in ids], [vote(r, "unsure", "x", "1") for r in ids], [vote(r, "unsure", "y", "1", "claude-sonnet-5") for r in ids],
+              [vote3(r, "exclude") for r in ids])
+    assert (df.tier == "T5").all() and (df.auto_decision == "exclude").all()
+    sampled = df[df.needs_human == 1]
+    assert 0.02 * n < len(sampled) < 0.04 * n and (sampled.human_sample_type == "verify_exclude").all()
+
+
+def test_tiebreak_item_formatting():
+    row = {"id": "r1", "title": "  Agent  X ", "abstract": "a " * 2000, "year": "2025", "source": "arxiv", "url": "https://x/r1",
+           "vote_1": "include", "step_1": "none", "reason_1": "Loops\nover tools.", "vote_2": "unsure", "step_2": "2", "reason_2": "Unclear loop."}
+    item = sl.tiebreak_item(row)
+    assert item["record_id"] == "r1" and item["title"] == "Agent X" and item["url"] == "https://x/r1"
+    assert item["abstract"].endswith(" [...]") and len(item["abstract"]) == sl.ABSTRACT_CHARS + 6
+    assert item["prior_votes"] == [{"screener": 1, "vote": "include", "decision_step": "none", "reason": "Loops over tools."},
+                                   {"screener": 2, "vote": "unsure", "decision_step": "2", "reason": "Unclear loop."}]
+    text = sl.tiebreak_user_prompt([row])
+    assert json.loads(text.split("\n", 1)[1])[0] == item
+    assert sl.TIEBREAK_SCHEMA["properties"]["votes"]["items"]["properties"]["vote"]["enum"] == ["include", "exclude"]
+    assert "Do not answer unsure." in sl.TIEBREAK_PARAGRAPH and sl.TIEBREAK_PROMPT_VERSION == "ta-v2-tiebreak-2026-09-17"
+
+
+def test_tiebreak_records_selects_unsure_and_conflict(tmp_path):
+    cols = st.OUT_COLUMNS
+    rows = [dict.fromkeys(cols, "") | {"record_id": r, "needs_human": h, "human_sample_type": s, "vote_1": "unsure", "vote_2": "unsure"}
+            for r, h, s in (("a", "1", "unsure"), ("b", "1", "conflict"), ("c", "1", "verify_exclude"), ("d", "0", ""))]
+    pd.DataFrame(rows, columns=cols).to_csv(tmp_path / "triage.csv", index=False)
+    pd.DataFrame([{"id": r, "abstract": f"abs {r}"} for r in "abcd"]).to_csv(tmp_path / "cands.csv", index=False)
+    recs = sl.tiebreak_records(tmp_path / "triage.csv", tmp_path / "cands.csv")
+    assert [r["id"] for r in recs] == ["a", "b"] and recs[1]["abstract"] == "abs b"
