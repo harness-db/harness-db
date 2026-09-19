@@ -214,7 +214,11 @@ def main() -> int:
 
     n1, n2 = merge()
     status("merge", decisive=n1, second_readings=n2)
-    run([PY, "scripts/system_registry.py", "--votes", str(FINAL1), "--pass2", str(FINAL2)], SCREEN / "autopilot_registry.log")
+    # The decisive vote (Opus where it exists) wins: the registry gets no second reading, otherwise its default
+    # --disputed hold would drop the very includes Opus recovered from tier-1 excludes. Agreement between the
+    # two readings is still computed by validate_screening from FINAL2.
+    run([PY, "scripts/system_registry.py", "--votes", str(FINAL1), "--pass2", str(SCREEN / "_no_second_reading.csv")],
+        SCREEN / "autopilot_registry.log")
     run([PY, "scripts/validate_screening.py", "--votes", str(FINAL1), "--pass2", str(FINAL2)], SCREEN / "autopilot_validate.log")
     counts = prisma()
     run([PY, "scripts/prisma_diagram.py"], SCREEN / "autopilot_prisma.log")
