@@ -344,8 +344,34 @@ def find_claude_exe() -> str | None:
     return str(real) if real.exists() else shim
 
 
-def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[dict[str, str]], effort: str | None = None, schema: dict[str, Any] = VOTE_SCHEMA, prompt: Any = user_prompt) -> BatchResult:
-    cmd = [exe, "-p", "--output-format", "json", "--model", model, "--no-session-persistence", "--tools", "", "--system-prompt-file", str(system_file), "--json-schema", json.dumps(schema)]
+def _json_from_text(text: str) -> Any:
+    """Parse a JSON object from model text (tolerates code fences or stray prose around it)."""
+    t = (text or "").strip()
+    if t.startswith("```"):
+        t = t.split("\n", 1)[1] if "\n" in t else t
+        t = t.rsplit("```", 1)[0]
+    a, b = t.find("{"), t.rfind("}")
+    if a < 0 or b <= a:
+        raise ValueError(f"no JSON object in model text: {t[:200]!r}")
+    return json.loads(t[a : b + 1])
+
+
+def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[dict[str, str]], effort: str | None = None, schema: dict[str, Any] = VOTE_SCHEMA, prompt: Any = user_prompt, text_json: bool = False) -> BatchResult:
+    """One headless Claude Code call. ``text_json`` asks for JSON as plain text instead of ``--json-schema``.
+
+    Why: with ``--json-schema`` Claude Code answers through a StructuredOutput tool and then makes a second
+    request just to acknowledge the tool result, re-sending the whole input (measured 2026-09-19: 2 requests,
+    82,783 input tokens each, for one 8-document batch). Plain-text JSON is one request; the caller validates
+    every answer against the same schema locally and retries on a parse or schema failure.
+    """
+    cmd = [exe, "-p", "--output-format", "json", "--model", model, "--no-session-persistence", "--tools", "", "--system-prompt-file", str(system_file)]
+    if not text_json:
+        cmd += ["--json-schema", json.dumps(schema)]
+    else:
+        base_prompt = prompt
+        instr = ("\n\nReturn ONLY one JSON object, with no prose and no code fences, that validates against this JSON Schema:\n"
+                 + json.dumps(schema, separators=(",", ":")))
+        prompt = lambda b, _p=base_prompt: _p(b) + instr
     if effort:
         cmd += ["--effort", effort]
     proc = subprocess.run(cmd, input=prompt(batch), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900, check=False)
@@ -360,7 +386,9 @@ def vote_batch_claude_code(exe: str, model: str, system_file: Path, batch: list[
     d = json.loads(proc.stdout)
     if d.get("is_error") or d.get("subtype") != "success":
         raise RuntimeError(f"claude result {d.get('subtype')}: {str(d.get('result'))[:300]}")
-    so = d.get("structured_output") or json.loads(d["result"])
+    so = d.get("structured_output") or _json_from_text(d.get("result", ""))
+    if not isinstance(so, dict) or "votes" not in so:
+        raise ValueError("model JSON has no 'votes' array")
     votes = _order_votes(so["votes"], batch)
     u = d.get("usage") or {}
     cr, cw = u.get("cache_read_input_tokens", 0) or 0, u.get("cache_creation_input_tokens", 0) or 0

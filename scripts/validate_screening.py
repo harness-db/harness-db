@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """Validate the automated full-text screening and write its report and audit data.
 
-Measures (protocol Amendment 4):
+Measures (protocol Amendments 4 and 5):
 * Recall of the POSITIVE reference set (``data/screening/validation_systems.csv``: must-cite
   systems plus systems catalogued by Rombaut, Barbaste and Meng) at each stage: search candidates,
-  forwarded by the title stage (``fulltext_queue.csv``), full-text include (pass 1), and the system
-  registry (``data/systems_candidates.csv``). A reference system is matched by arXiv id,
+  forwarded by the title stage (``fulltext_queue.csv``), full-text include (pass 1), the system
+  registry (``data/systems_candidates.csv``) and the Amendment 5 coding frame (``in_frame`` on
+  that file: >= 100 stars, catalogued or on a leaderboard, vendor product, or peer-reviewed with a
+  public implementation). A reference system is matched by arXiv id,
   repository URL, or name/alias (rapidfuzz ratio >= 90 on alphanumerics; names of four characters
   or fewer exactly) against candidate titles, ``system_name`` and ``systems_mentioned``. Every
   missing system is listed with the stage where it was lost.
@@ -24,6 +26,7 @@ Writes ``data/screening/fulltext_report.md`` and ``data/screening/fulltext_audit
 Usage:
     python scripts/validate_screening.py                       # whole queue
     python scripts/validate_screening.py --pilot               # restrict to data/screening/fulltext_pilot.csv
+    python scripts/validate_screening.py --pilot --votes data/screening/fulltext_votes.csv   # the v1 pilot
 """
 
 from __future__ import annotations
@@ -53,8 +56,8 @@ CANDIDATES = REPO / "data" / "raw" / "candidates.csv"
 QUEUE = SCREEN_DIR / "fulltext_queue.csv"
 PILOT = SCREEN_DIR / "fulltext_pilot.csv"
 INDEX = SCREEN_DIR / "fulltext_index.csv"
-PASS1 = SCREEN_DIR / "fulltext_votes.csv"
-PASS2 = SCREEN_DIR / "fulltext_votes_pass2.csv"
+PASS1 = SCREEN_DIR / "fulltext_votes_v2.csv"
+PASS2 = SCREEN_DIR / "fulltext_votes_v2_pass2.csv"
 FINAL = SCREEN_DIR / "fulltext_votes_final.csv"
 SYSTEMS = REPO / "data" / "systems_candidates.csv"
 REPORT = SCREEN_DIR / "fulltext_report.md"
@@ -64,7 +67,7 @@ NAME_THRESHOLD = 90
 TITLE_THRESHOLD = 90
 PASS2_EXCLUDE_FRACTION = 0.10  # must match scripts/fulltext_screen.py
 EXPECTED_SYSTEMS = (150, 300)  # protocol expectation (plan)
-STAGES = ["search", "title_forward", "fulltext_include", "registry"]
+STAGES = ["search", "title_forward", "fulltext_include", "registry", "coding_frame"]
 
 
 # --------------------------------------------------------------------------------------
@@ -305,10 +308,10 @@ def build(args: argparse.Namespace) -> tuple[str, dict[str, Any], dict[str, Any]
     pilot_rows = read_csv(PILOT)
     why = {r["record_id"]: r.get("why", "") for r in pilot_rows}
     scope = set(why) if args.pilot else set(queue)
-    p1 = [r for r in read_csv(PASS1) if r["record_id"] in scope]
-    p2 = [r for r in read_csv(PASS2) if r["record_id"] in scope]
-    final = [r for r in read_csv(FINAL) if r["record_id"] in scope]
-    systems = read_csv(SYSTEMS)
+    p1 = [r for r in read_csv(Path(args.votes)) if r["record_id"] in scope]
+    p2 = [r for r in read_csv(Path(args.pass2)) if r["record_id"] in scope]
+    final = [r for r in read_csv(Path(args.final)) if r["record_id"] in scope]
+    systems = read_csv(Path(args.systems))
     if args.pilot:
         systems = [s for s in systems if set(s["member_record_ids"].split(";")) & scope]
     refs = load_refs()
@@ -373,13 +376,30 @@ def build(args: argparse.Namespace) -> tuple[str, dict[str, Any], dict[str, Any]
     cc_all = [int(r["codable_count_computed"] or 0) for r in llm1]
     cc_inc = [int(r["codable_count_computed"] or 0) for r in inc1]
     reach7 = [r for r in llm1 if any(int(s.get("step", 0)) == 7 for s in jl(r["step_evidence"]))]
-    L += ["## 3. Codability (criterion b; count of the 38 dimensions the document gives evidence for)", "",
+    L += ["## 3. Codability (criterion b; count of the 38 dimensions the evidence bundle supports)", "",
+          ("Amendment 5: the count is recorded at screening and enforced at coding; step 7 only excludes a record with no "
+           "admissible artifact at all (`no_harness_description` / `no_artifact`)."), "",
           table(["codable_count", "all LLM-read records", "records reaching step 7", "pass-1 includes"],
                 [[b, n, m, k] for (b, n), (_, m), (_, k) in zip(codable_bins(cc_all), codable_bins([int(r["codable_count_computed"] or 0) for r in reach7]), codable_bins(cc_inc), strict=True)]), ""]
     if cc_inc:
         L.append(f"Includes: median codable_count {statistics.median(cc_inc)}, min {min(cc_inc)}, max {max(cc_inc)}; exact distribution {dict(sorted(Counter(cc_inc).items()))}.")
     if reach7:
-        L.append(f"Records reaching step 7: {len(reach7)}; failing it (no_harness_description at step 7): {sum(r['deciding_step'] == '7' for r in reach7)}.")
+        L.append(f"Records reaching step 7: {len(reach7)}; excluded there for a missing artifact: {sum(r['deciding_step'] == '7' for r in reach7)}.")
+    cf = Counter((r.get("codability_flag_computed") or r.get("codability_flag") or "-") for r in llm1)
+    if any(k != "-" for k in cf):
+        L.append("codability_flag (all LLM-read records): " + ", ".join(f"{k} {v}" for k, v in sorted(cf.items()))
+                 + "; among pass-1 includes: " + ", ".join(f"{k} {v}" for k, v in sorted(Counter((r.get("codability_flag_computed") or r.get("codability_flag") or "-") for r in inc1).items())) + ".")
+    with_repo = [r for r in llm1 if (r.get("repo_evidence") or "0") == "1"]
+    without_repo = [r for r in llm1 if (r.get("repo_evidence") or "0") != "1"]
+    if with_repo:
+        def med(rows: list[dict[str, str]]) -> str:
+            vals = [int(r["codable_count_computed"] or 0) for r in rows]
+            return f"{statistics.median(vals):.0f}" if vals else "n/a"
+
+        L.append(f"Repository evidence in the bundle (Amendment 5): {ci(len(with_repo), len(llm1))}; median codable_count "
+                 f"{med(with_repo)} with a repository vs {med(without_repo)} without; include rate "
+                 f"{ci(sum(r['decision'] == 'include' for r in with_repo), len(with_repo))} vs "
+                 f"{ci(sum(r['decision'] == 'include' for r in without_repo), len(without_repo))}.")
     layer_cov = Counter(L_ for r in inc1 for L_ in jl(r["layers_covered"]))
     if inc1:
         L.append("Layer coverage among includes: " + ", ".join(f"{k} {v}/{len(inc1)}" for k, v in sorted(layer_cov.items())) + ".")
@@ -460,14 +480,16 @@ def build(args: argparse.Namespace) -> tuple[str, dict[str, Any], dict[str, Any]
         vm = {r["record_id"]: b for r in p1 if (b := match_vote(ref, r, cands.get(r["record_id"], {})))}
         inc = {rid for rid in vm if p1_by[rid]["decision"] == "include"}
         s3 = bool(inc)
-        s4 = any(match_system(ref, s, set(vm)) for s in systems)
+        matched_systems = [s for s in systems if match_system(ref, s, set(vm))]
+        s4 = bool(matched_systems)
+        s5 = any(str(s.get("in_frame") or "0") == "1" for s in matched_systems)  # Amendment 5 coding frame
         ment = sum(mentioned(ref, r) for r in p1)
         if args.pilot and not (s1 or vm):
             continue  # reference not represented among pilot records
         in_scope_pos += 1
         for rid in set(cm_) | set(vm):
             audit_ref.setdefault(rid, ref.name)
-        flags_ = [s1, s2, s3, s4]
+        flags_ = [s1, s2, s3, s4, s5]
         for st, ok in zip(STAGES, flags_, strict=True):
             stage_found[st] += ok
         lost_at = next((st for st, ok in zip(STAGES, flags_, strict=True) if not ok), "")
@@ -483,8 +505,12 @@ def build(args: argparse.Namespace) -> tuple[str, dict[str, Any], dict[str, Any]
                 lost_at = "registry (disputed: pass 2 disagreed)"
             elif not final:
                 lost_at = "registry (not run yet)"
+        elif lost_at == "coding_frame":
+            lost_at = "coding_frame (in the census, outside the coded subset: " + (
+                ", ".join(sorted({s["system_id"] for s in matched_systems})) or "-") + ")"
         how = "; ".join(f"{x['record_id']}: {x['decision']} {x['exclusion_code']}/{x['exclusion_subreason']} step {x['deciding_step']} codable {x['codable_count_computed']} name '{x['system_name']}'" for x in screened[:4])
-        pos_rows.append([ref.name, len(cm_), len(fwd), len(inc), "yes" if s4 else "no", ment, lost_at or "-"])
+        frame_cell = ("yes: " + ";".join(sorted({s.get("frame_reason", "") for s in matched_systems if s.get("frame_reason")}))) if s5 else ("no" if s4 else "-")
+        pos_rows.append([ref.name, len(cm_), len(fwd), len(inc), "yes" if s4 else "no", frame_cell, ment, lost_at or "-"])
         if lost_at:
             lost.append([ref.name, lost_at, ", ".join(sorted(cm_)[:3]) or "-", how or "-", ref.source])
         details.append((ref, cm_, vm))
@@ -492,7 +518,7 @@ def build(args: argparse.Namespace) -> tuple[str, dict[str, Any], dict[str, Any]
           + (f"; {in_scope_pos} represented among pilot records (matched by a pilot candidate record or a pilot full-text vote)" if args.pilot else "") + ".", ""]
     if in_scope_pos:
         L += ["Recall by stage:", ""] + [f"- {st}: {ci(stage_found[st], in_scope_pos)}" for st in STAGES] + [""]
-        L += [table(["system", "candidate records", "forwarded", "pass-1 include records", "in registry", "mentioned in n records", "lost at"], pos_rows), ""]
+        L += [table(["system", "candidate records", "forwarded", "pass-1 include records", "in registry", "in coding frame", "mentioned in n records", "lost at"], pos_rows), ""]
     if lost:
         L += ["Missing positive reference systems (stage where lost; the full-text decision of matched records):", "",
               table(["system", "lost at", "matched records", "full-text decision(s)", "catalogued by"], lost), ""]
@@ -603,6 +629,10 @@ def title_similar(a: str, b: str) -> bool:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--pilot", action="store_true", help="restrict to the records of data/screening/fulltext_pilot.csv")
+    p.add_argument("--votes", default=str(PASS1), help="pass-1 votes (default fulltext_votes_v2.csv)")
+    p.add_argument("--pass2", default=str(PASS2), help="pass-2 votes (default fulltext_votes_v2_pass2.csv)")
+    p.add_argument("--final", default=str(FINAL))
+    p.add_argument("--systems", default=str(SYSTEMS))
     p.add_argument("--report", default=str(REPORT))
     p.add_argument("--audit-js", default=str(AUDIT_JS))
     args = p.parse_args(argv)

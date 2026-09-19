@@ -1,4 +1,5 @@
-"""Tests for the automated full-text screening: condenser, output schema, registry, validation matching.
+"""Tests for the automated full-text screening: repository fetch (Amendment 5), condenser,
+evidence bundle, output schema, registry and coding frame, validation matching.
 
 No network and no LLM calls.
 """
@@ -12,6 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import fetch_repos as fr
 import fulltext_screen as fs
 import system_registry as sr
 import validate_screening as vs
@@ -123,6 +125,122 @@ def test_heading_detection():
     assert not fs.is_heading("We run the agent for 30 steps and then stop the loop because the budget is spent.")
 
 
+# ---------------------------------------------------------------- repository evidence (Amendment 5)
+
+REPO_BUNDLE = """record_id: arxiv:1
+repo_url: https://github.com/o/agentx
+ref: tag:v1.2 abc123def456 2026-05-01
+stars: 1234
+fetched_at: 2026-09-18T12:00:00Z
+license: MIT
+archived: false
+
+This is REPOSITORY EVIDENCE for the record above, at the pinned reference (protocol 4.5).
+
+## README (README.md)
+# AgentX
+<p align="center">badge</p>
+AgentX runs an agent loop with tools in a docker sandbox and stops at 30 steps.
+
+## docs (first 20000 chars of 2 files)
+### docs/architecture.md
+The runner holds the message history and retries a failed tool call twice.
+
+## Code files (3 of 3 selected; layers A-H evidence)
+### src/agent.py (first 200 lines)
+class Agent:
+    def loop(self):
+        for step in range(self.max_steps):
+            action = self.model(self.prompt())
+            self.execute(action)
+
+### src/tool.py (first 200 lines)
+TOOLS = ["bash", "edit"]
+
+### src/config.py (first 200 lines)
+MAX_STEPS = 30
+
+## File tree (first 3 of 3 source paths; 9 in the tree, dot-directories left out)
+src/agent.py
+src/tool.py
+src/config.py
+"""
+
+
+def test_parse_repo_bundle_header_and_body():
+    header, body = fs.parse_repo_bundle(REPO_BUNDLE)
+    assert header["record_id"] == "arxiv:1" and header["stars"] == "1234"
+    assert header["repo_url"] == "https://github.com/o/agentx" and header["ref"].startswith("tag:v1.2")
+    assert body.startswith("This is REPOSITORY EVIDENCE") and "## README" in body
+
+
+def test_repo_evidence_order_budget_and_line_structure():
+    _, body = fs.parse_repo_bundle(REPO_BUNDLE)
+    ev = fs.repo_evidence(body, cap_words=2500)
+    assert ev.index("## README") < ev.index("## Code files") < ev.index("## docs") < ev.index("## File tree")
+    assert "<p align" not in ev  # README markup stripped, text kept
+    assert "def loop(self):" in ev and "\n" in ev  # code keeps its lines
+    small = fs.repo_evidence(body, cap_words=60)
+    assert len(small.split()) <= 90 and "AgentX" in small  # README first when the budget is tight
+
+
+def test_build_item_bundles_paper_and_repository(tmp_path):
+    (tmp_path / "arxiv__1.txt").write_text(
+        "record_id: arxiv:1\nsource_used: arxiv_pdf\nfetched_url: u\nfetched_title: AgentX\nfetched_at: t\n\n"
+        "Abstract\n\nWe propose AgentX, an agent that loops over tools.\n", encoding="utf-8")
+    item = fs.build_item("arxiv:1", {"title": "AgentX", "source": "arxiv"}, root=tmp_path)
+    assert item["repo_evidence"] == "" and "no repository was found" in fs.document_block(item)
+    (tmp_path / "arxiv__1__repo.txt").write_text(REPO_BUNDLE, encoding="utf-8")
+    item = fs.build_item("arxiv:1", {"title": "AgentX", "source": "arxiv"}, root=tmp_path)
+    assert item["repo_bundle_url"] == "https://github.com/o/agentx" and item["repo_bundle_stars"] == "1234"
+    assert item["repo_evidence_words"] > 0
+    block = fs.document_block(item)
+    assert "<repository_evidence>" in block and "1234 stars" in block and "def loop(self):" in block
+    assert "def loop(self):" in fs.bundle_text(item)  # quotes from the repository count as verbatim
+
+
+def test_repo_url_extraction_scores_and_gate():
+    text = ("We propose AgentX. Our code is available at https://github.com/o/agentx. "
+            "We evaluate on tasks from https://github.com/psf/requests and https://github.com/matplotlib/matplotlib.")
+    hits = fr.find_repos(text, cand_url="", title="AgentX: an agent")
+    assert hits[0].full == "o/agentx" and hits[0].strong_release and hits[0].title_match
+    assert hits[0].score >= fr.MIN_SCORE
+    # a paper that only cites other projects deep in the text attaches nothing
+    noise = "x " * 3000 + "see https://github.com/PyCQA/pylint for the implementation used in evaluation"
+    best = fr.find_repos(noise, "", "SWE-agent: Agent-Computer Interfaces")[0]
+    assert best.score < fr.MIN_SCORE
+    # the candidate's own URL always wins
+    own = fr.find_repos("nothing here", cand_url="https://github.com/o/mine.git", title="")
+    assert own[0].full == "o/mine" and own[0].from_url
+
+
+def test_repo_url_non_project_repos_dropped():
+    assert fr.classify("o", "awesome-llm-agents")[0] == "hard"
+    assert fr.classify("o", "LLM-Agent-Paper-List")[0] == "hard"
+    assert fr.classify("o", ".github")[0] == "hard"
+    assert fr.classify("user-attachments", "assets")[0] == "hard"
+    assert fr.classify("o", "tau-bench")[0] == "soft"
+    assert fr.classify("o", "agentx")[0] == ""
+    # a soft-dropped repository still wins when it is the only hit (protocol: some agents live in
+    # the benchmark repository)
+    only = fr.find_repos("Code and data: https://github.com/sierra-research/tau-bench .", "", "tau-bench")
+    assert only[0].full == "sierra-research/tau-bench" and only[0].only_hit and only[0].score >= fr.MIN_SCORE
+    two = fr.find_repos("https://github.com/o/foo-bench and https://github.com/o/foo and https://github.com/o/foo", "", "")
+    assert two[0].full == "o/foo"
+
+
+def test_repo_code_file_selection_and_tree_filter():
+    tree = ["README.md", ".github/workflows/ci.yml", "node_modules/x/agent.js", "tests/test_agent.py",
+            "src/agent.py", "pkg/core/loop.py", "ext/agent.py", "src/api/agent-server-config.ts",
+            "assets/logo.png", "docs/guide.md", "src/tools.py", "src/sandbox.py"]
+    sel = fr.select_code_files(tree, limit=4)
+    assert sel[0] == "src/agent.py"  # exact basename beats a longer match and a side directory
+    assert "tests/test_agent.py" not in sel and "node_modules/x/agent.js" not in sel
+    assert "pkg/core/loop.py" in sel and "src/sandbox.py" in sel  # spread across keywords
+    shown = fr.interesting_paths(tree)
+    assert "README.md" in shown and ".github/workflows/ci.yml" not in shown and "assets/logo.png" not in shown
+
+
 # ---------------------------------------------------------------- output schema
 
 
@@ -133,8 +251,8 @@ def fake_vote(**over):
         "step_evidence": [{"step": s, "verdict": "pass", "quote": "the agent calls a tool"} for s in (1, 2, 3, 7, 12)],
         "system_name": "AgentX", "system_version": None, "repo_url": "https://github.com/o/agentx", "release_date": "2025-03",
         "codable_dimensions": ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "C1", "C2", "C3", "D1", "E1", "F1", "G1", "H1", "M1", "M2", "M3", "M4"],
-        "codable_count": 19, "layers_covered": ["A", "B", "C", "D", "E", "F", "G", "H"], "systems_mentioned": ["SWE-agent"],
-        "confidence": "high",
+        "codable_count": 19, "layers_covered": ["A", "B", "C", "D", "E", "F", "G", "H"], "codability_flag": "pass",
+        "systems_mentioned": ["SWE-agent"], "confidence": "high",
     }
     v.update(over)
     return v
@@ -162,12 +280,41 @@ def test_check_vote_flags():
     excerpt = "Intro. The agent calls a tool and reads the result."
     chk = fs.check_vote(fake_vote(), excerpt, dims, item_schema)
     assert chk["flags"] == [] and chk["rule_pass"] and chk["quotes_verbatim"] == chk["quotes_total"] == 5
-    low = fake_vote(codable_dimensions=["A1", "B1", "M1"], codable_count=19,
+    assert chk["invalid"] == [] and chk["codability_flag"] == "pass"
+    low = fake_vote(codable_dimensions=["A1", "B1", "M1"], codable_count=19, codability_flag="pass",
                     step_evidence=[{"step": 12, "verdict": "pass", "quote": "not in the text at all"}])
     chk = fs.check_vote(low, excerpt, dims, item_schema)
-    assert {"count_mismatch", "include_fails_codability_rule", "quote_not_in_excerpt"} <= set(chk["flags"])
-    ex = fake_vote(decision="exclude", exclusion_code=None, deciding_step=7)
-    assert "exclude_without_code" in fs.check_vote(ex, excerpt, dims, item_schema)["flags"]
+    # an include below 19 dimensions is recorded, not an error (Amendment 5)
+    assert {"count_mismatch", "include_below_codability_rule", "quote_not_in_excerpt", "codability_flag_mismatch"} <= set(chk["flags"])
+    assert chk["invalid"] == [] and chk["codability_flag"] == "fail"
+    ex = fake_vote(decision="exclude", exclusion_code=None, exclusion_subreason=None, deciding_step=7)
+    assert "exclude_without_code" in fs.check_vote(ex, excerpt, dims, item_schema)["invalid"]
+
+
+def test_codability_flag_thresholds():
+    assert fs.codability_flag(19, list("ABC")) == "pass"
+    assert fs.codability_flag(25, ["A", "B"]) == "borderline"      # a layer missing
+    assert fs.codability_flag(18, list("ABCD")) == "borderline"
+    assert fs.codability_flag(11, list("ABC")) == "fail"
+
+
+def test_amendment5_decision_validation_and_retry_note():
+    """Step 7 no longer excludes on the count, and an exclude at step 12 (the v1 Reflexion bug)
+    is an error that triggers the corrective retry."""
+    item_schema = fs.record_schema()
+    dims = fs.dimension_ids()
+    excerpt = "The agent calls a tool."
+    reflexion = fake_vote(decision="exclude", exclusion_code=None, exclusion_subreason=None, deciding_step=12)
+    chk = fs.check_vote(reflexion, excerpt, dims, item_schema)
+    assert "exclude_at_step_12" in chk["invalid"] and "exclude_without_code" in chk["invalid"]
+    on_count = fake_vote(decision="exclude", exclusion_code="no_harness_description", exclusion_subreason="codability",
+                         deciding_step=7, codable_dimensions=["A1", "B1"], codable_count=2, codability_flag="fail")
+    assert "step7_excluded_on_codability" in fs.check_vote(on_count, excerpt, dims, item_schema)["invalid"]
+    no_artifact = fake_vote(decision="exclude", exclusion_code="no_harness_description", exclusion_subreason="no_artifact",
+                            deciding_step=7, codable_dimensions=["A1", "B1"], codable_count=2, codability_flag="fail")
+    assert fs.check_vote(no_artifact, excerpt, dims, item_schema)["invalid"] == []
+    note = fs.corrective_note([("arxiv:2303.11366", ["exclude_at_step_12"])])
+    assert "arxiv:2303.11366" in note and "step 12 means include" in note
 
 
 def test_protocol_prompt_has_all_twelve_steps():
@@ -176,6 +323,9 @@ def test_protocol_prompt_has_all_twelve_steps():
         assert f"Step {k}." in b["steps"]
     sp = fs.system_prompt(b)
     assert "19 of 38" in sp and "H4 Guardrails" in sp and "goto_10" in sp
+    # Amendment 5: repository evidence counts, step 7 does not exclude on the count
+    assert "REPOSITORY EVIDENCE IS EVIDENCE" in sp and "RECORDED, NOT DECIDED HERE" in sp
+    assert "no_artifact" in sp and "codability_flag" in sp
 
 
 def test_pass2_selection_takes_all_includes_and_a_tenth_of_excludes():
@@ -250,6 +400,89 @@ def test_registry_canonical_is_first_source_repo_on_tie():
             rec("github:o/r", "RepoAgent", "https://github.com/o/r", release="2024-05")]
     row = sr.group_records(recs, cands)[0]
     assert row["canonical_record_id"] == "github:o/r"  # same month as the paper: the repository wins
+
+
+def test_registry_codability_flag_is_the_best_of_the_members():
+    assert sr.best_codability_flag(["fail", "borderline", "pass"]) == "pass"
+    assert sr.best_codability_flag(["fail", "borderline"]) == "borderline"
+    assert sr.best_codability_flag(["", ""]) == ""
+    recs = [{**rec("a:1", "AgentX", "https://github.com/o/agentx"), "codability_flag_computed": "fail"},
+            {**rec("a:2", "AgentX", "https://github.com/o/agentx"), "codability_flag_computed": "pass"}]
+    assert sr.group_records(recs)[0]["codability_flag"] == "pass"
+
+
+# ---------------------------------------------------------------- coding frame (Amendment 5 iii)
+
+
+def frame_data(**over):
+    d = sr.FrameData(stars={"github.com/o/popular": 900}, catalogue_repos={"github.com/o/catalogued"},
+                     catalogue_names={"knownagent"}, vendor_records={"grey:vendor-agent"})
+    for k, v in over.items():
+        setattr(d, k, v)
+    return d
+
+
+def system_row(**over):
+    row = {"system_id": "s", "name": "AgentX", "name_variants": "AgentX", "repo_url": "https://github.com/o/plain",
+           "member_record_ids": "arxiv:1"}
+    row.update(over)
+    return row
+
+
+def test_frame_flags_four_criteria():
+    d = frame_data()
+    cands = {"arxiv:1": {"source": "arxiv", "venue": "arXiv.org"}, "acl:1": {"source": "acl", "venue": "Findings of the ACL"},
+             "grey:vendor-agent": {"source": "grey", "venue": "vendor-docs"},
+             "or:1": {"source": "openreview", "venue": "ICLR 2026 Poster"},
+             "or:2": {"source": "openreview", "venue": "Submitted to ICLR 2026"}}
+    members = [{"record_id": "arxiv:1", "repo_url": "https://github.com/o/plain", "repo_bundle_stars": "", "repo_bundle_url": ""}]
+    plain = sr.frame_flags(system_row(), members, cands, d)
+    assert plain["in_frame"] == 0 and plain["frame_reason"] == ""
+    starred = sr.frame_flags(system_row(repo_url="https://github.com/o/popular"), members, cands, d)
+    assert starred["frame_stars"] == 1 and starred["stars"] == 900 and starred["in_frame"] == 1
+    # the star count the screener read out of the repository bundle also counts
+    bundled = sr.frame_flags(system_row(), [{**members[0], "repo_bundle_stars": "150"}], cands, d)
+    assert bundled["frame_stars"] == 1
+    cat = sr.frame_flags(system_row(repo_url="https://github.com/o/catalogued"), members, cands, d)
+    assert cat["frame_catalogue"] == 1 and "catalogue" in cat["frame_reason"]
+    named = sr.frame_flags(system_row(name="KnownAgent", name_variants="KnownAgent"), members, cands, d)
+    assert named["frame_catalogue"] == 1
+    vendor = sr.frame_flags(system_row(member_record_ids="grey:vendor-agent"),
+                            [{"record_id": "grey:vendor-agent", "repo_url": "", "repo_bundle_stars": "", "repo_bundle_url": ""}], cands, d)
+    assert vendor["frame_vendor"] == 1
+    lab = sr.frame_flags(system_row(repo_url="https://github.com/microsoft/x"), members, cands, d)
+    assert lab["frame_vendor"] == 1
+    peer = sr.frame_flags(system_row(member_record_ids="acl:1"),
+                          [{"record_id": "acl:1", "repo_url": "https://github.com/o/plain", "repo_bundle_stars": "", "repo_bundle_url": ""}], cands, d)
+    assert peer["frame_peer_reviewed"] == 1
+    poster = sr.frame_flags(system_row(member_record_ids="or:1"),
+                            [{"record_id": "or:1", "repo_url": "https://github.com/o/plain", "repo_bundle_stars": "", "repo_bundle_url": ""}], cands, d)
+    assert poster["frame_peer_reviewed"] == 1
+    submitted = sr.frame_flags(system_row(member_record_ids="or:2"),
+                               [{"record_id": "or:2", "repo_url": "https://github.com/o/plain", "repo_bundle_stars": "", "repo_bundle_url": ""}], cands, d)
+    assert submitted["frame_peer_reviewed"] == 0  # a preprint under review is not peer-reviewed
+    no_repo = sr.frame_flags(system_row(repo_url=""), [{"record_id": "acl:1", "repo_url": "", "repo_bundle_stars": "", "repo_bundle_url": ""}],
+                             cands, d)
+    assert no_repo["frame_peer_reviewed"] == 0  # peer review needs a public implementation
+
+
+def test_mark_frame_samples_100_outside_the_frame_deterministically():
+    d = frame_data()
+    cands = {f"r:{i}": {"source": "arxiv", "venue": "arXiv.org"} for i in range(300)}
+    systems = [system_row(system_id=f"s{i}", name=f"System {i}", name_variants=f"System {i}",
+                          repo_url="https://github.com/o/popular" if i < 20 else "https://github.com/o/plain",
+                          member_record_ids=f"r:{i}") for i in range(300)]
+    recs = [{"record_id": f"r:{i}", "repo_url": "", "repo_bundle_stars": "", "repo_bundle_url": ""} for i in range(300)]
+    out = sr.mark_frame([dict(s) for s in systems], recs, cands, d)
+    assert sum(s["in_frame"] for s in out) == 20
+    sampled = {s["system_id"] for s in out if s["frame_sample"]}
+    assert len(sampled) == 100 and not any(s["in_frame"] and s["frame_sample"] for s in out)
+    again = {s["system_id"] for s in sr.mark_frame([dict(s) for s in systems], recs, cands, d) if s["frame_sample"]}
+    assert sampled == again  # seed 20260918, stable across runs
+
+
+def test_validation_reports_the_coding_frame_stage():
+    assert vs.STAGES == ["search", "title_forward", "fulltext_include", "registry", "coding_frame"]
 
 
 def test_combine_pass_agreement():

@@ -1,11 +1,32 @@
 #!/usr/bin/env python
-"""Group full-text includes into systems (protocol 4.1-4.4) and write the final screening decisions.
+"""Group full-text includes into systems (protocol 4.1-4.4), mark the coding frame (Amendment 5)
+and write the final screening decisions.
 
-Input: ``data/screening/fulltext_votes.csv`` (pass 1) and ``fulltext_votes_pass2.csv`` (the
-independent second reading of every pass-1 include and 10% of excludes). A record enters the
-registry when pass 1 includes it and pass 2 agrees (or has not read it yet; flagged). A pass-1
-include that pass 2 excludes, and a sampled pass-1 exclude that pass 2 includes, are
-``disputed`` and held out of the registry (``--disputed`` can resolve them either way instead).
+Input: ``--votes`` (default ``data/screening/fulltext_votes_v2.csv``, pass 1) and ``--pass2``
+(default ``fulltext_votes_v2_pass2.csv``, the independent second reading of every pass-1 include
+and 10% of excludes). A record enters the registry when pass 1 includes it and pass 2 agrees (or
+has not read it yet; flagged). A pass-1 include that pass 2 excludes, and a sampled pass-1
+exclude that pass 2 includes, are ``disputed`` and held out of the registry (``--disputed`` can
+resolve them either way instead).
+
+Coding frame (Amendment 5 iii). Every in-scope system is reported in the census;  HARNESS-DB v1
+codes the systems with an accessible implementation, flagged here as columns on
+``data/systems_candidates.csv``:
+
+* ``frame_stars``: the system's repository had >= 100 stars at search freeze
+  (``data/screening/repo_index.csv``, ``data/raw/github.jsonl``, or the star count the screener
+  read out of the repository bundle);
+* ``frame_catalogue``: the system is named in a prior harness catalogue or on a tracked
+  leaderboard (``data/raw/awesome.jsonl``, ``leaderboards.jsonl``, ``survey_refs`` records, and
+  the reference set in ``data/screening/validation_systems.csv``);
+* ``frame_vendor``: a vendor or major-lab product with official documentation (a ``grey``
+  vendor-docs record, or a repository owned by a major lab or vendor);
+* ``frame_peer_reviewed``: a peer-reviewed paper (ACL Anthology, an accepted OpenReview
+  submission or a named non-preprint venue) with a public implementation.
+
+``in_frame`` is their disjunction and ``frame_reason`` names the ones that fired. A random sample
+of 100 in-scope systems outside the frame (hash order, seed 20260918) carries ``frame_sample``;
+those are coded as well, to estimate what the frame misses.
 
 Grouping, in order:
 1. normalise ``system_name`` (case, dashes, quotes, parenthetical descriptors dropped) and split
@@ -30,6 +51,7 @@ Outputs: ``data/systems_candidates.csv`` (one row per system-version) and
 Usage:
     python scripts/system_registry.py
     python scripts/system_registry.py --ids data/screening/fulltext_pilot.csv
+    python scripts/system_registry.py --votes data/screening/fulltext_votes.csv   # the v1 pilot
 """
 
 from __future__ import annotations
@@ -41,24 +63,36 @@ import re
 import sys
 import unicodedata
 from collections import Counter, defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from rapidfuzz import fuzz
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from screen_triage import sample_hash
+
 REPO = Path(__file__).resolve().parents[1]
 SCREEN_DIR = REPO / "data" / "screening"
-PASS1 = SCREEN_DIR / "fulltext_votes.csv"
-PASS2 = SCREEN_DIR / "fulltext_votes_pass2.csv"
+PASS1 = SCREEN_DIR / "fulltext_votes_v2.csv"
+PASS2 = SCREEN_DIR / "fulltext_votes_v2_pass2.csv"
 FINAL = SCREEN_DIR / "fulltext_votes_final.csv"
 SYSTEMS = REPO / "data" / "systems_candidates.csv"
 CANDIDATES = REPO / "data" / "raw" / "candidates.csv"
+REPO_INDEX = SCREEN_DIR / "repo_index.csv"
+VALIDATION = SCREEN_DIR / "validation_systems.csv"
+RAW = REPO / "data" / "raw"
 
 NAME_THRESHOLD = 92
 SHORT_NAME = 4
+FRAME_MIN_STARS = 100  # Amendment 5 (iii)
+FRAME_SAMPLE_N = 100
+FRAME_SAMPLE_SEED = 20260918
 
 SYSTEM_COLUMNS = ["system_id", "name", "version", "repo_url", "release_date", "member_record_ids", "canonical_record_id",
-                  "max_codable_count", "n_members", "name_variants", "second_reading", "grouped_by"]
+                  "max_codable_count", "codability_flag", "n_members", "name_variants", "second_reading", "grouped_by",
+                  "stars", "in_frame", "frame_reason", "frame_stars", "frame_catalogue", "frame_vendor",
+                  "frame_peer_reviewed", "frame_sample"]
 FINAL_COLUMNS = ["record_id", "final_decision", "exclusion_code", "exclusion_subreason", "deciding_step", "system_id",
                  "is_canonical", "pass1_decision", "pass1_code", "pass1_step", "pass2_decision", "pass2_code", "pass2_step",
                  "agreement", "note"]
@@ -185,6 +219,14 @@ def docs_confirm_version(rec: dict[str, Any], major: int) -> bool:
     return bool(name_key) and name_key in key_of(rec.get("document_title_seen") or "")
 
 
+CODABILITY_ORDER = {"pass": 3, "borderline": 2, "fail": 1, "": 0}
+
+
+def best_codability_flag(flags: list[str]) -> str:
+    """The best flag among a system's records: evidence is the union of its sources (protocol 4.2)."""
+    return max(flags, key=lambda f: CODABILITY_ORDER.get(f, 0), default="")
+
+
 class UnionFind:
     def __init__(self, n: int) -> None:
         self.p = list(range(n))
@@ -259,6 +301,7 @@ def group_records(recs: list[dict[str, Any]], cands: dict[str, dict[str, str]] |
                 "member_record_ids": ";".join(recs[i]["record_id"] for i in idx),
                 "canonical_record_id": canon["record_id"],
                 "max_codable_count": max(int(recs[i].get("codable_count_computed") or recs[i].get("codable_count") or 0) for i in idx),
+                "codability_flag": best_codability_flag([recs[i].get("codability_flag_computed") or recs[i].get("codability_flag") or "" for i in idx]),
                 "n_members": len(idx),
                 "name_variants": ";".join(sorted({recs[i].get("system_name") or "" for i in idx})),
                 "second_reading": ";".join(sorted({recs[i].get("_second", "") for i in idx} - {""})),
@@ -271,6 +314,146 @@ def group_records(recs: list[dict[str, Any]], cands: dict[str, dict[str, str]] |
         if seen[r["system_id"]] > 1:
             r["system_id"] = f"{r['system_id']}-{seen[r['system_id']]}"
     return sorted(rows, key=lambda r: r["system_id"])
+
+
+# --------------------------------------------------------------------------------------
+# Coding frame (Amendment 5 iii)
+# --------------------------------------------------------------------------------------
+
+#: repository owners that are a major lab or a vendor shipping a documented product
+VENDOR_OWNERS = {
+    "openai", "anthropics", "anthropic", "google", "google-deepmind", "google-research", "googleapis", "deepmind",
+    "microsoft", "azure", "meta-llama", "facebookresearch", "amazon", "amazon-science", "awslabs", "aws-samples",
+    "nvidia", "ibm", "ibm-granite", "salesforce", "salesforceairesearch", "huggingface", "alibaba", "alibaba-nlp",
+    "qwenlm", "bytedance", "bytedance-seed", "tencent", "baidu", "deepseek-ai", "mistralai", "cohere-ai", "xai-org",
+    "all-hands-ai", "cognition-ai", "cursor", "replit", "sourcegraph", "sweep-ai", "codeium", "continuedev",
+    "block", "stripe", "cloudflare", "atlassian", "jetbrains", "gitlab-org", "github", "vercel", "langchain-ai",
+    "llamaindex", "run-llama", "crewaiinc", "modelscope", "smol-ai", "openbmb", "servicenow", "sierra-research",
+}
+PREPRINT_VENUE_RE = re.compile(
+    r"arxiv|zenodo|ssrn|preprint|research\s*square|techrxiv|biorxiv|medrxiv|osf|hal\b|github|awesome|"
+    r"submitted to|withdrawn|reject|desk", re.IGNORECASE)
+ACCEPTED_OPENREVIEW_RE = re.compile(r"poster|oral|spotlight|accept|proceedings|camera", re.IGNORECASE)
+CATALOGUE_SOURCES = {"awesome", "leaderboard", "survey_refs"}
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    out = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    return out
+
+
+@dataclass
+class FrameData:
+    stars: dict[str, int] = field(default_factory=dict)        # repo key -> stars at freeze
+    catalogue_repos: set[str] = field(default_factory=set)     # repo keys named by a catalogue / leaderboard
+    catalogue_names: set[str] = field(default_factory=set)     # name keys named by a catalogue / leaderboard
+    vendor_records: set[str] = field(default_factory=set)      # record ids of vendor documentation
+
+
+def load_frame_data(repo_index: Path = REPO_INDEX, raw: Path = RAW, validation: Path = VALIDATION) -> FrameData:
+    """Star counts and prior catalogues, from the frozen search harvest and the repository fetch."""
+    d = FrameData()
+    for r in read_csv(repo_index):
+        k = repo_key(r.get("repo_url") or "")
+        if k and (r.get("stars") or "").isdigit():
+            d.stars[k] = max(d.stars.get(k, 0), int(r["stars"]))
+    for row in read_jsonl(raw / "github.jsonl"):
+        extra = row.get("extra")
+        if isinstance(extra, str):
+            try:
+                extra = json.loads(extra)
+            except json.JSONDecodeError:
+                extra = {}
+        k = repo_key(row.get("url") or "")
+        stars = int((extra or {}).get("stars") or 0)
+        if k and stars:
+            d.stars[k] = max(d.stars.get(k, 0), stars)
+    # curated catalogues (awesome lists) and tracked leaderboards name systems; the survey
+    # reference harvest names papers, so those records enter through their candidate source instead
+    for name in ("awesome.jsonl", "leaderboards.jsonl"):
+        for row in read_jsonl(raw / name):
+            k = repo_key(row.get("url") or "")
+            if k:
+                d.catalogue_repos.add(k)
+            title = str(row.get("title") or "")
+            nk = key_of(title.rsplit("/", 1)[-1] if "/" in title else title)
+            if 3 <= len(nk) <= 40 and re.search(r"[a-z]{3}", nk):
+                d.catalogue_names.add(nk)
+    for r in read_csv(validation):  # the reference set is drawn from Li, Meng, Rombaut and Barbaste
+        for u in (r.get("repo_url") or "").split(";"):
+            if (k := repo_key(u)):
+                d.catalogue_repos.add(k)
+        for n in [r.get("name") or "", *((r.get("aliases") or "").split(";"))]:
+            if (nk := key_of(n)):
+                d.catalogue_names.add(nk)
+    for row in read_jsonl(raw / "grey.jsonl"):
+        if "vendor" in str(row.get("venue") or "").lower() and row.get("id"):
+            d.vendor_records.add(str(row["id"]))
+    return d
+
+
+def catalogued(name_keys: set[str], repos: set[str], d: FrameData) -> bool:
+    if repos & d.catalogue_repos:
+        return True
+    if name_keys & d.catalogue_names:
+        return True
+    long_keys = [k for k in name_keys if len(k) > SHORT_NAME]
+    return any(keys_match(k, c, NAME_THRESHOLD) for k in long_keys for c in d.catalogue_names if abs(len(c) - len(k)) <= 3)
+
+
+def frame_flags(srow: dict[str, Any], members: list[dict[str, str]], cands: dict[str, dict[str, str]], d: FrameData) -> dict[str, Any]:
+    """The four Amendment 5 coding-frame criteria for one system row."""
+    repos = {k for k in (repo_key(srow.get("repo_url") or ""), *(repo_key(m.get("repo_url") or "") for m in members)) if k}
+    repos |= {k for m in members if (k := repo_key(m.get("repo_bundle_url") or ""))}
+    stars = max([d.stars.get(k, 0) for k in repos] + [int(m["repo_bundle_stars"]) for m in members
+                                                      if (m.get("repo_bundle_stars") or "").isdigit()] + [0])
+    name_keys = {k for n in [srow.get("name") or "", *((srow.get("name_variants") or "").split(";"))] if (k := key_of(n))}
+    member_ids = [m["record_id"] for m in members]
+    sources = {(cands.get(rid, {}).get("source") or "") for rid in member_ids}
+    venues = [(cands.get(rid, {}).get("venue") or "") for rid in member_ids]
+
+    f_stars = stars >= FRAME_MIN_STARS
+    f_cat = bool(sources & CATALOGUE_SOURCES) or catalogued(name_keys, repos, d)
+    f_vendor = bool(set(member_ids) & d.vendor_records) or any(k.split("/")[1] in VENDOR_OWNERS for k in repos if "/" in k)
+    def peer_reviewed(rid: str, ven: str) -> bool:
+        src = cands.get(rid, {}).get("source") or ""
+        if src == "acl":  # the ACL Anthology is peer-reviewed by construction
+            return True
+        if not ven or PREPRINT_VENUE_RE.search(ven):
+            return False
+        if src == "openreview":
+            return bool(ACCEPTED_OPENREVIEW_RE.search(ven))
+        return src not in ("github", "awesome", "leaderboard", "grey")
+
+    f_peer = any(peer_reviewed(rid, ven) for rid, ven in zip(member_ids, venues, strict=True)) and bool(repos)
+    reasons = [n for n, ok in (("stars", f_stars), ("catalogue", f_cat), ("vendor", f_vendor), ("peer_reviewed", f_peer)) if ok]
+    return {"stars": stars or "", "frame_stars": int(f_stars), "frame_catalogue": int(f_cat), "frame_vendor": int(f_vendor),
+            "frame_peer_reviewed": int(f_peer), "in_frame": int(bool(reasons)), "frame_reason": ";".join(reasons)}
+
+
+def mark_frame(systems: list[dict[str, Any]], recs: list[dict[str, str]], cands: dict[str, dict[str, str]],
+               d: FrameData | None = None, sample_n: int = FRAME_SAMPLE_N, seed: int = FRAME_SAMPLE_SEED) -> list[dict[str, Any]]:
+    """Add the coding-frame columns and draw the out-of-frame sample (in place; returns ``systems``)."""
+    d = d or load_frame_data()
+    by_id = {r["record_id"]: r for r in recs}
+    for s in systems:
+        members = [by_id[rid] for rid in s["member_record_ids"].split(";") if rid in by_id]
+        s.update(frame_flags(s, members, cands, d))
+        s["frame_sample"] = 0
+    outside = sorted((s for s in systems if not s["in_frame"]), key=lambda s: sample_hash(s["system_id"], seed))
+    for s in outside[:sample_n]:
+        s["frame_sample"] = 1
+    return systems
 
 
 # --------------------------------------------------------------------------------------
@@ -313,25 +496,28 @@ def combine(p1: list[dict[str, str]], p2: list[dict[str, str]], disputed: str = 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--pass1", default=str(PASS1))
+    p.add_argument("--votes", "--pass1", dest="votes", default=str(PASS1), help="pass-1 votes (default fulltext_votes_v2.csv)")
     p.add_argument("--pass2", default=str(PASS2))
     p.add_argument("--ids", default=None, help="restrict to the record_ids of this CSV (e.g. the pilot)")
     p.add_argument("--disputed", choices=("hold", "include", "exclude"), default="hold")
+    p.add_argument("--no-frame", action="store_true", help="skip the Amendment 5 coding-frame columns")
     p.add_argument("--systems-out", default=str(SYSTEMS))
     p.add_argument("--final-out", default=str(FINAL))
     args = p.parse_args(argv)
 
-    p1, p2 = read_csv(Path(args.pass1)), read_csv(Path(args.pass2))
+    p1, p2 = read_csv(Path(args.votes)), read_csv(Path(args.pass2))
     if args.ids:
         keep = {r["record_id"] for r in read_csv(Path(args.ids))}
         p1 = [r for r in p1 if r["record_id"] in keep]
         p2 = [r for r in p2 if r["record_id"] in keep]
     if not p1:
-        print(f"no pass-1 votes in {args.pass1}", file=sys.stderr)
+        print(f"no pass-1 votes in {args.votes}", file=sys.stderr)
         return 2
     cands = {r["id"]: r for r in read_csv(CANDIDATES)}
     reg, final = combine(p1, p2, args.disputed)
     systems = group_records(reg, cands)
+    if not args.no_frame:
+        mark_frame(systems, reg, cands)
     link = {}
     for s in systems:
         for rid in s["member_record_ids"].split(";"):
@@ -352,6 +538,10 @@ def main(argv: list[str] | None = None) -> int:
             w.writerows(rows)
     summary = {"records": len(final), "final": dict(Counter(r["final_decision"] for r in final)), "systems": len(systems),
                "registry_records": len(reg), "multi_member_systems": sum(int(s["n_members"]) > 1 for s in systems),
+               "in_frame": sum(int(s.get("in_frame") or 0) for s in systems),
+               "frame_reasons": dict(Counter(x for s in systems for x in (s.get("frame_reason") or "").split(";") if x)),
+               "frame_sample": sum(int(s.get("frame_sample") or 0) for s in systems),
+               "codability_flag": dict(Counter(s.get("codability_flag") or "-" for s in systems)),
                "systems_out": args.systems_out, "final_out": args.final_out}
     print("SUMMARY " + json.dumps(summary))
     return 0

@@ -1,25 +1,39 @@
 #!/usr/bin/env python
-"""Automated full-text screening (protocol section 3 decision procedure, Amendment 4).
+"""Automated full-text screening (protocol section 3 decision procedure, Amendments 4 and 5).
 
 For every record forwarded by the title/abstract stage (``data/screening/fulltext_queue.csv``)
 whose full text was retrieved by ``scripts/fetch_fulltext.py`` (``data/fulltext/<safe id>.txt``,
 listed ``ok`` in ``data/screening/fulltext_index.csv``), an LLM applies steps 1-12 of the
-decision procedure to the document, quotes the text that decides each step, estimates
-codability (criterion b, protocol 4.7) as the list of the 38 dimensions the document gives
+decision procedure to an EVIDENCE BUNDLE, quotes the text that decides each step, records
+codability (criterion b, protocol 4.7) as the list of the 38 dimensions the bundle gives
 evidence for, and names the system (name, version, repository, first release). Records the
 fetcher could not retrieve are excluded ``not_retrievable`` without an LLM call; records the
 fetcher has not reached yet are skipped (pending) and picked up by the next, resumable run.
 
-Condenser. A document is cut to a focused excerpt of at most ``--cap-words`` (6,000) words:
-the fetched title, the opening of the text (abstract and introduction, first 1,500 words), every
-section heading, then the paragraphs that contain high-signal terms (agent, loop, tool, sandbox,
-max steps, github.com, we propose, ...), deduplicated. When the high-signal paragraphs do not all
-fit, the ones with the most distinct signal terms are kept (ties: earlier first) and the kept
-ones are emitted in document order, so implementation details in late sections and appendices
-compete with introductory prose instead of losing to it by position. The references section is
-skipped. Repository bundles put the README first. A document shorter than the cap is sent whole.
+Amendment 5 (2026-09-18), after the 325-record pilot showed the reader judging codability from a
+paper alone and excluding 11 of 15 reference systems at step 7:
 
-Prompt (``ft-v1-2026-09-18``): the system text is built at run time from
+* EVIDENCE BUNDLE. The document sent to the model is the paper excerpt (at most ``--cap-words``,
+  4,000) followed by a delimited REPOSITORY EVIDENCE section (at most ``--repo-cap-words``,
+  2,500) built from ``data/fulltext/<safe id>__repo.txt`` (``scripts/fetch_repos.py``): README
+  first, then the implementation files that carry layers A-H, then docs and the file tree.
+  Repository evidence counts for codability and for every step of the decision procedure.
+* STEP 7 DEFERRED. The codability count is recorded (``codable_dimensions``, ``codable_count``,
+  ``layers_covered``, and the new ``codability_flag`` pass/borderline/fail for the coding stage)
+  but no longer excludes. Step 7 can still exclude a record for which no admissible artifact
+  exists at all (``no_harness_description`` / ``no_artifact``). Screening decides scope (steps
+  1-6 and 8-11) plus the existence of an artifact; the 19-of-38 rule is enforced at coding.
+
+Condenser. Each part of the bundle is cut to a focused excerpt: the fetched title, the opening of
+the text (abstract and introduction, first 1,500 words), every section heading, then the
+paragraphs that contain high-signal terms (agent, loop, tool, sandbox, max steps, github.com, we
+propose, ...), deduplicated. When the high-signal paragraphs do not all fit, the ones with the
+most distinct signal terms are kept (ties: earlier first) and the kept ones are emitted in
+document order, so implementation details in late sections and appendices compete with
+introductory prose instead of losing to it by position. The references section is skipped.
+Repository bundles put the README first. A document shorter than the cap is sent whole.
+
+Prompt (``ft-v2-2026-09-18``): the system text is built at run time from
 ``docs/protocol_prisma_p.md`` (harness definition paragraph, the 12-step decision procedure,
 eligibility criteria, minimum codability 4.7 and exclusion codes 4.8) and
 ``schema/dimensions.json`` (38 dimension ids, names and value sets), plus screening instructions.
@@ -31,12 +45,20 @@ Backend: Claude Code headless (``claude -p``), reusing ``scripts/screen_llm.py``
 (subscription login, tools disabled, protocol prompt as the system prompt). ``cost_usd`` is
 Claude Code's list-price equivalent, not a charge.
 
-Passes. ``--pass 1`` (default) writes ``data/screening/fulltext_votes.csv``. ``--pass 2`` is the
-independent second reading of Amendment 4: same prompt, different document order and batch
-composition (different seed), input chosen automatically as every pass-1 include plus a
-hash-based random 10% of pass-1 excludes that had an LLM reading; output
-``data/screening/fulltext_votes_pass2.csv``. Both files hold one row per record, JSON fields as
-JSON strings, and are resumable (records already present are skipped).
+Passes. ``--pass 1`` (default) writes ``data/screening/fulltext_votes_v2.csv`` (the v1 pilot rows
+in ``fulltext_votes.csv`` stay untouched, for comparison). ``--pass 2`` is the independent second
+reading of Amendment 4: same prompt, different document order and batch composition (different
+seed), input chosen automatically as every pass-1 include plus a hash-based random 10% of pass-1
+excludes that had an LLM reading; output ``data/screening/fulltext_votes_v2_pass2.csv``. Both
+files hold one row per record, JSON fields as JSON strings, and are resumable (records already
+present are skipped).
+
+Self-check. Every answer is validated against the decision procedure before it is written: an
+include must carry ``deciding_step`` 12, an exclude must carry a step in 1-11 and an exclusion
+code, and step 7 may only exclude for a missing artifact (the v1 pilot produced a Reflexion row
+with ``decision=exclude`` at step 12). A batch with such an answer is re-asked once with a
+corrective note naming the offending records; if the answer is still invalid it is written with
+the flag ``invalid_after_retry`` and logged.
 
 Usage:
     python scripts/fulltext_screen.py --ids data/screening/fulltext_pilot.csv --workers 8
@@ -79,33 +101,39 @@ SCREEN_DIR = REPO / "data" / "screening"
 FULLTEXT_DIR = REPO / "data" / "fulltext"
 INDEX = SCREEN_DIR / "fulltext_index.csv"
 QUEUE = SCREEN_DIR / "fulltext_queue.csv"
-OUT = {1: SCREEN_DIR / "fulltext_votes.csv", 2: SCREEN_DIR / "fulltext_votes_pass2.csv"}
+REPO_INDEX = SCREEN_DIR / "repo_index.csv"
+OUT = {1: SCREEN_DIR / "fulltext_votes_v2.csv", 2: SCREEN_DIR / "fulltext_votes_v2_pass2.csv"}
 
-PROMPT_VERSION = "ft-v1-2026-09-18"
+PROMPT_VERSION = "ft-v2-2026-09-18"
 SEED = {1: 20260918, 2: 20260919}  # document order and batch composition per pass
 PASS2_SAMPLE_SEED = 20260920  # which pass-1 excludes get the second reading
 PASS2_EXCLUDE_FRACTION = 0.10
 BATCH_SIZE = 4
-CAP_WORDS = 6000
+CAP_WORDS = 4000  # paper excerpt (Amendment 5: the bundle also carries repository evidence)
+REPO_CAP_WORDS = 2500  # repository evidence section
 OPENING_WORDS = 1500
 HEADINGS_MAX_WORDS = 500
 CHUNK_WORDS = 220  # paragraphs longer than ~1.6x this are split at sentence boundaries
 QUOTE_MAX_WORDS = 30
 MIN_CODABLE = 19
+BORDERLINE_CODABLE = 12  # below this the bundle is too thin to code at all
 REQUIRED_LAYERS = ("A", "B", "C")
 
 EXCLUSION_CODES = ["out_of_scope", "no_harness_description", "duplicate_system", "not_retrievable", "other"]
 SUBREASONS = ["no_loop", "no_actions", "component_only", "framework_no_default", "embodied", "date", "training_only",
-              "evaluation_only", "survey", "benchmark_only", "codability", "language", "other"]
+              "evaluation_only", "survey", "benchmark_only", "codability", "no_artifact", "language", "other"]
 VERDICTS = ["pass", "fail", "goto_10", "not_applicable"]
+CODABILITY_FLAGS = ["pass", "borderline", "fail"]
 
 COLUMNS = [
     "record_id", "pass", "decision", "exclusion_code", "exclusion_subreason", "deciding_step", "confidence",
     "system_name", "system_version", "repo_url", "release_date", "codable_count", "codable_count_computed",
-    "layers_covered", "codable_dimensions", "step_evidence", "systems_mentioned", "document_title_seen",
-    "candidate_title", "candidate_source", "source_used", "fetched_url", "fulltext_words", "excerpt_words",
-    "quotes_total", "quotes_verbatim", "flags", "model", "prompt_version", "effort", "seed", "batch_id",
-    "batch_started_at", "batch_seconds", "tokens_in", "tokens_out", "cache_read", "cache_write", "cost_usd",
+    "codability_flag", "codability_flag_computed", "layers_covered", "codable_dimensions", "step_evidence",
+    "systems_mentioned", "document_title_seen", "candidate_title", "candidate_source", "source_used", "fetched_url",
+    "repo_evidence", "repo_bundle_url", "repo_bundle_ref", "repo_bundle_stars", "repo_evidence_words",
+    "fulltext_words", "excerpt_words", "quotes_total", "quotes_verbatim", "flags", "model", "prompt_version",
+    "effort", "seed", "batch_id", "batch_started_at", "batch_seconds", "tokens_in", "tokens_out", "cache_read",
+    "cache_write", "cost_usd",
 ]
 JSON_COLUMNS = ("layers_covered", "codable_dimensions", "step_evidence", "systems_mentioned", "flags")
 
@@ -147,6 +175,7 @@ def record_schema(dim_ids: list[str] | None = None) -> dict[str, Any]:
         "codable_dimensions": {"type": "array", "items": {"type": "string", "enum": dim_ids}},
         "codable_count": {"type": "integer"},
         "layers_covered": {"type": "array", "items": {"type": "string", "enum": list("ABCDEFGH")}},
+        "codability_flag": {"type": "string", "enum": CODABILITY_FLAGS},
         "decision": {"type": "string", "enum": ["include", "exclude"]},
         "exclusion_code": _nullable({"type": "string", "enum": EXCLUSION_CODES}),
         "exclusion_subreason": _nullable({"type": "string", "enum": SUBREASONS}),
@@ -175,6 +204,27 @@ def safe_id(record_id: str) -> str:
 
 def fulltext_path(record_id: str, root: Path = FULLTEXT_DIR) -> Path:
     return root / f"{safe_id(record_id)}.txt"
+
+
+def repo_bundle_path(record_id: str, root: Path = FULLTEXT_DIR) -> Path:
+    """Repository half of the evidence bundle, written by ``scripts/fetch_repos.py``."""
+    return root / f"{safe_id(record_id)}__repo.txt"
+
+
+def parse_repo_bundle(raw: str) -> tuple[dict[str, str], str]:
+    """Split a repository bundle into its ``key: value`` header (up to the first blank line) and
+    the sections (README, docs, code files, file tree)."""
+    lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    header: dict[str, str] = {}
+    i = 0
+    for i, line in enumerate(lines):  # i is used after the loop
+        if not line.strip():
+            break
+        m = re.match(r"^\s*([A-Za-z_]+)\s*:\s?(.*)$", line)
+        if not m:
+            break
+        header[m.group(1).lower()] = m.group(2).strip()
+    return header, "\n".join(lines[i:]).strip()
 
 
 def parse_fulltext(raw: str) -> tuple[dict[str, str], str]:
@@ -483,6 +533,85 @@ def is_repo_bundle(record_id: str, source_used: str) -> bool:
 
 
 # --------------------------------------------------------------------------------------
+# Repository evidence (Amendment 5)
+# --------------------------------------------------------------------------------------
+
+REPO_SHARES = (("readme", 0.45), ("code", 0.34), ("docs", 0.11), ("tree", 0.10))  # priority order
+
+
+def _repo_section_kind(heading: str) -> str:
+    h = heading.lower()
+    if h.startswith("readme"):
+        return "readme"
+    if h.startswith("code file"):
+        return "code"
+    if h.startswith("file tree"):
+        return "tree"
+    return "docs"
+
+
+MIN_CODE_WORDS = 200  # a code file is worth showing only if ~25 lines of it fit
+
+
+def _take_words(text: str, n: int) -> str:
+    """First ``n`` words, cut at a line boundary: line structure is evidence in code and trees."""
+    if len(text.split()) <= n:
+        return text
+    out, used = [], 0
+    for line in text.split("\n"):
+        k = len(line.split())
+        if used + k > n and out:
+            break
+        out.append(line)
+        used += k
+    return "\n".join(out) + "\n[... truncated]"
+
+
+def _trim_code_section(body: str, n_words: int) -> str:
+    """Share the code budget over the files: fewer files, each long enough to read."""
+    parts = [p for p in re.split(r"(?m)^(?=### )", body) if p.strip()]
+    if not parts:
+        return ""
+    head = parts[0] if not parts[0].startswith("### ") else ""
+    files = parts[1:] if head else parts
+    if not files:
+        return _take_words(head, n_words)
+    budget = max(0, n_words - len(head.split()))
+    keep = max(1, min(len(files), budget // MIN_CODE_WORDS))
+    per = budget // keep
+    out = [head] if head else []
+    out += [_take_words(p, per) for p in files[:keep]]
+    if keep < len(files):
+        out.append(f"[{len(files) - keep} more implementation files in the bundle, not shown]")
+    return "\n\n".join(x for x in out if x.strip())
+
+
+def repo_evidence(body: str, cap_words: int = REPO_CAP_WORDS) -> str:
+    """The repository bundle cut to ``cap_words``: README first, then the implementation files,
+    then docs and the file tree. Unused budget rolls forward to the next section."""
+    chunks: dict[str, list[str]] = {}
+    for part in re.split(r"(?m)^(?=## )", body):
+        if not part.strip():
+            continue
+        head, _, rest = part.partition("\n")
+        kind = _repo_section_kind(head.lstrip("#").strip())
+        chunks.setdefault(kind, []).append(f"{head.strip()}\n{clean_markup(rest).strip()}"
+                                           if kind in ("readme", "docs") else f"{head.strip()}\n{rest.strip()}")
+    out, carry = [], 0
+    for kind, share in REPO_SHARES:
+        text = "\n\n".join(chunks.get(kind, [])).strip()
+        budget = int(cap_words * share) + carry
+        if not text:
+            carry = budget
+            continue
+        words = len(text.split())
+        kept = _trim_code_section(text, budget) if kind == "code" else _take_words(text, budget)
+        carry = max(0, budget - words)
+        out.append(kept)
+    return "\n\n".join(out).strip()
+
+
+# --------------------------------------------------------------------------------------
 # Prompt
 # --------------------------------------------------------------------------------------
 
@@ -521,9 +650,11 @@ def dimensions_block(path: Path = DIMENSIONS) -> str:
 
 
 INSTRUCTIONS = f"""\
-You read each DOCUMENT (a paper, a repository README/docs bundle, or a documentation page, condensed to an excerpt) and decide include or exclude by the decision procedure above. Your decision is the screening decision of record (protocol Amendment 4); an independent second reading checks it.
+You read each EVIDENCE BUNDLE and decide include or exclude by the decision procedure above. Your decision is the screening decision of record (protocol Amendment 4); an independent second reading checks it.
 
-1. Screen the document text. The candidate metadata (title, source) only says how the record was found and may belong to a different paper (deduplication and fetch artefacts happen). If the document is about something else, screen the document anyway and report the title you actually see in document_title_seen.
+0. The bundle. Each <document> holds a PAPER EXCERPT (a paper, a repository README/docs bundle, or a documentation page, condensed) and, when the repository was found, a REPOSITORY EVIDENCE section: the README, the implementation files (agent loop, runner, executor, tools, prompts, config, sandbox, session, memory) and the file tree of the system's repository at its pinned reference. THE REPOSITORY EVIDENCE IS EVIDENCE: it counts for every step of the decision procedure and for codability, exactly like the paper. A loop, a tool interface, a retry, a step budget or a sandbox that is visible in code or in the README is coded from there, and your quote may come from either part. Absence of a REPOSITORY EVIDENCE section means no repository was found for this record, not that the system has none.
+
+1. Screen the bundle text. The candidate metadata (title, source) only says how the record was found and may belong to a different paper (deduplication and fetch artefacts happen). If the document is about something else, screen the document anyway and report the title you actually see in document_title_seen.
 2. Apply steps 1-12 in order and stop at the first exclusion. For every step you reach, add one step_evidence entry {{step, verdict, quote}}. verdict: pass, fail, goto_10 (step 1 only: the record introduces no system and only evaluates, compares, surveys or discusses existing ones), or not_applicable (e.g. step 6 for a system that is not a construction kit). quote: a verbatim span of at most {QUOTE_MAX_WORDS} words copied exactly from the document text that decides the step (keep the document's wording and spelling; no paraphrase, no ellipsis inside); use "" only when the verdict rests on the absence of something.
 3. Record types:
    - Introduces, releases or documents a named system that runs a model: apply steps 1-12.
@@ -533,10 +664,12 @@ You read each DOCUMENT (a paper, a repository README/docs bundle, or a documenta
    - Framework / construction kit: include only through its shipped runnable default agent, named "<framework> (<default agent>)"; no default agent: out_of_scope, framework_no_default, step 6.
    - Component on its own (sandbox, MCP server, memory store, skills pack, tracing SDK, protocol spec, tool library): out_of_scope, component_only, step 5.
    - Self-evolving or meta-optimising method: the outer search is not a system; the released or headline produced harness (else the seed harness) is.
-4. Step 7 codability: list in codable_dimensions every dimension id (of the 38 below) for which the DOCUMENT states a value or explicitly states its absence (none counts when the text says so or the design clearly has no such mechanism; "not reported" does not count). Do not infer from what is typical. List a dimension only if you could quote the sentence that codes it; go through the 38 one by one and decide each on the text alone, before and independently of the decision: the threshold must not influence which dimensions you list, and a count just below it is a legitimate exclusion. M4 primary_artifact is always codable from the document itself; M7 only when a star count is stated; M5 only when a date is stated. codable_count = number of ids listed; layers_covered = the letters A-H among them. The rule is: at least {MIN_CODABLE} of 38 with at least one in each of layers {", ".join(REQUIRED_LAYERS)}; failing it is exclusion_code no_harness_description, exclusion_subreason codability, deciding_step 7. Fill codable_dimensions for every record that reaches step 7; for records excluded earlier give the ids you can see anyway (may be empty).
+4. Step 7 codability (AMENDMENT 5: RECORDED, NOT DECIDED HERE). List in codable_dimensions every dimension id (of the 38 below) for which the BUNDLE - paper excerpt or repository evidence - states a value or explicitly states its absence (none counts when the text or the code shows there is no such mechanism; "not reported" does not count). Do not infer from what is typical. List a dimension only if you could quote the sentence, the README line or the code line that codes it; go through the 38 one by one and decide each on the bundle alone. M4 primary_artifact is always codable from the bundle itself; M7 only when a star count is stated (the repository header gives one when the repository was fetched); M5 only when a date is stated. codable_count = number of ids listed; layers_covered = the letters A-H among them.
+   codability_flag summarises the count for the coding stage, and nothing else: "pass" when codable_count >= {MIN_CODABLE} and layers {", ".join(REQUIRED_LAYERS)} are all covered; "fail" when codable_count < {BORDERLINE_CODABLE}; "borderline" otherwise (including a count >= {MIN_CODABLE} that misses one of layers {", ".join(REQUIRED_LAYERS)}).
+   A low count NEVER excludes: step 7's verdict is pass when you can see an admissible artifact for the system (its paper, technical report, repository or official documentation - the bundle you are reading is normally that artifact) and the count is recorded for the coder to enforce. Give step 7 the verdict fail, and exclude with no_harness_description / no_artifact at deciding_step 7, only in the rare case where the bundle names a system but contains NO admissible source describing it at all (a bare leaderboard row, an index page, a passing mention in someone else's paper with no paper, repository or documentation of its own). Leaked or decompiled source is not admissible. Fill codable_dimensions for every record that reaches step 7; for records excluded earlier give the ids you can see anyway (may be empty).
 5. Step 8 date: first public release outside 2022-10-01..2026-08-31 is out_of_scope/date. Use release_date for the first public release of the system if the document states it (YYYY-MM-DD, YYYY-MM or YYYY), else null; an arXiv stamp in the text such as "arXiv:2405.15793v1 [cs.SE] 6 May 2024" counts.
 6. Step 10 across records (same system already included elsewhere) is decided later by a registry, not by you: for a record that introduces or documents a system, step 10 verdict is pass.
-7. Include: decision include, exclusion_code null, exclusion_subreason null, deciding_step 12. Exclude: the exclusion_code and exclusion_subreason of the failing step (subreason null only if none fits), deciding_step = that step.
+7. The decision (Amendment 5): include when steps 1-6 and 8-11 all pass and an admissible artifact exists; the codability count does not enter the decision. Include: decision include, exclusion_code null, exclusion_subreason null, deciding_step 12, whatever codable_count and codability_flag say. Exclude: the exclusion_code and exclusion_subreason of the failing step (subreason null only if none fits), deciding_step = that step, which is one of 1-11. Two combinations are always wrong and will be rejected: decision exclude with deciding_step 12, and decision include with any deciding_step other than 12.
 8. system_name: the system's own name as the document writes it (for excludes: the candidate system or component, if any, else null). system_version: only if stated. repo_url: the system's own code repository URL if the document gives it (not URLs of other projects), else null.
 9. systems_mentioned: for every record, up to 25 names of agent systems / harnesses / agent frameworks the document names as existing work, baselines or building blocks (not models, not benchmarks, not the record's own system).
 10. confidence: high when the text settles every step you reached, medium when a step rests on a plausible reading, low when the excerpt barely lets you decide.
@@ -562,14 +695,24 @@ def document_block(item: dict[str, Any]) -> str:
     meta = f"candidate title: {item.get('candidate_title') or '(none)'}; source: {item.get('candidate_source') or ''}; year: {item.get('candidate_year') or ''}"
     fetch = (f"source_used: {item.get('source_used') or ''}; fetched_url: {item.get('fetched_url') or ''}; "
              f"full text {item.get('fulltext_words', 0)} words; excerpt {item.get('excerpt_words', 0)} words")
-    return (f'<document record_id="{item["id"]}">\n<candidate_metadata>{meta}</candidate_metadata>\n<fetch>{fetch}</fetch>\n'
-            f"<excerpt>\n{item['excerpt']}\n</excerpt>\n</document>")
+    out = [f'<document record_id="{item["id"]}">', f"<candidate_metadata>{meta}</candidate_metadata>", f"<fetch>{fetch}</fetch>",
+           "<paper_excerpt>", item["excerpt"], "</paper_excerpt>"]
+    if item.get("repo_evidence"):
+        head = (f"repository {item.get('repo_bundle_url') or ''} at {item.get('repo_bundle_ref') or ''}; "
+                f"{item.get('repo_bundle_stars') or '0'} stars; {item.get('repo_evidence_words', 0)} words. "
+                "This is the system's own code at the pinned version: it is evidence for every step and for codability.")
+        out += ["<repository_evidence>", f"[REPOSITORY EVIDENCE] {head}", item["repo_evidence"], "</repository_evidence>"]
+    else:
+        out += [("<repository_evidence>(no repository was found for this record; judge on the paper excerpt alone, "
+                 "and do not conclude from this that the system has no repository)</repository_evidence>")]
+    return "\n".join([*out, "</document>"])
 
 
-def user_prompt(batch: list[dict[str, Any]]) -> str:
+def user_prompt(batch: list[dict[str, Any]], note: str = "") -> str:
     ids = ", ".join(b["id"] for b in batch)
-    return (f"Screen these {len(batch)} documents (record_ids in order: {ids}). Each is delimited by <document record_id=...>.\n\n"
-            + "\n\n".join(document_block(b) for b in batch))
+    head = (f"Screen these {len(batch)} evidence bundles (record_ids in order: {ids}). Each is delimited by "
+            "<document record_id=...> and holds a <paper_excerpt> and a <repository_evidence> section.\n\n")
+    return head + (f"{note}\n\n" if note else "") + "\n\n".join(document_block(b) for b in batch)
 
 
 # --------------------------------------------------------------------------------------
@@ -587,22 +730,42 @@ def quote_in_text(quote: str, text_squashed: str) -> bool:
     return bool(q) and q in text_squashed
 
 
+#: flags that make a row internally inconsistent with the decision procedure: the batch is
+#: re-asked once with a corrective note before such an answer is written (Amendment 5).
+INVALID_FLAGS = ("include_step_not_12", "exclude_at_step_12", "exclude_without_code", "step7_excluded_on_codability",
+                 "include_with_exclusion_code")
+
+
+def codability_flag(n: int, layers: list[str]) -> str:
+    if n >= MIN_CODABLE and all(L in layers for L in REQUIRED_LAYERS):
+        return "pass"
+    return "fail" if n < BORDERLINE_CODABLE else "borderline"
+
+
 def check_vote(v: dict[str, Any], excerpt: str, dim_ids: list[str], item_schema: dict[str, Any]) -> dict[str, Any]:
     """Validate one answer (raises jsonschema.ValidationError) and compute derived fields and flags."""
-    jsonschema.validate(v, item_schema)
     flags = []
+    lc = v.get("layers_covered")
+    if isinstance(lc, list) and any(x not in "ABCDEFGH" for x in lc):
+        # layers_covered is recomputed from codable_dimensions below; a stray "M" (Meta) is not an error
+        v["layers_covered"] = [x for x in lc if isinstance(x, str) and x in "ABCDEFGH"]
+        flags.append("layers_normalized")
+    jsonschema.validate(v, item_schema)
     dims = [d for d in dict.fromkeys(v["codable_dimensions"]) if d in dim_ids]
     layers = sorted({d[0] for d in dims if d[0] in "ABCDEFGH"})
     if v["codable_count"] != len(dims):
         flags.append("count_mismatch")
     rule_pass = len(dims) >= MIN_CODABLE and all(L in layers for L in REQUIRED_LAYERS)
+    computed_flag = codability_flag(len(dims), layers)
+    if v["codability_flag"] != computed_flag:
+        flags.append("codability_flag_mismatch")
     if v["decision"] == "include":
         if v["exclusion_code"] is not None:
             flags.append("include_with_exclusion_code")
         if v["deciding_step"] != 12:
             flags.append("include_step_not_12")
         if not rule_pass:
-            flags.append("include_fails_codability_rule")
+            flags.append("include_below_codability_rule")  # recorded, not an error (Amendment 5)
         if not v.get("system_name"):
             flags.append("include_without_system_name")
     else:
@@ -610,6 +773,9 @@ def check_vote(v: dict[str, Any], excerpt: str, dim_ids: list[str], item_schema:
             flags.append("exclude_without_code")
         if v["deciding_step"] == 12:
             flags.append("exclude_at_step_12")
+        if v["deciding_step"] == 7 and v["exclusion_subreason"] != "no_artifact":
+            # step 7 no longer excludes for a low dimension count (Amendment 5)
+            flags.append("step7_excluded_on_codability")
     squashed = _squash(excerpt)
     quotes = [s["quote"] for s in v["step_evidence"] if s["quote"].strip()]
     verbatim = sum(quote_in_text(q, squashed) for q in quotes)
@@ -619,7 +785,24 @@ def check_vote(v: dict[str, Any], excerpt: str, dim_ids: list[str], item_schema:
         flags.append("quote_not_in_excerpt")
     if not any(s["step"] == v["deciding_step"] for s in v["step_evidence"]):
         flags.append("no_evidence_for_deciding_step")
-    return {"dims": dims, "layers": layers, "quotes_total": len(quotes), "quotes_verbatim": verbatim, "flags": flags, "rule_pass": rule_pass}
+    return {"dims": dims, "layers": layers, "quotes_total": len(quotes), "quotes_verbatim": verbatim, "flags": flags,
+            "rule_pass": rule_pass, "codability_flag": computed_flag,
+            "invalid": [f for f in flags if f in INVALID_FLAGS]}
+
+
+def corrective_note(bad: list[tuple[str, list[str]]]) -> str:
+    """The note added to the one retry of a batch whose answer broke the decision procedure."""
+    why = {
+        "include_step_not_12": "decision include must carry deciding_step 12",
+        "exclude_at_step_12": "decision exclude must carry the deciding_step of the step that failed (1-11); step 12 means include",
+        "exclude_without_code": "decision exclude must carry an exclusion_code",
+        "step7_excluded_on_codability": ("step 7 no longer excludes for a low codable_count (Amendment 5): record the count and "
+                                         "the codability_flag and continue; exclude at step 7 only with exclusion_subreason no_artifact"),
+        "include_with_exclusion_code": "decision include must carry exclusion_code null and exclusion_subreason null",
+    }
+    lines = [f"- {rid}: " + "; ".join(why.get(f, f) for f in flags) for rid, flags in bad]
+    return ("CORRECTION. Your previous answer for these records broke the decision procedure. Re-read them and answer the whole "
+            "batch again, keeping the reasoning but fixing the inconsistency:\n" + "\n".join(lines))
 
 
 # --------------------------------------------------------------------------------------
@@ -663,14 +846,30 @@ def pass2_selection(pass1_rows: list[dict[str, str]], fraction: float = PASS2_EX
     return [r["record_id"] for r in pass1_rows if r["decision"] == "include" or sampled(r)]
 
 
-def build_item(rid: str, cand: dict[str, str], cap_words: int = CAP_WORDS) -> dict[str, Any]:
-    header, text = parse_fulltext(fulltext_path(rid).read_text(encoding="utf-8", errors="replace"))
+def build_item(rid: str, cand: dict[str, str], cap_words: int = CAP_WORDS, repo_cap_words: int = REPO_CAP_WORDS,
+               root: Path = FULLTEXT_DIR) -> dict[str, Any]:
+    """The evidence bundle of one record: paper excerpt + repository evidence (Amendment 5)."""
+    header, text = parse_fulltext(fulltext_path(rid, root).read_text(encoding="utf-8", errors="replace"))
     ex = condense(text, header.get("fetched_title", ""), cap_words=cap_words, repo_bundle=is_repo_bundle(rid, header.get("source_used", "")))
-    return {
+    item = {
         "id": rid, "candidate_title": re.sub(r"\s+", " ", cand.get("title") or "").strip(), "candidate_source": cand.get("source") or "",
         "candidate_year": cand.get("year") or "", "source_used": header.get("source_used", ""), "fetched_url": header.get("fetched_url", ""),
         "fulltext_words": ex.fulltext_words, "excerpt_words": ex.words, "excerpt": ex.text,
+        "repo_evidence": "", "repo_bundle_url": "", "repo_bundle_ref": "", "repo_bundle_stars": "", "repo_evidence_words": 0,
     }
+    path = repo_bundle_path(rid, root)
+    if path.exists():
+        rh, body = parse_repo_bundle(path.read_text(encoding="utf-8", errors="replace"))
+        ev = repo_evidence(body, repo_cap_words)
+        if ev:
+            item.update({"repo_evidence": ev, "repo_bundle_url": rh.get("repo_url", ""), "repo_bundle_ref": rh.get("ref", ""),
+                         "repo_bundle_stars": rh.get("stars", ""), "repo_evidence_words": len(ev.split())})
+    return item
+
+
+def bundle_text(item: dict[str, Any]) -> str:
+    """Everything the model saw, for the verbatim-quote check."""
+    return item["excerpt"] + "\n" + (item.get("repo_evidence") or "")
 
 
 # --------------------------------------------------------------------------------------
@@ -688,10 +887,14 @@ def vote_row(item: dict[str, Any], v: dict[str, Any], chk: dict[str, Any], meta:
         "exclusion_subreason": v["exclusion_subreason"] or "", "deciding_step": v["deciding_step"], "confidence": v["confidence"],
         "system_name": v["system_name"] or "", "system_version": v["system_version"] or "", "repo_url": v["repo_url"] or "",
         "release_date": v["release_date"] or "", "codable_count": v["codable_count"], "codable_count_computed": len(chk["dims"]),
+        "codability_flag": v["codability_flag"], "codability_flag_computed": chk["codability_flag"],
         "layers_covered": _j(chk["layers"]), "codable_dimensions": _j(chk["dims"]), "step_evidence": _j(v["step_evidence"]),
         "systems_mentioned": _j(v["systems_mentioned"]), "document_title_seen": v["document_title_seen"],
         "candidate_title": item["candidate_title"], "candidate_source": item["candidate_source"], "source_used": item["source_used"],
-        "fetched_url": item["fetched_url"], "fulltext_words": item["fulltext_words"], "excerpt_words": item["excerpt_words"],
+        "fetched_url": item["fetched_url"], "repo_evidence": 1 if item.get("repo_evidence") else 0,
+        "repo_bundle_url": item.get("repo_bundle_url", ""), "repo_bundle_ref": item.get("repo_bundle_ref", ""),
+        "repo_bundle_stars": item.get("repo_bundle_stars", ""), "repo_evidence_words": item.get("repo_evidence_words", 0),
+        "fulltext_words": item["fulltext_words"], "excerpt_words": item["excerpt_words"],
         "quotes_total": chk["quotes_total"], "quotes_verbatim": chk["quotes_verbatim"], "flags": _j(chk["flags"]),
         **{k: meta[k] for k in ("model", "prompt_version", "effort", "seed", "batch_id", "batch_started_at", "batch_seconds", "tokens_in", "tokens_out", "cache_read", "cache_write", "cost_usd")},
     }
@@ -701,7 +904,8 @@ def not_retrievable_row(rid: str, cand: dict[str, str], idx: dict[str, str] | No
     row = {c: "" for c in COLUMNS}
     row.update({
         "record_id": rid, "pass": pass_no, "decision": "exclude", "exclusion_code": "not_retrievable", "deciding_step": "",
-        "codable_count": 0, "codable_count_computed": 0, "layers_covered": "[]", "codable_dimensions": "[]", "step_evidence": "[]",
+        "codable_count": 0, "codable_count_computed": 0, "codability_flag": "fail", "codability_flag_computed": "fail",
+        "repo_evidence": 0, "repo_evidence_words": 0, "layers_covered": "[]", "codable_dimensions": "[]", "step_evidence": "[]",
         "systems_mentioned": "[]", "flags": _j(["no_llm_call"]), "candidate_title": re.sub(r"\s+", " ", cand.get("title") or "").strip(),
         "candidate_source": cand.get("source") or "", "source_used": (idx or {}).get("source_used", ""),
         "model": "none", "prompt_version": PROMPT_VERSION, "tokens_in": 0, "tokens_out": 0, "cost_usd": "0",
@@ -730,7 +934,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--effort", default="low")
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--batch-size", type=int, default=BATCH_SIZE)
-    p.add_argument("--cap-words", type=int, default=CAP_WORDS)
+    p.add_argument("--cap-words", type=int, default=CAP_WORDS, help="words of paper excerpt per record")
+    p.add_argument("--repo-cap-words", type=int, default=REPO_CAP_WORDS, help="words of repository evidence per record (0 disables it)")
     p.add_argument("--ids", default=None, help="CSV with a record_id column restricting the input (e.g. data/screening/fulltext_pilot.csv); default: fulltext_queue.csv")
     p.add_argument("--queue", default=str(QUEUE))
     p.add_argument("--index", default=str(INDEX))
@@ -742,6 +947,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-consecutive-failures", type=int, default=4)
     p.add_argument("--excerpt", metavar="RECORD_ID", help="print the excerpt of one record and exit (no LLM call)")
     p.add_argument("--print-prompt", action="store_true", help="print the system prompt and exit")
+    p.add_argument("--text-json", action="store_true", help="ask for JSON as plain text (one request per batch) instead of --json-schema (two requests); answers are validated locally either way")
     p.add_argument("--keep-mcp", action="store_true", help="keep claude.ai MCP connectors loaded in the child Claude Code (default: disabled)")
     p.add_argument("--log-level", default="INFO")
     args = p.parse_args(argv)
@@ -761,7 +967,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     cands = load_candidates()
     if args.excerpt:
-        item = build_item(args.excerpt, cands.get(args.excerpt, {}), args.cap_words)
+        item = build_item(args.excerpt, cands.get(args.excerpt, {}), args.cap_words, args.repo_cap_words)
         print(document_block(item))
         return 0
 
@@ -816,7 +1022,7 @@ def main(argv: list[str] | None = None) -> int:
     items = []
     for rid in todo:
         try:
-            items.append(build_item(rid, cands.get(rid, {}), args.cap_words))
+            items.append(build_item(rid, cands.get(rid, {}), args.cap_words, args.repo_cap_words))
         except OSError as exc:
             log.error("%s: cannot read full text: %s", rid, exc)
     batches = [items[i : i + args.batch_size] for i in range(0, len(items), args.batch_size)]
@@ -834,8 +1040,35 @@ def main(argv: list[str] | None = None) -> int:
     def run_batch(batch: list[dict[str, Any]]) -> tuple[screen_llm.BatchResult, list[dict[str, Any]], str, float]:
         started = datetime.now(UTC).isoformat(timespec="seconds")
         t = time.time()
-        res = screen_llm.vote_batch_claude_code(exe, args.model, system_file, batch, args.effort, schema, user_prompt)
-        checks = [check_vote(v, it["excerpt"], dim_ids, item_schema) for v, it in zip(res.votes, batch, strict=True)]
+        try:
+            res = screen_llm.vote_batch_claude_code(exe, args.model, system_file, batch, args.effort, schema, user_prompt, text_json=args.text_json)
+        except ValueError as exc:  # json.JSONDecodeError is a ValueError: malformed plain-text JSON
+            if not args.text_json:
+                raise
+            log.warning("batch %s: plain-text JSON unparseable (%s); retrying once in structured-output mode", ",".join(b["id"] for b in batch), str(exc)[:80])
+            res = screen_llm.vote_batch_claude_code(exe, args.model, system_file, batch, args.effort, schema, user_prompt, text_json=False)
+        checks = [check_vote(v, bundle_text(it), dim_ids, item_schema) for v, it in zip(res.votes, batch, strict=True)]
+        bad = [(it["id"], chk["invalid"]) for it, chk in zip(batch, checks, strict=True) if chk["invalid"]]
+        if bad:
+            # one corrective retry (Amendment 5 self-check); the note names the records and what broke
+            log.warning("batch %s: invalid answer(s) %s: re-asking once", ",".join(b["id"] for b in batch), bad)
+            note = corrective_note(bad)
+            res2 = screen_llm.vote_batch_claude_code(exe, args.model, system_file, batch, args.effort, schema,
+                                                    lambda b, _n=note: user_prompt(b, _n), text_json=args.text_json)
+            checks2 = [check_vote(v, bundle_text(it), dim_ids, item_schema) for v, it in zip(res2.votes, batch, strict=True)]
+            still = [(it["id"], chk["invalid"]) for it, chk in zip(batch, checks2, strict=True) if chk["invalid"]]
+            if still:
+                log.error("batch %s: still invalid after the corrective retry: %s (written with flag invalid_after_retry)",
+                          ",".join(b["id"] for b in batch), still)
+                for it, chk in zip(batch, checks2, strict=True):
+                    if chk["invalid"]:
+                        chk["flags"] = [*chk["flags"], "invalid_after_retry"]
+            for chk in checks2:
+                chk["flags"] = [*chk["flags"], "corrective_retry"]
+            res2.cost_usd += res.cost_usd
+            res2.tokens_in += res.tokens_in
+            res2.tokens_out += res.tokens_out
+            return res2, checks2, started, time.time() - t
         return res, checks, started, time.time() - t
 
     n = failed = consec = 0
@@ -884,7 +1117,10 @@ def main(argv: list[str] | None = None) -> int:
         "records_screened_now": n, "records_failed": failed, "not_retrievable_now": len(not_ret), "pending_not_fetched": len(pending),
         "aborted_on_consecutive_failures": aborted, "tokens_in": tok_in, "tokens_out": tok_out, "cost_usd": round(spent, 3),
         "cost_per_record_usd": round(spent / n, 4) if n else None, "wall_seconds": round(secs, 1), "wall_seconds_per_record": round(secs / n, 2) if n else None,
-        "decisions_in_file_for_input": dict(Counter(r["decision"] for r in rows)), "out": str(out),
+        "decisions_in_file_for_input": dict(Counter(r["decision"] for r in rows)),
+        "codability_flag_in_file": dict(Counter(r.get("codability_flag") or "-" for r in rows)),
+        "with_repo_evidence": sum((r.get("repo_evidence") or "0") == "1" for r in rows),
+        "invalid_after_retry": sum("invalid_after_retry" in (r.get("flags") or "") for r in rows), "out": str(out),
     }
     print("SUMMARY " + json.dumps(summary))
     return 1 if failed else 0
