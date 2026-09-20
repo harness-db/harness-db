@@ -518,8 +518,14 @@ def pass_b_document(bundle_text: str, dims: list[dict[str, Any]], window: int = 
 # --------------------------------------------------------------------------------------
 
 LOCATOR_REPO_RE = re.compile(r"^[\w./\\+-]+:\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*@[0-9a-fA-F]{6,40}$")
+# The evidence bundle carries repository excerpts without their original line numbers, so a coder
+# cannot cite a real line (manual rule 7). A path pinned to a commit is therefore accepted as the
+# weaker repository form and flagged `locator_no_line`; demanding a line number here would only
+# invite fabricated ones, and the quote itself is verified against the exact text that was read.
+LOCATOR_REPO_NOLINE_RE = re.compile(r"^[\w./\\+-]+(?:\s+\w+)*@[0-9a-fA-F]{6,40}$")
 LOCATOR_PAPER_RE = re.compile(r"(sec\.|section|app\.|appendix|table|fig\.|figure|p\.|page|abstract|readme|"
-                              r"file tree|listing)", re.IGNORECASE)
+                              r"file tree|listing|algorithm|alg\.|eq\.|equation|protocol|prompt|"
+                              r"pseudocode|paper)", re.IGNORECASE)
 
 
 @dataclass
@@ -663,6 +669,8 @@ def check_cell(dim: dict[str, Any], cell: Any, bundle_squashed: str,
                 flags.append("absence_without_evidence")  # manual general rule 5
         if not locator:
             flags.append("missing_locator")
+        elif LOCATOR_REPO_NOLINE_RE.match(locator):
+            flags.append("locator_no_line")
         elif not (LOCATOR_REPO_RE.match(locator) or LOCATOR_PAPER_RE.search(locator)):
             flags.append("locator_shape_unrecognised")
         if absence and conf == "high":
