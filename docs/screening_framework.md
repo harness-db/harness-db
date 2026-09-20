@@ -30,6 +30,14 @@ bundle can support. Codability is recorded here and enforced at coding (amendmen
 Every include, and a random 10% of excludes, is read a second time independently; the two readings
 give a full-text agreement figure.
 
+Bundles are read eight per call for cost. A small number of candidate systems are
+offensive-security agents (autonomous exploitation, self-propagating agents), and a batch containing
+one of them is sometimes refused as a whole by the reader's content classifier - the refusal is a
+property of the batch, not of any one document. Batches that fail are automatically re-read one
+document per call, which has cleared every such refusal so far (16 records on 2026-09-20). No record
+is excluded for being refused: a record that could never be read would be recorded
+`not_retrievable` with the reason, and counted in the PRISMA flow.
+
 ## Stage 3 - systems, not records
 Includes are grouped into systems by repository URL, then by name similarity, then by the
 versioning rule of protocol 4.4. The count reported as "studies included" is a count of systems;
@@ -54,3 +62,7 @@ record counts are reported separately.
    an automated audit); those records were re-read from their own documents.
 4. Two models with the same prompt can err the same way; a disagreement of zero would not prove
    correctness.
+5. Reading is done by a commercial assistant subject to content safeguards. Offensive-security
+   agents are in scope for this census and were read successfully, but only after batches containing
+   them were split; a future classifier change could make some such systems unreadable, which would
+   have to be reported as missing data rather than as exclusions.

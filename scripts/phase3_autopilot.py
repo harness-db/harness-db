@@ -111,11 +111,22 @@ def screen_until_done(label: str, ids: list[str], model: str, out: Path, args: a
             log.error("%s: deadline reached with %d records left", label, len(todo))
             return
         before = len(todo)
-        idfile = write_ids(SCREEN / f"_autopilot_{label}_ids.csv", todo)
-        run([PY, "scripts/fulltext_screen.py", "--pass", "1", "--backend", "claude-code", "--model", model,
-             "--effort", "low", "--workers", str(args.workers), "--batch-size", str(args.batch_size), "--text-json",
-             "--ids", str(idfile), "--out", str(out), "--max-consecutive-failures", "6"], SCREEN / f"autopilot_{label}.log")
-        after = len(set(ids) - voted(out))
+        # A batch is refused as a whole when any one document in it trips a content safeguard
+        # (several candidate systems are offensive-security agents). Splitting the batch clears it.
+        sizes = [args.batch_size] + ([1] if args.batch_size > 1 else [])
+        for size in sizes:
+            idfile = write_ids(SCREEN / f"_autopilot_{label}_ids.csv", todo)
+            if size != args.batch_size:
+                log.info("%s: no progress at batch size %d; retrying %d records one document per call",
+                         label, args.batch_size, len(todo))
+            run([PY, "scripts/fulltext_screen.py", "--pass", "1", "--backend", "claude-code", "--model", model,
+                 "--effort", "low", "--workers", str(min(args.workers, 4) if size == 1 else args.workers),
+                 "--batch-size", str(size), "--text-json",
+                 "--ids", str(idfile), "--out", str(out), "--max-consecutive-failures", "6"], SCREEN / f"autopilot_{label}.log")
+            after = len(set(ids) - voted(out))
+            if after < before:
+                break
+            todo = sorted(set(ids) - voted(out))
         if after == 0:
             continue
         if after < before:
