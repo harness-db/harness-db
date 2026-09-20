@@ -71,10 +71,15 @@ def main(argv: list[str] | None = None) -> int:
     token = env_token()
 
     existing = responses(token)
-    latest = existing[0] if existing else None
-    if latest is None:
+    if not existing:
         raise SystemExit("no schema responses on the registration; nothing to revise")
-    current = latest["attributes"].get("revision_responses") or {}
+    # Diff against the newest APPROVED response, never against a draft: a draft already carries the
+    # answers this script wrote on an earlier attempt, so diffing against it would report nothing to
+    # do and skip the submit that the draft is still waiting for.
+    approved = [r for r in existing if r["attributes"].get("reviews_state") == "approved"]
+    if not approved:
+        raise SystemExit("no approved response to revise from")
+    current = approved[0]["attributes"].get("revision_responses") or {}
 
     if args.show:
         for k, v in current.items():
@@ -82,11 +87,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{k:10} {len(s):6} chars  {s[:90]!r}")
         return 0
 
-    pending = [r for r in existing if r["attributes"].get("reviews_state") != "approved"]
-    if pending:
-        for r in pending:
-            print(f"pending update {r['id']} is {r['attributes'].get('reviews_state')}")
-        raise SystemExit("OSF allows one pending update at a time: approve or withdraw the pending one first")
+    # OSF allows one pending update at a time, but the two pending states mean different things:
+    # `in_progress` is a draft this script created and can finish (writing the answers again is
+    # idempotent), while `unapproved` is already submitted and waiting on the author.
+    submitted = [r for r in existing if r["attributes"].get("reviews_state") == "unapproved"]
+    if submitted:
+        for r in submitted:
+            print(f"revision {r['id']} is already submitted and waiting for approval")
+        raise SystemExit(f"approve or withdraw it at https://osf.io/{REGISTRATION}/ before filing another")
+    draft = next((r for r in existing if r["attributes"].get("reviews_state") == "in_progress"), None)
 
     spec = json.loads(args.responses.read_text(encoding="utf-8"))
     justification = spec.get("_justification", "").strip()
@@ -109,14 +118,18 @@ def main(argv: list[str] | None = None) -> int:
         print("\ndry run: nothing filed")
         return 0
 
-    # A new revision is created on the schema_responses collection with a relationship to the
-    # registration; the registration's own sub-collection is read-only (POST there returns 405).
-    created = call("POST", f"{API}/schema_responses/", token,
-                   {"data": {"type": "schema-responses",
-                             "relationships": {"registration": {
-                                 "data": {"id": REGISTRATION, "type": "registrations"}}}}})
-    rid = created["data"]["id"]
-    print(f"\ncreated revision {rid}")
+    if draft is not None:
+        rid = draft["id"]
+        print(f"\nresuming the draft revision {rid} left in progress")
+    else:
+        # A new revision is created on the schema_responses collection with a relationship to the
+        # registration; the registration's own sub-collection is read-only (POST there returns 405).
+        created = call("POST", f"{API}/schema_responses/", token,
+                       {"data": {"type": "schema-responses",
+                                 "relationships": {"registration": {
+                                     "data": {"id": REGISTRATION, "type": "registrations"}}}}})
+        rid = created["data"]["id"]
+        print(f"\ncreated revision {rid}")
 
     call("PATCH", f"{API}/schema_responses/{rid}/", token,
          {"data": {"id": rid, "type": "schema-responses",
@@ -124,10 +137,13 @@ def main(argv: list[str] | None = None) -> int:
                                   "revision_justification": justification}}})
     print(f"wrote {len(changed)} revised answers")
 
+    # The action must name the revision it acts on: without relationships.target OSF returns 400.
     call("POST", f"{API}/schema_responses/{rid}/actions/", token,
          {"data": {"type": "schema-response-actions",
                    "attributes": {"trigger": "submit",
-                                  "comment": "Amendments 2-8; see the revision justification."}}})
+                                  "comment": "Amendments 2-8; see the revision justification."},
+                   "relationships": {"target": {
+                       "data": {"id": rid, "type": "schema-responses"}}}}})
     print("submitted for approval")
     print(f"\nAPPROVE IT HERE: https://osf.io/{REGISTRATION}/ (an OSF email also carries the link)")
     print("Until it is approved the amendments are not on the public record.")
