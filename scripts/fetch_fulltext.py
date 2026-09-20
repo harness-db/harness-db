@@ -1698,8 +1698,16 @@ def main() -> int:
     p.add_argument("--summary", action="store_true",
                    help="print counts for the selected ids from the index and exit")
     p.add_argument("--log-level", default="INFO")
+    p.add_argument("--candidates", help="candidate table to resolve ids against; defaults to the "
+                                       "frozen data/raw/candidates.csv. The supplementary arm "
+                                       "(amendment 7) passes candidates_plus_supp.csv so the frozen "
+                                       "harvest stays untouched")
     p.add_argument("--_extract-pdf", dest="extract_pdf", help=argparse.SUPPRESS)
     args = p.parse_args()
+
+    if args.candidates:
+        global CANDIDATES_CSV
+        CANDIDATES_CSV = Path(args.candidates)
 
     if args.extract_pdf:
         sys.stdout.write(json.dumps(_pdf_worker(args.extract_pdf), ensure_ascii=True))

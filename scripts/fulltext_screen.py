@@ -947,6 +947,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-consecutive-failures", type=int, default=4)
     p.add_argument("--excerpt", metavar="RECORD_ID", help="print the excerpt of one record and exit (no LLM call)")
     p.add_argument("--print-prompt", action="store_true", help="print the system prompt and exit")
+    p.add_argument("--candidates", default=None,
+                   help="candidate table for titles and sources; defaults to the frozen "
+                        "data/raw/candidates.csv. The supplementary arm (amendment 7) passes "
+                        "candidates_plus_supp.csv")
     p.add_argument("--text-json", action="store_true", help="ask for JSON as plain text (one request per batch) instead of --json-schema (two requests); answers are validated locally either way")
     p.add_argument("--keep-mcp", action="store_true", help="keep claude.ai MCP connectors loaded in the child Claude Code (default: disabled)")
     p.add_argument("--log-level", default="INFO")
@@ -965,7 +969,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_prompt:
         print(system)
         return 0
-    cands = load_candidates()
+    cands = load_candidates(Path(args.candidates)) if args.candidates else load_candidates()
     if args.excerpt:
         item = build_item(args.excerpt, cands.get(args.excerpt, {}), args.cap_words, args.repo_cap_words)
         print(document_block(item))
