@@ -1,0 +1,544 @@
+{
+ "system_id": "scribeagent",
+ "name": "ScribeAgent",
+ "version": "",
+ "repo_url": "https://github.com/colonylabs/scribeagent",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 83212,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2411.15004",
+    "chars_available": 33595,
+    "chars_used": 33595,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2411.15004",
+    "chars_available": 49222,
+    "chars_used": 49222,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "static",
+   "not_reported": false,
+   "evidence_quote": "self.prepend = \"Help achieve the objective by generating the next step.\"",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Fixed system message for the fine-tuned agent; GPT user-agent uses fixed system string too."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "we consider an observation space consisting of the user obejective, current web page's URL and HTML-DOM, and previous actions",
+   "evidence_locator": "README.md@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: the full pruned HTML-DOM of the current page is injected each step (a structural dump), not agent-driven navigation; no navigation/search tools."
+  },
+  "context_compaction": {
+   "value": [
+    "tool_output_pruning",
+    "truncate_oldest"
+   ],
+   "not_reported": false,
+   "evidence_quote": "We perform naive truncation at tag level, do left truncate the DOMs to fit within the model's context window.",
+   "evidence_locator": "README.md@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "DOM chunking/truncation per step; history is actions only (observations omitted)."
+  },
+  "observation_format": {
+   "value": [
+    "a11y_tree",
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "stop_prompt = self.task_meta_info + \"Accessibility tree:\\n\" + self.acc + \"\\nUser's actions:\\n\" + self.prev_actions_acc",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "HTML-DOM text plus accessibility tree passed to the GPT stage."
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "match = re.search(r\"Description: ([^\\n]+)\\nAction: ([^\\n]+)\\nNode: ([^\\n]+)\\nTarget: (.+)\", generated_text)",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Closest value: actions are emitted as a fixed five-line plain-text format parsed by regex, then converted to id-based actions like \"click [id]\"; not true JSON."
+  },
+  "tool_count": {
+   "value": 0,
+   "not_reported": false,
+   "evidence_quote": "return create_id_based_action(parsed_response)",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tool schemas are exposed; actions are web primitives (click/type/press/scroll/stop) parsed from text."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The action at emulates the keyboard and mouse operations available on web pages.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "absence_high_confidence"
+   ],
+   "resolved": true,
+   "note": "Web agent; no file editing."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "with open(instruction_path) as f:\n            self.prompt_dict = json.load(f)",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Prompts/action formats are hand-authored JSON files; no schema generation."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "from openai import OpenAI",
+   "evidence_locator": "benchmarks/webarena/agent/gpt_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No MCP/A2A anywhere in the repo file tree."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Our system contains four stages: (1) ob- jective refinement ... (2) action generation ... (3) action execution ... (4) completeness evaluation",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "high",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "we currently do not incorporate planning into ScribeAgent, so its output will be directly used as the next action",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "we tackle end-to-end task solving by developing a multi-agent system that utilizes GPT-4o to simulate user interactions with ScribeAgent",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fixed hand-off between ScribeAgent (action generation) and GPT-4o user agent (intent, mapping, stop)."
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "self.user = GPTAgent(self.prompt_dict[self.domain], self.note)",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Control passes to the GPT user agent within the same step."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "print(\"[EXECUTE ACTION]\", parsed_response)\n        return create_id_based_action(parsed_response)",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "The \"user\" is simulated by GPT-4o, not a human."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "self.note = \"\"\n        self.subsequent_actions = []",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Agent keeps typed fields: intent, note, prev_actions, subsequent_actions beyond messages."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "For the history, we consider only previous actions, omitting previous observations due to the ex- tensive length of the DOMs.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No cross-run memory; paper lists memory as future work."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "This iterative process stops when the agent issues a stop signal, or a task termination condition is met",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No resume path in the agent code."
+  },
+  "self_verification": {
+   "value": [
+    "llm_judge",
+    "self_critique"
+   ],
+   "not_reported": false,
+   "evidence_quote": "should_stop, ans = self.user.reflect(stop_prompt, \"stop\")",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "GPT-4o judges completeness and reflects; majority-vote selection over agent samples."
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "while len(response) == 0 and num_try < 5:",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Step-level regeneration caps (5 and max_try=10; PromptAgent max_retry); no whole-task retry."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "elif \"go back\" in generated_text.lower():\n                return True, \"go back\"",
+   "evidence_locator": "benchmarks/webarena/agent/gpt_agent.py@c6a11e9977d7",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Only browser back navigation; no harness rollback."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "This iterative process stops when the agent issues a stop signal, or a task termination condition is met, such as we have reached a predefined maximum number of steps.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "calling ScribeAgent to generate a next action incurs negligible cost as it is served locally",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No budget/caching/router code found in the agent."
+  },
+  "timeouts": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "response = self.client.chat.completions.create(\n                model=self.model,\n                messages=messages,\n            )",
+   "evidence_locator": "benchmarks/webarena/agent/gpt_agent.py@c6a11e9977d7",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No timeout arguments in LLM or agent calls shown."
+  },
+  "execution_isolation": {
+   "value": "container",
+   "not_reported": false,
+   "evidence_quote": "benchmarks/webarena/environment_docker/README.md",
+   "evidence_locator": "file tree@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "WebArena websites run in Docker; the browser is Playwright controlled locally."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "REDDIT = os.environ.get(\"REDDIT\", \"\")",
+   "evidence_locator": "benchmarks/webarena/browser_env/env_config.py@c6a11e9977d7",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agent acts only in the browser on configured sites; no filesystem actions."
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "URL_MAPPINGS = {\n    REDDIT: \"http://reddit.com\",",
+   "evidence_locator": "benchmarks/webarena/browser_env/env_config.py@c6a11e9977d7",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No egress restriction code; sites are configured URLs."
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "print(\"[EXECUTE ACTION]\", parsed_response)",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Predicted actions are executed without authorisation checks."
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "print(\"\\n\\n\" + \"=\"*25,\"NEW STEP\",\"=\"*25)",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "replayability": {
+   "value": "partial",
+   "not_reported": false,
+   "evidence_quote": "class TeacherForcingAgent(Agent):\n    \"\"\"Agent that follows a pre-defined action sequence\"\"\"",
+   "evidence_locator": "benchmarks/webarena/agent/agent.py@c6a11e9977d7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Recorded action sequences can be replayed via teacher forcing."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "benchmarks/webarena/evaluation_harness/evaluators.py",
+   "evidence_locator": "file tree@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Mind2Web and WebArena evaluation code ships in the repo."
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "action = create_none_action()\n                    action[\"raw_prediction\"] = response",
+   "evidence_locator": "benchmarks/webarena/agent/agent.py@c6a11e9977d7",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Unparseable actions become no-ops; no safety filters or action policies."
+  },
+  "target_domain": {
+   "value": [
+    "web"
+   ],
+   "not_reported": false,
+   "evidence_quote": "ScribeAgent: Towards Specialized Web Agents Using Production-Scale Workflow Data",
+   "evidence_locator": "README.md@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "partial",
+   "not_reported": false,
+   "evidence_quote": "Due to privacy concerns, we restrict access to our proprietary dataset. However, we release our com- plete preprocessing, training, and inference code",
+   "evidence_locator": "paper Sec. 1 footnote 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Code released (WebArena LICENSE present); training data proprietary."
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "config = transformers.AutoConfig.from_pretrained(\n    \t\t\"Qwen/Qwen2-7B-Instruct\",",
+   "evidence_locator": "benchmarks/webarena/agent/workflow_agent.py@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Agent is a specific fine-tuned Qwen checkpoint; GPT-4o hard-coded for the user agent."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "This repository contains the code for the paper",
+   "evidence_locator": "README.md@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2024-11-22",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2411.15004v2 [cs.CL] 5 Dec 2024",
+   "evidence_locator": "paper p. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tags in repo; basis is arXiv v1 date implied by id 2411.15004."
+  },
+  "pinned_version": {
+   "value": "main @ c6a11e9977d7 (2025-01-14)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main c6a11e9977d7 2025-01-14",
+   "evidence_locator": "repository evidence header@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tagged releases."
+  },
+  "stars": {
+   "value": 63,
+   "not_reported": false,
+   "evidence_quote": "stars: 63",
+   "evidence_locator": "repository evidence header@c6a11e9977d7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  }
+ },
+ "cells_unresolved": [
+  "C1"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 20,
+  "absence_high_confidence": 1,
+  "quote_not_in_bundle": 1
+ },
+ "pass": "A",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-20T18:58:25+00:00",
+ "model": "claude-opus-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 83212,
+ "doc_chars": 83571,
+ "call_id": "A-scribeagent-00269",
+ "tokens_in": 55736,
+ "tokens_out": 4560,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.392680"
+}

@@ -1,0 +1,515 @@
+{
+ "system_id": "ralphex",
+ "name": "ralphex",
+ "version": "v1.6.1",
+ "repo_url": "https://github.com/umputun/ralphex",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 109979,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "paper",
+    "record_id": "github:umputun/ralphex",
+    "chars_available": 120982,
+    "chars_used": 109756,
+    "truncated": true
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "Custom prompt files support variable expansion. All variables use the `{{VARIABLE}}` syntax.",
+   "evidence_locator": "README.md Template Syntax @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Prompts like task.txt rendered with {{PLAN_FILE}}, {{GOAL}}, {{agent:name}}."
+  },
+  "env_context_strategy": {
+   "value": "agent_driven_navigation",
+   "not_reported": false,
+   "evidence_quote": "Claude explores your codebase, asks clarifying questions",
+   "evidence_locator": "README.md Plan Creation @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "ralphex passes a prompt to Claude Code/codex, which navigates the repo itself."
+  },
+  "context_compaction": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Each task executes in a fresh Claude Code session with minimal context, keeping the model sharp throughout the entire plan.",
+   "evidence_locator": "README.md intro @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Context management by fresh sessions per task, not by history rewriting inside ralphex."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "reads stdout as a stream of JSON events",
+   "evidence_locator": "docs/custom-providers.md How it works @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "ralphex consumes text events from the executor; no images."
+  },
+  "tool_call_format": {
+   "value": [
+    "shell_only"
+   ],
+   "not_reported": false,
+   "evidence_quote": "<claude_command> <claude_args...> [--model <model>] [--effort <level>] --print",
+   "evidence_locator": "docs/custom-providers.md Argument handling @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "ralphex itself has no tool-call protocol; it shells out to claude/codex CLIs. Inner agent signals are emitted as text markers like <<<RALPHEX:COMPLETED>>>."
+  },
+  "tool_count": {
+   "value": 0,
+   "not_reported": false,
+   "evidence_quote": "ralphex prompts instruct the agent to emit signals like `<<<RALPHEX:COMPLETED>>>` or `<<<RALPHEX:FAILED>>>` in its output.",
+   "evidence_locator": "docs/custom-providers.md Signal detection @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tool schemas are defined by ralphex; tools belong to the underlying Claude Code/codex CLI."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The prompt is passed via stdin (not as a CLI argument).",
+   "evidence_locator": "docs/custom-providers.md Argument handling @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Editing is done by the delegated coding CLI, not by ralphex primitives."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Place custom prompt files in `~/.config/ralphex/prompts/` to override the built-in prompts.",
+   "evidence_locator": "README.md Custom prompts @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only hand-written prompt/agent text files; no schema generation."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The overrides layer on top of the user's `~/.codex/config.toml` rather than replacing it, so user customizations (model, sandbox, MCP servers) are preserved.",
+   "evidence_locator": "docs/custom-providers.md Codex executor mode @521860977",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "MCP only mentioned as a user setting of the underlying codex CLI; ralphex itself speaks no protocol."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair",
+    "multi_attempt",
+    "plan_execute",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "ralphex executes plans in four phases with automated code reviews, plus an optional finalize step.",
+   "evidence_locator": "README.md How It Works @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Default is the fixed four-phase pipeline over a plan file; validation commands run after each task and fixes iterate (generate_test_repair); task_retry_count=1 gives multi_attempt."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "Reads plan file and finds first incomplete task (`### Task N:` with `- [ ]` checkboxes)",
+   "evidence_locator": "README.md Phase 1 @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Markdown plan file with checkbox state is read and updated across steps."
+  },
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "Launches 5 review agents **in parallel** via Claude Code Task tool",
+   "evidence_locator": "README.md Phase 2 @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "ralphex orchestrates executor sessions and review subagents."
+  },
+  "delegation_mechanism": {
+   "value": "subagent_spawn",
+   "not_reported": false,
+   "evidence_quote": "Each `{{agent:name}}` expands to Task tool instructions that tell Claude Code to run that agent.",
+   "evidence_locator": "README.md Agent references @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "spawn_agent under codex executor."
+  },
+  "human_in_loop": {
+   "value": [
+    "configurable",
+    "on_plan"
+   ],
+   "not_reported": false,
+   "evidence_quote": "When reviewing the draft, you can accept, revise with text feedback, open it in `$EDITOR` for interactive annotation, or reject it.",
+   "evidence_locator": "README.md Plan Creation @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Also Ctrl+\\ pause to steer mid-run; action-level approval is disabled (--dangerously-skip-permissions)."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "Plan file tracks task state (`[ ]` vs `[x]`).",
+   "evidence_locator": "README.md FAQ @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Plan checkboxes plus progress file constitute the run state; each session is fresh."
+  },
+  "long_term_memory": {
+   "value": [
+    "file_notes"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Progress is logged to `.ralphex/progress/progress-plan-<name>.txt`.",
+   "evidence_locator": "README.md Plan Creation @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Progress/plan files persist across sessions and runs and are referenced in prompts via {{PROGRESS_FILE}}."
+  },
+  "state_persistence": {
+   "value": "full_resume",
+   "not_reported": false,
+   "evidence_quote": "To resume, re-run `ralphex docs/plans/<plan>.md`. Ralphex detects completed tasks via `[x]` checkboxes in the plan and continues from the first incomplete task.",
+   "evidence_locator": "README.md FAQ @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "self_verification": {
+   "value": [
+    "linters_typecheck",
+    "llm_judge",
+    "self_critique",
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Runs validation commands (tests, linters) after each task",
+   "evidence_locator": "README.md Phase 1 @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Multi-agent review phases (self_critique/llm_judge) plus external codex review as independent judge."
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "| `task_retry_count` | Task retry attempts | `1` |",
+   "evidence_locator": "README.md Configuration options @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Also max-iterations 50 loop over tasks."
+  },
+  "rollback": {
+   "value": "git_based",
+   "not_reported": false,
+   "evidence_quote": "The default `finalize.txt` prompt rebases commits onto the default branch and optionally squashes related commits into logical groups.",
+   "evidence_locator": "README.md Finalize Step @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Commits after each task on a dedicated branch; worktrees removed on success. No explicit undo/reset command in harness."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared",
+    "stall_detection"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The loop terminates when: all issues resolved, max iterations reached, stalemate detected (via `--review-patience`), or manual break via Ctrl+\\ (SIGQUIT).",
+   "evidence_locator": "README.md Phase 3 @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "model_declared via <<<RALPHEX:ALL_TASKS_DONE>>> signal; review-patience stall detection off by default (0)."
+  },
+  "cost_controls": {
+   "value": [
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "use different models for tasks and reviews",
+   "evidence_locator": "README.md Usage @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-phase/per-agent model selection (plan/task/review model, agent frontmatter model). No token budget or caching in ralphex; rate-limit wait+retry instead."
+  },
+  "timeouts": {
+   "value": [
+    "per_run",
+    "per_tool"
+   ],
+   "not_reported": false,
+   "evidence_quote": "| `session_timeout` | Per-session timeout for task/review executor (e.g., `30m`, `1h`)",
+   "evidence_locator": "README.md Configuration options @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Both session_timeout and idle_timeout disabled by default; codex_timeout_ms 3600000 is set by default for the external codex call."
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "ralphex is a standalone CLI tool that runs in your terminal from the root of a git repository.",
+   "evidence_locator": "README.md intro @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Optional Docker wrapper (ralphex-dk.sh) gives container isolation; also --worktree isolation."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "ralphex runs Claude Code with `--dangerously-skip-permissions`, giving it full access to execute commands and modify files.",
+   "evidence_locator": "README.md Using Docker @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "In Docker mode scoped to the mounted /workspace."
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "**Network:** Full network access (required for Claude API calls)",
+   "evidence_locator": "README.md Isolation details @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "claude_args = --dangerously-skip-permissions --output-format stream-json --verbose",
+   "evidence_locator": "README.md Configuration options @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "absence_high_confidence"
+   ],
+   "resolved": true,
+   "note": "Permissions are skipped by default so every action executes; external codex review runs read-only sandbox."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "Progress file (`.ralphex/progress/progress-*.txt`) is a real-time execution log—tail it to monitor.",
+   "evidence_locator": "README.md FAQ @521860977",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Timestamped/phase-tagged progress logs plus SSE web dashboard; no OTel."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Reviews re-run from iteration 1, but fixes from previous iterations remain in the codebase.",
+   "evidence_locator": "README.md FAQ @521860977",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Progress logs are not replayable; only plan-state resume exists."
+  },
+  "eval_hooks": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "ralphex is a standalone CLI tool that runs in your terminal from the root of a git repository.",
+   "evidence_locator": "README.md intro @521860977",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Repo ships e2e/ Go tests of itself but no benchmark evaluation runner."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies",
+    "input_filters"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Security warning emitted for sensitive names (KEY, SECRET, TOKEN, etc.) with explicit values - use name-only form for secure credential passing",
+   "evidence_locator": "README.md Environment variables @521860977",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Error/limit pattern matching on executor output halts runs; validation commands gate task completion; Docker mounts restrict access."
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Autonomous plan execution with Claude Code and codex",
+   "evidence_locator": "README.md heading @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "MIT License - see [LICENSE](LICENSE) file.",
+   "evidence_locator": "README.md License @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "The `claude_command` and `claude_args` config options let you replace Claude Code with any CLI that produces compatible `stream-json` output.",
+   "evidence_locator": "README.md Using Alternative Providers @521860977",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agent-CLI agnostic rather than direct LLM API; also Bedrock/codex/Gemini/Copilot paths."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:v1.6.1 521860977a25d08977fe21c1a3b25fe6b62a2a44 2026-07-21",
+   "evidence_locator": "github:umputun/ralphex ref line",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "v1.6.1 @ 521860977a25d08977fe21c1a3b25fe6b62a2a44 (2026-07-21)",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:v1.6.1 521860977a25d08977fe21c1a3b25fe6b62a2a44 2026-07-21",
+   "evidence_locator": "github:umputun/ralphex ref line",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  }
+ },
+ "cells_unresolved": [
+  "M5",
+  "M7"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 7,
+  "absence_high_confidence": 1
+ },
+ "pass": "A",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-20T18:53:34+00:00",
+ "model": "claude-opus-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 109979,
+ "doc_chars": 110331,
+ "call_id": "A-ralphex-00222",
+ "tokens_in": 67018,
+ "tokens_out": 4548,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.448790"
+}

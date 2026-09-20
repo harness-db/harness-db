@@ -1,0 +1,518 @@
+{
+ "system_id": "kdr-agent",
+ "name": "KDR-Agent",
+ "version": "",
+ "repo_url": "https://github.com/mwxgod/kdr-agent",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 50573,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2511.19083",
+    "chars_available": 13895,
+    "chars_used": 13895,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2511.19083",
+    "chars_available": 36247,
+    "chars_used": 36247,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "prompt = f'''Please read the following text:\n> [{input_sentence}]",
+   "evidence_locator": "tool.py:get_palnner_prompt@0d0ba06",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "f-string templates rendered per sample; no system role, only user message."
+  },
+  "env_context_strategy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "The input file `test_file_path` should be a JSON list. Each sample contains at least:",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No repository/environment; input is a sentence. Wikipedia retrieval is knowledge, not env context."
+  },
+  "context_compaction": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "message = [{\"role\": \"user\", \"content\": prompt}]",
+   "evidence_locator": "tool.py:QA_GPT@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Each call is a single fresh user message; no history accumulation or compaction."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "return wikipedia.summary(unfamiliar_concepts, sentences=sentences, auto_suggest=True)",
+   "evidence_locator": "tool.py:get_wiki_summary@0d0ba06",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Return your answer in the following format (use # to separate items):",
+   "evidence_locator": "tool.py:get_palnner_prompt@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tool-call API; planner emits delimited text/JSON that the harness parses; NER output is JSON in text."
+  },
+  "tool_count": {
+   "value": 1,
+   "not_reported": false,
+   "evidence_quote": "We use the **Python `wikipedia` API** to fetch short summaries as background knowledge.",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only the Wikipedia retrieval function is invoked on model-produced queries; not exposed as a schema."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The output will append a prediction field for each sample:",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No file-editing tool; outputs are entity predictions."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Return your answer in the following format (use # to separate items):",
+   "evidence_locator": "tool.py:get_palnner_prompt@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Formats are described in hand-written prompt strings; no schema generation."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "import wikipedia\nimport requests\nimport openai",
+   "evidence_locator": "tool.py:1-6@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No MCP/A2A imports or dependencies in the shown file tree."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair",
+    "plan_execute"
+   ],
+   "not_reported": false,
+   "evidence_quote": "KDR-Agent consists of two stages: (1)\nKnowledge In-context Construction, which builds enriched\nprompts using type definitions, contrastive examples, and\nboth retrieved background knowledge and disambiguation\ncues; and (2)Reflection & Correction",
+   "evidence_locator": "paper Sec. Overall Framework",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Default is the fixed planner->retrieve->disambiguate->infer->reflect pipeline; reflection is verify-and-repair."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "The planner produces two key outputs: (1) a query set\nQ={q i}, containing the generated knowledge search\nqueries; and (2) a disambiguation prompt segmentP ambig",
+   "evidence_locator": "paper Sec. Central LLM Planner",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Planner output is a concept list, not a persisted plan object."
+  },
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "A central planner coordinates\nspecialized agents to (i) retrieve factual knowledge from\nWikipedia for domain-specific mentions",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "the planner generates a search query\nqi =GenerateQuery(concept i, x)and forwards it to the\nKnowledge Retrieval Agent.",
+   "evidence_locator": "paper Sec. Central LLM Planner",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agents are prompt roles invoked in sequence, not spawned agent objects."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "python main.py --args_file ./config/Bio_BC5CDR.json",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Batch script over a test file; no confirmation hooks."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "message = [{\"role\": \"user\", \"content\": prompt}]",
+   "evidence_locator": "tool.py:QA_GPT@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Intermediate strings passed between prompt builders; no typed state object."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we use the development sets solely for\nhyperparameter tuning and evaluate performance on the of-\nficial test sets.",
+   "evidence_locator": "paper Sec. Experiments Setting",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Static few-shot demonstrations are not memory; nothing persists across runs."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Path to save predictions (will overwrite / write back)",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Predictions are written back but there is no documented resume path."
+  },
+  "self_verification": {
+   "value": [
+    "self_critique"
+   ],
+   "not_reported": false,
+   "evidence_quote": "reflect on and correct model predictions through structured\nself-assessment",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "Maximum retry times when JSON schema validation fails",
+   "evidence_locator": "README.md config table@0d0ba06",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "max_loop=10 retries on invalid JSON output; format-level retry."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "The output will append a prediction field for each sample:",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No filesystem mutation to roll back."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"max_loop\": 10",
+   "evidence_locator": "config/Bio_BC5CDR.json via README@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Pipeline ends after fixed stages; max_loop caps validation retries."
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "response = openai.chat.completions.create(\n        model=model_name,\n        messages=message\n    )",
+   "evidence_locator": "tool.py:QA_GPT@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No budget, caching or routing code."
+  },
+  "timeouts": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "import json\nimport time\nfrom datetime import datetime",
+   "evidence_locator": "tool.py:1-3@0d0ba06",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No timeout parameters in the shown code."
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "python main.py --args_file ./config/Bio_BC5CDR.json",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Runs in-process as a Python script; no sandboxing."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "with open(f'data/{dataset}/define.json', 'r', encoding='utf-8') as f:",
+   "evidence_locator": "tool.py:get_first_NER_prompt@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Host process reads/writes project files; no restriction."
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "the agent issues a search request to\nWikipedia and returns the corresponding introductory sum-\nmary",
+   "evidence_locator": "paper Sec. Knowledge Retrieval Agent",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Outbound HTTP to Wikipedia and OpenAI; no network restriction code."
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "return wikipedia.summary(unfamiliar_concepts, sentences=sentences, auto_suggest=True)",
+   "evidence_locator": "tool.py:get_wiki_summary@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Model-generated queries are executed directly."
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "Updated `test_sample.json` with predictions",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only predictions written back; no per-step structured trace documented."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Updated `test_sample.json` with predictions",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No replay facility."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "We compute metrics using `get_PRF(test_data)`:",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "output_filters"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Maximum retry times when JSON schema validation fails",
+   "evidence_locator": "README.md config table@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "jsonchecker.py validates model output format; no input or action guardrails."
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "KDR-Agent is a multi-agent LLM framework designed for **low-resource, multi-domain Named Entity Recognition (NER)**.",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Domain is information extraction / NER, not in the value list."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "The code and data can be found at\nhttps://github.com/MWXGOD/KDR-Agent.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Public repo; no LICENSE file visible in the file tree."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "including the proprietary GPT-\n4o (Hurst et al. 2024) and two open-source backbones:\nDeepSeek-V3 (Liu et al. 2024b) and Qwen-2.5-72B",
+   "evidence_locator": "paper Sec. LLM Backbones and Baselines",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Code uses the OpenAI client with a configurable model_name."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "KDR-Agent/\n├─ main.py\n├─ arguments.py\n├─ tool.py",
+   "evidence_locator": "README.md@0d0ba06",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2025-11-24",
+   "not_reported": false,
+   "evidence_quote": "commit:main 0d0ba06eb4cd 2025-11-24",
+   "evidence_locator": "repo evidence header@0d0ba06",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tags; basis is the pinned commit date / arXiv v1 date."
+  },
+  "pinned_version": {
+   "value": "main @ 0d0ba06eb4cd (2025-11-24)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 0d0ba06eb4cd 2025-11-24",
+   "evidence_locator": "repo evidence header@0d0ba06",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Short hash only; no tagged release."
+  },
+  "stars": {
+   "value": 24,
+   "not_reported": false,
+   "evidence_quote": "stars: 24",
+   "evidence_locator": "repo evidence header@0d0ba06",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  }
+ },
+ "cells_unresolved": [],
+ "flag_counts": {
+  "locator_shape_unrecognised": 12
+ },
+ "pass": "A",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-20T19:02:58+00:00",
+ "model": "claude-opus-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 50573,
+ "doc_chars": 50918,
+ "call_id": "A-kdr-agent-00311",
+ "tokens_in": 44072,
+ "tokens_out": 4090,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.322610"
+}
