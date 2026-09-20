@@ -1,17 +1,17 @@
 # Full-text screening report
 
-Generated 2026-09-20 18:00 UTC by `scripts/validate_screening.py`.
-Scope: 9906 records (data/screening/fulltext_queue.csv); pass-1 rows 8374, pass-2 rows 3064, final rows 8374, systems 6162.
+Generated 2026-09-20 18:09 UTC by `scripts/validate_screening.py`.
+Scope: 9967 records (data/screening/fulltext_queue.csv); pass-1 rows 8435, pass-2 rows 3075, final rows 8435, systems 6172.
 
 ## 1. Decisions
 
-Model(s): {'claude-opus-5': 4067, 'claude-sonnet-5': 4183, 'claude-opus-4-8': 56}; prompt(s): {'ft-v2-2026-09-18': 8374}.
+Model(s): {'claude-opus-5': 4123, 'claude-sonnet-5': 4180, 'claude-opus-4-8': 56}; prompt(s): {'ft-v2-2026-09-18': 8435}.
 
-- Pass-1 include rate, all records in scope: 7075/8374 = 84.5% [95% CI 83.7%, 85.2%]
-- Pass-1 include rate, records with full text (LLM read): 7075/8306 = 85.2% [95% CI 84.4%, 85.9%]
-- not_retrievable (index says not ok; no LLM call): 68
+- Pass-1 include rate, all records in scope: 7085/8435 = 84.0% [95% CI 83.2%, 84.8%]
+- Pass-1 include rate, records with full text (LLM read): 7085/8359 = 84.8% [95% CI 84.0%, 85.5%]
+- not_retrievable (index says not ok; no LLM call): 76
 - Pending (in scope, no pass-1 row yet): 1532
-- Final (after pass 2 and the registry): {'exclude': 2212, 'include': 6162}; systems in registry: 6162
+- Final (after pass 2 and the registry): {'exclude': 2263, 'include': 6172}; systems in registry: 6172
 
 Include rate by pilot stratum (pass 1):
 
@@ -25,14 +25,14 @@ Include rate by source (pass 1):
 
 | source | n | not retrievable | include rate (all) |
 |---|---|---|---|
-| arxiv | 4314 | 0 | 3743/4314 = 86.8% [95% CI 85.7%, 87.7%] |
-| s2_snowball | 2064 | 9 | 1843/2064 = 89.3% [95% CI 87.9%, 90.6%] |
-| openalex | 472 | 17 | 282/472 = 59.7% [95% CI 55.3%, 64.1%] |
+| arxiv | 4352 | 0 | 3750/4352 = 86.2% [95% CI 85.1%, 87.2%] |
+| s2_snowball | 2077 | 10 | 1846/2077 = 88.9% [95% CI 87.5%, 90.2%] |
+| openalex | 473 | 19 | 282/473 = 59.6% [95% CI 55.1%, 63.9%] |
+| s2 | 458 | 46 | 313/458 = 68.3% [95% CI 63.9%, 72.4%] |
 | github | 451 | 0 | 401/451 = 88.9% [95% CI 85.7%, 91.5%] |
-| s2 | 450 | 42 | 313/450 = 69.6% [95% CI 65.2%, 73.6%] |
-| acl | 163 | 0 | 135/163 = 82.8% [95% CI 76.3%, 87.8%] |
+| acl | 164 | 0 | 135/164 = 82.3% [95% CI 75.8%, 87.4%] |
 | openreview | 142 | 0 | 122/142 = 85.9% [95% CI 79.2%, 90.7%] |
-| leaderboard | 126 | 0 | 70/126 = 55.6% [95% CI 46.8%, 63.9%] |
+| leaderboard | 126 | 1 | 70/126 = 55.6% [95% CI 46.8%, 63.9%] |
 | awesome | 125 | 0 | 111/125 = 88.8% [95% CI 82.1%, 93.2%] |
 | grey | 45 | 0 | 45/45 = 100.0% [95% CI 92.1%, 100.0%] |
 | survey_refs | 22 | 0 | 10/22 = 45.5% [95% CI 26.9%, 65.3%] |
@@ -41,20 +41,20 @@ Include rate by source (pass 1):
 
 | exclusion_code | sub-reason | n | % of excludes |
 |---|---|---|---|
-| out_of_scope | no_actions | 336 | 25.9% |
-| out_of_scope | no_loop | 228 | 17.6% |
-| out_of_scope | component_only | 141 | 10.9% |
-| no_harness_description | no_artifact | 138 | 10.6% |
-| out_of_scope | training_only | 107 | 8.2% |
-| out_of_scope | benchmark_only | 105 | 8.1% |
-| not_retrievable | - | 68 | 5.2% |
-| duplicate_system | evaluation_only | 60 | 4.6% |
-| out_of_scope | embodied | 42 | 3.2% |
-| out_of_scope | framework_no_default | 27 | 2.1% |
+| out_of_scope | no_actions | 346 | 25.6% |
+| out_of_scope | no_loop | 229 | 17.0% |
+| out_of_scope | component_only | 158 | 11.7% |
+| no_harness_description | no_artifact | 136 | 10.1% |
+| out_of_scope | training_only | 114 | 8.4% |
+| out_of_scope | benchmark_only | 109 | 8.1% |
+| not_retrievable | - | 76 | 5.6% |
+| duplicate_system | evaluation_only | 62 | 4.6% |
+| out_of_scope | embodied | 42 | 3.1% |
+| out_of_scope | framework_no_default | 28 | 2.1% |
+| duplicate_system | survey | 19 | 1.4% |
 | no_harness_description | other | 17 | 1.3% |
-| duplicate_system | survey | 16 | 1.2% |
 | other | language | 8 | 0.6% |
-| no_harness_description | - | 2 | 0.2% |
+| no_harness_description | - | 2 | 0.1% |
 | out_of_scope | date | 1 | 0.1% |
 | no_harness_description | codability | 1 | 0.1% |
 | out_of_scope | other | 1 | 0.1% |
@@ -62,20 +62,20 @@ Include rate by source (pass 1):
 
 | deciding step | n |
 |---|---|
-| - | 68 |
-| 1 | 49 |
-| 2 | 339 |
-| 3 | 336 |
-| 5 | 137 |
-| 6 | 27 |
-| 7 | 108 |
+| - | 73 |
+| 1 | 53 |
+| 2 | 344 |
+| 3 | 346 |
+| 5 | 154 |
+| 6 | 28 |
+| 7 | 105 |
 | 8 | 43 |
 | 9 | 8 |
-| 10 | 78 |
-| 11 | 106 |
-| 12 | 7075 |
+| 10 | 83 |
+| 11 | 113 |
+| 12 | 7085 |
 
-Confidence: exclude/high: 109, exclude/low: 118, exclude/medium: 1004, include/high: 652, include/low: 492, include/medium: 5931
+Confidence: exclude/high: 111, exclude/low: 118, exclude/medium: 1045, include/high: 652, include/low: 493, include/medium: 5940
 
 ## 3. Codability (criterion b; count of the 38 dimensions the evidence bundle supports)
 
@@ -83,46 +83,46 @@ Amendment 5: the count is recorded at screening and enforced at coding; step 7 o
 
 | codable_count | all LLM-read records | records reaching step 7 | pass-1 includes |
 |---|---|---|---|
-| 0-4 | 437 | 104 | 21 |
-| 5-9 | 1048 | 523 | 452 |
-| 10-14 | 2572 | 2435 | 2383 |
-| 15-18 | 2134 | 2115 | 2106 |
-| 19-22 | 1372 | 1371 | 1370 |
-| 23-26 | 546 | 546 | 546 |
+| 0-4 | 450 | 103 | 21 |
+| 5-9 | 1061 | 526 | 452 |
+| 10-14 | 2591 | 2440 | 2387 |
+| 15-18 | 2140 | 2119 | 2110 |
+| 19-22 | 1373 | 1372 | 1371 |
+| 23-26 | 547 | 547 | 547 |
 | 27-30 | 169 | 169 | 169 |
 | 31-38 | 28 | 28 | 28 |
 
-Includes: median codable_count 16, min 3, max 35; exact distribution {3: 6, 4: 15, 5: 44, 6: 46, 7: 91, 8: 101, 9: 170, 10: 220, 11: 389, 12: 494, 13: 608, 14: 672, 15: 633, 16: 547, 17: 474, 18: 452, 19: 496, 20: 337, 21: 307, 22: 230, 23: 190, 24: 151, 25: 116, 26: 89, 27: 67, 28: 49, 29: 34, 30: 19, 31: 10, 32: 11, 33: 5, 34: 1, 35: 1}.
-Records reaching step 7: 7291; excluded there for a missing artifact: 100.
-codability_flag (all LLM-read records): borderline 4011, fail 2213, pass 2082; among pass-1 includes: borderline 3912, fail 1082, pass 2081.
-Repository evidence in the bundle (Amendment 5): 2460/8306 = 29.6% [95% CI 28.6%, 30.6%]; median codable_count 19 with a repository vs 13 without; include rate 2260/2460 = 91.9% [95% CI 90.7%, 92.9%] vs 4815/5846 = 82.4% [95% CI 81.4%, 83.3%].
-Layer coverage among includes: A 6663/7075, B 6024/7075, C 7015/7075, D 6049/7075, E 5048/7075, F 5220/7075, G 2726/7075, H 2663/7075.
+Includes: median codable_count 16, min 3, max 35; exact distribution {3: 6, 4: 15, 5: 44, 6: 46, 7: 91, 8: 101, 9: 170, 10: 220, 11: 389, 12: 494, 13: 610, 14: 674, 15: 635, 16: 549, 17: 474, 18: 452, 19: 496, 20: 338, 21: 307, 22: 230, 23: 190, 24: 152, 25: 116, 26: 89, 27: 67, 28: 49, 29: 34, 30: 19, 31: 10, 32: 11, 33: 5, 34: 1, 35: 1}.
+Records reaching step 7: 7304; excluded there for a missing artifact: 99.
+codability_flag (all LLM-read records): borderline 4029, fail 2246, pass 2084; among pass-1 includes: borderline 3920, fail 1082, pass 2083.
+Repository evidence in the bundle (Amendment 5): 2460/8359 = 29.4% [95% CI 28.5%, 30.4%]; median codable_count 19 with a repository vs 13 without; include rate 2260/2460 = 91.9% [95% CI 90.7%, 92.9%] vs 4825/5899 = 81.8% [95% CI 80.8%, 82.8%].
+Layer coverage among includes: A 6673/7085, B 6031/7085, C 7025/7085, D 6058/7085, E 5057/7085, F 5230/7085, G 2730/7085, H 2666/7085.
 
 ## 4. Evidence quality and systematic checks
 
-- Quotes found verbatim in the excerpt the model saw (case/punctuation-insensitive): 58161/60610 = 96.0% [95% CI 95.8%, 96.1%]
-- Post-hoc flags (pass 1): {'include_below_codability_rule': 4994, 'quote_not_in_excerpt': 1932, 'no_evidence_for_deciding_step': 1306, 'layers_normalized': 181, 'codability_flag_mismatch': 103, 'corrective_retry': 60, 'long_quote': 22, 'include_without_system_name': 19, 'count_mismatch': 6}
-- Excerpt words: median 3989.0, max 4151; full-text words: median 5265.0, sent whole (<= cap): 1851
+- Quotes found verbatim in the excerpt the model saw (case/punctuation-insensitive): 58426/60881 = 96.0% [95% CI 95.8%, 96.1%]
+- Post-hoc flags (pass 1): {'include_below_codability_rule': 5002, 'quote_not_in_excerpt': 1938, 'no_evidence_for_deciding_step': 1309, 'layers_normalized': 181, 'codability_flag_mismatch': 103, 'corrective_retry': 64, 'long_quote': 22, 'include_without_system_name': 19, 'count_mismatch': 6}
+- Excerpt words: median 3989, max 4151; full-text words: median 5270, sent whole (<= cap): 1853
 - Document title seen differs from the candidate title (fuzzy < 80): 156 records (arxiv:2311.10776: 'Chemist-X: Large Language Model-Powered Agent for Recommendi'; arxiv:2503.15937: 'V-Droid: Advancing Mobile GUI Agent Through Generative Verif'; arxiv:2504.11788: 'Get Stuck at Errors Rollback by Values'; arxiv:2506.00714: 'RFCAUDIT: AI Agent for Auditing Protocol Implementations Aga'; arxiv:2506.10954: 'SWE Data Construction, Automatically! (SWE-Factory)'; arxiv:2507.14800: 'Large Language Model as An Operator: An Experience-Driven So'; arxiv:2508.20996: 'CHATTHERO: A LANGUAGE AGENT FOR RECOVERY SUPPORT'; arxiv:2510.08952: 'RETHINKING GRAPH STRUCTURE LEARNING IN THE ERA OF LLMS'; arxiv:2602.15631: 'Meflex: Supporting Entrepreneurial Ideation Through Nonlinea'; arxiv:2603.03686: 'Scientific Discovery under Imperfect Evaluators: Diversity-A'; arxiv:2603.19896: 'Utility-Guided Orchestration for Cost-Efficient Tool-Augment'; arxiv:2605.17242: 'From Runnable Code to Shippable Applications: Test-Driven De' ...)
 
-Full-text source used: {'arxiv_pdf': 6589, 'github_repo': 629, 'doi_landing_html': 408, 'openalex_oa_pdf': 232, 'acl_pdf': 169, 'openreview_pdf': 130, 'web_html': 126, 'landing_html': 18, 'doi_landing_pdf': 2, 's2_oa_pdf': 2, 'landing_pdf': 1}
+Full-text source used: {'arxiv_pdf': 6641, 'github_repo': 629, 'doi_landing_html': 406, 'openalex_oa_pdf': 235, 'acl_pdf': 170, 'openreview_pdf': 130, 'web_html': 125, 'landing_html': 18, 'doi_landing_pdf': 2, 's2_oa_pdf': 2, 'landing_pdf': 1}
 
 ## 5. Independent second reading (pass 1 vs pass 2)
 
-Records read twice: 3064 (every pass-1 include plus a hash-based 10% of pass-1 LLM excludes).
+Records read twice: 3075 (every pass-1 include plus a hash-based 10% of pass-1 LLM excludes).
 
 |  | pass 2 include | pass 2 exclude |
 |---|---|---|
-| pass 1 include | 1401 | 669 |
-| pass 1 exclude | 140 | 854 |
+| pass 1 include | 1403 | 670 |
+| pass 1 exclude | 140 | 862 |
 
-- Cohen's kappa (sample as drawn): 0.471; observed agreement 2255/3064 = 73.6% [95% CI 72.0%, 75.1%]
-- Population-weighted (excludes weighted x10): kappa 0.470, agreement 82.8%
-- Pass-1 includes confirmed by pass 2: 1401/2070 = 67.7% [95% CI 65.6%, 69.7%]
-- Sampled pass-1 excludes confirmed by pass 2: 854/994 = 85.9% [95% CI 83.6%, 87.9%]
-- Same exclusion code among both-exclude pairs: 782/854 = 91.6% [95% CI 89.5%, 93.3%]; same deciding step: 654/854 = 76.6% [95% CI 73.6%, 79.3%]
-- Same system name among both-include pairs (fuzzy >= 90): 1219/1401 = 87.0% [95% CI 85.1%, 88.7%]
-- |codable_count pass 1 - pass 2|: median 3.0, mean 3.8, max 25
+- Cohen's kappa (sample as drawn): 0.473; observed agreement 2265/3075 = 73.7% [95% CI 72.1%, 75.2%]
+- Population-weighted (excludes weighted x10): kappa 0.471, agreement 82.9%
+- Pass-1 includes confirmed by pass 2: 1403/2073 = 67.7% [95% CI 65.6%, 69.7%]
+- Sampled pass-1 excludes confirmed by pass 2: 862/1002 = 86.0% [95% CI 83.7%, 88.0%]
+- Same exclusion code among both-exclude pairs: 787/862 = 91.3% [95% CI 89.2%, 93.0%]; same deciding step: 658/862 = 76.3% [95% CI 73.4%, 79.1%]
+- Same system name among both-include pairs (fuzzy >= 90): 1221/1403 = 87.0% [95% CI 85.2%, 88.7%]
+- |codable_count pass 1 - pass 2|: median 3, mean 3.8, max 25
 
 Disagreements:
 
@@ -833,6 +833,7 @@ Disagreements:
 | s2_snowball:4fc87dc2ac306a1527c60f3cd55534d412de078b | include  s12 c15 | exclude out_of_scope s2 c5 | Tree-of-Reasoning Question Decomposition for Complex Question Answerin |
 | s2_snowball:50005db6732784a1f1ef816900d55db9915867e5 | include  s12 c20 | exclude out_of_scope s11 c5 | MAS-Orchestra: Understanding and Improving Multi-Agent Reasoning Throu |
 | s2_snowball:510682c34bef8a0fda851fe6633b1d93cb74b76e | include  s12 c15 | exclude out_of_scope s3 c6 | DQA: Diagnostic Question Answering for IT Support |
+| s2_snowball:5115942664d75d29f9f2814d89211af6a169ab05 | include  s12 c14 | exclude out_of_scope s11 c6 | NNetNav: Unsupervised Learning of Browser Agents Through Environment I |
 | s2_snowball:53fc0cf46460706d549bea199095a2d3c06eda29 | include  s12 c15 | exclude out_of_scope s5 c10 | A Case for Agentic Tuning: From Documentation to Action in PostgreSQL |
 | s2_snowball:550f6ebd4d60d5e5bb1be68330362c4314971dcd | include  s12 c19 | exclude duplicate_system s10 c0 | VAKRA: Evaluating Multi-Hop Reasoning Across APIs and Retrieval Under  |
 | s2_snowball:55be92434d1140c4308e8a54e8c14cdc2eaeb613 | exclude out_of_scope s2 c8 | include  s12 c13 | AgenticRAG: Tool-Augmented Foundation Models for Zero-Shot Explainable |
@@ -952,32 +953,32 @@ Recall by stage:
 
 | system | candidate records | forwarded | pass-1 include records | in registry | in coding frame | mentioned in n records | lost at |
 |---|---|---|---|---|---|---|---|
-| ReAct | 9 | 7 | 9 | yes | yes: catalogue;peer_reviewed | 2447 | - |
-| Reflexion | 4 | 4 | 1 | yes | yes: catalogue | 1043 | - |
+| ReAct | 9 | 7 | 9 | yes | yes: catalogue;peer_reviewed | 2462 | - |
+| Reflexion | 4 | 4 | 1 | yes | yes: catalogue | 1049 | - |
 | CodeAct | 2 | 2 | 3 | yes | yes: stars;catalogue | 129 | - |
-| SWE-agent | 10 | 10 | 10 | yes | yes: stars;catalogue;vendor;peer_reviewed | 497 | - |
-| OpenHands | 6 | 6 | 4 | yes | yes: stars;catalogue;vendor | 422 | - |
-| AutoGen | 4 | 4 | 6 | yes | yes: stars;catalogue;vendor;peer_reviewed | 740 | - |
-| MetaGPT | 1 | 1 | 3 | yes | yes: stars;catalogue;peer_reviewed | 609 | - |
+| SWE-agent | 10 | 10 | 10 | yes | yes: stars;catalogue;vendor;peer_reviewed | 500 | - |
+| OpenHands | 6 | 6 | 4 | yes | yes: stars;catalogue;vendor | 426 | - |
+| AutoGen | 4 | 4 | 6 | yes | yes: stars;catalogue;vendor;peer_reviewed | 747 | - |
+| MetaGPT | 1 | 1 | 3 | yes | yes: stars;catalogue;peer_reviewed | 613 | - |
 | Agent S | 27 | 18 | 17 | yes | yes: catalogue;stars;catalogue;stars;catalogue;vendor;peer_reviewed | 84 | - |
 | OS-Copilot | 2 | 2 | 2 | yes | yes: stars;catalogue | 26 | - |
-| WebArena reference agent | 2 | 2 | 2 | yes | yes: catalogue | 3 | - |
+| WebArena reference agent | 2 | 2 | 2 | yes | yes: catalogue | 4 | - |
 | OSWorld reference agent | 3 | 3 | 4 | yes | yes: stars;catalogue;stars;catalogue;peer_reviewed | 2 | - |
 | tau-bench reference agent | 5 | 4 | 28 | yes | yes: catalogue;vendor;stars;stars;catalogue;vendor;peer_reviewed | 2 | - |
-| BrowserGym generic agent | 4 | 4 | 4 | yes | yes: stars;catalogue;stars;catalogue;vendor | 8 | - |
-| mini-SWE-agent | 2 | 2 | 1 | yes | yes: catalogue | 121 | - |
+| BrowserGym generic agent | 4 | 4 | 4 | yes | yes: stars;catalogue;stars;catalogue;vendor | 9 | - |
+| mini-SWE-agent | 2 | 2 | 1 | yes | yes: catalogue | 123 | - |
 | Aider | 4 | 3 | 3 | yes | yes: catalogue;vendor | 99 | - |
 | Cline | 2 | 2 | 2 | yes | yes: catalogue;vendor | 30 | - |
-| Codex CLI | 3 | 2 | 4 | yes | yes: stars;catalogue;vendor | 148 | - |
+| Codex CLI | 3 | 2 | 4 | yes | yes: stars;catalogue;vendor | 149 | - |
 | Gemini CLI | 2 | 2 | 2 | yes | yes: catalogue;vendor | 91 | - |
-| OpenCode | 4 | 3 | 3 | yes | yes: stars;catalogue;vendor | 167 | - |
+| OpenCode | 4 | 3 | 3 | yes | yes: stars;catalogue;vendor | 168 | - |
 | Moatless Tools | 1 | 1 | 1 | yes | yes: catalogue | 34 | - |
 | Prometheus | 2 | 2 | 2 | yes | yes: stars;catalogue | 2 | - |
-| Claude Code | 5 | 3 | 3 | yes | yes: stars;catalogue;vendor | 768 | - |
+| Claude Code | 5 | 3 | 3 | yes | yes: stars;catalogue;vendor | 776 | - |
 | Mistral Vibe | 2 | 2 | 2 | yes | yes: stars;catalogue;vendor | 2 | - |
-| Hermes Agent | 1 | 1 | 1 | yes | yes: stars;catalogue | 44 | - |
+| Hermes Agent | 1 | 1 | 1 | yes | yes: stars;catalogue | 46 | - |
 | Pi | 2 | 2 | 3 | yes | yes: stars;catalogue;vendor | 51 | - |
-| OpenClaw | 4 | 3 | 4 | yes | yes: catalogue;vendor | 207 | - |
+| OpenClaw | 4 | 3 | 4 | yes | yes: catalogue;vendor | 213 | - |
 | AIOS | 3 | 1 | 1 | yes | yes: stars;catalogue | 18 | - |
 
 Negative set: 13 surveys, benchmarks and evaluation studies (expected exclude).
@@ -1002,22 +1003,22 @@ Negative set: 13 surveys, benchmarks and evaluation studies (expected exclude).
 
 ## 7. Time and cost
 
-- pass 1: 8306 LLM records; busy wall time 132.1 min (union of batch intervals; effective concurrency 3.7); 1.0 s/record wall, 3.5 s/record serial; list-equivalent $550.19 = $0.066/record; tokens/record in 9869, out 553
-- pass 2: 3052 LLM records; busy wall time 109.2 min (union of batch intervals; effective concurrency 4.7); 2.1 s/record wall, 10.0 s/record serial; list-equivalent $107.71 = $0.035/record; tokens/record in 5095, out 250
+- pass 1: 8362 LLM records; busy wall time 131.1 min (union of batch intervals; effective concurrency 3.7); 0.9 s/record wall, 3.5 s/record serial; list-equivalent $554.74 = $0.066/record; tokens/record in 9890, out 554
+- pass 2: 3063 LLM records; busy wall time 109.5 min (union of batch intervals; effective concurrency 4.7); 2.1 s/record wall, 10.0 s/record serial; list-equivalent $108.04 = $0.035/record; tokens/record in 5112, out 251
 
-Projection to the whole queue (9906 records), from all pass-1 records and the measured rates:
+Projection to the whole queue (9967 records), from all pass-1 records and the measured rates:
 
-- not retrievable: 0.8% of records -> about 80 without an LLM reading, 9826 read
-- includes (pass 1): 7075/8374 = 84.5% [95% CI 83.7%, 85.2%] -> about 8369 records [8291, 8445]
-- pass 1: 2.6 h wall at the measured concurrency (3.7), $651 list-equivalent
-- pass 2 (8515 records): 5.1 h wall, $301 list-equivalent
-- total: 7.7 h, $951 list-equivalent (consumed as Claude Code subscription usage, not billed)
+- not retrievable: 0.9% of records -> about 90 without an LLM reading, 9877 read
+- includes (pass 1): 7085/8435 = 84.0% [95% CI 83.2%, 84.8%] -> about 8372 records [8292, 8448]
+- pass 1: 2.6 h wall at the measured concurrency (3.7), $655 list-equivalent
+- pass 2 (8522 records): 5.1 h wall, $301 list-equivalent
+- total: 7.7 h, $956 list-equivalent (consumed as Claude Code subscription usage, not billed)
 
-**Warning: the projected include count (~8369 records, 95% CI 8291-8445) is far above the 150-300 systems the protocol expected.** Deduplication into systems will lower it (pilot: 6162 systems from 6162 final includes), but not by that factor if most includes are one-paper systems. The codable_count distribution of includes is in section 3; tightening criterion (b) is the author's decision.
+**Warning: the projected include count (~8372 records, 95% CI 8292-8448) is far above the 150-300 systems the protocol expected.** Deduplication into systems will lower it (pilot: 6172 systems from 6172 final includes), but not by that factor if most includes are one-paper systems. The codable_count distribution of includes is in section 3; tightening criterion (b) is the author's decision.
 
 ## 8. System registry
 
-6162 systems from 7075 included records; 503 with more than one record.
+6172 systems from 7085 included records; 503 with more than one record.
 
 | system_id | name | members | canonical | max codable | repo |
 |---|---|---|---|---|---|
@@ -1176,6 +1177,7 @@ Projection to the whole queue (9906 records), from all pass-1 records and the me
 | agent-breakage | agent-breakage (agent under test: Emily) | 1 | s2_snowball:08649f99062f1d9624ec0c9017c4666b6ab3e5ad | 19 | https://github.com/odmarkj/agent-breakage |
 | agent-capsules | Agent Capsules | 1 | arxiv:2605.00410 | 20 | https://github.com/aray-17/agent-capsules |
 | agent-coevo | Agent-CoEvo | 1 | arxiv:2604.04580 | 15 |  |
+| agent-contracts | Agent Contracts | 1 | s2_snowball:46682696b006815a79af4b04926200d4d8e3b99c | 15 | https://github.com/flyersworder/agent-contracts |
 | agent-development-kit | Agent Development Kit (ADK) | 1 | awesome:picrew:4ba15d27de59 | 18 | https://github.com/google/adk-python |
 | agent-distillation | Agent Distillation | 1 | arxiv:2505.17612 | 21 | https://github.com/nardien/agent-distillation |
 | agent-driven-corpus-linguistics | Agent-Driven Corpus Linguistics | 1 | arxiv:2604.07189 | 13 |  |
@@ -1420,5 +1422,4 @@ Projection to the whole queue (9906 records), from all pass-1 records and the me
 | agentscad | AgentsCAD | 1 | s2:cd1756ca3352f02d9ac304907441e03c7cb82192 | 14 |  |
 | agentschool | AgentSchool | 1 | arxiv:2605.30144 | 29 | https://github.com/epitome-aiss/agentschool |
 | agentscope | AgentScope (ReAct Agent) | 5 | github:agentscope-ai/agentscope | 25 | https://github.com/agentscope-ai/agentscope |
-| agentscore | AgentScore | 1 | arxiv:2601.22324 | 18 | https://github.com/sr933/agentscore-official |
 
