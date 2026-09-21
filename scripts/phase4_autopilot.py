@@ -19,10 +19,11 @@ import argparse
 import csv
 import json
 import logging
+import re
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -45,6 +46,53 @@ def setup_logging() -> None:
     for h in (logging.StreamHandler(sys.stdout), logging.FileHandler(CODED / "autopilot.log", encoding="utf-8")):
         h.setFormatter(fmt)
         root.addHandler(h)
+
+
+RESET_RE = re.compile(r"resets\s+(\d{1,2}):(\d{2})\s*(am|pm)(?:\s*\(([^)]+)\))?", re.IGNORECASE)
+
+
+def reset_wait(log_path: Path, default_seconds: int, now: datetime | None = None) -> tuple[int, str]:
+    """Seconds to wait before retrying, taken from the limit message the coder just logged.
+
+    A usage limit reports exactly when it lifts ("You've hit your session limit - resets 2:50am
+    (America/New_York)"). Polling on a fixed interval either wakes far too early, wasting a retry
+    against a wall, or wakes up to that interval late, leaving the window unused. Waiting until the
+    stated time costs nothing and starts the next window promptly. Falls back to the fixed interval
+    when no message is found or the time cannot be read.
+    """
+    try:
+        tail = log_path.read_text(encoding="utf-8", errors="replace")[-200_000:]
+    except OSError:
+        return default_seconds, "fixed interval (no log)"
+    m = None
+    for m in RESET_RE.finditer(tail):
+        pass  # the last one is the most recent limit hit
+    if m is None:
+        return default_seconds, "fixed interval (no reset time reported)"
+    hour, minute, ampm, tzname = int(m.group(1)), int(m.group(2)), m.group(3).lower(), m.group(4)
+    hour = (hour % 12) + (12 if ampm == "pm" else 0)
+    tz = None
+    if tzname:
+        try:
+            from zoneinfo import ZoneInfo
+            tz = ZoneInfo(tzname.strip())
+        except Exception:
+            tz = None
+    now = now or datetime.now(tz)
+    if now.tzinfo is None and tz is not None:
+        now = now.replace(tzinfo=tz)
+    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+    secs = int((target - now).total_seconds()) + 60  # a minute of slack past the stated reset
+    # A limit window never runs longer than a few hours, so a reset more than `cap` away means the
+    # message is stale - that reset has already come and gone - and the right move is to retry now,
+    # not to sleep until the same clock time tomorrow.
+    cap = 6 * 3600
+    if secs > cap:
+        return 60, f"the reported reset at {hour:02d}:{minute:02d} has already passed; retrying now"
+    return max(60, secs), (f"until the reported reset at {hour:02d}:{minute:02d}"
+                           + (f" {tzname}" if tzname else ""))
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -105,9 +153,9 @@ def drive(label: str, target: list[str], done_fn, cmd: list[str], args: argparse
             log.info("%s: %d systems left after this run", label, after)
             continue
         stalls += 1
-        wait = args.limit_wait * 60
-        log.warning("%s: no progress (%d left, stall %d); waiting %d min for the allowance to reset",
-                    label, after, stalls, args.limit_wait)
+        wait, why = reset_wait(CODED / "run.log", args.limit_wait * 60)
+        log.warning("%s: no progress (%d left, stall %d); waiting %d min (%s)",
+                    label, after, stalls, round(wait / 60), why)
         status(label, waiting_until=datetime.fromtimestamp(time.time() + wait, UTC).isoformat(timespec="seconds"))
         time.sleep(wait)
 
