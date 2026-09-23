@@ -16,9 +16,11 @@ Progress: data/coded/phase4_status.json and data/coded/autopilot.log.
 from __future__ import annotations
 
 import argparse
+import atexit
 import csv
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -134,6 +136,30 @@ def status(stage: str, **fields: object) -> None:
     STATUS.write_text(json.dumps(doc, indent=2), encoding="utf-8")
 
 
+LOCK = CODED / "autopilot.lock"
+
+
+def acquire_lock() -> bool:
+    """False when another driver is already running. Two drivers append to the same cells.csv."""
+    if LOCK.exists():
+        try:
+            pid = int(LOCK.read_text(encoding="utf-8").strip() or 0)
+        except ValueError:
+            pid = 0
+        if pid and pid != os.getpid() and _alive(pid):
+            log.error("another driver is already running (pid %d); leaving it alone", pid)
+            return False
+        log.warning("clearing a stale lock from pid %s", pid or "?")
+    LOCK.write_text(str(os.getpid()), encoding="utf-8")
+    return True
+
+
+def _alive(pid: int) -> bool:
+    out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True,
+                         text=True, check=False).stdout
+    return str(pid) in out
+
+
 def clear_stage_notes(stage: str, *keys: str) -> None:
     if not STATUS.exists():
         return
@@ -215,6 +241,9 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     setup_logging()
 
+    if not acquire_lock():
+        return 0
+    atexit.register(lambda: LOCK.unlink(missing_ok=True))
     deadline = time.time() + args.deadline_hours * 3600
     target = frame_ids()
     log.info("phase 4 autopilot start: %d systems in the coding frame, model=%s effort=%s workers=%d",
@@ -230,11 +259,16 @@ def main(argv: list[str] | None = None) -> int:
     run(code_cmd(args, "B"), CODED / "autopilot_passB.log")
     status("passB", systems_with_repairs=len(coded_ids(CELLS, "B")))
 
-    # 3. double coding for per-dimension kappa
+    # 3. double coding for per-dimension kappa. Pass B runs on the second coding as well: comparing a
+    #    repaired coding against an unrepaired one measures the missing repair pass, not reliability
+    #    (measured 2026-09-23: 27.1% of cells unresolved in the repaired coding against 40.6%, which
+    #    pushed 30 of 38 dimensions below the 0.6 threshold on its own).
     if not args.skip_double:
-        run(code_cmd(args, "A", ["--double", "--double-sample", str(args.double_sample), "--seed", args.seed]),
-            CODED / "autopilot_double.log")
+        dbl = ["--double", "--double-sample", str(args.double_sample), "--seed", args.seed]
+        run(code_cmd(args, "A", dbl), CODED / "autopilot_double.log")
         status("double", systems_double_coded=len(coded_ids(CELLS2)))
+        run(code_cmd(args, "B", dbl), CODED / "autopilot_double.log")
+        status("double", systems_repaired=len(coded_ids(CELLS2, "B")))
 
     # 4. release tables + validation + agreement
     run([PY, "scripts/build_tables.py"], CODED / "autopilot_build.log")
