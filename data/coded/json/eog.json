@@ -1,0 +1,613 @@
+{
+ "system_id": "eog",
+ "name": "EoG (Explanations over Graphs)",
+ "version": "",
+ "repo_url": "",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.2.0",
+ "bundle": {
+  "chars": 78515,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2601.17915",
+    "chars_available": 96823,
+    "chars_used": 43786,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2601.17915",
+    "chars_available": 34286,
+    "chars_used": 34286,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "Domain expertise is encoded in structured prompts organized by phase (bootstrap, explore, finalize)",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The paper describes phase-specific prompts. It does not describe the rendering mechanism, and the EoG prompt code is not in the pinned Codex evidence."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "Local Markov Property: it contains entity metadata, 1-",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value only. The controller injects a per-node Context Packet (entity metadata, 1-hop neighbours, time-windowed observability data, inbox) fetched through the Context Contract. The LLM does not navigate. This is harness-driven graph retrieval, which no listed value covers."
+  },
+  "context_compaction": {
+   "value": [
+    "structured_checkpoint",
+    "summarize"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Large contexts (>80K tokens) are chunked with overlap and classified via map-reduce.",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The policy is stateless per node, and the persistent state is the explanatory graph plus the ledger, which is closest to structured_checkpoint. Map-reduce over chunks is coded as summarize."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Service logs with filtering",
+   "evidence_locator": "paper Table 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Inferred from textual logs, metrics and events. The serialisation format is not specified."
+  },
+  "tool_call_format": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The paper does not state the policy output syntax. EoG code is not in the evidence."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "EoG uses the MCP tool get_context_contract. Under the counting rule, MCP tools do not count. No native tool list was available."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the agent cannot execute arbitrary code;",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "scalar_for_multi"
+   ],
+   "resolved": false,
+   "note": "The agent can only request data through the Context Contract, so it has no file-editing capability."
+  },
+  "tool_schema_source": {
+   "value": [
+    "mcp"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The CxC is implemented as an MCP tool",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": [
+    "mcp"
+   ],
+   "not_reported": false,
+   "evidence_quote": "We implement domain-specific MCP servers exposing the operational graph and evidence data",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "loop_primitives": {
+   "value": [
+    "event_driven",
+    "fixed_pipeline"
+   ],
+   "not_reported": false,
+   "evidence_quote": "When new evidence changes a node’s belief, it broadcasts to neighbors,",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "A deterministic controller runs a worklist loop over the graph, and belief-change messages re-activate neighbours. No listed value fits exactly."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "ActiveSet(nodes pending investigation)",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The controller maintains the ActiveSet worklist."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "a state-",
+   "evidence_locator": "paper Sec. 4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "One stateless LLM policy is invoked per node, plus a finalize policy. There is no delegation."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "which execute graph traversal, message routing, and termination logic without semantic rea-",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Messages are belief records between graph nodes, not between agents."
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The evidence is paper only for EoG. The host framework Codex has approvals, but EoG's configuration is unknown."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "with node beliefs",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No EoG config surface is in the evidence."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The damping heuristic (Defer after flips) is not verification."
+  },
+  "retry_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps"
+   ],
+   "not_reported": false,
+   "evidence_quote": "convergence (no new messages) or budget exhaustion",
+   "evidence_locator": "paper Sec. 4.3.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The budget is the maximum number of investigation hops. The run also ends at a fixed point (no pending messages), which is controller convergence and has no listed value."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The paper does not state the execution boundary for EoG."
+  },
+  "filesystem_access": {
+   "value": "read_only",
+   "not_reported": false,
+   "evidence_quote": "the agent cannot execute arbitrary code;",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The agent only requests observational data. This is inferred from prose."
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "it can only request data via the Context Contract",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The controller restricts the policy to a fixed tool interface."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "an append-only log",
+   "evidence_locator": "paper Sec. 4.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The Global Ledger records (v, Bv, t) tuples."
+  },
+  "replayability": {
+   "value": "partial",
+   "not_reported": false,
+   "evidence_quote": "scratchpad (Nye et al., 2021) enables replay, debugging,",
+   "evidence_locator": "paper Sec. 4.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The paper evaluates on ITBench, but no EoG repository is available to check for an evaluation runner."
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "On representative ITBench diagnostics tasks, EoG improves accuracy",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The domain is IT incident diagnosis (SRE). The paper mentions an extension to SWE production bugs."
+  },
+  "open_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The host framework Codex is Apache-2.0. Release of the EoG code is not stated."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "EoG Mistral Large",
+   "evidence_locator": "paper Table 2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The paper evaluates EoG with GPT-5.1, GPT-OSS, Gemini, Kimi, Minimax and Mistral."
+  },
+  "primary_artifact": {
+   "value": "paper",
+   "not_reported": false,
+   "evidence_quote": "We implement the EoG agent and a baseline ReAct agent on the Codex agent framework,",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The supplied repository is the Codex host framework, not EoG code."
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Only the v2 date (29 Jan 2026) appears in the evidence. The v1 date is not given."
+  },
+  "pinned_version": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The evidence pins openai/codex tag rust-v0.153.0-alpha.2 @73919571da60 (2026-08-31). That is the host framework, and no EoG code is pinned."
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The 125294 stars belong to openai/codex, not an EoG repository."
+  }
+ },
+ "cells_unresolved": [
+  "B1",
+  "B2",
+  "B3",
+  "C5",
+  "D2",
+  "D3",
+  "E1",
+  "E2",
+  "E3",
+  "F2",
+  "F3",
+  "G1",
+  "G3",
+  "H3",
+  "H4",
+  "M2",
+  "M5",
+  "M6",
+  "M7"
+ ],
+ "flag_counts": {
+  "scalar_for_multi": 1
+ },
+ "history": {
+  "B1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M6": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T19:43:44+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 78515,
+ "doc_chars": 12756,
+ "call_id": "B-eog-00288",
+ "tokens_in": 25870,
+ "tokens_out": 1665,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.136780"
+}

@@ -81,6 +81,33 @@ def majority_share(a: list[str], b: list[str]) -> float:
     return max(c.values()) / sum(c.values()) if c else float("nan")
 
 
+def multilabel_kappa(a: list[str], b: list[str]) -> tuple[float, float, int]:
+    """Mean per-value kappa for a multi-valued dimension, plus mean per-value agreement.
+
+    Exact-set matching is the wrong measure for a dimension that takes several values at once: two
+    readings that both say a loop is ReAct, one of them also listing a fixed pipeline around it, are
+    scored as a total mismatch even though they agree on the substance. The standard treatment is to
+    score each allowed value as its own present/absent decision and average, which is what this does
+    (`react|tree_search` becomes two independent yes/no judgements). Reported beside the exact-match
+    figure, never instead of it.
+    """
+    values = sorted({v for lab in a + b if lab not in ("NR", "UNRESOLVED", "None")
+                     for v in lab.split("|") if v})
+    if not values:
+        return float("nan"), float("nan"), 0
+    ks, pos = [], []
+    for v in values:
+        xa = ["1" if v in lab.split("|") else "0" for lab in a]
+        xb = ["1" if v in lab.split("|") else "0" for lab in b]
+        k, po, _ = cohen_kappa(xa, xb)
+        if k == k:  # skip values neither coder ever used (kappa undefined)
+            ks.append(k)
+            pos.append(po)
+    if not ks:
+        return float("nan"), float("nan"), len(values)
+    return sum(ks) / len(ks), sum(pos) / len(pos), len(values)
+
+
 def norm(cell) -> str:
     if not isinstance(cell, dict):
         return str(cell)
@@ -137,7 +164,13 @@ def cmd_coding(args) -> int:
             reading = "GENUINE disagreement: revise or drop"
         low_k += k < args.threshold
         low_ac1 += ac1 < args.threshold
+        mk, mpo, nvals = multilabel_kappa(a, b)
+        if mk == mk and mk >= args.threshold > k:
+            reading = (f"multi-valued: exact-set kappa {k:.3f} is harsh; per-value kappa {mk:.3f} "
+                       f"over {nvals} values")
         rows.append({"dimension": key, "n": n, "agreement": round(po, 4), "kappa": round(k, 4),
+                     "per_value_kappa": None if mk != mk else round(mk, 4),
+                     "per_value_agreement": None if mpo != mpo else round(mpo, 4),
                      "ac1": round(ac1, 4), "majority_share": round(top, 4),
                      "disagreement_rate": round(dis, 4), "nr_flip_share_of_disagreements": round(nrflip, 4),
                      "reading": reading})

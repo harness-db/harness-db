@@ -1,0 +1,639 @@
+{
+ "system_id": "cstrader",
+ "name": "CSTrader",
+ "version": "",
+ "repo_url": "https://github.com/iatomicreactori/csgotrading",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.2.0",
+ "bundle": {
+  "chars": 55138,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2606.31461",
+    "chars_available": 24221,
+    "chars_used": 24221,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2606.31461",
+    "chars_available": 30507,
+    "chars_used": 30507,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "You are a sentiment analyst evaluating items in CS2 market based on Reddit discussions.",
+   "evidence_locator": "llm/prompt.py:30@d3f67c1c2379",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-agent prompt templates with {ticker} etc. variables; not clear whether they are system or user messages (llm/inference.py not in bundle)."
+  },
+  "env_context_strategy": {
+   "value": "retrieval_bm25",
+   "not_reported": false,
+   "evidence_quote": "Reddit discussions:\n{reddit_posts}",
+   "evidence_locator": "llm/prompt.py:37-38@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: the harness pre-fetches market/Reddit/Steam data and injects it into prompts (not lexical retrieval over a repo). No navigation tools. Mismatch with value list; ambiguity."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "llm/inference.py and graph/workflow.py not in bundle; history handling place not visible."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Steam News ({news_count} items):\n{steam_news}",
+   "evidence_locator": "llm/prompt.py:91-92@d3f67c1c2379",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Data formatted as text into prompts."
+  },
+  "tool_call_format": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Agents return structured output (action/shares); parser in llm/inference.py not in bundle. No tool calling evident."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tool registry visible; agents appear to be LLM calls without tools."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "- action: One of [\"Buy\", \"Sell\", \"Hold\"]",
+   "evidence_locator": "llm/prompt.py:128@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Trading domain; action space is Buy/Sell/Hold, no file editing."
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "requirements.txt not shown; no grep available."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Our system employs a hierarchical agent architecture built on LangGraph, incorporating specialized analyst agents (technical, sentiment, liquidity, and event-driven) coordinated by a meta-planner agent.",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "LangGraph workflow: planner -> analysts -> risk control -> portfolio manager, per ticker per day."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "You are a planner agent that decides which analysts to perform based on the your knowledge of the ticker and features of analysts.",
+   "evidence_locator": "llm/prompt.py:162@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Planner selects analysts (structured list) but this is routing rather than a stored plan."
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "Selects relevant analysts based on market context",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Specialised agents in fixed hand-off: planner -> analysts -> risk control -> portfolio manager; README calls it hierarchical. Direct mode is single LLM."
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "Executes risk-aware trading decisions | Analyst signals, portfolio state | Trading actions with position sizes",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Signals passed through shared LangGraph state."
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Run loop not in bundle; paper lists HITL as future work."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "│   ├── schema.py           # State definitions",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "graph/schema.py not shown."
+  },
+  "long_term_memory": {
+   "value": [
+    "episodic_db"
+   ],
+   "not_reported": false,
+   "evidence_quote": "**State Persistence**: Complete portfolio history tracking in database",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "SQLite portfolio/decision history reused as decision memory across days (paper Sec. 2.3)."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "retry_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Data fetch retries (3) exist but are not task retries."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Run ends after date range per run.py; not shown."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No code execution by agents apparent; backtesting simulation."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "**Comprehensive Logging**: Detailed agent execution and decision tracking",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "view.py can export thinking JSON; possibly structured."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "View daily portfolios and export CSV",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Backtesting runner and portfolio views ship in repo."
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Multi-Agent LLM Framework for CS2 Market Trading",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Financial trading."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "This project is licensed under the MIT License",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "**Multi-Provider LLM**: OpenAI, Anthropic, DeepSeek, Ollama, etc.",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "Code is available at: https://github.com/\nIatomicreactorI/CSGOTrading",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2026-01-05",
+   "not_reported": false,
+   "evidence_quote": "**v0.1.0** (2026-01-05): Initial release with core multi-agent framework",
+   "evidence_locator": "README.md@d3f67c1c2379",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "From README version history, not a verified tag."
+  },
+  "pinned_version": {
+   "value": "master @ d3f67c1c2379 (2026-01-31)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:master d3f67c1c2379 2026-01-31",
+   "evidence_locator": "evidence header (REPOSITORY EVIDENCE arxiv:2606.31461)",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Untagged branch commit; full hash not given."
+  },
+  "stars": {
+   "value": 577,
+   "not_reported": false,
+   "evidence_quote": "stars: 577",
+   "evidence_locator": "evidence header (REPOSITORY EVIDENCE arxiv:2606.31461)",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Fetch date not stated in the evidence; the header gives no date for the star count."
+  }
+ },
+ "cells_unresolved": [
+  "A3",
+  "B1",
+  "B2",
+  "B4",
+  "B5",
+  "C5",
+  "D3",
+  "E1",
+  "E2",
+  "E3",
+  "F1",
+  "F2",
+  "F3",
+  "G1",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
+  "H4"
+ ],
+ "flag_counts": {
+  "locator_no_line": 11,
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "A3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M6": {
+   "superseded_pass": "A",
+   "value": "master @ d3f67c1c2379 (2026-01-31)",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  },
+  "M7": {
+   "superseded_pass": "A",
+   "value": "577",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T19:29:06+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 55138,
+ "doc_chars": 12892,
+ "call_id": "B-cstrader-00037",
+ "tokens_in": 26429,
+ "tokens_out": 1390,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.133516"
+}

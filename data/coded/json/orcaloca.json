@@ -1,0 +1,588 @@
+{
+ "system_id": "orcaloca",
+ "name": "OrcaLoca",
+ "version": "",
+ "repo_url": "https://github.com/fishmingyu/orcaloca",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.2.0",
+ "bundle": {
+  "chars": 96418,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2502.00350",
+    "chars_available": 54303,
+    "chars_used": 43727,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "leaderboard:swe-bench:orcaloca-agentless-1-5",
+    "chars_available": 6571,
+    "chars_used": 6571,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2502.00350",
+    "chars_available": 45599,
+    "chars_used": 45599,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "Please note that these details are concatenated in our system prompt (See Appendix D) and will be provided to LLM at each subsequent step.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Problem statement and reproducer info are concatenated into the system prompt. Formatter code (SearchChatFormatter) is not in the evidence."
+  },
+  "env_context_strategy": {
+   "value": "agent_driven_navigation",
+   "not_reported": false,
+   "evidence_quote": "self.search_file_contents,\n            self.search_source_code,\n            self.search_class,\n            self.search_method_in_class,\n            self.search_callable,\n            self.search_file_tree,",
+   "evidence_locator": "Orcar/search/search_tool.py:114@cbaf265f87c3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The trace-analysis stage seeds initial actions. The model explores via search tools over a CodeGraph."
+  },
+  "context_compaction": {
+   "value": [
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we design a context manager that dynamically prunes the searched context. The pruning algorithm leverages a node distance heuristic within the graph-oriented codebase.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Distance-aware pruning of search results, keeping the top-12 (context_control=True by default in search.cfg). This does not fit a listed value exactly; it is the closest."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "return CLIResult(output=stdout, error=stderr)",
+   "evidence_locator": "Orcar/editor/edit_tool.py:152@cbaf265f87c3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "We design a custom-designed LLM prompt, which will generateObservation (O),Potential Bug Locations (PB ), andSearch Actions (SA)in each step.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The output parser (SearchOutputParser) parses the model's text. The runner uses json.loads on responses, and the exact parser file is not shown."
+  },
+  "tool_count": {
+   "value": 6,
+   "not_reported": false,
+   "evidence_quote": "CodeNib serves OrcaLoca's six-tool",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Six search functions are returned by get_search_functions. The Edit agent's editor tool is used in the optional edit stage."
+  },
+  "edit_primitive": {
+   "value": [
+    "line_range_edit",
+    "search_replace",
+    "whole_file_rewrite"
+   ],
+   "not_reported": false,
+   "evidence_quote": "elif command == \"str_replace\":",
+   "evidence_locator": "Orcar/editor/edit_tool.py:59@cbaf265f87c3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Commands are create, str_replace and insert. They are available in the EditAgent stage, which is not the default final stage."
+  },
+  "tool_schema_source": {
+   "value": [
+    "auto_generated"
+   ],
+   "not_reported": false,
+   "evidence_quote": "from llama_index.core.tools import BaseTool, FunctionTool, ToolOutput",
+   "evidence_locator": "Orcar/search_agent.py:34@cbaf265f87c3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "LlamaIndex FunctionTool derives schema from function signatures and docstrings. This is an inference."
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The dependency file (pyproject.toml) was not shown, so no grep was possible."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "ORCALOCA follows a reason-and-act workflow with a constrained action space.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The stage pipeline is trace_analysis -> search -> edit (Stage enum in agent.py). A priority queue schedules actions."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "The ASQ has priority management which is implemented on top of a heap data structure.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The Action Scheduler Queue is a stored structure of planned actions."
+  },
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "In this way, the main agent could work with the scoring sub-agent in a multi-agent workflow.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The main search agent invokes a scoring sub-agent (CodeScorer). There is also a pipeline of trace-analysis, search and edit agents."
+  },
+  "delegation_mechanism": {
+   "value": "subagent_spawn",
+   "not_reported": false,
+   "evidence_quote": "The sub-agent (implemented by another LLM agent) will select the top-k most relevant methods",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The run loop code is truncated, so a confirmation surface cannot be ruled out."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "task_state = {\n            \"is_done\": is_done,\n            \"new_memory\": new_memory,\n            \"token_cnts\": list(),\n        }",
+   "evidence_locator": "Orcar/edit_agent.py:138@cbaf265f87c3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The search agent keeps a search_queue and action_history in extra_state."
+  },
+  "long_term_memory": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Full config and run code are not in the bundle."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "evaluation/run.py is not shown."
+  },
+  "self_verification": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "verify_agent_wrapper.py exists in the file tree but its content is not shown. Agentless patch validation lives in a third-party repo."
+  },
+  "retry_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "OrcarAgent has a current_retry parameter; the retry logic in run.py is not shown."
+  },
+  "rollback": {
+   "value": "snapshot",
+   "not_reported": false,
+   "evidence_quote": "elif command == \"undo_edit\":",
+   "evidence_locator": "Orcar/editor/edit_tool.py:74@cbaf265f87c3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-file history is kept in _file_history. The command is available only in the edit stage."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The process terminates when ASQ is empty or follows the convergence condition (See Appendix E).",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "max_iterations=10 in SearchWorker. The queue-empty/convergence condition was mapped to model_declared as the closest value."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "container",
+   "not_reported": false,
+   "evidence_quote": "OrcaLoca requires docker to run",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The trace analysis runs in the container. The search tools read the repo on the host."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The container setup code (environment/utils.py) is not shown."
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "with open(f\"{self.output_dir}/searcher_{self.inst_id}.json\", \"w\") as handle:",
+   "evidence_locator": "Orcar/agent.py:185@cbaf265f87c3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-stage JSON outputs are written, plus logs."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "python evaluation/run.py --final_stage search --instance_ids astropy__astropy-12907",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The runner is built in. Final grading uses the official SWE-bench scripts."
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "an LLM agent framework that improves accuracy for software issue localization",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "MIT License",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "elif model.startswith(\"gemini\"):",
+   "evidence_locator": "Orcar/gen_config.py:68@cbaf265f87c3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Supports OpenAI, Anthropic and Vertex via LlamaIndex."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "We support top-K retrieval mode inspired from",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tags or commit history in the evidence. Paper v1 is arXiv 2502.00350 (Feb 2025) with an unstated exact date."
+  },
+  "pinned_version": {
+   "value": "main @ cbaf265f87c3b046c658727ca1c6601a985f8443 (2026-08-31)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main cbaf265f87c3b046c658727ca1c6601a985f8443 2026-08-31",
+   "evidence_locator": "repository evidence header",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Untagged main."
+  },
+  "stars": {
+   "value": 46,
+   "not_reported": false,
+   "evidence_quote": "stars: 46",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  }
+ },
+ "cells_unresolved": [
+  "B5",
+  "C5",
+  "D2",
+  "D3",
+  "E1",
+  "E2",
+  "F2",
+  "F3",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
+  "H4",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T20:01:45+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 96418,
+ "doc_chars": 12712,
+ "call_id": "B-orcaloca-00603",
+ "tokens_in": 25223,
+ "tokens_out": 1127,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.123432"
+}

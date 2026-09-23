@@ -1,0 +1,533 @@
+{
+ "system_id": "recode",
+ "name": "ReCode",
+ "version": "",
+ "repo_url": "https://github.com/foundationagents/recode",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.2.0",
+ "bundle": {
+  "chars": 70340,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "s2_snowball:7b3fc9cc77d7ca4d702c6941696cd959c04f97aa",
+    "chars_available": 30425,
+    "chars_used": 30425,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2_snowball:7b3fc9cc77d7ca4d702c6941696cd959c04f97aa",
+    "chars_available": 39480,
+    "chars_used": 39480,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "return EXPAND_PROMPT.format(available_actions=self.available_actions, examples=examples, task=task, variables=variables)",
+   "evidence_locator": "agents/recode/agent.py:195@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Single user-prompt template filled per expansion with env-specific actions.txt/fewshots and current variables; no separate system message seen. Variables change per node, so it borders on dynamically_composed. Line number is approximate: the bundle shows the file without numbers."
+  },
+  "env_context_strategy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Only the current function signature and available variables are provided, without any tree structure or execution his-\ntory.",
+   "evidence_locator": "paper Fig. 2 caption",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Context is the task text plus a serialized variable namespace. The environments are text simulators, not repositories, and there are no navigation tools. The quote is the paper's Fig. 2 caption and contains a PDF line break at 'his-\\ntory'; confirm it verifies against the evidence text."
+  },
+  "context_compaction": {
+   "value": [
+    "structured_checkpoint"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Crucially, the policy model only sees the current variable state, not the full execution his-\ntory.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "History is replaced by the variable namespace (get_variables). The quote spans a PDF line break at 'his-\\ntory'; confirm it verifies."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.current_node.observations.extend(result[\"stdout\"]) if result[\"stdout\"] else None",
+   "evidence_locator": "agents/recode/agent.py:104@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Line number is approximate."
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action",
+    "xml_tags"
+   ],
+   "not_reported": false,
+   "evidence_quote": "expanded_code = parse_xml_tag(response, \"execute\").strip()",
+   "evidence_locator": "agents/recode/agent.py:160@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Python code is wrapped in <execute> tags and run via exec. Line number is approximate."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Actions come from env-specific actions.txt (the executor base provides run, re and ask_llm), but those files are not in the bundle. Opened place: utils/executor.py _base_globals."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self._base_globals = {\n            \"run\": self.run,\n            \"re\": re,\n        }",
+   "evidence_locator": "utils/executor.py:30-33@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "There are no file-editing tools; the domains are text simulators. The quote spans several lines with their indentation; confirm it verifies."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "`prompts/<env_name>/actions.txt` – concise description of valid `run(\"...\")` calls/tools.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "def register_function(self, name: str, func: Callable):",
+   "evidence_locator": "utils/executor.py:38@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only a proprietary function registry. The full-tree grep was not available."
+  },
+  "loop_primitives": {
+   "value": [
+    "tree_search"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The system traverses the tree depth-first,\nautomatically executing the code of current node and expanding placeholder functions into child\nnodes when encountered.",
+   "evidence_locator": "paper Fig. 2 caption",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "This is recursive depth-first expansion without backtracking, so tree_search is the closest value. The quote spans two PDF line breaks; confirm it verifies."
+  },
+  "planning_granularity": {
+   "value": "hierarchical",
+   "not_reported": false,
+   "evidence_quote": "child_node = CodeNode(code=block, parent=self.current_node)",
+   "evidence_locator": "agents/recode/agent.py:132@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Line number is approximate."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "self.llm = AsyncLLM()",
+   "evidence_locator": "agents/recode/agent.py:35@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Line number is approximate."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.llm = AsyncLLM()",
+   "evidence_locator": "agents/recode/agent.py:35@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Line number is approximate."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "actions = await agent.act(observations)",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The run loop has no approval path."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "self._variables: Dict[str, Any] = {}",
+   "evidence_locator": "utils/executor.py:26@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The CodeNode tree plus the variable namespace."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self._variables.clear()",
+   "evidence_locator": "utils/executor.py:128@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The reset clears state, and _load_resources reads only static prompts and fewshots. Line number is approximate."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.root = None",
+   "evidence_locator": "agents/recode/agent.py:45@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Line number is approximate."
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "validate_blocks(blocks)",
+   "evidence_locator": "agents/recode/agent.py:164@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The only check is syntax validation of generated code before execution, which is recorded under H4. Line number is approximate."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "return [\"[FINISH]\"]",
+   "evidence_locator": "agents/recode/agent.py:96@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "There is a step-level re-expand retry (max_rewrite=5), which does not count as task retry. max_retry is read but its use is not visible. Line number is approximate."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "def reset(self):",
+   "evidence_locator": "utils/executor.py:126@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No revert mechanism was found in the executor or agent."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.logger.warning(\"Max depth reached - terminating.\")",
+   "evidence_locator": "agents/recode/agent.py:119@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "max_depth and the env max steps (80 in alfworld) end the run. The run also finishes when the tree completes. Line number is approximate."
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Cost tracking loads `configs/prices.json`.",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Costs are tracked, but no cost cap was found."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "utils/llm.py and the env files are not in the bundle."
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "exec(block, exec_globals)",
+   "evidence_locator": "utils/executor.py:190@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "absence_high_confidence"
+   ],
+   "resolved": true,
+   "note": "In-process exec; the README calls the executor 'constrained'. Line number is approximate."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "exec(block, exec_globals)",
+   "evidence_locator": "utils/executor.py:190@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No sandbox is visible. Line number is approximate."
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "exec(block, exec_globals)",
+   "evidence_locator": "utils/executor.py:190@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No network config was found. Line number is approximate."
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "validate_blocks(blocks)",
+   "evidence_locator": "agents/recode/agent.py:164@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Construct restriction: def/async def are disallowed. Line number is approximate."
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "`running_logs/run.log` – aggregated stream of agent + environment logs.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "A JSON results summary is also written, but it is not per-step."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "`run.py` – CLI entry point that instantiates agents/envs, manages concurrency, and writes run summaries.",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "Environment wrappers and assets for `alfworld`, `webshop`, and `sciworld`.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Strictly follow the rules: output a single valid Python code block, and do not use def or async def.",
+   "evidence_locator": "agents/recode/agent.py:151@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Line number is approximate."
+  },
+  "target_domain": {
+   "value": [
+    "other",
+    "web"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Environment wrappers and assets for `alfworld`, `webshop`, and `sciworld`.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The other domains are embodied/science text simulators."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "LICENSE",
+   "evidence_locator": "file tree",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "A LICENSE file exists, but its contents were not shown."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "base_url: \"https://api.openai.com/v1\"",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "OpenAI-compatible client with a configurable base_url; the paper uses GPT, Gemini and DeepSeek."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "This repository hosts the reference implementation used in the paper",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tag or commit dates are in the bundle. The paper is arXiv 2510.23564 (v4 dated 6 Jan 2026)."
+  },
+  "pinned_version": {
+   "value": "main @ 6e7223f71281 (2026-04-21)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 6e7223f71281 2026-04-21, stars: 566",
+   "evidence_locator": "README.md:1@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Untagged main branch commit per evidence header; full hash not given; no tagged release found in evidence."
+  },
+  "stars": {
+   "value": 566,
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 6e7223f71281 2026-04-21, stars: 566",
+   "evidence_locator": "README.md:1@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Star count from evidence bundle header for FoundationAgents/ReCode; retrieval date not stamped (header ref date 2026-04-21)."
+  }
+ },
+ "cells_unresolved": [
+  "B2",
+  "F3",
+  "M5"
+ ],
+ "flag_counts": {
+  "absence_high_confidence": 1
+ },
+ "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M6": {
+   "superseded_pass": "A",
+   "value": "main @ 6e7223f71281 (2026-04-21)",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  },
+  "M7": {
+   "superseded_pass": "A",
+   "value": "566",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T19:59:02+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 70340,
+ "doc_chars": 10520,
+ "call_id": "B-recode-00551",
+ "tokens_in": 22508,
+ "tokens_out": 537,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.100772"
+}

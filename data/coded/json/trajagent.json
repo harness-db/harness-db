@@ -1,0 +1,585 @@
+{
+ "system_id": "trajagent",
+ "name": "TrajAgent",
+ "version": "",
+ "repo_url": "https://github.com/tsinghua-fib-lab/trajagent",
+ "stratum": "P",
+ "weight": "4.4067",
+ "schema_version": "0.2.0",
+ "bundle": {
+  "chars": 90268,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2410.20445",
+    "chars_available": 48677,
+    "chars_used": 43780,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2410.20445",
+    "chars_available": 46030,
+    "chars_used": 46030,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "You are a Data Transforming Agent. Your job is to transform data from a given format, to the same format as the target data.",
+   "evidence_locator": "data_format/utils/prompt.py:13@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No separate system message: single prompt_text strings built with f-strings/.format() from task/dataset variables (task_plan/plan_agent.py, data_format/format_agent.py get_format_prompt)."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "source_sample = \"\\n<SOURCE DATA SAMPLE>\\n\"  + DATA_SAMPLE[self.source]",
+   "evidence_locator": "data_format/format_agent.py:49@0e1c7224fdc8",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: harness injects static dataset/task/module descriptions and data samples into prompts; there are no navigation tools. None of the listed values fits exactly; added to Ambiguities."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper Sec. 3.4 describes dynamic memory pruning and README mentions memory_length, but the code that rewrites memory was not in the truncated excerpt of pa_agent.py. The scratchpad is reset each step, but that alone is not enough to code the dimension."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "result = self.llm.get_response(prompt_text=prompt)",
+   "evidence_locator": "task_plan/plan_agent.py:36@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "All LLM I/O is text; training metrics are fed back as text."
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action",
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "parse_dict = self.extract_llm.get_response(prompt_text=parse_dict_prompt)",
+   "evidence_locator": "param_optimize/pa_agent.py:167@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Param agent emits a dict parsed via json.loads after an LLM extraction pass. Format agent emits python code that is extracted by an LLM (format_agent.py parse_code). Plan agent uses option letters via extract_choice."
+  },
+  "tool_count": {
+   "value": 0,
+   "not_reported": false,
+   "evidence_quote": "choice = extract_choice(result, ['A','B','C'])",
+   "evidence_locator": "task_plan/plan_agent.py:37@0e1c7224fdc8",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tool schemas are sent to the model. Actions are fixed-format text answers (choices, dicts, code)."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "7. Save transformed data in '{output_file}'.Do not use to_excel function of panda.",
+   "evidence_locator": "data_format/utils/prompt.py:10@0e1c7224fdc8",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "There is no file-editing tool. Per the paper, the parameter agent generates code to update config files; no edit primitive is exposed."
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tool schemas exist in the shown code. Not applicable."
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The dependency list and a full grep were not available because the bundle was truncated."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "while not self.is_halted() and not self.is_finished() and int(self.step_n) <= int(self.max_steps):",
+   "evidence_locator": "param_optimize/pa_agent.py:113@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The staged pipeline is Data Preprocessing → Model Selection → Data Augmentation → Parameter Optimization (README). The optimization loop proposes settings, trains the model, scores the result, and iterates (Reflexion-style)."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "Please choose the most suitable one among A, B, C as the answer to this question.",
+   "evidence_locator": "task_plan/plan_agent.py:35@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The plan agent picks a module combination; no stored plan object is shown."
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "For each step, we design an expert agent to perform the corresponding operations effectively.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "The input of the planning module is the task name and description from the understanding module",
+   "evidence_locator": "paper Sec. 2.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "automated processing chain from user query to final result, eliminating the need for human-in-the-loop.",
+   "evidence_locator": "paper Sec. 2.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "short_term_state": {
+   "value": "scratchpad",
+   "not_reported": false,
+   "evidence_quote": "self.scratchpad = '<SCRATCHPAD>:\\n'  #清空短期记忆",
+   "evidence_locator": "param_optimize/pa_agent.py:115@0e1c7224fdc8",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Memory in pa_agent is per-run (reset in __reset_agent). Cross-run persistence was not visible in the truncated code."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": [
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "step_index, step_score = self.step()",
+   "evidence_locator": "param_optimize/pa_agent.py:114@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The harness trains the model and feeds evaluation metrics back to the agent (train_model/get_model_result)."
+  },
+  "retry_policy": {
+   "value": "until_pass",
+   "not_reported": false,
+   "evidence_quote": "if (step_score - self.threshold)/self.threshold >= self.enhance:  #若某步优化效果超过self.enhance,则可以停止优化，提前结束",
+   "evidence_locator": "param_optimize/pa_agent.py:118@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Iterates until the enhancement threshold is met, capped by max_steps."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "test_pass"
+   ],
+   "not_reported": false,
+   "evidence_quote": "while not self.is_halted() and not self.is_finished() and int(self.step_n) <= int(self.max_steps):",
+   "evidence_locator": "param_optimize/pa_agent.py:113@0e1c7224fdc8",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The test_pass value here corresponds to the metric-improvement threshold being reached."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "reset_period=1800 triggers reflection, not a timeout."
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "Replace BASE_ENV_PATH=\"your_base_env_path\" with actual path",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Models run via shell scripts in host conda environments."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "tracing": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "jsonlines is imported in pa_agent, but the logging code was not visible."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "Evaluation datasets for the natural-language command parsing are generated by the scripts under `evaluate_userQuery/`",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "An LLM-Agent Framework for Trajectory Modeling via Large-and-Small Model Collaboration",
+   "evidence_locator": "README.md:1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Target domain is trajectory modeling / AutoML."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "License-MIT-green.svg",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The LICENSE file itself was not included in the evidence; this relies on the README badge."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "model_name=self.args.base_model,",
+   "evidence_locator": "param_optimize/pa_agent.py:109@0e1c7224fdc8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "LLMWrapper supports multiple platforms (DeepInfra, OpenAI, SiliconFlow)."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "The codes and data can be accessed via https://github.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tag or first-commit date was available. The paper v1 date was not given in the evidence."
+  },
+  "pinned_version": {
+   "value": "main @ 0e1c7224fdc8 (2025-11-30)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 0e1c7224fdc8 2025-11-30",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tag. The short hash is from the bundle header."
+  },
+  "stars": {
+   "value": 29,
+   "not_reported": false,
+   "evidence_quote": "stars: 29",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Retrieval date not stated."
+  }
+ },
+ "cells_unresolved": [
+  "A3",
+  "B4",
+  "B5",
+  "D2",
+  "D3",
+  "E3",
+  "F2",
+  "F3",
+  "G2",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H4",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "A3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T19:26:07+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 90268,
+ "doc_chars": 12095,
+ "call_id": "B-trajagent-00015",
+ "tokens_in": 25107,
+ "tokens_out": 1093,
+ "cache_read": 16883,
+ "cache_write": 8222,
+ "cost_usd": "0.091021"
+}

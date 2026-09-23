@@ -213,6 +213,24 @@ def drive(label: str, target: list[str], done_fn, cmd: list[str], args: argparse
             log.info("%s: %d systems left after this run", label, after)
             continue
         stalls += 1
+        # A system the reader refuses outright never becomes codable by waiting: `cai` and `pentagi`
+        # are offensive-security agents whose coding a safety classifier stops mid-response, and the
+        # driver would otherwise loop on them until its deadline and never reach pass B. After
+        # `--max-stalls` fruitless attempts the ids are recorded and the stage is allowed to proceed.
+        if stalls >= args.max_stalls and not credits_exhausted(CODED / "run.log"):
+            blocked = sorted(set(target) - done_fn())
+            path = CODED / "blocked_systems.json"
+            doc = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            doc[label] = {"ids": blocked, "stalls": stalls,
+                          "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+                          "why": "no progress after repeated attempts and no usage limit in the log; "
+                                 "see data/coded/run.log for the per-system error"}
+            path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+            log.error("%s: giving up on %d system(s) after %d stalls with no usage limit in sight: %s. "
+                      "Recorded in data/coded/blocked_systems.json; continuing so the later stages run.",
+                      label, len(blocked), stalls, ", ".join(blocked[:8]))
+            status(label, blocked=blocked)
+            return True
         if credits_exhausted(CODED / "run.log"):
             log.error("%s: the API reports no credit left; stopping with %d systems left. "
                       "Top up and re-run, or switch back to --backend claude-code.", label, after)
@@ -235,6 +253,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workers", type=int, default=8)
     p.add_argument("--limit-wait", type=int, default=30, help="minutes to wait when a run makes no progress")
     p.add_argument("--deadline-hours", type=float, default=72.0)
+    p.add_argument("--max-stalls", type=int, default=3,
+                   help="fruitless attempts before a stage records the remaining systems as "
+                        "blocked and moves on (a refusal never lifts; a usage limit does)")
     p.add_argument("--double-sample", type=float, default=0.2)
     p.add_argument("--seed", default="code-2026-09-20")
     p.add_argument("--skip-double", action="store_true")

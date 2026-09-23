@@ -1,0 +1,603 @@
+{
+ "system_id": "agentty",
+ "name": "agentty",
+ "version": "v0.5.0",
+ "repo_url": "https://github.com/1ay1/agentty",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.2.0",
+ "bundle": {
+  "chars": 53128,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "paper",
+    "record_id": "github:1ay1/agentty",
+    "chars_available": 52962,
+    "chars_used": 52962,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Prompt builder (src/provider/anthropic/prompt.cpp) listed in tree but not included in evidence; skills/memory indexing suggests dynamic composition."
+  },
+  "env_context_strategy": {
+   "value": "mixed",
+   "not_reported": false,
+   "evidence_quote": "a **proactive path** runs the funnel *before you ask*\nwhen your message looks knowledge-shaped, injecting a source-tagged\n`<retrieved-context>` block into the very same turn",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Proactive BM25/embedding retrieval plus agent navigation tools (read, grep, glob, repo_map)."
+  },
+  "context_compaction": {
+   "value": [
+    "summarize",
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "applies a **per-tool output budget** so a runaway `read`/`bash`/`grep`\ncan't blow the context window",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Compaction summary fires at 95% of window (ARCHITECTURE §8.5)."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Tools are fully typed internally; only the dispatcher boundary speaks JSON.",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Image paste exists for user input; tool observation modalities not shown."
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text",
+    "native_function_calling"
+   ],
+   "not_reported": false,
+   "evidence_quote": "`wire::could_be_tool_json` (the leaked-tool-call\nprefix sniffer weak local models need)",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Native tool calling inferred from input_schema per tool; leaked JSON salvage for local models."
+  },
+  "tool_count": {
+   "value": 35,
+   "not_reported": false,
+   "evidence_quote": "The shipped tools: `read`, `write`, `edit`, `move`, `remove`, `bash`,",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Count of shipped tools list in ARCHITECTURE §5; default exposure per profile not verified."
+  },
+  "edit_primitive": {
+   "value": [
+    "search_replace",
+    "whole_file_rewrite"
+   ],
+   "not_reported": false,
+   "evidence_quote": "read · write · edit · bash · grep · glob · git · web · search_docs · search_code · task",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Edit tool arguments not shown; inferred from names."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written",
+    "mcp"
+   ],
+   "not_reported": false,
+   "evidence_quote": "{ T::input_schema() } -> std::convertible_to<nlohmann::json>;",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "MCP plugins via .agentty/mcp.json."
+  },
+  "protocol_standardization": {
+   "value": [
+    "mcp",
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "agentty speaks the [Agent Client Protocol](https://agentclientprotocol.com)",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "other = ACP; MCP client at include/agentty/mcp/client.hpp."
+  },
+  "loop_primitives": {
+   "value": [
+    "event_driven",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "A turn is not a single request — it cycles `Streaming → AwaitingPermission →\nExecutingTool → Streaming → … → Idle`.",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Elm-style Msg loop; Smart Mode cascade opt-in."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "`todo`, `diagnostics`, `test`, `git_status`",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "todo tool and ^T Plan/todo panel."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "Smart Mode (`^S`) fixes that with an\n**orchestrator-workers** design",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Smart Mode opt-in gives orchestrator_workers; task subagent tool also available."
+  },
+  "delegation_mechanism": {
+   "value": "subagent_spawn",
+   "not_reported": false,
+   "evidence_quote": "`search_docs`, `search_code`, `task` (subagent dispatch)",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": [
+    "configurable",
+    "on_permission"
+   ],
+   "not_reported": false,
+   "evidence_quote": "`Write` is fully autonomous. `Ask` trusts read-only inspection",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Default profile not shown."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "the per-turn `Active` context (cancel token, start stamp,\nretry counters) lives *inside* every non-`Idle` alternative",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "file_notes",
+    "skill_library",
+    "vector_store"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Agent Skills + remember/forget memory, plus a fully **local RAG** engine",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "state_persistence": {
+   "value": "full_resume",
+   "not_reported": false,
+   "evidence_quote": "`init` | Load settings + recent threads via Store seam.",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "save_thread/load_thread seams; session/resume in ACP."
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "`todo`, `diagnostics`, `test`, `git_status`",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "test/diagnostics are model-invoked tools; no harness-enforced verification shown."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "a\n**cascade** retries at higher effort only when a cheap attempt actually falls\nshort",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Cascade retry only in opt-in Smart Mode (adaptive); transport retries excluded."
+  },
+  "rollback": {
+   "value": "snapshot",
+   "not_reported": false,
+   "evidence_quote": "`LoginMsg`, `DiffReviewMsg`, `CheckpointMsg`, `MetaMsg`",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "workspace/checkpoint.hpp and checkpoint picker suggest restore; mechanism not shown."
+  },
+  "termination_condition": {
+   "value": [
+    "model_declared",
+    "stall_detection"
+   ],
+   "not_reported": false,
+   "evidence_quote": "A 120-s stall watchdog trips the\ncancel token",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Turn ends when model stops calling tools; stall watchdog triggers retry rather than end."
+  },
+  "cost_controls": {
+   "value": [
+    "caching",
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the repeated conversation prefix is a prompt-cache HIT across turns",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "model_routing via opt-in Smart Mode."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tool timeout config not in evidence."
+  },
+  "execution_isolation": {
+   "value": "container",
+   "not_reported": false,
+   "evidence_quote": "Every shell call runs inside bwrap (Linux) / sandbox-exec (macOS).",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "OS sandbox, closest value; unsandboxed on Termux."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "File tools refuse paths outside your workspace.",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Sandbox network settings not in evidence."
+  },
+  "permission_model": {
+   "value": "policy_engine",
+   "not_reported": false,
+   "evidence_quote": "The active **Profile** plus that effect set feed the pure `constexpr`\nfunction `policy::permission(effects, profile)`",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Effect-based rule matrix with Prompt; closest value."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "`AGENTTY_ACP_TRACE=1 agentty acp` dumps every JSON-RPC frame to stderr",
+   "evidence_locator": "docs/acp-editor-integration.md@7b559ac",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tree truncated at 400/541 paths."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "unknown tools fail closed (default to requiring\npermission)",
+   "evidence_locator": "docs/ARCHITECTURE.md@7b559ac",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Hooks (.agentty/hooks.json) may add more."
+  },
+  "target_domain": {
+   "value": [
+    "general_tool_use",
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "A blazing-fast, open-source coding agent in your terminal.",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "MIT — see [LICENSE](LICENSE).",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "Claude, GPT, Groq, OpenRouter, Ollama, or any OpenAI-compatible endpoint.",
+   "evidence_locator": "README.md@7b559ac",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:v0.5.0 7b559ac693809c34acdb9b1a02a50d7019e8e1b7 2026-08-28",
+   "evidence_locator": "repo metadata",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "v0.5.0 @ 7b559ac693809c34acdb9b1a02a50d7019e8e1b7 (2026-08-28)",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:v0.5.0 7b559ac693809c34acdb9b1a02a50d7019e8e1b7 2026-08-28",
+   "evidence_locator": "repo metadata",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  }
+ },
+ "cells_unresolved": [
+  "A1",
+  "F3",
+  "G3",
+  "H2",
+  "H3",
+  "M5",
+  "M7"
+ ],
+ "flag_counts": {
+  "locator_no_line": 29,
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "A1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T19:33:13+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 53128,
+ "doc_chars": 12605,
+ "call_id": "B-agentty-00097",
+ "tokens_in": 24063,
+ "tokens_out": 638,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.109012"
+}
