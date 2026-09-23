@@ -95,6 +95,21 @@ def reset_wait(log_path: Path, default_seconds: int, now: datetime | None = None
                            + (f" {tzname}" if tzname else ""))
 
 
+CREDIT_RE = re.compile(r"credit balance|insufficient (?:funds|credit)|billing", re.IGNORECASE)
+
+
+def credits_exhausted(log_path: Path, window: int = 40_000) -> bool:
+    """True when the tail of the run log shows the API refusing for want of credit.
+
+    A usage limit lifts on its own and is worth waiting for; an empty balance never does, so the
+    driver must stop rather than sit in a retry loop until its deadline.
+    """
+    try:
+        return bool(CREDIT_RE.search(log_path.read_text(encoding="utf-8", errors="replace")[-window:]))
+    except OSError:
+        return False
+
+
 def read_csv(path: Path) -> list[dict[str, str]]:
     if not path.exists():
         return []
@@ -126,8 +141,11 @@ def run(cmd: list[str], log_path: Path) -> int:
 
 
 def code_cmd(args: argparse.Namespace, pass_name: str, extra: list[str] | None = None) -> list[str]:
-    return [PY, "scripts/code_system.py", "--pass", pass_name, "--model", args.model,
-            "--effort", args.effort, "--workers", str(args.workers), "--text-json", *(extra or [])]
+    cmd = [PY, "scripts/code_system.py", "--pass", pass_name, "--model", args.model,
+           "--effort", args.effort, "--workers", str(args.workers), "--backend", args.backend]
+    if args.backend == "claude-code":
+        cmd.append("--text-json")  # the API backend always asks for text JSON; the CLI needs telling
+    return cmd + list(extra or [])
 
 
 def drive(label: str, target: list[str], done_fn, cmd: list[str], args: argparse.Namespace,
@@ -153,6 +171,11 @@ def drive(label: str, target: list[str], done_fn, cmd: list[str], args: argparse
             log.info("%s: %d systems left after this run", label, after)
             continue
         stalls += 1
+        if credits_exhausted(CODED / "run.log"):
+            log.error("%s: the API reports no credit left; stopping with %d systems left. "
+                      "Top up and re-run, or switch back to --backend claude-code.", label, after)
+            status(label, stopped="credits exhausted", left=after)
+            return False
         wait, why = reset_wait(CODED / "run.log", args.limit_wait * 60)
         log.warning("%s: no progress (%d left, stall %d); waiting %d min (%s)",
                     label, after, stalls, round(wait / 60), why)
@@ -162,6 +185,9 @@ def drive(label: str, target: list[str], done_fn, cmd: list[str], args: argparse
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    p.add_argument("--backend", choices=("claude-code", "api"), default="claude-code",
+                   help="claude-code spends the subscription allowance and waits out its limit "
+                        "windows; api bills the key and stops when credits run out")
     p.add_argument("--model", default="opus")
     p.add_argument("--effort", default="low")
     p.add_argument("--workers", type=int, default=8)

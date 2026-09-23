@@ -849,6 +849,75 @@ def call_backend(backend: Callable[..., Any], exe: str, model: str, system_file:
     return Answer(item["id"], checks, res, len(prompt([item])))
 
 
+API_MODELS = {"opus": "claude-opus-5", "sonnet": "claude-sonnet-5", "haiku": "claude-haiku-4-5"}
+API_MAX_TOKENS = 16000  # 38 cells with a quote each runs ~4k; 4,096 would truncate
+
+
+class CreditsExhausted(RuntimeError):
+    """The API rejected the request for want of credit - a wall, not a transient failure."""
+
+
+def make_api_backend(client: Any, max_tokens: int = API_MAX_TOKENS) -> Callable[..., Any]:
+    """A backend with the Claude Code signature that calls the Messages API instead.
+
+    Two things differ from the subscription path and both are deliberate. The system prompt (the
+    manual's rules for all 38 dimensions, ~9,800 tokens, identical on every call) carries a
+    `cache_control` breakpoint, so it is written once and read at a tenth of the price afterwards -
+    the saving the CLI backend cannot get, because it caches the whole prompt including each
+    system's unique bundle and therefore never gets a hit. And `max_tokens` is raised: a full
+    coding answer does not fit in the 4,096 the screening backend asks for.
+    """
+    def backend(exe: str, model: str, system_file: Path, batch: list[dict[str, Any]],
+                effort: str | None = None, schema: dict[str, Any] | None = None,
+                prompt: Any = None, text_json: bool = False) -> Any:
+        system = system_file.read_text(encoding="utf-8")
+        api_model = API_MODELS.get(model, model)
+        # The answer is asked for as plain-text JSON, not through output_config.format: a schema
+        # covering 38 cells has 76 optional properties and structured outputs reject more than 24
+        # ("grammar compilation"). Every cell is validated locally against the same schema anyway,
+        # which is what the CLI backend's text-JSON mode already relies on.
+        text = prompt(batch)
+        if schema:
+            text += ("\n\nReturn ONLY one JSON object, with no prose and no code fences, that "
+                     "validates against this JSON Schema:\n" + json.dumps(schema, separators=(",", ":")))
+        kwargs: dict[str, Any] = {
+            "model": api_model,
+            "max_tokens": max_tokens,
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            "messages": [{"role": "user", "content": text}],
+        }
+        cfg: dict[str, Any] = {}
+        if effort:
+            cfg["effort"] = effort
+        if cfg:
+            kwargs["output_config"] = cfg
+        try:
+            resp = client.messages.create(**kwargs)
+        except TypeError:  # an SDK too old to know output_config: send it through as extra body
+            kwargs.pop("output_config", None)
+            resp = client.messages.create(extra_body={"output_config": cfg} if cfg else None, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - classify, then re-raise
+            msg = str(exc).lower()
+            if "credit balance" in msg or "insufficient" in msg or "billing" in msg:
+                raise CreditsExhausted(str(exc)[:300]) from exc
+            raise
+        if getattr(resp, "stop_reason", None) == "refusal":
+            raise RuntimeError(f"refusal: {getattr(resp, 'stop_details', None)}")
+        if getattr(resp, "stop_reason", None) == "max_tokens":
+            raise RuntimeError(f"answer truncated at max_tokens={max_tokens}")
+        out = "".join(b.text for b in resp.content if b.type == "text")
+        data = json.loads(out) if out.lstrip().startswith("{") else screen_llm._json_from_text(out)
+        if not isinstance(data, dict) or "votes" not in data:
+            raise ValueError("model JSON has no 'votes' array")
+        votes = screen_llm._order_votes(data["votes"], batch)
+        u = resp.usage
+        cr = getattr(u, "cache_read_input_tokens", 0) or 0
+        cw = getattr(u, "cache_creation_input_tokens", 0) or 0
+        return screen_llm.BatchResult(votes, api_model, (u.input_tokens or 0) + cr + cw,
+                                      u.output_tokens or 0, cr, cw, screen_llm._api_cost(api_model, u))
+    return backend
+
+
 def _safe(fn: Callable[[Any], Answer], job: Any, log: logging.Logger) -> Answer | None:
     try:
         return fn(job)
@@ -869,7 +938,9 @@ def main(argv: list[str] | None = None, backend: Callable[..., Any] | None = Non
     p.add_argument("--all", action="store_true", help="code every frame row, not only coded=1")
     p.add_argument("--ids", default=None, help="comma-separated system_ids restricting the input")
     p.add_argument("--limit", type=int, default=0, help="stop after N systems (0 = all)")
-    p.add_argument("--backend", choices=("claude-code",), default="claude-code")
+    p.add_argument("--backend", choices=("claude-code", "api"), default="claude-code",
+                   help="claude-code spends the subscription allowance; api bills the key in .env "
+                        "and caches the system prompt, which the CLI cannot do")
     p.add_argument("--model", default="opus")
     p.add_argument("--effort", default=None)
     p.add_argument("--workers", type=int, default=2)
@@ -962,7 +1033,19 @@ def main(argv: list[str] | None = None, backend: Callable[..., Any] | None = Non
         # the prompt cache (measured for scripts/fulltext_screen.py)
         os.environ["ENABLE_CLAUDEAI_MCP_SERVERS"] = "false"
     if backend is None:
-        backend = screen_llm.vote_batch_claude_code
+        if args.backend == "api":
+            try:
+                import anthropic
+            except ImportError:
+                print("the 'anthropic' package is missing: pip install anthropic", file=sys.stderr)
+                return 2
+            key = screen_llm.api_key()
+            if not key:
+                print("ANTHROPIC_API_KEY not found in .env or the environment", file=sys.stderr)
+                return 2
+            backend = make_api_backend(anthropic.Anthropic(api_key=key, max_retries=3, timeout=900.0))
+        else:
+            backend = screen_llm.vote_batch_claude_code
     exe = ""
     if backend is screen_llm.vote_batch_claude_code:
         exe = screen_llm.find_claude_exe() or ""
