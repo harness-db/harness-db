@@ -1,8 +1,11 @@
 # Schema changelog
 
-Every change to `schema/dimensions.json` gets a line here. Reviewers ask.
+Every change to `schema/dimensions.json`, and to the cell contract that
+`scripts/build_schema.py` generates from it, gets a line here. Reviewers ask.
 
 | Date | Version | Change | Reason |
 |---|---|---|---|
+| 2026-09-23 | 0.2.0 | CELL CONTRACT: added `unresolved` (boolean, default false) beside `not_reported`, and evidence is now required only when a cell is neither. A cell the coder could not settle is marked as such; `not_reported` keeps its meaning of "the sources were read and say nothing". | The two were being collapsed, and the release build briefly published 42,370 cells with no `not_reported` at all - erasing the quantity RQ4 reports. Three states keep a finding, an admission and a value apart. 1.0% of released cells are unresolved, 24% not_reported |
+| 2026-09-23 | 0.2.0 | No dimension added, removed, renamed or re-valued. Per-dimension reliability on the 217-system double-coded sample clears the 0.6 freeze condition on every one of the 38 dimensions (kappa 0 below threshold, Gwet's AC1 0 below threshold; weakest `loop_primitives` 0.603, pooled kappa 0.832). | Tracker task 33 asked that any dimension below 0.6 be rewritten or dropped. The first table put 30 of 38 below it, but the cause was manual general rule 5 contradicting rule 2 (amendment 9), not the dimensions: rewriting the rule and re-coding moved the pooled kappa from 0.564 to 0.832 with the value sets untouched. Nothing to rewrite, nothing to drop |
 | 2026-09-16 | 0.1.0 | Initial draft: 9 layers (A–H + Meta), 38 dimensions, from the plan's coding sheet v0 | Starting point for the 30-system pilot |
 | 2026-09-16 | 0.1.0 | No schema change. Worked examples (SWE-agent v1.1.0, OpenHands v1.16.0 + SDK v1.44.0) coded on all 38 dimensions; 26 ambiguities recorded in docs/coding_manual.md "Ambiguities found while coding", plus 3 from docs/positioning.md section D (loop-driver, model-routing, split D2 file_notes). Resolve in the pilot before schema v1 | Pilot input |
