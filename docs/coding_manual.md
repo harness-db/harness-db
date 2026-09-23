@@ -22,7 +22,8 @@ are in the JSON files; the manual shows value + primary evidence only.
    evidence paths with the repo name.
 2. **Evidence is verbatim.** Either `path/to/file.py:LINE@<short-hash>` pointing at a
    line you opened, or a verbatim paper quote with its section number. No
-   paraphrase. If you cannot point at it, set `not_reported: true`, `value: null`.
+   paraphrase. If you cannot point at it, set `not_reported: true`, `value: null` —
+   except where the value you are recording *is* an absence, which rule 5 governs.
 3. **Confidence.** `high` = explicit statement or code on the cited line; `medium` =
    inferred from adjacent code, a default value, or a figure; `low` = inferred from
    prose describing behaviour.
@@ -32,10 +33,34 @@ are in the JSON files; the manual shows value + primary evidence only.
    configuration options without code changes, and say in `note` which value is the
    default. For single-valued dimensions, code the default and list config-reachable
    alternatives in `note`. Never include `none` alongside other values.
-5. **Evidence of absence.** A `none` value still needs evidence: cite the place where
-   the feature would be registered if it existed (tool registry, config model, run
-   loop) and, where useful, the grep you ran (`grep -rli mcp sweagent/ -> 0 hits`).
-   Confidence for absence is at most `medium` unless the docs state it.
+5. **Absence is not silence.** "I looked and found nothing" splits into two different
+   codings, and the split decides the under-reporting result (RQ4), so decide it in
+   this order and never by feel:
+
+   a. Does the evidence contain **the place where this feature would be declared if it
+      existed** — the config schema or settings model, the CLI flags, the tool or
+      plugin registry, the run loop itself, or a feature list in the documentation?
+
+   b. **YES, and the feature is not there** → code the absence value (`none`, `open`,
+      `unbounded`, ...). Evidence is that place: cite the config model, registry or
+      loop you opened, plus where useful the search you ran
+      (`grep -rli mcp sweagent/ -> 0 hits`). Confidence at most `medium` unless the
+      documentation states the absence outright.
+
+   c. **NO — the evidence has no such place** (no config surface in the bundle, the
+      repository was truncated, or only a paper was available) → `not_reported: true`,
+      `value: null`, and say in `note` which place was missing.
+
+   Never turn the absence of a *mention* into an absence value: prose that does not
+   discuss rollback is not evidence that rollback is absent. Equally, never record
+   `not_reported` once you have opened the place where the feature would be declared —
+   at that point you have read the sources and they have answered.
+
+   Why this rule is written so tightly: on the first double-coded sample (217 systems,
+   2026-09-23) the two readings agreed on the evidence and disagreed only on this
+   split, which alone pushed 19 of 38 dimensions below the reliability threshold —
+   `rollback` 0.97 of its disagreements, `replayability` 0.96, `network_policy` 0.94,
+   with notes on both sides reading "no replay facility found".
 6. **Closest value + note.** When a value list does not fit, pick the closest value,
    write the mismatch in `note`, and add the case to "Ambiguities" below. Value lists
    change only through `schema/dimensions.json` plus a changelog line.

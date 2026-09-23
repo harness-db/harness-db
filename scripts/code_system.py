@@ -98,7 +98,9 @@ FULLTEXT_DIR = REPO / "data" / "fulltext"
 REPO_INDEX = REPO / "data" / "screening" / "repo_index.csv"
 OUT_DIR = REPO / "data" / "coded"
 
-PROMPT_VERSION = "code-v1-2026-09-20"
+PROMPT_VERSION = "code-v2-2026-09-23"  # manual general rule 5 rewritten: absence vs silence
+#: v1 left "I looked and found nothing" split ambiguously between an absence value and
+#: not_reported, which alone pushed 19 of 38 dimensions below the reliability threshold.
 CODER = {False: "llm-prefill", True: "llm-prefill-2"}  # double? -> manual general rule 9
 DEFAULT_SEED = "code-2026-09-20"
 
