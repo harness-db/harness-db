@@ -1,10 +1,17 @@
-# Coding manual (v0.2)
+# Coding manual (v1.0, frozen 2026-09-23)
 
-Status: draft for the pilot. Becomes v1 after the 30-system pilot and per-dimension
-kappa >= 0.6. Schema: `schema/dimensions.json` 0.1.0 (38 dimensions, 9 layers).
+Frozen alongside schema v1.0 (`schema/dimensions.json` 1.0.0, tag `schema-v1.0`). General rule 5
+was rewritten before the freeze (protocol amendment 9) and the whole coded set was re-coded under
+it; reliability is reported in `docs/coding_reliability.md`. Changes from here need a changelog
+line in `docs/schema_changelog.md` and an OSF registration update.
 
-Two worked examples are coded end to end in `data/examples/` (LLM pre-fill, not yet
-human-verified):
+Schema: `schema/dimensions.json` 1.0.0 (38 dimensions, 9 layers). The freeze condition - a
+double-coded sample with per-dimension kappa >= 0.6 - was met on 217 systems, far more than the 30
+the plan called for: 37 of 38 dimensions clear it, and `loop_primitives` is kept and flagged rather
+than redefined (0.586 on exact-set match, 0.624 on AC1, 0.738 per value).
+
+Two worked examples are coded end to end in `data/examples/` (LLM pre-fill, not
+human-verified - amendment 4 removed human verification):
 
 | system | pinned version | evidence prefix |
 |---|---|---|
