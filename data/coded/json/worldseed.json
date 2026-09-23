@@ -22,28 +22,26 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
-   "not_reported": false,
-   "evidence_quote": "Engine, Perceiver, and Inbox never access AgentConfig. Only the DM prompt builder reads it.",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Prompts built per-scene from YAML character/scene config; DM prompt builder in dm/prompt.py."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Agent prompts are built by external runtimes (OpenClaw/Codex); dm/prompt.py is listed but not included in the evidence."
   },
   "env_context_strategy": {
-   "value": "agent_driven_navigation",
-   "not_reported": false,
-   "evidence_quote": "Perception rules filter the world per character. Three agents in the same room hold three completely different pictures of what's happening.",
-   "evidence_locator": "README.md@4ffeabf",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Agents call GET /perceive each tick to get their filtered world slice; closest value is agent-driven navigation of the world state."
+   "resolved": false,
+   "note": "The perceiver filters world state per agent; it is not a repository-context strategy. The value list does not fit this simulation engine."
   },
   "context_compaction": {
    "value": null,
@@ -53,36 +51,34 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "EventLog has TTL expiry ('Events with TTL, auto-expiration'), but the evidence does not show how history is sent to the model."
   },
   "observation_format": {
    "value": [
-    "raw_text",
     "structured_json"
    ],
    "not_reported": false,
-   "evidence_quote": "uncertain ones go to an LLM-based **Dungeon Master (DM)** that returns structured effects, not free prose.",
-   "evidence_locator": "README.md@4ffeabf",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Perception payloads are structured world state; DM returns validated DMResponse (narrative + effects)."
-  },
-  "tool_call_format": {
-   "value": [
-    "json_in_text"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Uses LiteLLM + Instructor for structured output.",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
+   "evidence_quote": "GET /perceive → Perceiver → filtered world state per agent",
+   "evidence_locator": "docs/ARCHITECTURE.md",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "DM uses Instructor structured (JSON schema) output; external agents post actions to /act as JSON params rather than provider tool calls."
+   "note": "Inferred from the HTTP API; the payload format is not shown."
+  },
+  "tool_call_format": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Agents act via POST /act; the model-side call syntax lives in the external runtime (openclaw-plugin/src/tools.ts, not included)."
   },
   "tool_count": {
    "value": null,
@@ -93,126 +89,111 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Action set is defined per scene YAML, not a fixed default tool list in the evidence."
+   "note": "Actions are declared per scene in YAML; tool definitions are not included."
   },
   "edit_primitive": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Entity** = world state only (id, type, flat properties). No personality, no goals.",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Engine exposes world actions/effects, not file-edit primitives; workers write files with their own external tooling."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "tool_schema_source": {
    "value": [
     "hand_written"
    ],
    "not_reported": false,
-   "evidence_quote": "YAML defines engine actions. `publish` is a `ws.py` helper used by Codex\nsubagents.",
-   "evidence_locator": "docs/codex/02-actions-and-publish.md@4ffeabf",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Action params declared by hand in scene YAML."
-  },
-  "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "POST /register\nGET /perceive\nPOST /act\nGET /api/director/signals",
-   "evidence_locator": "docs/codex/01-contract.md@4ffeabf",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Interface is a proprietary HTTP/WebSocket API; no MCP/A2A in the evidenced file tree."
-  },
-  "loop_primitives": {
-   "value": [
-    "event_driven",
-    "react"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Each tick: every agent perceives its own filtered slice, proposes an action, and the engine resolves it.",
-   "evidence_locator": "README.md@4ffeabf",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Tick loop with signals/inbox wakes; Codex adapter adds a producer/critic/curation flow."
-  },
-  "planning_granularity": {
-   "value": "implicit",
-   "not_reported": false,
-   "evidence_quote": "`trajectory.md` is for Codex and subagents during the run.",
-   "evidence_locator": "docs/codex/00-core.md@4ffeabf",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Core engine has no plan object; Codex adapter keeps a trajectory.md operating plan (would be explicit_plan_object in that opt-in runtime)."
-  },
-  "multi_agent_topology": {
-   "value": "peer",
-   "not_reported": false,
-   "evidence_quote": "A multi-agent world engine where AI agents live, talk, compete, ally.",
-   "evidence_locator": "github repo description@4ffeabf",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Codex adapter offers an orchestrator/worker variant: primary session spawns subagents."
-  },
-  "delegation_mechanism": {
-   "value": "message_bus",
-   "not_reported": false,
-   "evidence_quote": "InboxManager | `engine/inbox.py` | Per-agent inbox for events and whispers.",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
+   "evidence_quote": "YAML defines engine actions.",
+   "evidence_locator": "docs/codex/02-actions-and-publish.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Agents communicate via engine events/inboxes; Codex adapter also supports subagent_spawn."
+   "note": "Scene action params are authored in YAML."
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No dependency file content is available to grep."
+  },
+  "loop_primitives": {
+   "value": [
+    "event_driven"
+   ],
+   "not_reported": false,
+   "evidence_quote": "WorldSeed runs on a tick loop over a world you declared in YAML.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tick loop with perceive/act per agent, plus wake signals to agents."
+  },
+  "planning_granularity": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The Codex adapter uses trajectory.md as an operating plan, but it is an external runtime convention."
+  },
+  "multi_agent_topology": {
+   "value": "peer",
+   "not_reported": false,
+   "evidence_quote": "A multi-agent world engine where AI agents live, talk, compete, ally.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Codex adapter is orchestrator_workers (primary session spawns subagents)."
+  },
+  "delegation_mechanism": {
+   "value": "message_bus",
+   "not_reported": false,
+   "evidence_quote": "InboxManager | `engine/inbox.py` | Per-agent inbox for events and whispers.",
+   "evidence_locator": "docs/ARCHITECTURE.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Codex adapter spawns subagents (subagent_spawn)."
   },
   "human_in_loop": {
    "value": [
-    "configurable",
-    "on_permission"
+    "configurable"
    ],
    "not_reported": false,
    "evidence_quote": "**Intervene**: whisper privately to any agent, nudge the story.",
-   "evidence_locator": "README.md@4ffeabf",
+   "evidence_locator": "README.md",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Human can watch, whisper/intervene, or play a character; no per-action approval gate evidenced, so on_permission is the closest value for steering."
+   "note": "Closest value: humans steer via whisper or by playing a character; this is not permission gating."
   },
   "short_term_state": {
    "value": "structured_task_state",
    "not_reported": false,
    "evidence_quote": "StateStore | `engine/state_store.py` | Entity CRUD. All state as flat properties.",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
-   "confidence": "high",
+   "evidence_locator": "docs/ARCHITECTURE.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
@@ -220,26 +201,68 @@
    "resolved": true
   },
   "long_term_memory": {
-   "value": [
-    "file_notes",
-    "skill_library"
-   ],
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "state_persistence": {
+   "value": "checkpoint",
    "not_reported": false,
-   "evidence_quote": "agents/{id}/*.jsonl append-only artifact streams",
-   "evidence_locator": "docs/codex/02-actions-and-publish.md@4ffeabf",
-   "confidence": "medium",
+   "evidence_quote": "`state.json` + `tick`: saveable mid-run state.",
+   "evidence_locator": "docs/ARCHITECTURE.md",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Durable workspace lanes/files plus shipped skills/ directory (create-world, asset-sourcing)."
+   "note": "The reload code path was not seen; engine/director/checkpoint.py exists."
   },
-  "state_persistence": {
-   "value": "full_resume",
+  "self_verification": {
+   "value": [
+    "llm_judge"
+   ],
    "not_reported": false,
-   "evidence_quote": "`state.json` + `tick`: saveable mid-run state.",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
+   "evidence_quote": "uncertain ones go to an LLM-based **Dungeon Master (DM)** that returns structured effects",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The DM judges action outcomes, not work quality."
+  },
+  "retry_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Use `scene.max_ticks: null` or a value high enough",
+   "evidence_locator": "docs/codex/00-core.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
@@ -247,144 +270,76 @@
    ],
    "resolved": true
   },
-  "self_verification": {
-   "value": [
-    "llm_judge",
-    "self_critique"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Critics reject anything generic. Audience agents judge what feels useful.",
-   "evidence_locator": "README.md@4ffeabf",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Critique/peer-review is scene-configured; the DM itself is an LLM judge of action outcomes. Autoresearch scenes also run experiments."
-  },
-  "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "research -> generate -> critique -> revise -> select -> package",
-   "evidence_locator": "docs/codex/00-core.md@4ffeabf",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No task-level retry policy in the engine; revision loops are scene-level behaviour."
-  },
-  "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "`stream.jsonl`: append-only event stream (event, action, dm_call, perceive, register, wakeup, whisper).",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Event-sourced log and state snapshots exist but no documented rollback/undo of agent changes."
-  },
-  "termination_condition": {
-   "value": [
-    "max_steps"
-   ],
-   "not_reported": false,
-   "evidence_quote": "For Codex-subagent runs, avoid low world `max_ticks` limits. Use\n`scene.max_ticks: null`",
-   "evidence_locator": "docs/codex/00-core.md@4ffeabf",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "max_ticks caps the tick loop; can be null for unbounded."
-  },
   "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Rate-limited: `MAX_DM_CALLS_PER_TICK`.",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "DM call rate cap plus per-call token tracking and summary token totals; closest value is token_budget. Fallback model support is failover, not routing."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "MAX_DM_CALLS_PER_TICK rate limit and fallback model are documented."
   },
   "timeouts": {
-   "value": [
-    "per_tool"
-   ],
-   "not_reported": false,
-   "evidence_quote": "GET /api/director/signals?timeout_s=30&limit=10",
-   "evidence_locator": "docs/codex/01-contract.md@4ffeabf",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Signal wait timeout; no run-level wall-clock timeout evidenced."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "execution_isolation": {
    "value": "subprocess",
    "not_reported": false,
    "evidence_quote": "uv run worldseed play configs/ai_layoffs.yaml",
-   "evidence_locator": "README.md@4ffeabf",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Engine and agents run locally as host processes; autoresearch ships an ec2_runner for remote experiment execution."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "Worker subagents own only:\n\n```text\nworkspace/agents/{agent_id}/",
-   "evidence_locator": "docs/codex/01-contract.md@4ffeabf",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Convention-level scoping to per-agent lanes within the workspace; not enforced by an OS boundary."
-  },
-  "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "One agent studies a new API. Builder agents create competing demos.",
-   "evidence_locator": "README.md@4ffeabf",
+   "evidence_locator": "README.md",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No network restriction configuration evidenced; agents call external LLM providers and APIs."
+   "note": "Agents run externally; autoresearch uses ec2_runner (remote)."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "permission_model": {
-   "value": "static_allowlist",
+   "value": "policy_engine",
    "not_reported": false,
-   "evidence_quote": "The engine validates the action params, records the event, routes inboxes, and\nmay emit a director signal.",
-   "evidence_locator": "docs/codex/02-actions-and-publish.md@4ffeabf",
-   "confidence": "medium",
+   "evidence_quote": "For each action, `RulesEngine` checks preconditions (DSL expressions).",
+   "evidence_locator": "docs/ARCHITECTURE.md",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Only actions declared in scene YAML, passing DSL preconditions, are executed (engine/action_policy.py)."
+   "note": "World-action preconditions, not safety permissions."
   },
   "tracing": {
    "value": "structured_traces",
    "not_reported": false,
    "evidence_quote": "`stream.jsonl`: append-only event stream (event, action, dm_call, perceive, register, wakeup, whisper).",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
+   "evidence_locator": "docs/ARCHITECTURE.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -396,58 +351,56 @@
    "value": "partial",
    "not_reported": false,
    "evidence_quote": "Every run is different. Past runs are preserved and replayable.",
-   "evidence_locator": "README.md@4ffeabf",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "eval_hooks": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "uv run pytest tests/scenarios/ -q # scene-agnostic",
-   "evidence_locator": "README.md@4ffeabf",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Only unit/e2e/scenario test suites; no benchmark evaluation runner in the evidenced tree."
+   "resolved": false
   },
   "guardrails": {
    "value": [
-    "action_policies"
+    "output_filters"
    ],
    "not_reported": false,
-   "evidence_quote": "For each action, `RulesEngine` checks preconditions (DSL expressions).",
-   "evidence_locator": "docs/ARCHITECTURE.md@4ffeabf",
-   "confidence": "high",
+   "evidence_quote": "`hidden_properties`: properties never sent to agents.",
+   "evidence_locator": "docs/ARCHITECTURE.md",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true,
-   "note": "Also `hidden_properties`: properties never sent to agents, an output/perception filter."
+   "resolved": true
   },
   "target_domain": {
    "value": [
-    "general_tool_use",
-    "other"
+    "other",
+    "research"
    ],
    "not_reported": false,
    "evidence_quote": "The same engine can run production rooms, simulations, games, and fictional worlds.",
-   "evidence_locator": "README.md@4ffeabf",
-   "confidence": "high",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Primary domain is multi-agent social simulation / world modelling (`other`); autoresearch scene targets research."
+   "note": "Multi-agent social simulation."
   },
   "open_source": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "MIT. See [`LICENSE`](./LICENSE).",
-   "evidence_locator": "README.md@4ffeabf",
-   "confidence": "high",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -455,8 +408,8 @@
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "Add your API key (any LiteLLM provider: OpenAI, Anthropic, Ollama, etc.)",
-   "evidence_locator": "README.md@4ffeabf",
+   "evidence_quote": "Any LLM can be the DM.",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -466,7 +419,7 @@
    "value": "repo",
    "not_reported": false,
    "evidence_quote": "ref: commit:main 4ffeabfdee6dbeb1cb248bf676ad13667b22d359 2026-05-08",
-   "evidence_locator": "github repo ref@4ffeabf",
+   "evidence_locator": "github repo metadata",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -488,14 +441,14 @@
    "value": "main @ 4ffeabfdee6dbeb1cb248bf676ad13667b22d359 (2026-05-08)",
    "not_reported": false,
    "evidence_quote": "ref: commit:main 4ffeabfdee6dbeb1cb248bf676ad13667b22d359 2026-05-08",
-   "evidence_locator": "github repo ref@4ffeabf",
+   "evidence_locator": "github repo metadata",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "No tagged release given in evidence; pinned to the evidenced main commit."
+   "note": "No tag is given in the evidence."
   },
   "stars": {
    "value": null,
@@ -509,26 +462,40 @@
   }
  },
  "cells_unresolved": [
+  "A1",
+  "A2",
   "A3",
+  "B1",
   "B2",
+  "B3",
+  "B5",
+  "C2",
+  "D2",
+  "E2",
+  "E3",
+  "F2",
+  "F3",
+  "G2",
+  "G3",
+  "H3",
   "M5",
   "M7"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 22
+  "locator_shape_unrecognised": 11
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:36:11+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:23:46+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 47684,
  "doc_chars": 48039,
  "call_id": "A-worldseed-00041",
- "tokens_in": 46398,
- "tokens_out": 4268,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.338690"
+ "tokens_in": 46938,
+ "tokens_out": 2926,
+ "cache_read": 16883,
+ "cache_write": 30053,
+ "cost_usd": "0.302329"
 }

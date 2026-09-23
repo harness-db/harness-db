@@ -40,22 +40,22 @@
    "not_reported": false,
    "evidence_quote": "At each step, the system combines global memory with the current task specification to form an execution context.",
    "evidence_locator": "paper Sec. 2.2",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Always-on memory layer (L1) plus task spec assembled per step."
+   "note": "Always-on L1 memory index plus continuously injected working-memory anchor; code not in evidence bundle."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
    "not_reported": false,
    "evidence_quote": "file_read supports segmented reads (start/count), keyword anchoring, and line-number output, so GA can inspect only the relevant regions.",
    "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No repo tree injected; agent explores with file/code/web tools."
+   "note": "Always-on memory index injected but that is memory, not environment context."
   },
   "context_compaction": {
    "value": [
@@ -64,51 +64,58 @@
     "truncate_oldest"
    ],
    "not_reported": false,
-   "evidence_quote": "Tool outputs are first truncated with a head-tail policy to bound the size of individual messages. Redundant content in older messages is then compressed at the tag level to remove low-value fragments. When the global context budget is exceeded, the oldest messages are evicted",
+   "evidence_quote": "Tool outputs are first truncated with a head-tail policy to bound the size of individual messages. Redundant content in older messages is then compressed at the tag level to remove low-value fragments. When the global context budget is exceeded, the oldest messages are evicted in chronological order.",
    "evidence_locator": "paper Sec. 2.1.4",
-   "confidence": "high",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
     "long_quote"
    ],
    "resolved": true,
-   "note": "All three are default; compression of older messages coded as summarize."
+   "note": "Tag-level compression mapped to summarize (heuristic); quote exceeds 40 words slightly—core evidence is head-tail truncation and oldest eviction."
   },
   "observation_format": {
    "value": [
+    "a11y_tree",
     "raw_text"
    ],
    "not_reported": false,
    "evidence_quote": "Its browser interaction layer represents web pages through semantically structured observations rather than raw HTML",
    "evidence_locator": "paper Sec. 2.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Vision/screenshot capability is not a shipped default tool; unlocked by agent self-setup."
+   "note": "web_scan serializes simplified DOM; closest value a11y_tree. Screenshots via vision are opt-in self-built capability."
   },
   "tool_call_format": {
    "value": [
-    "native_function_calling"
+    "native_function_calling",
+    "xml_tags"
    ],
    "not_reported": false,
-   "evidence_quote": "this schema is injected into the interface, enabling GA to produce structured tool_use calls with explicit names and arguments",
-   "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "high",
+   "evidence_quote": "| `native` + `claude` | NativeClaudeSession | API 原生 tool 字段 | **推荐首选** — Claude 原生协议 |",
+   "evidence_locator": "docs/GETTING_STARTED.md@9e68c20",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "README notes deprecated text-protocol sessions (ClaudeSession/LLMSession) as config-reachable alternatives."
+   "note": "Deprecated ClaudeSession/LLMSession use text-protocol tools (文本协议工具); exact syntax not shown, xml_tags closest guess."
   },
   "tool_count": {
    "value": 9,
    "not_reported": false,
-   "evidence_quote": "GA exposes nine atomic tools, organized into five capability classes.",
-   "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "high",
+   "evidence_quote": "GenericAgent provides only **9 atomic tools**, forming the foundational capabilities for interacting with the outside world.",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Count from README tool table; tool schema code not in bundle."
   },
   "edit_primitive": {
    "value": [
@@ -118,11 +125,11 @@
    "not_reported": false,
    "evidence_quote": "file_patch enforces unique old_content matching and fails fast on zero or multiple matches",
    "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "file_write does block writing / overwrite."
+   "note": "file_write writes/creates/overwrites files."
   },
   "tool_schema_source": {
    "value": [
@@ -131,23 +138,21 @@
    "not_reported": false,
    "evidence_quote": "Each tool defines a name, a description, and a set of parameters described by JSON Schema, all under a consistent type function format.",
    "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "GA exposes nine atomic tools, organized into five capability classes.",
-   "evidence_locator": "paper Sec. 2.3.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No MCP/A2A mentioned anywhere in README or report; README contrasts Claude Code's 'Via MCP plugin' with GA's own browser control."
+   "resolved": false,
+   "note": "No source tree or dependency file in bundle to grep for mcp/a2a."
   },
   "loop_primitives": {
    "value": [
@@ -156,159 +161,118 @@
    "not_reported": false,
    "evidence_quote": "The LLM processes this context and produces either direct outputs or tool calls. Tool execution is delegated to external modules, and the results are returned as structured signals that update the system state.",
    "evidence_locator": "paper Sec. 2.2",
-   "confidence": "high",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Reflect/Goal/Conductor modes are config-reachable variants."
+   "note": "Reflect/Goal modes (trigger-driven, time-budget loops) exist in reflect/ but code not in bundle."
   },
   "planning_granularity": {
-   "value": "implicit",
+   "value": "explicit_plan_object",
    "not_reported": false,
-   "evidence_quote": "Working memory is continuously injected across turns, carrying only the minimal necessary task state: current objectives, constraints, and progress.",
+   "evidence_quote": "Working memoryis continuously injected across turns, carrying only the minimal necessary task state: current objectives, constraints, and progress.",
    "evidence_locator": "paper Sec. 2.3.2",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "update_working_checkpoint is a notepad rather than a structured plan object; a Plan mode exists per docs."
+   "note": "update_working_checkpoint stores objectives/progress re-injected each turn; Plan mode also mentioned in docs."
   },
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
    "evidence_quote": "GA is organized around a unified agent loop that connects the model with the environment.",
    "evidence_locator": "paper Sec. 2.2",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Conductor/Goal Hive sub-agent orchestration reachable per README roadmap."
+   "note": "Conductor sub-agent orchestration and Goal Hive master/workers are reachable modes (README roadmap)."
   },
   "delegation_mechanism": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "Conductor sub-agent orchestration. Spawn, supervise, and auto-clean parallel sub-agents; first-class delegation primitives complementing `/btw` side-questions.",
-   "evidence_locator": "README.md Roadmap 2026-05-14@9e68c20",
-   "confidence": "medium",
+   "evidence_quote": "Conductor sub-agent orchestration**. Spawn, supervise, and auto-clean parallel sub-agents",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Default loop is single-agent; subagent_spawn reachable via Conductor/SubAgent modes."
+   "note": "Default none; opt-in subagent_spawn via Conductor/subagent mode."
   },
   "human_in_loop": {
    "value": [
     "on_permission"
    ],
    "not_reported": false,
-   "evidence_quote": "The Human-in-the-loop class is ask_user, used when user decisions are required.",
-   "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "medium",
+   "evidence_quote": "| `ask_user` | Human-in-the-loop confirmation |",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Model-invoked confirmation tool rather than harness gate on every action."
+   "note": "Model-invoked ask_user tool; closest value on_permission."
   },
   "short_term_state": {
-   "value": "scratchpad",
+   "value": "structured_task_state",
    "not_reported": false,
-   "evidence_quote": "update_working_checkpoint and start_long_term_update for short-term context maintenance and long-term memory distillation",
-   "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "medium",
+   "evidence_quote": "| `update_working_checkpoint` | *(memory)* Short-term working notepad |",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Could be scratchpad; paper describes objectives/constraints/progress fields."
   },
   "long_term_memory": {
    "value": [
+    "episodic_db",
     "file_notes",
     "skill_library"
    ],
    "not_reported": false,
-   "evidence_quote": "Self-evolution pipeline compresses interaction trajectories into reusable Standard Operating Procedures (SOPs), code, and skills",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "high",
+   "evidence_quote": "| **L4** | Session Archive | Archived task records distilled from finished sessions for long-horizon recall |",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "L2/L3/L4 memory files under memory/ persist across sessions."
+   "note": "L2 facts (file_notes), L3 SOPs/skills (skill_library), L4 session archive (episodic_db)."
   },
   "state_persistence": {
    "value": "full_resume",
    "not_reported": false,
-   "evidence_quote": "storing historical execution sessions so the agent can reconstruct prior trajectories, audit past decisions, and recover task context when needed",
-   "evidence_locator": "paper Sec. 2.3.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "TUI ships a `/continue` picker per README roadmap."
-  },
-  "self_verification": {
-   "value": [
-    "self_critique"
-   ],
-   "not_reported": false,
-   "evidence_quote": "reflection-driven self-evolution",
-   "evidence_locator": "paper Fig. 2 caption (Sec. 2.1.3)",
+   "evidence_quote": "`/llm` / `/export` / `/continue` pickers",
+   "evidence_locator": "README.md@9e68c20",
    "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Consolidation favors 'information grounded in successful execution' via reflection; no harness-run tests or linters documented."
+   "note": "/continue picker suggests session continuation; code not shown."
+  },
+  "self_verification": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Loop code not in bundle."
   },
   "retry_policy": {
    "value": "none",
-   "not_reported": false,
-   "evidence_quote": "GA is organized around a unified agent loop that connects the model with the environment.",
-   "evidence_locator": "paper Sec. 2.2",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No task-level retry policy documented; loop simply continues."
-  },
-  "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "with patch tools, GA can edit text, subject to strict matching and parameter constraints; with execution and web-control tools, GA can trigger real system actions",
-   "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No undo/revert/snapshot mechanism described in the toolset or report."
-  },
-  "termination_condition": {
-   "value": [
-    "max_tokens",
-    "model_declared"
-   ],
-   "not_reported": false,
-   "evidence_quote": "To support long-horizon operation, GA defines explicit execution bounds that ensure controllability while preserving interruptibility and scope constraints.",
-   "evidence_locator": "paper Sec. 2.2",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Bounds not enumerated; Goal mode adds a time budget per README."
-  },
-  "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "GA therefore targets a compact budget of under 30k tokens and invests in compression rather than expansion",
-   "evidence_locator": "paper Sec. 2.1.4",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Mixin failover is priority-ordered, not cost-based routing."
-  },
-  "timeouts": {
-   "value": [
-    "none"
-   ],
    "not_reported": false,
    "evidence_quote": "code_run is restricted to one invocation per turn, ensuring each result is observed before the next action is planned.",
    "evidence_locator": "paper Sec. 2.3.1",
@@ -316,160 +280,211 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No tool or run timeout documented at the place where execution control is described."
+   "note": "Mixin max_retries is LLM transport failover, not task retry."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tool code not in bundle."
+  },
+  "termination_condition": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper mentions explicit execution bounds without detail; loop code missing."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Config schema partially shown only; <30K context target is design goal."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "execution_isolation": {
    "value": "subprocess",
    "not_reported": false,
-   "evidence_quote": "it grants any LLM system-level control over a local computer — covering browser, terminal, filesystem, keyboard/mouse input, screen vision, and mobile devices (ADB)",
-   "evidence_locator": "README.md Overview@9e68c20",
-   "confidence": "high",
+   "evidence_quote": "it grants any LLM system-level control over a local computer",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "code_run executes Python/PowerShell on the host; no sandbox."
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
   },
   "filesystem_access": {
    "value": "full",
    "not_reported": false,
-   "evidence_quote": "code_run, which executes Python or Bash within a controlled runtime",
-   "evidence_locator": "paper Sec. 2.3.1",
+   "evidence_quote": "it grants any LLM system-level control over a local computer",
+   "evidence_locator": "README.md@9e68c20",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Unrestricted host filesystem access within the local machine boundary."
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
   },
   "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "Via code_run, GenericAgent can dynamically install Python packages, write new scripts, call external APIs, or control hardware at runtime",
-   "evidence_locator": "README.md Capability Extension@9e68c20",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No network restriction configuration documented."
+   "resolved": false,
+   "note": "No network config surface in bundle."
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "GA enforces a clear permission hierarchy via the injected toolset. Each tool's capability scope is strictly bounded and non-overlapping",
-   "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Boundaries are per-tool scope, not per-action authorisation; ask_user is model-invoked."
+   "resolved": false,
+   "note": "Dispatcher code missing."
   },
   "tracing": {
-   "value": "structured_traces",
-   "not_reported": false,
-   "evidence_quote": "its role is persistence and traceability, storing historical execution sessions so the agent can reconstruct prior trajectories, audit past decisions",
-   "evidence_locator": "paper Sec. 2.3.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "L4 session archive; also `/export` in TUI."
+   "resolved": false
   },
   "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "storing historical execution sessions so the agent can reconstruct prior trajectories",
-   "evidence_locator": "paper Sec. 2.3.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "eval_hooks": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "Full evaluation datasets and results: [**JinyiHan99/GA-Technical-Report**](https://github.com/JinyiHan99/GA-Technical-Report/tree/main)",
-   "evidence_locator": "README.md Evaluation@9e68c20",
-   "confidence": "medium",
+   "evidence_quote": "Full evaluation datasets and results: [**JinyiHan99/GA-Technical-Report**]",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Evaluation lives in a separate reproduction repo."
+   "note": "Evaluation in sibling repo (ambiguity H3)."
   },
   "guardrails": {
-   "value": [
-    "action_policies"
-   ],
-   "not_reported": false,
-   "evidence_quote": "file_patch enforces unique old_content matching and fails fast on zero or multiple matches, reducing the risk of silent multi-location edits",
-   "evidence_locator": "paper Sec. 2.3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "target_domain": {
    "value": [
     "general_tool_use",
     "gui_computer_use",
-    "swe",
     "web"
    ],
    "not_reported": false,
-   "evidence_quote": "it grants any LLM system-level control over a local computer — covering browser, terminal, filesystem, keyboard/mouse input, screen vision, and mobile devices (ADB)",
-   "evidence_locator": "README.md Overview@9e68c20",
-   "confidence": "high",
+   "evidence_quote": "covering browser, terminal, filesystem, keyboard/mouse input, screen vision, and mobile devices (ADB)",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "open_source": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for full text.",
-   "evidence_locator": "README.md License@9e68c20",
-   "confidence": "high",
+   "evidence_quote": "Distributed under the **MIT License**.",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "LICENSE file not in bundle."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "The system is model-agnostic: the underlying reasoning engine (e.g., Claude, GPT, Gemini) can be replaced without affecting execution logic, tool interfaces, or memory architecture.",
+   "evidence_quote": "The system is model-agnostic: the underlying reasoning engine (e.g., Claude, GPT, Gemini) can be replaced without affecting execution logic",
    "evidence_locator": "paper Sec. 2.2",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Own OAI-compatible and Claude-native sessions, not litellm."
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
    "evidence_quote": "ref: tag:desktop-portable-v0.2.0 9e68c20ee99df6ced307796beb818032722dff6c 2026-08-24",
-   "evidence_locator": "repository evidence header@9e68c20",
+   "evidence_locator": "repo metadata",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Pinned tag postdates the April 2026 technical report."
+   "note": "Repo postdates tech report (arXiv 2604.17091, 2026-04)."
   },
   "first_release_date": {
    "value": "2026-01-16",
    "not_reported": false,
    "evidence_quote": "**2026-01-16** — GenericAgent **V1.0** public release.",
-   "evidence_locator": "README.md Roadmap@9e68c20",
-   "confidence": "medium",
+   "evidence_locator": "README.md@9e68c20",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Basis: README-stated V1.0 public release; no tag list available."
+   "note": "Basis: README release note; first tag date not in evidence."
   },
   "pinned_version": {
    "value": "desktop-portable-v0.2.0 @ 9e68c20ee99df6ced307796beb818032722dff6c (2026-08-24)",
    "not_reported": false,
    "evidence_quote": "ref: tag:desktop-portable-v0.2.0 9e68c20ee99df6ced307796beb818032722dff6c 2026-08-24",
-   "evidence_locator": "repository evidence header@9e68c20",
+   "evidence_locator": "repo metadata",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -481,33 +496,46 @@
    "value": 14218,
    "not_reported": false,
    "evidence_quote": "stars: 14218",
-   "evidence_locator": "repository evidence header@9e68c20",
-   "confidence": "high",
+   "evidence_locator": "repo metadata",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "As reported in the pinned repository evidence header."
+   "note": "Date of star count not stated in evidence."
   }
  },
- "cells_unresolved": [],
+ "cells_unresolved": [
+  "B5",
+  "E1",
+  "E3",
+  "F1",
+  "F2",
+  "F3",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H4"
+ ],
  "flag_counts": {
   "long_quote": 1,
+  "locator_no_line": 13,
   "locator_shape_unrecognised": 3
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:33:15+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:21:33+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109935,
  "doc_chars": 110330,
  "call_id": "A-genericagent-00014",
- "tokens_in": 74421,
- "tokens_out": 4432,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.482905"
+ "tokens_in": 74961,
+ "tokens_out": 3740,
+ "cache_read": 16883,
+ "cache_write": 58076,
+ "cost_usd": "0.542793"
 }

@@ -45,24 +45,24 @@
   "system_prompt_style": {
    "value": "static",
    "not_reported": false,
-   "evidence_quote": "META_SYSTEM_PROMPT = (\n    \"You are the META‑PLANNER in a hierarchical AI system.",
-   "evidence_locator": "client/agent.py:29@42fbbcac",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Fixed constant strings for planner and executor; parametric/CBR variants inject retrieved cases into user messages."
-  },
-  "env_context_strategy": {
-   "value": "agent_driven_navigation",
-   "not_reported": false,
-   "evidence_quote": "A CBR-driven **Planner** decomposes tasks and retrieves relevant cases; an **Executor** runs each subtask as an MCP client, orchestrating tools",
-   "evidence_locator": "README.md@42fbbcac",
+   "evidence_quote": "You are the EXECUTOR sub-agent. You receive one task description at a time",
+   "evidence_locator": "client/agent.py:47@42fbbcac63dd",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Environment knowledge comes from tool use (search, crawl, workspace file listing)."
+   "note": "META_SYSTEM_PROMPT and EXEC_SYSTEM_PROMPT are fixed string constants; CBR modes inject retrieved cases, likely into user prompt (not visible in the truncated evidence)."
+  },
+  "env_context_strategy": {
+   "value": "agent_driven_navigation",
+   "not_reported": false,
+   "evidence_quote": "Use `read_workspace_file` or `list_workspace_files` to inspect the results and file system.",
+   "evidence_locator": "server/code_agent.py:11@42fbbcac63dd",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Research domain; the model explores via MCP tools (search, crawl, workspace files)."
   },
   "context_compaction": {
    "value": [
@@ -70,28 +70,24 @@
     "truncate_oldest"
    ],
    "not_reported": false,
-   "evidence_quote": "for msg in reversed(messages[1:]):\n        t = _count_tokens(msg, enc)\n        if total + t > max_tokens:\n            break",
-   "evidence_locator": "client/agent.py:trim_messages@42fbbcac",
-   "confidence": "high",
+   "evidence_quote": "for msg in reversed(messages[1:]):",
+   "evidence_locator": "client/agent.py:150@42fbbcac63dd",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Also _truncate_text for tool file content in server/code_agent.py."
+   "note": "trim_messages keeps the system message and the newest messages within MAX_CTX. _truncate_text in code_agent.py truncates tool outputs."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "Tool outputs are strings containing:\n    • Standard output and error from command execution.",
-   "evidence_locator": "server/code_agent.py:docstring@42fbbcac",
+   "evidence_quote": "Tool outputs are strings containing:",
+   "evidence_locator": "server/code_agent.py:36@42fbbcac63dd",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true
   },
   "tool_call_format": {
@@ -99,27 +95,24 @@
     "native_function_calling"
    ],
    "not_reported": false,
-   "evidence_quote": "payload[\"tools\"] = tools\n            payload[\"tool_choice\"] = tool_choice",
-   "evidence_locator": "client/agent.py:OpenAIBackend.chat@42fbbcac",
+   "evidence_quote": "payload[\"tools\"] = tools",
+   "evidence_locator": "client/agent.py:96@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true
+   "flags": [],
+   "resolved": true,
+   "note": "The planner replies in JSON plans; these are not tool calls."
   },
   "tool_count": {
-   "value": 6,
-   "not_reported": false,
-   "evidence_quote": "execute_terminal_command(command, task_cache_dir?, verbose?) - Run shell commands in workspace.",
-   "evidence_locator": "server/code_agent.py:docstring@42fbbcac",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Exact default server list not visible in the excerpt; code_agent alone exposes 6 tools, and many more come from the other MCP servers (search, documents, image, video, excel, math, crawl)."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The server list in agent.py is truncated. The tool count depends on the MCP servers connected; all tools are MCP-provided."
   },
   "edit_primitive": {
    "value": [
@@ -127,12 +120,10 @@
    ],
    "not_reported": false,
    "evidence_quote": "write_workspace_file(filename, content, task_cache_dir?) - Create or overwrite a file.",
-   "evidence_locator": "server/code_agent.py:docstring@42fbbcac",
+   "evidence_locator": "server/code_agent.py:45@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true
   },
   "tool_schema_source": {
@@ -141,15 +132,13 @@
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "\"name\": tool.name,\n                            \"description\": tool.description,\n                            \"parameters\": tool.inputSchema,",
-   "evidence_locator": "client/agent.py:_tools_schema@42fbbcac",
+   "evidence_quote": "\"parameters\": tool.inputSchema,",
+   "evidence_locator": "client/agent.py:193@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Schemas come from FastMCP @mcp.tool() decorators over typed Python signatures, fetched over MCP."
+   "note": "FastMCP derives the schemas from type hints and docstrings."
   },
   "protocol_standardization": {
    "value": [
@@ -157,7 +146,7 @@
    ],
    "not_reported": false,
    "evidence_quote": "from mcp import ClientSession, StdioServerParameters",
-   "evidence_locator": "client/agent.py:10@42fbbcac",
+   "evidence_locator": "client/agent.py:10@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -169,76 +158,66 @@
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "**Two-stage planner–executor loop.** A CBR-driven **Planner** decomposes tasks and retrieves relevant cases; an **Executor** runs each subtask as an MCP client",
-   "evidence_locator": "README.md@42fbbcac",
+   "evidence_quote": "If the final answer is not complete, emit a *new* JSON plan for the remaining work.",
+   "evidence_locator": "client/agent.py:38@42fbbcac63dd",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The planner replans for up to MAX_CYCLES=3; the executor runs a function-calling loop."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "{ \"plan\": [ {\"id\": INT, \"description\": STRING} … ] }",
+   "evidence_locator": "client/agent.py:33@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
-  "planning_granularity": {
-   "value": "explicit_plan_object",
-   "not_reported": false,
-   "evidence_quote": "Reply ONLY in JSON with the schema:\n{ \"plan\": [ {\"id\": INT, \"description\": STRING} … ] }",
-   "evidence_locator": "client/agent.py:META_SYSTEM_PROMPT@42fbbcac",
-   "confidence": "high",
-   "quote_verbatim": false,
-   "flags": [
-    "quote_not_in_bundle",
-    "locator_shape_unrecognised"
-   ],
-   "resolved": false
-  },
   "multi_agent_topology": {
    "value": "orchestrator_workers",
    "not_reported": false,
-   "evidence_quote": "You are the EXECUTOR sub-agent. You receive one task description at a time\\n\"\n    \"from the meta-planner.",
-   "evidence_locator": "client/agent.py:EXEC_SYSTEM_PROMPT@42fbbcac",
+   "evidence_quote": "You are the META‑PLANNER in a hierarchical AI system.",
+   "evidence_locator": "client/agent.py:30@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true
   },
   "delegation_mechanism": {
    "value": "role_handoff",
    "not_reported": false,
-   "evidence_quote": "Never call tools yourself — that's the EXECUTOR's job.",
-   "evidence_locator": "client/agent.py:META_SYSTEM_PROMPT@42fbbcac",
+   "evidence_quote": "You are the EXECUTOR sub-agent. You receive one task description at a time",
+   "evidence_locator": "client/agent.py:47@42fbbcac63dd",
    "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Planner hands each subtask to the executor LLM within the same HierarchicalClient; no new agent object is spawned."
-  },
-  "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "#### Interactive Mode\n\n```bash\npython client/agent.py\n```",
-   "evidence_locator": "README.md@42fbbcac",
-   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No approval/confirmation mechanism appears in the client loop; user only supplies the task."
+   "note": "The planner hands subtasks to the executor LLM backend within the same client. This is the closest value."
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The run loop in agent.py is truncated after line 200, so no approval code can be inspected."
   },
   "short_term_state": {
    "value": "structured_task_state",
    "not_reported": false,
-   "evidence_quote": "self.sessions: Dict[str, ClientSession] = {}\n        self.shared_history: List[Dict[str, str]] = []",
-   "evidence_locator": "client/agent.py:HierarchicalClient.__init__@42fbbcac",
-   "confidence": "medium",
+   "evidence_quote": "{ \"plan\": [ {\"id\": INT, \"description\": STRING} … ] }",
+   "evidence_locator": "client/agent.py:33@42fbbcac63dd",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Shared history plus the JSON plan object with per-task ids/results."
+   "note": "The plan JSON plus shared_history; the loop body is truncated."
   },
   "long_term_memory": {
    "value": [
@@ -246,65 +225,56 @@
     "vector_store"
    ],
    "not_reported": false,
-   "evidence_quote": "**Case Memory**: Stores final-step tuples **(s_T, a_T, r_T)** for experience replay",
-   "evidence_locator": "README.md@42fbbcac",
+   "evidence_quote": "Memento logs successful & failed trajectories into a **Case Bank** and **retrieves by value** to steer planning and execution",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Case Bank in memory.jsonl retrieved by embedding similarity (np_memory.py) or a trained neural retriever (parametric_memory.py)."
+   "note": "memory.jsonl case bank; embedding retrieval in np_memory.py; trained retriever in parametric_memory.py. The default agent.py does not use memory; memory runs in the CBR clients."
   },
   "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The run loop is truncated."
+  },
+  "self_verification": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The loop is truncated. The planner judges whether the answer is complete, but the code is not visible."
+  },
+  "retry_policy": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "MEMORY_JSONL_PATH=../memory/memory.jsonl",
-   "evidence_locator": "README.md@42fbbcac",
+   "evidence_quote": "MAX_CYCLES = 3",
+   "evidence_locator": "client/agent.py:156@42fbbcac63dd",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Cases persist across runs but no code path reloads an interrupted run's conversation state."
-  },
-  "self_verification": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "If the final answer is not complete, emit a *new* JSON plan for the remaining work.",
-   "evidence_locator": "client/agent.py:META_SYSTEM_PROMPT@42fbbcac",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Planner re-plans but no harness-enforced test run, linter or judge in the client loop."
-  },
-  "retry_policy": {
-   "value": "fixed_n",
-   "not_reported": false,
-   "evidence_quote": "class HierarchicalClient:\n    MAX_CYCLES = 3",
-   "evidence_locator": "client/agent.py:MAX_CYCLES@42fbbcac",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Up to 3 planner cycles; tenacity stop_after_attempt(3) is transport-level retry only."
+   "note": "Replanning cycles are not whole-task retries. The tenacity retry is transport-level only."
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "The environment is persistent for a given task, meaning files and changes\n      made in one step are available in subsequent steps.",
-   "evidence_locator": "server/code_agent.py:docstring@42fbbcac",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No undo/revert/snapshot tool listed in the workspace tool set."
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "termination_condition": {
    "value": [
@@ -312,139 +282,120 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "If the final answer is complete, output it with the template:\\n\"\n    \"FINAL ANSWER: <answer>",
-   "evidence_locator": "client/agent.py:META_SYSTEM_PROMPT@42fbbcac",
-   "confidence": "high",
+   "evidence_quote": "FINAL ANSWER: <answer>",
+   "evidence_locator": "client/agent.py:36@42fbbcac63dd",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "max_steps via MAX_CYCLES = 3."
+   "note": "MAX_CYCLES=3 caps planner cycles."
   },
   "cost_controls": {
    "value": [
     "token_budget"
    ],
    "not_reported": false,
-   "evidence_quote": "MAX_CTX = 175000",
-   "evidence_locator": "client/agent.py:53@42fbbcac",
+   "evidence_quote": "max_tokens: int = 15000,",
+   "evidence_locator": "client/agent.py:88@42fbbcac63dd",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Also max_tokens: int = 15000 per call; ai_crawler compresses content to reduce token cost."
+   "note": "This caps completion tokens per call. The context is also trimmed to MAX_CTX."
   },
   "timeouts": {
-   "value": [
-    "per_tool"
-   ],
-   "not_reported": false,
-   "evidence_quote": "def __init__(self, timeout: Optional[float] = None):\n        self.timeout = timeout",
-   "evidence_locator": "server/excel_tool.py:ExcelToolkit@42fbbcac",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Per-tool timeout parameters exist; no run-level timeout seen."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "code_agent.py is truncated. ExcelToolkit has an optional timeout."
   },
   "execution_isolation": {
    "value": "subprocess",
    "not_reported": false,
-   "evidence_quote": "cmd = \"python\" if path.suffix == \".py\" else \"node\"\n            params = StdioServerParameters(command=cmd, args=[str(path)])",
-   "evidence_locator": "client/agent.py:connect_to_servers@42fbbcac",
-   "confidence": "medium",
+   "evidence_quote": "All terminal commands run inside the workspace directory.",
+   "evidence_locator": "server/code_agent.py:20@42fbbcac63dd",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "MCP servers launched as local subprocesses; Docker/E2B interpreters are shipped alternatives for code execution."
+   "note": "Docker, E2B and internal interpreters are available. The default selection is truncated."
   },
   "filesystem_access": {
    "value": "scoped",
    "not_reported": false,
-   "evidence_quote": "All files are stored and executed within a dedicated workspace directory for each task:\n    `agent_cache/task_<id>/workspace/`",
-   "evidence_locator": "server/code_agent.py:docstring@42fbbcac",
-   "confidence": "high",
+   "evidence_quote": "`agent_cache/task_<id>/workspace/`",
+   "evidence_locator": "server/code_agent.py:15@42fbbcac63dd",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true
   },
   "network_policy": {
    "value": "open",
    "not_reported": false,
-   "evidence_quote": "# Network and data acquisition\n    'requests', 'urllib3', 'beautifulsoup4', 'bs4', 'scrapy', 'selenium',",
-   "evidence_locator": "server/code_agent.py:DEFAULT_IMPORT_WHITELIST@42fbbcac",
+   "evidence_quote": "'requests', 'urllib3', 'beautifulsoup4', 'bs4', 'scrapy', 'selenium',",
+   "evidence_locator": "server/code_agent.py:101@42fbbcac63dd",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No egress restriction configured; web search and crawling tools require open network."
+   "flags": [],
+   "resolved": true
   },
   "permission_model": {
    "value": "static_allowlist",
    "not_reported": false,
-   "evidence_quote": "⚠️ Scripts attempting to import non-whitelisted packages will fail.",
-   "evidence_locator": "server/code_agent.py:docstring@42fbbcac",
+   "evidence_quote": "DEFAULT_IMPORT_WHITELIST = [",
+   "evidence_locator": "server/code_agent.py:81@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true
   },
   "tracing": {
    "value": "logs",
    "not_reported": false,
-   "evidence_quote": "LOG_FORMAT = '%(log_color)s%(levelname)-8s%(reset)s %(message)s'\ncolorlog.basicConfig(level=logging.INFO, format=LOG_FORMAT)",
-   "evidence_locator": "client/agent.py:22-23@42fbbcac",
-   "confidence": "medium",
+   "evidence_quote": "colorlog.basicConfig(level=logging.INFO, format=LOG_FORMAT)",
+   "evidence_locator": "client/agent.py:23@42fbbcac63dd",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Cases written to memory.jsonl are memory entries, not per-step traces."
+   "resolved": true
   },
   "replayability": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "colorlog.basicConfig(level=logging.INFO, format=LOG_FORMAT)",
-   "evidence_locator": "client/agent.py:23@42fbbcac",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No replay entry point in the file tree."
+   "resolved": false
   },
   "eval_hooks": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "├── data/ # Sample data / cases",
-   "evidence_locator": "README.md project structure@42fbbcac",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Benchmarks (GAIA, DeepResearcher) reported in the paper but no evaluation runner appears in the 58-path file tree."
+   "resolved": false,
+   "note": "data/deepresearcher.jsonl ships, but no evaluation runner is visible."
   },
   "guardrails": {
    "value": [
     "action_policies"
    ],
    "not_reported": false,
-   "evidence_quote": "Validate that all imports in code are in the whitelist.",
-   "evidence_locator": "server/code_agent.py:_validate_imports@42fbbcac",
+   "evidence_quote": "Scripts attempting to import non-whitelisted packages will fail.",
+   "evidence_locator": "server/code_agent.py:33@42fbbcac63dd",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true
   },
   "target_domain": {
@@ -454,7 +405,7 @@
     "web"
    ],
    "not_reported": false,
-   "evidence_quote": "We instantiate our agent model in the deep research setting, namelyMemento",
+   "evidence_quote": "We instantiate our agent model in the deep research setting",
    "evidence_locator": "paper Abstract",
    "confidence": "high",
    "quote_verbatim": true,
@@ -462,93 +413,104 @@
    "resolved": true
   },
   "open_source": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "The code is available athttps://github.com/Agent-on-the-Fly/Memento.",
-   "evidence_locator": "paper Abstract",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "LICENSE file present in repo tree; licence text not shown in evidence."
+   "resolved": false,
+   "note": "The LICENSE file exists, but its content is not shown."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "**Custom Models**: Support for any OpenAI-compatible API",
-   "evidence_locator": "README.md Configuration@42fbbcac",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "OpenAI/Azure SDK clients only, but any OpenAI-compatible endpoint including local vLLM."
-  },
-  "primary_artifact": {
-   "value": "repo",
-   "not_reported": false,
-   "evidence_quote": "[2025.10.05] We’re excited to announce that our parametric Case-Based Reasoning inference code is now officially open-sourced!",
-   "evidence_locator": "README.md News@42fbbcac",
-   "confidence": "high",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
-  "first_release_date": {
-   "value": "2025-08-27",
-   "not_reported": false,
-   "evidence_quote": "[2025.08.27] Thanks for your interest in our work! We’ll release our CBR code next week",
-   "evidence_locator": "README.md News@42fbbcac",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No tags in evidence; earliest dated repo activity in README news used as basis."
-  },
-  "pinned_version": {
-   "value": "commit:main 42fbbcac63dd58ed6856c0761357345a58e4f032 (2025-10-05)",
+  "primary_artifact": {
+   "value": "repo",
    "not_reported": false,
    "evidence_quote": "ref: commit:main 42fbbcac63dd58ed6856c0761357345a58e4f032 2025-10-05",
-   "evidence_locator": "repository evidence header@42fbbcac",
+   "evidence_locator": "github:Memento-Teams/Memento",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Untagged; pinned to main commit."
+   "note": "The repo adds parametric CBR (2025-10-05) after paper v2 (2025-08-25)."
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tags or first-commit date appear in the evidence."
+  },
+  "pinned_version": {
+   "value": "main @ 42fbbcac63dd58ed6856c0761357345a58e4f032 (2025-10-05)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 42fbbcac63dd58ed6856c0761357345a58e4f032 2025-10-05",
+   "evidence_locator": "github:Memento-Teams/Memento",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "The pin is untagged main."
   },
   "stars": {
    "value": 2580,
    "not_reported": false,
    "evidence_quote": "stars: 2580",
-   "evidence_locator": "repository evidence header@42fbbcac",
-   "confidence": "high",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "The evidence gives no date stamp."
   }
  },
  "cells_unresolved": [
-  "C2"
+  "B2",
+  "C5",
+  "D3",
+  "E1",
+  "E3",
+  "F3",
+  "H2",
+  "H3",
+  "M2",
+  "M5"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 22,
-  "quote_not_in_bundle": 1
+  "locator_shape_unrecognised": 3
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:57:41+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:47:41+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109865,
  "doc_chars": 110207,
- "call_id": "A-memento-00259",
- "tokens_in": 68458,
- "tokens_out": 4554,
+ "call_id": "A-memento-00043",
+ "tokens_in": 68960,
+ "tokens_out": 3625,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.456140"
+ "cost_usd": "0.348340"
 }

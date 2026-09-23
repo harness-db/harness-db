@@ -36,29 +36,30 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
+   "value": "dynamically_composed",
    "not_reported": false,
-   "evidence_quote": "agent:\nname: simple-tool-agent\ninstructions: \"You are a helpful assistant that can search the web.\"",
-   "evidence_locator": "README.md (Quick Start)@b03229ce680c",
+   "evidence_quote": "Returns a string describing the current state of the environment. This information is injected into the agent's prompt to provide context.",
+   "evidence_locator": "docs/env.md@b03229ce680c",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Instructions come from YAML config; env state is injected into prompt per docs/env.md ('This information is injected into the agent's prompt'), which could argue dynamically_composed for env-based configs."
+   "note": "Instructions come from the YAML config and the environment state is injected. Whether that state is re-composed at each step is inferred from the docs."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
    "not_reported": false,
-   "evidence_quote": "Tools: Returns a list of `Tool` objects that the agent can use to interact with that world.",
+   "evidence_quote": "The state string includes the current time, the absolute path to the isolated workspace",
    "evidence_locator": "docs/env.md@b03229ce680c",
-   "confidence": "medium",
-   "quote_verbatim": false,
+   "confidence": "low",
+   "quote_verbatim": true,
    "flags": [
-    "quote_not_in_bundle",
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": false,
-   "note": "Default BasicEnv provides no state; agent explores via toolkits (search, file, browser)."
+   "resolved": true,
+   "note": "The default BasicEnv provides no state. Tools are chosen per config (search, file, bash). The domain is mostly web and research."
   },
   "context_compaction": {
    "value": [
@@ -67,39 +68,41 @@
    "not_reported": false,
    "evidence_quote": "The Context Manager maintains a compact working context by pruning stale or redundant information while preserving essential state.",
    "evidence_locator": "paper Sec. 2.1.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "ContextManager configurable ('context_manager: name: base'); pruning of obsolete HTML described."
+   "note": "The ContextManager removes obsolete HTML. A token-based termination patch also exists in utu/patch/runner.py."
   },
   "observation_format": {
    "value": [
-    "raw_text",
-    "screenshots"
+    "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "environment-related tools that wrap low-level environment APIs (e.g., clicking a DOM element, running a bash command, taking screenshots)",
-   "evidence_locator": "paper Sec. 2.1.1",
-   "confidence": "medium",
+   "evidence_quote": "The state represents the current content of the web page.",
+   "evidence_locator": "docs/env.md@b03229ce680c",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "raw_text default; screenshots via browser tools."
+   "note": "The paper mentions screenshot tools, but no conversion code is in the evidence."
   },
   "tool_call_format": {
    "value": [
     "native_function_calling"
    ],
    "not_reported": false,
-   "evidence_quote": "Built on openai-agents** SDK, our framework inherits streaming, tracing, and agent-loop capabilities, ensuring compatibility with both `responses` and `chat.completions` APIs",
-   "evidence_locator": "README.md (Core Features)@b03229ce680c",
+   "evidence_quote": "ensuring compatibility with both `responses` and `chat.completions` APIs",
+   "evidence_locator": "README.md@b03229ce680c",
    "confidence": "medium",
-   "quote_verbatim": false,
+   "quote_verbatim": true,
    "flags": [
-    "quote_not_in_bundle"
+    "locator_no_line"
    ],
-   "resolved": false
+   "resolved": true,
+   "note": "Via the openai-agents Runner."
   },
   "tool_count": {
    "value": null,
@@ -110,7 +113,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Default config simple/base_search loads one search toolkit, but individual tool count not shown in evidence."
+   "note": "Toolkit definition files are not in the evidence. The default simple/base config has no toolkits listed, but the tool count cannot be verified."
   },
   "edit_primitive": {
    "value": null,
@@ -121,7 +124,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Toolkits for 'file manipulation' mentioned but edit primitives not shown."
+   "note": "The file-toolkit definitions are truncated."
   },
   "tool_schema_source": {
    "value": [
@@ -131,22 +134,26 @@
    "not_reported": false,
    "evidence_quote": "Each toolkit can be loaded in `builtin` mode (running in the main process) or `mcp` mode (running as a separate process).",
    "evidence_locator": "docs/config.md@b03229ce680c",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "builtin tools are Python functions with docstrings wrapped by openai-agents (auto_generated from signatures); MCP toolkits fetch schemas."
+   "note": "auto_generated is inferred from openai-agents function tools built from signatures and docstrings."
   },
   "protocol_standardization": {
    "value": [
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "the synthesized tool is exposed via MCP (Model Context Protocol) to the generated agent",
-   "evidence_locator": "paper Sec. 3.2.3",
+   "evidence_quote": "This is configured by setting the toolkit `mode` to `mcp`.",
+   "evidence_locator": "docs/agents.md@b03229ce680c",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "loop_primitives": {
@@ -155,28 +162,28 @@
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "- **`SimpleAgent`**: A classic single-agent model that reasons and acts in a loop (ReAct-style).\n- **`OrchestraAgent`**: A multi-agent system that uses a Plan-and-Execute strategy",
+   "evidence_quote": "The framework supports two primary paradigms:",
    "evidence_locator": "docs/index.md@b03229ce680c",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "SimpleAgent (react) is the default `type`; orchestra reachable via config."
+   "note": "The default is SimpleAgent (ReAct). OrchestraAgent (plan-execute) is selected by type: orchestra."
   },
   "planning_granularity": {
-   "value": "explicit_plan_object",
+   "value": "implicit",
    "not_reported": false,
-   "evidence_quote": "Plan**: The Planner creates a multi-step plan.",
-   "evidence_locator": "docs/agents.md@b03229ce680c",
-   "confidence": "medium",
+   "evidence_quote": "`simple`: A single agent that performs a task.",
+   "evidence_locator": "docs/config.md@b03229ce680c",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Plan object exists only in OrchestraAgent; default SimpleAgent is implicit."
+   "note": "OrchestraAgent, reachable by config, produces an explicit plan object."
   },
   "multi_agent_topology": {
    "value": "single",
@@ -186,64 +193,55 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "orchestrator_workers reachable by setting type: orchestra (Planner/Workers/Reporter); paper benchmarks use Plan-and-Execute."
+   "note": "orchestrator_workers (planner/workers/reporter) is reachable via type: orchestra."
   },
   "delegation_mechanism": {
-   "value": "role_handoff",
+   "value": "none",
    "not_reported": false,
-   "evidence_quote": "The `OrchestraAgent` iterates through the plan, dispatching each subtask to the designated Worker and collecting the result.",
-   "evidence_locator": "docs/agents.md@b03229ce680c",
-   "confidence": "low",
+   "evidence_quote": "`simple`: A single agent that performs a task.",
+   "evidence_locator": "docs/config.md@b03229ce680c",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Default simple agent has no delegation; orchestra dispatches subtasks to worker SimpleAgents (closest to role_handoff/subagent_spawn)."
+   "note": "In orchestra mode, the planner dispatches subtasks to worker SimpleAgents (role handoff / subagent)."
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "This loop continues until the agent determines that the task is complete and generates a final answer.",
-   "evidence_locator": "docs/agents.md@b03229ce680c",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No confirmation/approval mechanism in the run loop described; meta-agent's ask_user is a generation-time tool, not run gating."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Approval or confirmation code is not in the evidence. ask_user exists only in the meta-agent."
   },
   "short_term_state": {
    "value": "conversation_only",
    "not_reported": false,
-   "evidence_quote": "Observe**: It observes the result from the tool and incorporates the new information into its context.",
-   "evidence_locator": "docs/agents.md@b03229ce680c",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "TaskRecorder holds run results; no typed task state beyond messages in evidence."
-  },
-  "long_term_memory": {
-   "value": [
-    "episodic_db"
-   ],
-   "not_reported": false,
-   "evidence_quote": "the agent builds a contextual memory that enhances future performance without gradient updates",
-   "evidence_locator": "paper Sec. 2.3",
-   "confidence": "medium",
+   "evidence_quote": "task_recorder = TaskRecorder(input, trace_id)",
+   "evidence_locator": "utu/agents/llm_agent.py:37@b03229ce680c",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Agent Practice stores distilled experiences injected into context as 'textual LoRA'; closest value episodic_db (experience store), not default in v0.1.3 main branch."
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Training-free GRPO experience memory lives in a separate branch or module. Its code is not in the evidence."
   },
   "state_persistence": {
    "value": null,
@@ -256,43 +254,35 @@
    "resolved": false
   },
   "self_verification": {
-   "value": [
-    "llm_judge"
-   ],
-   "not_reported": false,
-   "evidence_quote": "**`judge_model`**: (`ModelConfigs`) The configuration for the LLM that will act as the judge.",
-   "evidence_locator": "docs/config.md@b03229ce680c",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Judge used in evaluation pipeline; tool synthesis also generates unit tests."
+   "resolved": false,
+   "note": "The LLM judge exists only in the eval pipeline."
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "This loop continues until the agent determines that the task is complete and generates a final answer.",
-   "evidence_locator": "docs/agents.md@b03229ce680c",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No task-level retry described; Practice module uses multiple rollouts for learning, not retry."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "A unique workspace directory is created for each run session, preventing interference between different tasks.",
-   "evidence_locator": "docs/env.md@b03229ce680c",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Per-run isolated workspace but no undo/revert mechanism described."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "termination_condition": {
    "value": [
@@ -302,12 +292,12 @@
    ],
    "not_reported": false,
    "evidence_quote": "add termination logic based on `termination_max_tokens` in `ModelConfigs`",
-   "evidence_locator": "utu/patch/runner.py:1-5@b03229ce680c",
+   "evidence_locator": "utu/patch/runner.py:3@b03229ce680c",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "max_turns in AgentConfig = max_steps; final answer = model_declared."
+   "note": "max_turns is set in AgentConfig. The final answer ends the run."
   },
   "cost_controls": {
    "value": [
@@ -315,173 +305,166 @@
    ],
    "not_reported": false,
    "evidence_quote": "add termination logic based on `termination_max_tokens` in `ModelConfigs`",
-   "evidence_locator": "utu/patch/runner.py:1-5@b03229ce680c",
+   "evidence_locator": "utu/patch/runner.py:3@b03229ce680c",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "timeouts": {
-   "value": [
-    "per_run",
-    "per_tool"
-   ],
-   "not_reported": false,
-   "evidence_quote": "layered timeout logic with hierarchical controls at tool, step, and episode levels to handle various potential timeout issues without fatal failures",
-   "evidence_locator": "paper Sec. 2.4",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Described for the Agent RL module infrastructure."
+   "resolved": false,
+   "note": "The paper cites layered timeouts in the RL module only."
   },
   "execution_isolation": {
-   "value": "subprocess",
+   "value": "none",
    "not_reported": false,
-   "evidence_quote": "This environment provides the agent with an isolated workspace on the local filesystem.",
-   "evidence_locator": "docs/env.md (ShellLocalEnv)@b03229ce680c",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Default env is BasicEnv (null); shell runs locally. BrowserEnv and E2B sandbox run in Docker/remote sandbox."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "You can only run bash commands in your workspace!!!",
+   "evidence_quote": "This is the simplest and default environment. It can be considered a \"null\" environment.",
    "evidence_locator": "docs/env.md@b03229ce680c",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Scoping is prompt-level guidance plus a unique workspace dir, not hard enforcement."
+   "note": "Alternatives are shell_local (subprocess), browser_docker (container), and e2b (remote)."
   },
-  "network_policy": {
-   "value": "open",
+  "filesystem_access": {
+   "value": "full",
    "not_reported": false,
-   "evidence_quote": "Equipped with web search and crawling tools, Youtu-Agent achieves71.47% pass@1 accuracy",
-   "evidence_locator": "paper Sec. 3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No network restriction configuration described."
-  },
-  "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Act**: Based on its reasoning, it selects and invokes an appropriate tool.",
-   "evidence_locator": "docs/agents.md@b03229ce680c",
+   "evidence_quote": "You can only run bash commands in your workspace!!!",
+   "evidence_locator": "docs/env.md@b03229ce680c",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "activated_tools restricts which tools are exposed, but no per-action authorization in the loop."
+   "note": "ShellLocalEnv scopes the workspace by prompt instruction only."
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "tracing": {
    "value": "opentelemetry",
    "not_reported": false,
    "evidence_quote": "Beyond OTEL, our `DBTracingProcessor` system provides in-depth analysis of tool calls and agent trajectories.",
-   "evidence_locator": "README.md (Core Features)@b03229ce680c",
-   "confidence": "high",
+   "evidence_locator": "README.md@b03229ce680c",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "OTEL tracing inherited from openai-agents; DB trajectory tracing additionally."
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
   },
   "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "Trajectory collection**: Supports data collection for training and research purposes.",
-   "evidence_locator": "README.md (Use Cases)@b03229ce680c",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Trajectories recorded and analyzable; no replay runner shown."
+   "resolved": false
   },
   "eval_hooks": {
    "value": "built_in",
    "not_reported": false,
    "evidence_quote": "python scripts/run_eval.py --config_name ww --exp_id <your_exp_id> --dataset WebWalkerQA_15 --concurrency 5",
-   "evidence_locator": "README.md (Run Evaluations)@b03229ce680c",
+   "evidence_locator": "README.md@b03229ce680c",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "guardrails": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Act**: Based on its reasoning, it selects and invokes an appropriate tool.",
-   "evidence_locator": "docs/agents.md@b03229ce680c",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No input/output filters or action blocking described; RL module filters invalid tool calls from training data only."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "target_domain": {
    "value": [
     "general_tool_use",
-    "swe",
+    "research",
     "web"
    ],
    "not_reported": false,
-   "evidence_quote": "this framework delivers powerful agent capabilities, e.g. data analysis, file processing, and deep research, all with open-source models.",
+   "evidence_quote": "**Deep / Wide research**: Covers common search-oriented tasks.",
    "evidence_locator": "README.md@b03229ce680c",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "web via BrowserEnv/search, general_tool_use via MCP toolkits; code execution/file tools for swe-like tasks."
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
   },
   "open_source": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "A simple yet powerful agent framework that delivers with open-source models",
-   "evidence_locator": "github:TencentCloudADP/youtu-agent description@b03229ce680c",
-   "confidence": "low",
+   "evidence_quote": "Youtu-Agent provides complete code and examples to help you get started quickly.",
+   "evidence_locator": "README.md@b03229ce680c",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "LICENSE file not in evidence; open-source repo with full code."
+   "note": "The LICENSE file is not in the evidence."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "with extensible support for diverse model APIs (form `DeepSeek` to `gpt-oss`), tool integrations, and framework implementations",
+   "evidence_quote": "with extensible support for diverse model APIs (form `DeepSeek` to `gpt-oss`)",
    "evidence_locator": "README.md@b03229ce680c",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
    "evidence_quote": "ref: tag:v0.1.3 b03229ce680c0a2fffbf4992b6c664d41464bada 2025-10-31",
-   "evidence_locator": "github:TencentCloudADP/youtu-agent@b03229ce680c",
-   "confidence": "high",
+   "evidence_locator": "github:TencentCloudADP/youtu-agent",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Pinned tag v0.1.3 (2025-10-31) predates the paper (2025-12-31)."
+   "note": "The paper (Dec 2025) postdates the tag."
   },
   "first_release_date": {
    "value": null,
@@ -492,13 +475,13 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "No tag list in evidence; earliest news entry is 2025-08-28."
+   "note": "The first tag date is not in the evidence."
   },
   "pinned_version": {
    "value": "v0.1.3 @ b03229ce680c0a2fffbf4992b6c664d41464bada (2025-10-31)",
    "not_reported": false,
    "evidence_quote": "ref: tag:v0.1.3 b03229ce680c0a2fffbf4992b6c664d41464bada 2025-10-31",
-   "evidence_locator": "github:TencentCloudADP/youtu-agent@b03229ce680c",
+   "evidence_locator": "github:TencentCloudADP/youtu-agent",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -510,39 +493,48 @@
    "value": 4614,
    "not_reported": false,
    "evidence_quote": "stars: 4614",
-   "evidence_locator": "github:TencentCloudADP/youtu-agent@b03229ce680c",
-   "confidence": "high",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Retrieval date not stated."
   }
  },
  "cells_unresolved": [
-  "A2",
-  "B1",
   "B2",
   "B3",
+  "C5",
+  "D2",
   "D3",
+  "E1",
+  "E2",
+  "E3",
+  "F3",
+  "G3",
+  "G4",
+  "H2",
+  "H4",
   "M5"
  ],
  "flag_counts": {
-  "quote_not_in_bundle": 2,
-  "locator_shape_unrecognised": 17
+  "locator_no_line": 17,
+  "locator_shape_unrecognised": 3
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:52:04+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:36:17+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109933,
  "doc_chars": 110313,
- "call_id": "A-youtu-agent-00201",
- "tokens_in": 66290,
- "tokens_out": 4477,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.443375"
+ "call_id": "A-youtu-agent-00203",
+ "tokens_in": 66830,
+ "tokens_out": 3385,
+ "cache_read": 16883,
+ "cache_write": 49945,
+ "cost_usd": "0.470645"
 }

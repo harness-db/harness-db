@@ -1,0 +1,600 @@
+{
+ "system_id": "llm-sym",
+ "name": "LLM-Sym",
+ "version": "",
+ "repo_url": "",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 94512,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2409.09271",
+    "chars_available": 30626,
+    "chars_used": 30626,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2409.09271",
+    "chars_available": 63570,
+    "chars_used": 63570,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "Now generate Z3 expressions for the following Python execution path, type list and variable environment:",
+   "evidence_locator": "paper Fig. 6",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Prompt templates with {path}, {types}, {prev_code} variables per module. Repo evidence is walkccc/LeetCode (dataset source), not LLM-Sym code."
+  },
+  "env_context_strategy": {
+   "value": "embedding_rag",
+   "not_reported": false,
+   "evidence_quote": "All keys and queries are encoded to vectors using the Sentence-BERT [21] model, and we use the L2-norm as the distance metric for retrieval.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Also injects extracted CFG execution path and predicted types; retrieval is over a Z3 template KB."
+  },
+  "context_compaction": {
+   "value": [
+    "structured_checkpoint"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we split it into chunks before providing it to the Z3 code generator",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: each step receives previous code plus SSA variable environment rather than a full chat history; chunking by line is the default."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "We input the buggy code and the error message into an LLM, and ask it to fix the code.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we leverage an LLM to generate code for calling the Z3 solver to solve path constraints.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Implemented with AutoGen; model writes Z3Py code that is executed."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "When the Z3Py code for a chunk is generated, we first concatenate it with the previously generated code and then execute it.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No file-editing tool; harness concatenates generated code."
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we design a multiple-step code generation pipeline including type inference, retrieval and self-refine.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Execution-error-driven self-repair up to 3 times per chunk; LLM solver fallback."
+  },
+  "planning_granularity": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Given a program under test, LLM-Sym first performs type inference to predict the type of variables inside the program.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fixed pipeline; no model-produced plan."
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "then a test case generator LLM takes the solver’s results as input and interprets it as a complete test case.",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Type predictor -> Z3 code generator -> test case generator, with LLM solver fallback."
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "If the Z3 code generation is unsuccessful, we directly use LLM to solve the path constraints and produce test cases.",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "we introduce a variable environment to store the SSA indices for each variable.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "skill_library"
+   ],
+   "not_reported": false,
+   "evidence_quote": "In total, we design 14 Python-to-Z3 templates in the knowledge base for retrieving relevant information.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Static hand-built template KB, not updated across runs; closest value."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": [
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "After generating code for a path chunk, we execute the generated code to check whether it contains bugs.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Harness executes generated Z3 code and feeds error back; closest value (execution check, not tests)."
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "In our experiments, we keep tying this self-repair process 3 times for each chunk.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-chunk repair attempts; fallback to LLM solver."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If all fixing attempts fail, we terminate the Z3 code generation and directly ask an LLM (the LLM solver in Figure 2) to solve the execution path constraints.",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "LLM solver may print UNSAT and terminate; repair cap of 3."
+  },
+  "cost_controls": {
+   "value": [
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "apart from the test case generator module, all other modules are powered by the cost-efficient LLM GPT-4o-mini. The test case generator is built upon GPT-4o.",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Static per-module model assignment chosen for cost."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "tracing": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper evaluates on a LeetCode dataset but no harness repo is available."
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "We create a dataset from LeetCode programs execution paths and evaluate LLM-Sym using this dataset.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Symbolic execution / test generation; closest value swe."
+  },
+  "open_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Linked repo walkccc/LeetCode is the dataset source (MIT), not LLM-Sym code."
+  },
+  "model_agnostic": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Uses OpenAI GPT-4o/4o-mini via AutoGen; abstraction not described."
+  },
+  "primary_artifact": {
+   "value": "paper",
+   "not_reported": false,
+   "evidence_quote": "We implement the LLM-Sym agent using the AutoGen [33] library.",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No LLM-Sym code in evidence; linked repo is unrelated dataset repo."
+  },
+  "first_release_date": {
+   "value": "2024-09-14",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2409.09271v1 [cs.SE] 14 Sep 2024",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Paper v1 date fallback."
+  },
+  "pinned_version": {
+   "value": "arXiv:2409.09271v1",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2409.09271v1 [cs.SE] 14 Sep 2024",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No harness repo; repo evidence walkccc/LeetCode@9b85aa15e086 is the dataset source."
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "1337 stars belong to walkccc/LeetCode, not LLM-Sym."
+  }
+ },
+ "cells_unresolved": [
+  "B2",
+  "B4",
+  "B5",
+  "C5",
+  "D3",
+  "E3",
+  "F3",
+  "G1",
+  "G2",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "M2",
+  "M3",
+  "M7"
+ ],
+ "flag_counts": {},
+ "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:08:30+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 94512,
+ "doc_chars": 12723,
+ "call_id": "B-llm-sym-00864",
+ "tokens_in": 25196,
+ "tokens_out": 1282,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.126424"
+}

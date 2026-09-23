@@ -1,0 +1,600 @@
+{
+ "system_id": "patchpilot",
+ "name": "PatchPilot",
+ "version": "",
+ "repo_url": "https://github.com/ucsb-mlsec/patchpilot",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 88697,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2502.02747",
+    "chars_available": 31462,
+    "chars_used": 31462,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "awesome:ggjy:a649a70cbfa2",
+    "chars_available": 8080,
+    "chars_used": 8080,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2502.02747",
+    "chars_available": 48656,
+    "chars_used": 48656,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "[Problem Statement]\n{{problem_statement}}",
+   "evidence_locator": "patchpilot/reproduce/prompt.py@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "System prompts are fixed strings; the user prompts carry {{variables}}. Line numbers are not available in the evidence."
+  },
+  "env_context_strategy": {
+   "value": "mixed",
+   "not_reported": false,
+   "evidence_quote": "These tools allow the LLM to search for class definitions and function definitions, or perform fuzzy string matching to locate and return relevant files.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Coded mixed because the pipeline also injects repo structure, PoC coverage and localized context (--top_n, --context_window)."
+  },
+  "context_compaction": {
+   "value": [
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Note that we still constrain the maximum length of the final root cause to make sure not to overwhelm the generation with excessive context.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The --compress flag suggests file compression. This is a pipeline, so it has no long history."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "return [file for file in file_to_num_occurrences.keys()][:20]",
+   "evidence_locator": "patchpilot/util/search_tool.py@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "native_function_calling",
+    "xml_tags"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"type\": \"function\",\n  \"function\": {\n    \"name\": \"search_string\",",
+   "evidence_locator": "patchpilot/util/search_tool.py@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The reproduction prompts use tag-delimited outputs such as <declaration>. That is structured output rather than tool calls."
+  },
+  "tool_count": {
+   "value": 4,
+   "not_reported": false,
+   "evidence_quote": "search_func_def_with_class_and_file_schema = {",
+   "evidence_locator": "patchpilot/util/search_tool.py@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Four localization search schemas are defined. The count is only for the localization step."
+  },
+  "edit_primitive": {
+   "value": [
+    "search_replace"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The generation phase then generates the patch following the plan.",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The edit format is not shown in the evidence. search_replace is an assumption."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"description\": \"Accepts a class name as a string and returns the file path where the class is defined.\",",
+   "evidence_locator": "patchpilot/util/search_tool.py@84ec3d3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "patchpilot/util/api_requests.py",
+   "evidence_locator": "file tree@84ec3d3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The file tree shows no mcp/a2a files."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair",
+    "multi_attempt"
+   ],
+   "not_reported": false,
+   "evidence_quote": "PatchPilot iteratively performs refinement and validation until it either identifies a qualified patch or reaches the maximum allowed number of generated patches (Nmax).",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "The planning phase first queries the LLM to generate a patch plan with multiple steps. The generation phase then generates the patch following the plan.",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The plan is generated and then followed step by step with checks after each step."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "PatchPilot proposes a novel rule-based planning workflow with five components",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Stages are LLM calls within one pipeline, not separate agents."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "rule-based planning that follows a fixed, predefined workflow for all issues",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If an experiment is interrupted, simply rerun the same command",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "This is a batch CLI with no approval points described."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "PatchPilot focuses on refining the top-ranked patch in the current batch. It feeds the current batch and its validation result back to the generation component",
+   "evidence_locator": "paper Sec. 3.5",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "For different experiments, clean the folders or use different output directories.",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "state_persistence": {
+   "value": "checkpoint",
+   "not_reported": false,
+   "evidence_quote": "If an experiment is interrupted, simply rerun the same command - PatchPilot will resume from where it left off.",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Resumption works at the stage/instance level through output folders."
+  },
+  "self_verification": {
+   "value": [
+    "formal",
+    "linters_typecheck",
+    "llm_judge",
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we first run our PoC on the patch candidates and use an LLM as a judge for its evaluation.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The paper also describes lint and syntax checks during generation (Sec. 3.4). CrossHair formal verification is an additional component (Sec. 5, formal_verification.py)."
+  },
+  "retry_policy": {
+   "value": "until_pass",
+   "not_reported": false,
+   "evidence_quote": "This process continues until a qualified patch that passes all validations is generated, or the total number of generated patches reaches the predefined limit ofNmax.",
+   "evidence_locator": "paper Sec. 3.5",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The run is capped by --max_samples 12 with --batch_size 4."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "not_reported_with_value"
+   ],
+   "resolved": false,
+   "note": "The evidence does not describe any rollback mechanism."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "test_pass"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Number of samples generated per batch (early stopping if validation passes)",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "cost_controls": {
+   "value": [
+    "token_budget"
+   ],
+   "not_reported": false,
+   "evidence_quote": "| `--batch_size` | Number of samples generated per batch (early stopping if validation passes) |",
+   "evidence_locator": "README.md@84ec3d3fbc34",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Sample caps (--max_samples) with early stopping limit spend; README claims cost < $1 per instance. Closest value token_budget; no explicit token/cost cap, routing or caching shown."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "container",
+   "not_reported": false,
+   "evidence_quote": "is required for Docker-in-Docker functionality used by SWE-bench.",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock -it 3rdn4/patchpilot_verified:v1",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock -it 3rdn4/patchpilot_verified:v1",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No network option is shown."
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "rule-based planning that follows a fixed, predefined workflow for all issues",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false
+  },
+  "tracing": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Outputs are written as jsonl files (loc_outputs.jsonl)."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "not_reported_with_value"
+   ],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "python -m swebench.harness.run_evaluation",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Evaluation uses the external SWE-bench repo, which suggests none under the ambiguity rule. Built-in functionality tests exist through useful_scripts."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we also include a lightweight in-generation validation with lint and syntax checks, and reconduct this step if the check fails.",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "PatchPilot: A Stable and Cost-Efficient Agentic Patching Framework",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "PatchPilot code are now open-sourced!",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The MIT badge is in the README."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "patchpilot/model_zoo/src/model_zoo/litellm_model.py",
+   "evidence_locator": "file tree@84ec3d3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 84ec3d3fbc34269078f9f9b62b9d390947344944 2025-06-05",
+   "evidence_locator": "repo metadata",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2025-02-04",
+   "not_reported": false,
+   "evidence_quote": "PatchPilot paper is available on arXiv!",
+   "evidence_locator": "README.md@84ec3d3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No tag information is available. The date is derived from arXiv id 2502.02747 (Feb 2025), with the day uncertain. The code release was May 2025."
+  },
+  "pinned_version": {
+   "value": "main @ 84ec3d3fbc34269078f9f9b62b9d390947344944 (2025-06-05)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 84ec3d3fbc34269078f9f9b62b9d390947344944 2025-06-05",
+   "evidence_locator": "repo metadata",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "There is no tagged release."
+  },
+  "stars": {
+   "value": 24,
+   "not_reported": false,
+   "evidence_quote": "stars: 24",
+   "evidence_locator": "repo metadata",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "The star count comes from the evidence header; its date is not stated."
+  }
+ },
+ "cells_unresolved": [
+  "C4",
+  "E3",
+  "F3",
+  "G4",
+  "H1",
+  "H2"
+ ],
+ "flag_counts": {
+  "locator_no_line": 19,
+  "quote_not_in_bundle": 2,
+  "not_reported_with_value": 2,
+  "locator_shape_unrecognised": 3
+ },
+ "history": {
+  "C4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F2": {
+   "superseded_pass": "A",
+   "value": "",
+   "flags": "",
+   "reason": "pass A left it unresolved"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:14:47+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 88697,
+ "doc_chars": 11811,
+ "call_id": "B-patchpilot-01048",
+ "tokens_in": 22914,
+ "tokens_out": 587,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.103396"
+}

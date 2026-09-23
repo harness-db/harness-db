@@ -1,0 +1,523 @@
+{
+ "system_id": "phoenix",
+ "name": "Phoenix",
+ "version": "v0.1.4",
+ "repo_url": "https://github.com/kkipngenokoech/phoenix",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 99800,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2606.20243",
+    "chars_available": 15342,
+    "chars_used": 15342,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2606.20243",
+    "chars_available": 28252,
+    "chars_used": 28252,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2607.00555",
+    "chars_available": 55700,
+    "chars_used": 55700,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "static",
+   "not_reported": false,
+   "evidence_quote": "system_prompt = \"\"\"You are a technical writer. Given the issue, implementation plan, and",
+   "evidence_locator": "src/phoenixgithub/agents/pr_agent.py:18@a19bb680a447",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-agent class-level fixed system prompt strings; task data goes in the user prompt."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "The Planner receives the issue title and body sanitized for safety, repository file tree, most-relevant source file excerpts",
+   "evidence_locator": "paper Sec. III-B.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Keyword-overlap scoring of file paths also selects excerpts (lexical retrieval-like); no agent navigation tools."
+  },
+  "context_compaction": {
+   "value": [
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Issue bodies are truncated to1,500 chars, fenced code blocks replaced with one-line summaries, and traceback lines stripped before inclusion in any LLM prompt.",
+   "evidence_locator": "paper Sec. III-D",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Input truncation rather than history compaction; each agent call is single-shot."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "f\"## Test Results\\n{json.dumps(test_verdict, indent=2) if test_verdict else 'All tests passed.'}\\n\\n\"",
+   "evidence_locator": "src/phoenixgithub/agents/pr_agent.py:48@a19bb680a447",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Results are embedded as text/JSON in prompts; paper mentions screenshot-derived visual context for planner."
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "pr_info = json.loads(raw.strip().removeprefix(\"```json\").removesuffix(\"```\").strip())",
+   "evidence_locator": "src/phoenixgithub/agents/pr_agent.py:73@a19bb680a447",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agents emit JSON outputs parsed by the orchestrator; no tool-calling loop."
+  },
+  "tool_count": {
+   "value": 0,
+   "not_reported": false,
+   "evidence_quote": "Run a structured pipeline: plan -> code -> test -> PR.",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tool schemas exposed to the model in the evidence; fixed pipeline."
+  },
+  "edit_primitive": {
+   "value": [
+    "whole_file_rewrite"
+   ],
+   "not_reported": false,
+   "evidence_quote": "It produces complete file contents for each changed file as a structured JSON object, including the commit mes-sage.",
+   "evidence_locator": "paper Sec. III-B.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tool schemas; output formats hand-written in prompts."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "tools/            # shared helper utilities (git/path/runtime helpers)",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Run a structured pipeline: plan -> code -> test -> PR.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Failure analyst feedback triggers coder retry after test failure."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "It outputs a structured JSON plan: a one-sentence summary, high-level approach, files to modify and create, ordered implementation steps",
+   "evidence_locator": "paper Sec. III-B.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "agents/           # planner/coder/tester/pr/failure analyst",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "orchestrator.py   # plan/implement/test/pr pipeline",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Orchestrator passes context dict between agent roles."
+  },
+  "human_in_loop": {
+   "value": [
+    "on_completion"
+   ],
+   "not_reported": false,
+   "evidence_quote": "opens a pull request for human review.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "ai:revise label also allows human-triggered revision."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "state.py          # local run and watcher state",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "a per-repository memory module to accumulate coding conventions across runs",
+   "evidence_locator": "paper Sec. VI",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Listed as future work."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Label transitions are atomic. The new label replaces all AI-state labels.",
+   "evidence_locator": "paper Sec. III-C",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Labels persist issue state; REVISE_INCREMENTAL reuses branch on revise but no in-run resume evidenced."
+  },
+  "self_verification": {
+   "value": [
+    "self_critique",
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Every change is checked against a baseline test run before a pull request is opened.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Coder prompt self-verification step."
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "auto_revise_max_cycles: int = Field(default_factory=lambda: int(os.getenv(\"AUTO_REVISE_MAX_CYCLES\", \"3\")))",
+   "evidence_locator": "src/phoenixgithub/config.py:56@a19bb680a447",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "max_retries=2 and auto-revise enabled by default."
+  },
+  "rollback": {
+   "value": "git_based",
+   "not_reported": false,
+   "evidence_quote": "Stash Phoenix’s changes",
+   "evidence_locator": "paper Sec. III-B.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Git stash used for baseline comparison; work on separate branch."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "stall_detection",
+    "test_pass"
+   ],
+   "not_reported": false,
+   "evidence_quote": "a no-progress detector terminates imme-diately if the second Coder attempt produces identical changes to the first.",
+   "evidence_locator": "paper Sec. III-D",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Retry cycle caps; pipeline ends to PR on passing tests."
+  },
+  "cost_controls": {
+   "value": [
+    "token_budget"
+   ],
+   "not_reported": false,
+   "evidence_quote": "max_tokens: int = 8192",
+   "evidence_locator": "src/phoenixgithub/config.py:45@a19bb680a447",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-call output token cap."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "Maven and Gradle are unavailable in our environment",
+   "evidence_locator": "paper Sec. V-C",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tests run on host clone; containers are future work."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "Path traversal prevention blocks writes outside repository root.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "LLM_BASE_URL",
+   "evidence_locator": "src/phoenixgithub/config.py:43@a19bb680a447",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No network restriction config found."
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "Writes to.github/workflows/are blocked unconditionally.",
+   "evidence_locator": "paper Sec. III-B.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Path blocklist."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "LANGCHAIN_TRACING_V2",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "LangSmith tracing via env vars."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "state.py          # local run and watcher state",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "scripts/pre_release.py",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Paper mentions evaluation scripts but none visible in file tree."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies",
+    "input_filters"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Issue bodies are truncated to1,500 chars, fenced code blocks replaced with one-line summaries, and traceback lines stripped before inclusion in any LLM prompt.",
+   "evidence_locator": "paper Sec. III-D",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Path traversal and workflow write blocking are action policies."
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "PhoenixGitHub is an always-on AI engineering agent for GitHub repositories.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "Phoenix is available as an open-source GitHub App",
+   "evidence_locator": "paper Sec. VII",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No LICENSE file in tree."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "LLM_PROVIDER`: model provider (for example `anthropic`).",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "Source code, evaluation scripts, and result artifacts are pub-licly available at https://github.com/kkipngenokoech/phoenix.",
+   "evidence_locator": "paper Code Availability",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Paper describes webhook/FastAPI/Reproducer not visible in v0.1.4 tree (polling watcher)."
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "v0.1.4 @ a19bb680a447 (2026-03-01)",
+   "not_reported": false,
+   "evidence_quote": "tag:v0.1.4 a19bb680a447 2026-03-01",
+   "evidence_locator": "repository evidence header",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Full hash not provided."
+  },
+  "stars": {
+   "value": 1,
+   "not_reported": false,
+   "evidence_quote": "stars: 1",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Date of star count not stated."
+  }
+ },
+ "cells_unresolved": [
+  "B4",
+  "F3",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:08:14+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 99800,
+ "doc_chars": 12551,
+ "call_id": "B-phoenix-00856",
+ "tokens_in": 22790,
+ "tokens_out": 352,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.098200"
+}

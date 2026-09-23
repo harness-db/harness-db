@@ -1,0 +1,565 @@
+{
+ "system_id": "manusearch",
+ "name": "ManuSearch",
+ "version": "commit 335d2c67068f",
+ "repo_url": "https://github.com/rucaibox/manusearch",
+ "stratum": "P",
+ "weight": "4.4067",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 70643,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2505.18105",
+    "chars_available": 32945,
+    "chars_used": 32945,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2505.18105",
+    "chars_available": 37264,
+    "chars_used": 37264,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "system_prompt=PLANNER_ITERATIVE_PROMPT_CN.format(current_date = datetime.now().strftime(\"%Y-%m-%d\")),",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Prompts formatted with current date; language (EN/CN) selected at runtime by ASCII ratio. Line numbers not given in evidence."
+  },
+  "env_context_strategy": {
+   "value": "agent_driven_navigation",
+   "not_reported": false,
+   "evidence_quote": "interacting with the online Internet through pre-defined search tools in multiple rounds to ultimately solve sub-questions.",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Environment is the open web; searcher agent issues GoogleSearch calls; reader agent extracts content."
+  },
+  "context_compaction": {
+   "value": [
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "For webpage reading agent, we set the maximum length of the original web text to 64K.",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Reader agent also extracts relevant info from pages (LLM extraction of tool output). Memory class supports recent_n truncation (searchagent/utils/memory.py) but default use not shown."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Each result includes the link, title, short summary and detailed relevant information.",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "native_function_calling"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"type\": \"function\",",
+   "evidence_locator": "searchagent/tools/basetool.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "to_schema produces OpenAI function format; planner output parsed as JSON via parse_resp_to_json (json_in_text for planner actions) — parser for searcher not shown."
+  },
+  "tool_count": {
+   "value": 2,
+   "not_reported": false,
+   "evidence_quote": "GoogleSearch(api_key=google_subscription_key, topk=google_search_topk), \n            FinalAnswerTool()",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Searcher ToolCollection: GoogleSearch + FinalAnswerTool. VisitPage imported but not in default collection."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.searcher_tools = ToolCollection(",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Deep search system; no file-editing tools in tool collection."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"parameters\": self.parameters",
+   "evidence_locator": "searchagent/tools/basetool.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "parameters is a dict field set per tool; tool files not shown."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "from ..tools.tool_collection import ToolCollection",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No MCP/A2A in visible evidence or file tree."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the planning agent adopts the ReAct architecture (Yao et al., 2023) and utilizes a memory container to manage its input context.",
+   "evidence_locator": "paper Sec. 4.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Planner->searcher->reader loop per turn in SearchAgent.iterative; fallback to direct reasoning on exception."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "current_plan = parse_resp_to_json(response.content)",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Planner emits next sub-question iteratively; Recorder keeps a graph of sub-questions, but no persisted full plan object."
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "ManuSearch decomposes the search and reasoning process into three collaborative agents",
+   "evidence_locator": "README.md@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Planner delegates sub-queries to searcher which invokes reader; could also be read as orchestrator_workers."
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "for tool_name, search_result, references_url in self.searcher.search(",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Fixed hand-off of sub-queries from planner to searcher; agents pre-instantiated."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "for turn in range(self.max_turn):",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No approval hooks in run loop."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "_graph_state = dict(node={}, adjacency_list={}, ref2url={})",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Recorder maintains graph of sub-questions and references."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.memory: List[AgentMessage] = []",
+   "evidence_locator": "searchagent/utils/memory.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Memory is in-run only; webpage cache persists page text but is a fetch cache, not re-injected memory."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.recorder.container['content'].add_root_node(node_content=query)",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Memory.save/load exist but no resume path in run loop."
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "for turn in range(self.max_turn):",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "LLM judge exists only in separate eval script."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "when the ManuSearch fails to provide an answer, we switch to the direct resoning mode to generate the final answer.",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fallback to direct reasoning is a single alternate call, not a retry of the task."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "FinalAnswerTool()",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No state-modifying tools, no rollback."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "max_turn=10,",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Planner 'final_response' action ends run; after max_turn forced answer."
+  },
+  "cost_controls": {
+   "value": [
+    "caching"
+   ],
+   "not_reported": false,
+   "evidence_quote": "We also implemented a cache to store the full text of accessed web pages.",
+   "evidence_locator": "README.md@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Web page cache, not prompt caching; max_new_tokens is per-call generation limit."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "for step in self.agent.forward(context, mode=solve_method):",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "In-process Python; tools are web API calls, no code execution."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "We recommend enabling a proxy to prevent access issues with certain websites.",
+   "evidence_locator": "README.md@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "for step in self.agent.forward(context, mode=solve_method):",
+   "evidence_locator": "searchagent/agent/agent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "logging.info('planner planning....')",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Step dicts yielded and outputs saved as jsonl by run script; no per-step trace file shown."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "def forward(self, query, mode='iterative'):",
+   "evidence_locator": "searchagent/models/searchagent.py@335d2c67068f",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "python eval_ans_searchagent.py \\",
+   "evidence_locator": "README.md@335d2c67068f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "script/eval_ans_searchagent.py LLM-judge evaluation; benchmarks in data/."
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we do not include any function-ality for bypassing access restrictions or automated user impersonation.",
+   "evidence_locator": "paper Sec. 8",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "research",
+    "web"
+   ],
+   "not_reported": false,
+   "evidence_quote": "a transparent and modular multi-agent framework designed to democratize deep search for LLMs.",
+   "evidence_locator": "README.md@335d2c67068f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "[![License](https://img.shields.io/badge/LICENSE-MIT-green.svg)](https://opensource.org/licenses/MIT)",
+   "evidence_locator": "README.md@335d2c67068f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No LICENSE file in file tree; licence from README badge only."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "ManuSearch offers a plug-and-play deep search framework that supports flexible integration of any LLM",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "OpenAI-compatible API via GPTAPI."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 335d2c67068f 2025-05-27",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Repo commit postdates paper v1 (2025-05-23)."
+  },
+  "first_release_date": {
+   "value": "2025-05-23",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2505.18105v1 [cs.CL] 23 May 2025",
+   "evidence_locator": "paper p. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tag information; fallback to paper v1 date."
+  },
+  "pinned_version": {
+   "value": "main @ 335d2c67068f (2025-05-27)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 335d2c67068f 2025-05-27",
+   "evidence_locator": "repository evidence header",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tagged release; full hash not given."
+  },
+  "stars": {
+   "value": 36,
+   "not_reported": false,
+   "evidence_quote": "stars: 36",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Date of star count not stated."
+  }
+ },
+ "cells_unresolved": [
+  "F3",
+  "G2"
+ ],
+ "flag_counts": {
+  "locator_no_line": 25,
+  "locator_shape_unrecognised": 3
+ },
+ "history": {
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:06:46+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 70643,
+ "doc_chars": 12557,
+ "call_id": "B-manusearch-00813",
+ "tokens_in": 22484,
+ "tokens_out": 246,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.094856"
+}

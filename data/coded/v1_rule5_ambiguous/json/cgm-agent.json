@@ -1,0 +1,520 @@
+{
+ "system_id": "cgm-agent",
+ "name": "CGM-Agent",
+ "version": "",
+ "repo_url": "https://github.com/yanjuncc/cgm-agent-release",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 72072,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "s2_snowball:38c42bb9aa64ad27ab7d2e6db840932a2037c3b0",
+    "chars_available": 29620,
+    "chars_used": 29620,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2_snowball:38c42bb9aa64ad27ab7d2e6db840932a2037c3b0",
+    "chars_available": 41960,
+    "chars_used": 41960,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "We use the same system prompts across all models for consistency.",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-layer prompts (DSPy signatures) with query/context variables; Appendix G.1 not in evidence."
+  },
+  "env_context_strategy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "the LLM never receives raw glucose readings in its context window, it only aggregates the results from function calls",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No repository context injected; only the user query plus tool results."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "observation_format": {
+   "value": [
+    "raw_text",
+    "structured_json"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The LLM receives only these aggregated outputs (e.g., {avg_TIR_sufficient_weartime: 72%, days_sufficient_weartime: 4}), never the underlying time series.",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tool returns structured aggregated metrics; trend visualization also generates plots but plot delivery to LLM not stated."
+  },
+  "tool_call_format": {
+   "value": [
+    "native_function_calling"
+   ],
+   "not_reported": false,
+   "evidence_quote": "For each sub-task, the LLM generates a function call specifying the operation and parameters (metric type, date range, reference thresholds).",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Implemented with DSPy ReAct; exact call syntax not shown in evidence."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Full function signatures said to be in Appendix A, not included in evidence."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the Python toolkit (Section 3.2) processes the user's CGM data and returns aggregated results",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Analytical read-only tools only; no file-editing tool."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we developed a Python toolkit that serves two purposes: (1) generating ground-truth answers for benchmark queries, and (2) providing executable functions for the agent at inference time",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "DSPy tool signatures written by authors; auto-generation from signatures plausible but not evidenced."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the LLM interacts with CGM data only through predefined tool interfaces",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No MCP/A2A mentioned anywhere in README or paper."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The pipeline consists of three layers: (1) the Input Processor resolves ambiguous queries, (2) the Analytical Agent generates tool calls executed in a local sandbox, and (3) the Response Generator synthesizes a natural language answer.",
+   "evidence_locator": "paper Fig. 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Layer 2 is a DSPy ReAct loop (agent/impl/qa/react_qa.py)."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "The LLM decomposes such queries into a sequence of atomic sub-tasks, each mapped to a single function call.",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Decomposition in reasoning, no persisted plan object."
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "We propose a three-layer pipeline that separates LLM reasoning from data access.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "The Input Processor P validates feasibility, resolves temporal references, and maps vague terms to precise system features, producing a refined query q'.",
+   "evidence_locator": "paper Sec. 4.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fixed hand-off of the refined query between the three modules."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "this design naturally extends to interactive clarification on Input Processor, yielding further performance gains on ambiguous queries",
+   "evidence_locator": "paper Sec. 5.6",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Main branch default has no HITL; interactive clarification is a supplementary branch."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "q P−−→q′ T−−−−−→ Tools(D) R G(q,q ′,R) −−−−−−→y",
+   "evidence_locator": "paper Sec. 4.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "State is the query/refined query/results passed along; no typed state object evidenced."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "All computation occurs locally, and personal health data never leaves the user's device.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No memory/skill component described in architecture (Sec. 4)."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "The results of the experiments are saved in the `results/` directory, organized by experiment type and model name.",
+   "evidence_locator": "README.md Results",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Results are written out; no resume path described."
+  },
+  "self_verification": {
+   "value": [
+    "llm_judge"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we use Gemini 3.0 Pro as an automated judge to assess function-call correctness and value matching",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Judge is part of the evaluation harness, not the runtime agent loop."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "For each sub-task, the LLM generates a function call specifying the operation and parameters",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No task-level retry described in the pipeline."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "All numerical computation over CGM data occurs in a local execution sandbox.",
+   "evidence_locator": "paper Sec. 4.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Read-only analytics; nothing to roll back."
+  },
+  "termination_condition": {
+   "value": [
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If the Input Processor determines that q is unanswerable (e.g., requires insulin logs), it generates an explanation e and the pipeline bypasses the Analytical Agent",
+   "evidence_locator": "paper Sec. 4.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Pipeline ends when the Response Generator emits an answer; DSPy ReAct max_iters not shown in evidence."
+  },
+  "cost_controls": {
+   "value": [
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "lightweight models achieve competitive performance in our agent design, suggesting opportunities for low-cost deployment",
+   "evidence_locator": "paper Abstract",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Model selectable per Hydra config (conf/model/*.yaml); no token budget or caching evidenced."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "This call is dispatched to the local execution sandbox, where the Python toolkit (Section 3.2) processes the user's CGM data and returns aggregated results.",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "\"Sandbox\" denotes local in-process Python toolkit execution; no container evidenced."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "the LLM interacts with CGM data only through predefined tool interfaces, never directly accessing raw glucose readings",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agent can only reach CGM data through fixed functions over cleaned_cgm/ files."
+  },
+  "network_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "personal health data never leaves the user's device",
+   "evidence_locator": "paper Abstract",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tool actions are local computation only; LLM API calls are made by the harness, not by agent actions."
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "the LLM serves only as a reasoning engine that interprets user intent and selects appropriate analytical functions",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only the predefined registered toolkit functions can be invoked."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "The results of the experiments are saved in the `results/` directory, organized by experiment type and model name.",
+   "evidence_locator": "README.md Results",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-query logs/results files; format not shown in evidence."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "any system can verify answers by re-running the toolkit",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Deterministic ground-truth re-execution, but no trajectory replay mechanism evidenced."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "eval/                   # Evaluation scripts for the QA dataset",
+   "evidence_locator": "README.md Project Structure",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "input_filters"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The Input Processor serves as a gatekeeper, performing two functions before any data access.",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Feasibility classification can block a query before any tool execution."
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "CGM-Agent, a privacy-preserving framework for question answering over personal glucose data",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Domain is personal health (CGM) data question answering."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "The code in this branch is released under the MIT License. See [LICENSE](LICENSE).",
+   "evidence_locator": "README.md License",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "We evaluate a total of 6 proprietary and open-weight LLMs as backbones for our agent",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Hydra model configs: gemini, gpt_5, llama_4, nemotron."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "This repository contains the code and datasets for CGM-Agent, presented at Findings of ACL 2026.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2026-04-12",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main e5d63e4ef220 2026-04-12",
+   "evidence_locator": "repo evidence header @e5d63e4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tags; basis is the pinned commit date (arXiv v1 dated 2026-04-18)."
+  },
+  "pinned_version": {
+   "value": "main @ e5d63e4ef220 (2026-04-12)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main e5d63e4ef220 2026-04-12",
+   "evidence_locator": "repo evidence header @e5d63e4",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Untagged repository; full hash not given in evidence."
+  },
+  "stars": {
+   "value": 0,
+   "not_reported": false,
+   "evidence_quote": "stars: 0",
+   "evidence_locator": "repo evidence header @e5d63e4",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "As recorded at snapshot time."
+  }
+ },
+ "cells_unresolved": [
+  "A3",
+  "B2",
+  "F3"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 3
+ },
+ "history": {
+  "A3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:02:36+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 72072,
+ "doc_chars": 12547,
+ "call_id": "B-cgm-agent-00684",
+ "tokens_in": 22425,
+ "tokens_out": 316,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.096020"
+}

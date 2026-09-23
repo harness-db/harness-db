@@ -29,52 +29,52 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
+   "value": "dynamically_composed",
    "not_reported": false,
-   "evidence_quote": "a relevant experience snippet exp g∈EXP(g) is first retrieved (see Section 4.1) and injected into the initial prompt following a predefined template, e.g., {system prompt}<EXP>{exp g}</EXP>{query}",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
+   "evidence_quote": "the agent logic is encapsulated in acontext manager(described in Section 6.2.1) that composes prompts from the current state",
+   "evidence_locator": "paper Sec. 6.1",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Context Manager composes prompts from templates; experience injection makes it arguably dynamically_composed when self-navigating is on."
+   "note": "Experience-guided rollouts inject retrieved experience into prompt: {system prompt}<EXP>{exp g}</EXP>{query}. No prompt-building code in bundle."
   },
   "env_context_strategy": {
-   "value": "agent_driven_navigation",
-   "not_reported": false,
-   "evidence_quote": "At each step of exploration, the LLM observes the environment, thinks for the goals and options, and outputs an action to interact with the environment.",
-   "evidence_locator": "paper Sec. 3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Environment profiles also injected up front; arguably mixed."
+   "resolved": false,
+   "note": "Environment-specific tool/instance templates not in the evidence bundle (code truncated)."
   },
   "context_compaction": {
    "value": [
-    "summarize",
-    "truncate_oldest"
+    "summarize"
    ],
    "not_reported": false,
-   "evidence_quote": "When its size exceeds a predefined threshold, the Context Manager summarizes older content into a compressed memory message and initializes a new timeline window",
+   "evidence_quote": "When its size exceeds a predefined threshold, the Context Manager summarizes older content into a compressed memory messageand initializes a new timeline window",
    "evidence_locator": "paper Sec. 6.2.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Sliding context window and self-context managing templates; basic causal template (default) does no compaction."
+   "note": "Sliding-window and self-context-managing templates (keep/remove/compress) are selectable; basic causal template keeps full history. Default template not identified in evidence. Games SummarizedMemory also summarizes."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "<ACTION> ... <END>\n<OBSERVATION> ... <END>",
-   "evidence_locator": "paper Fig. 9",
-   "confidence": "medium",
+   "evidence_quote": "<OBSERVATION> ... <END>",
+   "evidence_locator": "paper Sec. 5.1 Fig. 9",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Text environments (AppWorld, BFCL); no conversion code in bundle."
   },
   "tool_call_format": {
    "value": null,
@@ -84,7 +84,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Action parser not in evidence bundle."
   },
   "tool_count": {
    "value": null,
@@ -94,7 +95,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Tools are environment-provided (AppWorld/BFCL APIs); no tool registry in evidence."
   },
   "edit_primitive": {
    "value": null,
@@ -104,7 +106,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No edit tool definitions in evidence."
   },
   "tool_schema_source": {
    "value": null,
@@ -114,7 +117,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Schema source not visible in evidence."
   },
   "protocol_standardization": {
    "value": null,
@@ -124,27 +128,29 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No grep of source/dependencies possible from bundle."
   },
   "loop_primitives": {
    "value": [
+    "fixed_pipeline",
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "This separation allows the same rollout infrastructure to host diverse agent workflows—such as ReAct policies, planner–executor schemes, or tool-using agents—without modification to the service layer.",
+   "evidence_quote": "aMaster Orchestratordrives a four- stage loop: (A)Task Synthesis, (B)Trajectory Rollout, (C)Experience Summarization, and (D)Sample Construction & Model Optimization",
    "evidence_locator": "paper Sec. 6.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "planner-executor reachable by modifying the context manager (code change), so not listed."
+   "note": "Rollout workers run observe-act cycles (Basic Causal Template); training framework is a fixed staged pipeline. Rollouts multi-sample per task for GRPO, not attempt selection."
   },
   "planning_granularity": {
    "value": "implicit",
    "not_reported": false,
-   "evidence_quote": "structured prompts encourage the model to generate <think> tokens before decisions, with additional rewards promoting high-quality reasoning",
+   "evidence_quote": "structured prompts encourage the model to generate <think> tokens before decisions",
    "evidence_locator": "paper Sec. 6.2.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -152,61 +158,57 @@
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "Each worker interacts with the environment to initialize instances, execute actions, and collect observations, and with the model to assemble prompts and invoke the LLM in sequence, generating a complete trajectory for a given task.",
+   "evidence_quote": "Each worker interacts with the environment to initialize instances, execute actions, and collect observations, and with the model to assemble prompts and invoke the LLM in sequence",
    "evidence_locator": "paper Sec. 6.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Game Arena extension hosts multi-agent social games (peer), but the default training harness runs a single rollout agent."
+   "note": "Game Arena (games/) runs multi-agent social games (peer), separate extension."
   },
   "delegation_mechanism": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "Each worker interacts with the environment to initialize instances, execute actions, and collect observations, and with the model to assemble prompts and invoke the LLM in sequence, generating a complete trajectory for a given task.",
+   "evidence_quote": "Each worker interacts with the environment to initialize instances, execute actions, and collect observations, and with the model to assemble prompts and invoke the LLM in sequence",
    "evidence_locator": "paper Sec. 6.1",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "No delegation mechanism described in the rollout stack."
+   "resolved": true
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Rollout Manager / Master (top): Oversees scheduling of multiple rollout workers, defines termination criteria, and coordinates curriculum strategies across workers.",
-   "evidence_locator": "paper Sec. 6.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No approval/confirmation gate in the training loop; the Game Arena web UI allows a human to participate as a player, not to gate agent actions."
+   "resolved": false,
+   "note": "Game Arena allows human player participation (WebUserAgent) but that replaces an agent, not HITL gating; core harness code not in bundle."
   },
   "short_term_state": {
    "value": "conversation_only",
    "not_reported": false,
    "evidence_quote": "Live Context Timeline (LCT)— a mutable sequence representing the agent’s current working context during multi-turn interaction.",
    "evidence_locator": "paper Sec. 6.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "vector_store"
+   ],
+   "not_reported": false,
+   "evidence_quote": "vector store updating, where validated task experiences are indexed and integrated into the long-term experience storage for subsequent retrieval",
+   "evidence_locator": "paper Sec. 4.1",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Plus an immutable TSR snapshot buffer used for training, not for agent state."
-  },
-  "long_term_memory": {
-   "value": [
-    "episodic_db"
-   ],
-   "not_reported": false,
-   "evidence_quote": "vector store updating, where validated task experiences are indexed and integrated into the long-term experience storage for subsequent retrieval and reasoning",
-   "evidence_locator": "paper Sec. 4.1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Experience pool is an embedding-indexed store of distilled natural-language experiences reused across runs; closest values are episodic_db/skill_library/vector_store — coded episodic_db as experiences are distilled from past trajectories."
+   "note": "ReMe experience pool is optional (examples/overall.yaml); basic.yaml runs without it."
   },
   "state_persistence": {
    "value": null,
@@ -223,13 +225,13 @@
     "llm_judge"
    ],
    "not_reported": false,
-   "evidence_quote": "we offer an LLM-based judge as a fallback proxy for Freward, providing general-purpose assessment across diverse environments",
+   "evidence_quote": "we offer an LLM-based judge as a fallback proxy for Freward",
    "evidence_locator": "paper Sec. 3.4",
-   "confidence": "high",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Also LLM-based step attribution (GOOD/BAD) and experience validation by an LLM evaluator."
+   "note": "Used as training reward; step attribution also via separate LLM."
   },
   "retry_policy": {
    "value": null,
@@ -252,17 +254,15 @@
    "resolved": false
   },
   "termination_condition": {
-   "value": [
-    "max_steps"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Rollout Manager / Master (top): Oversees scheduling of multiple rollout workers, defines termination criteria, and coordinates curriculum strategies across workers.",
-   "evidence_locator": "paper Sec. 6.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Termination criteria defined by the manager; specific conditions not enumerated in available evidence."
+   "resolved": false,
+   "note": "Paper says rollout manager 'defines termination criteria' without specifics."
   },
   "cost_controls": {
    "value": null,
@@ -287,13 +287,13 @@
   "execution_isolation": {
    "value": "remote",
    "not_reported": false,
-   "evidence_quote": "Service Layer (bottom):Comprising theEnvironment ServerandLLM Server, this layer manages multiple independent environment or model workers.",
+   "evidence_quote": "the environment and LLM are provided as independent services",
    "evidence_locator": "paper Sec. 6.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Actions execute in environment workers behind a separate environment service (e.g., AppWorld env-service launched via `--with-appworld`), not in the agent process."
+   "note": "Env-service (AppWorld etc.) launched as a separate service process; isolation of service internals not shown."
   },
   "filesystem_access": {
    "value": null,
@@ -328,15 +328,15 @@
   "tracing": {
    "value": "logs",
    "not_reported": false,
-   "evidence_quote": "Structured logs: all companion logs live under `logs/companion/` with a file name pattern `<tag>.<hash>.<hostname>.log`",
-   "evidence_locator": "docs/launcher.md@a5a8db8689d6",
-   "confidence": "medium",
+   "evidence_quote": "Structured logs: all companion logs live under `logs/companion/`",
+   "evidence_locator": "docs/launcher.md",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "A rollout log viewer (`--with-logview`) exists; per-step trajectory records are used for training but no trace format is documented in the available evidence."
+   "note": "LogView rollout log viewer also exists (--with-logview); format not shown."
   },
   "replayability": {
    "value": null,
@@ -351,13 +351,15 @@
   "eval_hooks": {
    "value": "built_in",
    "not_reported": false,
-   "evidence_quote": "`bash examples/run_basic.sh` - Execute basic RL pipeline with GRPO using built-in datasets within environments.",
-   "evidence_locator": "README.md@a5a8db8689d6",
+   "evidence_quote": "Start the main training or evaluation process",
+   "evidence_locator": "docs/launcher.md",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
    "resolved": true,
-   "note": "AppWorld and BFCL-v3 benchmark environments ship as env_service environments with setup scripts and built-in datasets."
+   "note": "AppWorld/BFCL/WebShop env services launched by launcher."
   },
   "guardrails": {
    "value": null,
@@ -372,123 +374,125 @@
   "target_domain": {
    "value": [
     "general_tool_use",
-    "other",
-    "web"
+    "other"
    ],
    "not_reported": false,
-   "evidence_quote": "Autonomous agents powered by large language models (LLMs) have the poten- tial to significantly enhance human productivity by reasoning, using tools, and executing complex tasks in diverse environments.",
-   "evidence_locator": "paper Abstract",
+   "evidence_quote": "Performance comparison on the AppWorld and BFCL-v3 benchmarks.",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Shipped environments: AppWorld, BFCL-v3, WebShop, Crafters, plus social-game arena (other = RL training framework / games)."
+   "note": "RL training framework for tool-use agents; other = social games (Avalon, Diplomacy); WebShop env also launchable."
   },
   "open_source": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "<a href=\"./LICENSE\"><img src=\"https://img.shields.io/badge/license-Apache--2.0-black\" alt=\"License\"></a>",
-   "evidence_locator": "README.md@a5a8db8689d6",
-   "confidence": "high",
+   "evidence_quote": "license-Apache--2.0",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Apache-2.0 per README badge; LICENSE file not opened."
+   "note": "From README badge; LICENSE file not in bundle."
   },
   "model_agnostic": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "model_name: Model name (optional, defaults to 'qwen-plus')",
-   "evidence_locator": "games/agents/memory/SummarizedMemory.py@a5a8db8689d6",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "OpenAI-compatible api_key/base_url/model_name configuration; policy model is a locally trained open-weight LLM (Qwen2.5)."
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Trains Qwen policy models via veRL; client abstraction not shown."
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "**[2025-11]** 🧩 AgentEvolver v1 has been released now!",
-   "evidence_locator": "README.md@a5a8db8689d6",
+   "evidence_quote": "AgentEvolver v1 has been released now!",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Repo at main a5a8db8689d6 postdates the Nov 2025 technical report."
+   "note": "Coded at main a5a8db8689d6 (2026-03-28), postdates tech report arXiv 2511.10395."
   },
   "first_release_date": {
-   "value": "2025-11-14",
+   "value": "2025-11-13",
    "not_reported": false,
-   "evidence_quote": "**[2025-11]** 📄 [The AgentEvolver Technical Report is now available](https://arxiv.org/abs/2511.10395)",
-   "evidence_locator": "README.md@a5a8db8689d6",
+   "evidence_quote": "arXiv:2511.10395v1 [cs.LG] 13 Nov 2025",
+   "evidence_locator": "paper p. 1",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Basis: paper v1 date (2025-11-14) coinciding with the v1 release announcement; no tag list in evidence."
+   "note": "Fallback to paper v1 date; README says v1 released 2025-11, no tag data."
   },
   "pinned_version": {
    "value": "main @ a5a8db8689d6 (2026-03-28)",
    "not_reported": false,
-   "evidence_quote": "ref: commit:main a5a8db8689d6 2026-03-28",
-   "evidence_locator": "repo evidence header@a5a8db8689d6",
-   "confidence": "high",
+   "evidence_quote": "AgentEvolver v1 has been released now!",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Short hash only; no release tag given in evidence."
+   "note": "Evidence pinned to commit:main a5a8db8689d6; no tag given; full hash not provided."
   },
   "stars": {
    "value": 1570,
    "not_reported": false,
-   "evidence_quote": "stars: 1570",
-   "evidence_locator": "repo evidence header@a5a8db8689d6",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "evidence header stars: 1570",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true,
-   "note": "As of the 2026-03-28 evidence snapshot."
+   "resolved": false,
+   "note": "From evidence metadata; retrieval date not stated."
   }
  },
  "cells_unresolved": [
+  "A2",
   "B1",
   "B2",
   "B3",
   "B4",
   "B5",
+  "C5",
   "D3",
   "E2",
   "E3",
+  "F1",
   "F2",
   "F3",
   "G2",
   "G3",
   "G4",
   "H2",
-  "H4"
+  "H4",
+  "M3",
+  "M7"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 4
+  "locator_shape_unrecognised": 3,
+  "missing_quote": 1
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:33:15+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:21:33+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109957,
  "doc_chars": 110333,
  "call_id": "A-agentevolver-00011",
- "tokens_in": 64922,
- "tokens_out": 3810,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.419860"
+ "tokens_in": 65462,
+ "tokens_out": 3249,
+ "cache_read": 16883,
+ "cache_write": 48577,
+ "cost_usd": "0.456981"
 }

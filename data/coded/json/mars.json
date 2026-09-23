@@ -50,46 +50,49 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
+   "value": "dynamically_composed",
    "not_reported": false,
-   "evidence_quote": "only the prompts, validation, code extraction, and ExecEval runtime selection differ, and all of those live in `src/language_profiles.py`",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "medium",
+   "evidence_quote": "The first writes a draft from the current code, the assigned sub- task, the starter contract, a compact summary of the previous relay state, and retrieved RAG context.",
+   "evidence_locator": "paper arXiv:2608.23918 Sec. 3",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Per-specialist prompts from config/agents.json rendered with task/code/subtask variables."
+   "note": "IDENTITY MISMATCH: the record name (Mars, Induction from Reflection, arXiv 2410.08126) and repo_url (HarryYangthu MARS research system) differ from the pinned repository evidence (fckand/MARS, arXiv 2608.23918, competitive-programming relay). All cells are coded from the pinned fckand/MARS v1.0.0 evidence and need human reconciliation. The prompt templates in src/language_profiles.py are not in the bundle. The prompt is per-step composition of code, subtask, contract, summary and RAG context, according to the paper."
   },
   "env_context_strategy": {
    "value": "embedding_rag",
    "not_reported": false,
-   "evidence_quote": "Retrieval | local Qdrant index over algorithm-theory documents",
+   "evidence_quote": "| Retrieval | local Qdrant index over algorithm-theory documents |",
    "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "RAG over cp-algorithms corpus; no repo navigation tools (single-problem code generation)."
+   "note": "Retrieval runs over an algorithm-theory corpus (cp-algorithms, embedded with Jina v2), not over a repository. There is no navigation tooling."
   },
   "context_compaction": {
    "value": [
     "summarize"
    ],
    "not_reported": false,
-   "evidence_quote": "a compact summary of the previous relay state",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 3",
-   "confidence": "medium",
+   "evidence_quote": "The next specialist receives shared code and a compact relay summary, not the raw public-test report.",
+   "evidence_locator": "paper arXiv:2608.23918 Sec. 4.4",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "The relay state is passed on as a compact summary. The raw test report is withheld, which may also count as tool_output_pruning."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "The draft is executed against the public examples in ExecEval (Khan et al., 2023). The second call sees the report",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 3",
+   "evidence_quote": "The second call sees the report and returns one of keep-code, repair- code, or no-change together with structured hand- off fields.",
+   "evidence_locator": "paper arXiv:2608.23918 Sec. 3",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
@@ -97,65 +100,64 @@
   },
   "tool_call_format": {
    "value": [
-    "code_as_action"
+    "json_in_text"
    ],
    "not_reported": false,
-   "evidence_quote": "the fenced-code labels used to extract solutions",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "medium",
+   "evidence_quote": "action = str(result.get(\"action\", \"no_change\")).strip().lower()",
+   "evidence_locator": "src/relay_loop.py:10-200@2f655d1b0760",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Prompt-only framework; model emits fenced code plus structured handoff fields, no tool-call API."
+   "note": "There are no tool calls. The model returns structured handoff fields (action/new_code/next_agent) that are parsed from text, plus fenced code. json_in_text is the closest value. The parser in relay_system.py is not in the bundle, and the exact line is within the shown excerpt."
   },
   "tool_count": {
    "value": 0,
    "not_reported": false,
-   "evidence_quote": "MARS stays prompt-only and takes its feedback from deterministic public-test execution",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 2",
+   "evidence_quote": "Each request is a plain Chat Completions call carrying `model`, `messages`, `temperature`, `top_p`, and `max_tokens`; no server-specific fields are sent.",
+   "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "No model-facing tool schemas; execution is harness-driven."
+   "note": "No tools array is sent. The system is prompt-only."
   },
   "edit_primitive": {
    "value": [
     "whole_file_rewrite"
    ],
    "not_reported": false,
-   "evidence_quote": "returns one of keep-code, repair-code, or no-change together with structured hand-off fields",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 3",
+   "evidence_quote": "proposed_code = self._sanitize_generated_code(str(result.get(\"new_code\", \"\") or \"\"))",
+   "evidence_locator": "src/relay_loop.py:10-200@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The model re-emits the whole program."
+   "note": "Each turn emits the complete program as new_code."
   },
   "tool_schema_source": {
-   "value": [
-    "hand_written"
-   ],
-   "not_reported": false,
-   "evidence_quote": "config/agents.json              Specialist definitions",
-   "evidence_locator": "README.md@2f655d1b0760",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No tool schemas; specialist definitions are hand-authored JSON."
+   "resolved": false,
+   "note": "No tool schemas are sent to the model. relay_system.py is not in the bundle."
   },
   "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Each request is a plain Chat Completions call carrying `model`, `messages`, `temperature`, `top_p`, and `max_tokens`; no server-specific fields are sent.",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "requirements.txt and relay_system.py are not in the bundle, so no grep was possible."
   },
   "loop_primitives": {
    "value": [
@@ -163,42 +165,44 @@
     "generate_test_repair"
    ],
    "not_reported": false,
-   "evidence_quote": "each subsequent turn runs the candidate against public examples in a sandbox, lets the active specialist keep, repair, or hand off the draft",
-   "evidence_locator": "paper arxiv:2608.23918 Abstract",
-   "confidence": "high",
+   "evidence_quote": "# select agents -> choose first -> relay loop(action/new_code/next_agent/stop)",
+   "evidence_locator": "src/relay_loop.py:26-27@2f655d1b0760",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Each turn follows this cycle: draft, run public tests, then keep, repair or hand off (paper Sec. 3)."
   },
   "planning_granularity": {
    "value": "explicit_plan_object",
    "not_reported": false,
    "evidence_quote": "self._relay_subtask_graph = self._build_relay_subtask_graph(",
-   "evidence_locator": "src/relay_loop.py@2f655d1b0760",
+   "evidence_locator": "src/relay_loop.py:10-200@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Subtask graph + starter contract maintained across steps."
+   "note": "A subtask graph is stored and used to assign subtasks at each step."
   },
   "multi_agent_topology": {
    "value": "pipeline",
    "not_reported": false,
-   "evidence_quote": "a starter writes an initial C++17 solution, and each subsequent turn ... forwards a structured packet to the next specialist",
-   "evidence_locator": "paper arxiv:2608.23918 Abstract",
-   "confidence": "high",
+   "evidence_quote": "a small team of task-matched agents is formed. The initial agent generates the candidate solution (with iterative re- finement based on public test execution results) and selects the next contributing agent from the team.",
+   "evidence_locator": "paper arXiv:2608.23918 Sec. 1",
+   "confidence": "medium",
    "quote_verbatim": false,
    "flags": [
     "quote_not_in_bundle"
    ],
-   "resolved": false
+   "resolved": false,
+   "note": "This is a relay of up to 3 specialists with a dynamically chosen hand-off order. pipeline is the closest value."
   },
   "delegation_mechanism": {
    "value": "role_handoff",
    "not_reported": false,
-   "evidence_quote": "lets the active specialist keep, repair, or hand off the draft, and forwards a structured packet to the next specialist",
-   "evidence_locator": "paper arxiv:2608.23918 Abstract",
-   "confidence": "high",
+   "evidence_quote": "forwards a structured packet to the next specialist.",
+   "evidence_locator": "paper arXiv:2608.23918 Abstract",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -208,48 +212,50 @@
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "src/run_relay.py               Relay-only dataset runner",
-   "evidence_locator": "README.md@2f655d1b0760",
+   "evidence_quote": "for step in range(total_steps):",
+   "evidence_locator": "src/relay_loop.py:10-200@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Batch dataset runner; no approval hooks documented."
+   "note": "The run loop shown has no approval or confirmation point."
   },
   "short_term_state": {
    "value": "structured_task_state",
    "not_reported": false,
-   "evidence_quote": "self._relay_first_step_map = {}",
-   "evidence_locator": "src/relay_loop.py@2f655d1b0760",
+   "evidence_quote": "agent_call_counts: Counter[str] = Counter()",
+   "evidence_locator": "src/relay_loop.py:10-200@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Current code, history, subtask graph, contracts, call counts."
+   "note": "Run state includes the subtask graph, starter contract, used agents and no_progress_streak."
   },
   "long_term_memory": {
    "value": [
-    "vector_store"
+    "none"
    ],
    "not_reported": false,
-   "evidence_quote": "the paper used a local Qdrant index with `jinaai/jina-embeddings-v2-base-code`",
+   "evidence_quote": "All settings are environment variables, resolved in `src/config.py`.",
    "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Static corpus index, not run-to-run learned memory; there is also a RAG_AGENT_POOL_CACHE_PATH cache."
+   "note": "src/config.py has no memory setting. RAG_AGENT_POOL_CACHE_PATH is a retrieval cache, not episodic memory."
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "`code_history.jsonl`: one record per problem, including relay steps and final code;",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Outputs are written but no resume path documented."
+   "resolved": false,
+   "note": "src/run_relay.py is not in the bundle."
   },
   "self_verification": {
    "value": [
@@ -257,139 +263,144 @@
     "test_execution"
    ],
    "not_reported": false,
-   "evidence_quote": "A repair candidate is rerun on the public examples and accepted only if it compiles and does not reduce the number of passing public tests",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 3",
+   "evidence_quote": "The draft is executed against the public examples in ExecEval (Khan et al., 2023). The second call sees the report",
+   "evidence_locator": "paper arXiv:2608.23918 Sec. 3",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Also a local self-check compiling or py_compile; passive judge sidecar in relay loop."
+   "note": "src/judge.py exists, and the code describes a 'passive judge sidecar'. It is not coded as llm_judge."
   },
   "retry_policy": {
-   "value": "fixed_n",
+   "value": "none",
    "not_reported": false,
-   "evidence_quote": "The relay is budget-bounded to at most three unique specialists and eight steps",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 3",
-   "confidence": "medium",
+   "evidence_quote": "| Maximum relay steps | `8` |",
+   "evidence_locator": "README.md@2f655d1b0760",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "There is a single relay attempt per task. In-turn repair is not a task retry."
   },
   "rollback": {
    "value": "snapshot",
    "not_reported": false,
-   "evidence_quote": "otherwise the repair is rejected and the draft is restored",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 3",
+   "evidence_quote": "otherwise the repair is rejected and the draft is restored.",
+   "evidence_locator": "paper arXiv:2608.23918 Sec. 3",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "In-memory restore of previous code version, not VCS."
+   "note": "The draft code is restored in memory. snapshot is the closest value."
   },
   "termination_condition": {
    "value": [
     "max_steps",
-    "model_declared"
+    "model_declared",
+    "stall_detection"
    ],
    "not_reported": false,
-   "evidence_quote": "stops on an explicit stop signal, when no unused selected specialist remains, at the step budget, or at a no-progress cutoff",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 3",
+   "evidence_quote": "stops on an explicit stop signal, when no unused selected specialist remains, at the step budget, or at a no-progress cutoff that reroutes at a streak of two and stops at three.",
+   "evidence_locator": "paper arXiv:2608.23918 Sec. 3",
    "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No-progress cutoff is stall detection; add stall_detection reachable by default."
-  },
-  "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Maximum output tokens per call | `4096`",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
-  "timeouts": {
+  "cost_controls": {
    "value": [
-    "per_tool"
+    "none"
    ],
    "not_reported": false,
-   "evidence_quote": "ExecEval, the sandboxed\nexecution service released with xCodeEval",
+   "evidence_quote": "All settings are environment variables, resolved in `src/config.py`.",
    "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "low",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Per-execution limits enforced by ExecEval; no run-level timeout documented."
+   "note": "There is only a per-call max_tokens of 4096. No run budget, routing or caching was found in the config."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The ExecEval client code is not in the bundle."
   },
   "execution_isolation": {
    "value": "container",
    "not_reported": false,
    "evidence_quote": "Scoring runs generated programs against hidden tests inside ExecEval, the sandboxed",
    "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "ExecEval runs as a Docker service; relay driver runs on host."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "ExecEval compiles and executes untrusted model output, so run it in a disposable\ncontainer on a machine you control",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Only a single submitted program is executed; no filesystem tool exposed."
-  },
-  "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "Docker, for ExecEval and for the supplied vLLM command",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No network restriction option documented."
-  },
-  "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "MARS stays prompt-only and takes its feedback from deterministic public-test execution",
-   "evidence_locator": "paper arxiv:2608.23918 Sec. 2",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Generated code is executed without authorisation checks beyond the sandbox."
+   "note": "The README says the local self-check may compile or run py_compile on the host, which would be subprocess level."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "There are no model-invoked actions besides code generation. relay_system.py is not in the bundle."
   },
   "tracing": {
    "value": "structured_traces",
    "not_reported": false,
-   "evidence_quote": "`trace.log`: detailed relay trace when tracing is enabled;",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "code_history.jsonl records relay steps by default."
-  },
-  "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "These are averages over the paper runs, not expected bit-for-bit deterministic outputs from a newly served model.",
+   "evidence_quote": "`code_history.jsonl`: one record per problem, including relay steps and final code;",
    "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Stored code_history can be rescored, but generation is not replayable."
+   "note": "trace.log is written when tracing is enabled, and _trace_event records events."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "eval_hooks": {
    "value": "built_in",
@@ -398,33 +409,35 @@
    "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "guardrails": {
-   "value": [
-    "action_policies"
-   ],
-   "not_reported": false,
-   "evidence_quote": "whether the sanitizer requires a `main()` entrypoint, whether the local self-check compiles or runs `py_compile`",
-   "evidence_locator": "README.md@2f655d1b0760",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "target_domain": {
    "value": [
-    "swe"
+    "other"
    ],
    "not_reported": false,
-   "evidence_quote": "MARS\n(Multi-Agent Relay of Specialized LLMs),\na prompt-only framework in which each\nagent is a topic specialist",
-   "evidence_locator": "paper arxiv:2608.23918 Abstract",
-   "confidence": "high",
+   "evidence_quote": "Code artifact for **“Multi-Specialist LLM Relay System for Competitive Programming”**",
+   "evidence_locator": "README.md@2f655d1b0760",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Competitive programming code generation."
+   "note": "The domain is competitive programming, not repository SWE."
   },
   "open_source": {
    "value": "yes",
@@ -433,7 +446,9 @@
    "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "model_agnostic": {
@@ -443,78 +458,92 @@
    "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "Code artifact for **“Multi-Specialist LLM Relay System for Competitive Programming”**",
+   "evidence_quote": "It contains the relay method used in the paper",
    "evidence_locator": "README.md@2f655d1b0760",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "first_release_date": {
    "value": "2026-08-26",
    "not_reported": false,
    "evidence_quote": "ref: tag:v1.0.0 2f655d1b0760 2026-08-26",
-   "evidence_locator": "repository evidence header @2f655d1b0760",
+   "evidence_locator": "evidence header",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Basis: first (only) tag v1.0.0."
+   "note": "Basis: v1.0.0 is the only tag seen."
   },
   "pinned_version": {
    "value": "v1.0.0 @ 2f655d1b0760 (2026-08-26)",
    "not_reported": false,
    "evidence_quote": "ref: tag:v1.0.0 2f655d1b0760 2026-08-26",
-   "evidence_locator": "repository evidence header @2f655d1b0760",
-   "confidence": "high",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Repo https://github.com/fckand/MARS; the listed repo_url points at a different, unrelated MARS project."
+   "note": "The full hash is not in the evidence."
   },
   "stars": {
    "value": 0,
    "not_reported": false,
    "evidence_quote": "stars: 0",
-   "evidence_locator": "repository evidence header @2f655d1b0760",
-   "confidence": "high",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "As of evidence collection."
+   "note": "This is for fckand/MARS. The record's repo_url points to a different repository."
   }
  },
  "cells_unresolved": [
-  "C3"
+  "B4",
+  "B5",
+  "C3",
+  "D3",
+  "F3",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
+  "H4"
  ],
  "flag_counts": {
+  "locator_no_line": 12,
   "quote_not_in_bundle": 1,
   "locator_shape_unrecognised": 3
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:44:54+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:30:26+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109794,
  "doc_chars": 110198,
- "call_id": "A-mars-00134",
- "tokens_in": 68622,
- "tokens_out": 3931,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.441385"
+ "call_id": "A-mars-00136",
+ "tokens_in": 69162,
+ "tokens_out": 6944,
+ "cache_read": 16883,
+ "cache_write": 52277,
+ "cost_usd": "0.560481"
 }

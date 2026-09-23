@@ -22,35 +22,37 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
+   "value": "dynamically_composed",
    "not_reported": false,
-   "evidence_quote": "The system prompt for the first part of the agent execution simply states “Execute the following plan:...”followed by the plan provided by the Planner.",
-   "evidence_locator": "paper Sec. 3.5",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Per-agent system prompts with task/plan variables rendered in."
-  },
-  "env_context_strategy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "a generalized execution flow applicable to any application defined by a user prompt",
-   "evidence_locator": "paper Sec. 3.1",
+   "evidence_quote": "The Planner is given the context of tools present in the system, the stages that have already completed, the current stage and the future stages, along with the original user prompt.",
+   "evidence_locator": "paper Sec. 3.4",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No repository/environment context injection; tasks are web/finance/paper tasks driven by MCP tools."
+   "note": "Per-agent system prompts composed from stage context, tool lists and prior execution results; paper-only."
+  },
+  "env_context_strategy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "not_reported_with_value"
+   ],
+   "resolved": false,
+   "note": "Paper-only; no repository/environment context mechanism described. Value set to null per not_reported."
   },
   "context_compaction": {
    "value": [
     "summarize"
    ],
    "not_reported": false,
-   "evidence_quote": "the execution agent is asked to summarizeonly the relevant informationfrom the stage to be passed to future stages",
-   "evidence_locator": "paper Sec. 3.5",
-   "confidence": "high",
+   "evidence_quote": "After each stage, theExecution Agentreflects on the tool outputs and summarizes, keeping only the relevant information to be passed as context to the next stage.",
+   "evidence_locator": "paper Sec. 3.6",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -60,12 +62,13 @@
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "Fetch tool takes the URL of a website and the offset character length as an input and returns clean text content for that web page.",
+   "evidence_quote": "returns clean text content for that web page",
    "evidence_locator": "paper Sec. 5.4.3",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "MCP tool outputs as text; paper-only."
   },
   "tool_call_format": {
    "value": [
@@ -74,7 +77,7 @@
    "not_reported": false,
    "evidence_quote": "a set of available functions, defined as JSON schema objects within the tools parameter",
    "evidence_locator": "paper Sec. 5.1",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -88,61 +91,58 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Tool count varies by application and MCP servers exposed; no fixed default set."
+   "note": "Tools come from MCP servers per application; no default built-in tool list."
   },
   "edit_primitive": {
-   "value": [
-    "whole_file_rewrite"
-   ],
-   "not_reported": false,
-   "evidence_quote": "theFile Systemserver enables seamless read/write operations with the local file system",
-   "evidence_locator": "paper Sec. 4.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Only write-file tool described; no structured edit primitive."
+   "resolved": false,
+   "note": "No code/tool registry available; paper only."
   },
   "tool_schema_source": {
    "value": [
-    "auto_generated",
+    "hand_written",
     "mcp"
    ],
    "not_reported": false,
    "evidence_quote": "The Stage agent also has the list of MCP tools descriptions from the MCP server or even the Doc String of a Python function as possible actions.",
    "evidence_locator": "paper Sec. 3.3",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Structured outputs schemas are auto-created from pydantic classes; tool schemas come from MCP servers."
+   "resolved": true
   },
   "protocol_standardization": {
    "value": [
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "We also leverage Model Context Protocol (MCP) tools, and propose two alternative approaches for deploying MCP servers as cloud Functions as a Service (FaaS).",
-   "evidence_locator": "paper Abstract",
+   "evidence_quote": "We focus mainly on the MCP protocol for integrating our agents with external sources and evaluating them, and leave A2A as future work.",
+   "evidence_locator": "paper Sec. 2.3",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "A2A left as future work."
+   "resolved": true
   },
   "loop_primitives": {
    "value": [
+    "fixed_pipeline",
     "plan_execute",
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "the stage agent breaks down the task into a set of high level objectives called stages; the planner and the execution agents then processes each stage sequentially",
+   "evidence_quote": "the stage agent breaks down the task into a set of high level objectives called stages; the planner and the execution agents then processes each stage sequentially.",
    "evidence_locator": "paper Sec. 3.1",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Executor loops tool call + reflection within a stage."
+   "note": "Executor loops tool calls and reflection (react) within each stage."
   },
   "planning_granularity": {
    "value": "hierarchical",
@@ -157,233 +157,215 @@
   "multi_agent_topology": {
    "value": "pipeline",
    "not_reported": false,
-   "evidence_quote": "AgentX enforces specialized, functional roles (Stage Generation,Planner,Executor)",
-   "evidence_locator": "paper Sec. 3.6",
-   "confidence": "high",
+   "evidence_quote": "composed of stage designer, planner, and executor agents",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Fixed hand-off sequence Stage -> Planner -> Executor per stage."
+   "note": "Fixed hand-off Stage -> Planner -> Executor per stage."
   },
   "delegation_mechanism": {
    "value": "role_handoff",
    "not_reported": false,
-   "evidence_quote": "Each stage is then passed to the Planner Agent for execution.",
-   "evidence_locator": "paper Sec. 3.3",
-   "confidence": "medium",
+   "evidence_quote": "The execution agent also generates execution results after each stage that is passed on as context for the next stage.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Given a user task, the stage agent breaks down the task into a set of high level objectives called stages",
-   "evidence_locator": "paper Sec. 3.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No approval or gating step described anywhere in the execution sequence."
+   "resolved": false,
+   "note": "Paper-only; no config surface."
   },
   "short_term_state": {
    "value": "structured_task_state",
    "not_reported": false,
    "evidence_quote": "These results are later saved in a local variable which is used to provide context to the first phase of the execution agent.",
    "evidence_locator": "paper Sec. 3.5",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Stages list, plans and execution-result summaries maintained as structured outputs."
+   "note": "Stages list, plan, execution results with success flag via pydantic structured outputs."
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "In its current form, AgentX lacks a dedicated recovery system.",
-   "evidence_locator": "paper Sec. 7",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No cross-run memory described; stage summaries are within-run only."
+   "resolved": false
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "AgentX executes applications by breaking them down into stages. These stages as of now are executed in a linear fashion one after the other.",
-   "evidence_locator": "paper Sec. 7",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No resume path described."
+   "resolved": false
   },
   "self_verification": {
    "value": [
     "self_critique"
    ],
    "not_reported": false,
-   "evidence_quote": "first ensures that this agentunderstandsthe plan andcallsthe tools, and subsequentlyreflectson the output of the tools",
+   "evidence_quote": "the execution agent is passed two attributes in its output schema: theexecution resultsand aflagto denote if the plan has successfully executed or not.",
    "evidence_locator": "paper Sec. 3.5",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Evaluation-time LLM scoring is for the study, not the harness loop."
-  },
-  "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Such runs leads to failures since there lacks a dedicated recovery system in AgentX.",
-   "evidence_locator": "paper Sec. 6.1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "absence_high_confidence"
-   ],
-   "resolved": true,
-   "note": "Executor may retry within a stage (code syntax errors), but no task-level retry."
-  },
-  "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Without proper guardrails and retry mechanisms, agents can fail, provide incorrect information, or produce improper outputs.",
-   "evidence_locator": "paper Sec. 6.5",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "In its current form, AgentX lacks a dedicated recovery system.",
+   "evidence_locator": "paper Sec. 7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Executor retries tool calls within a stage (step-level), not task-level."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "termination_condition": {
    "value": [
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "the execution agent is passed two attributes in its output schema: theexecution resultsand aflagto denote if the plan has successfully executed or not",
-   "evidence_locator": "paper Sec. 3.5",
-   "confidence": "medium",
+   "evidence_quote": "The user's task is completed when all the stages provided by the Stage Generation agent are completed successfully.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Run ends when all stages complete; no step or cost cap described. AgentX 'could potentially get stuck in a loop'."
+   "resolved": true
   },
   "cost_controls": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "AgentX focuses explicitly on memory consolidation.",
-   "evidence_locator": "paper Sec. 3.6",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Context summarization reduces cost but no explicit budget, routing or caching mechanism is described."
+   "resolved": false,
+   "note": "Tool filtering reduces tokens but no budget/caching mechanism described."
   },
   "timeouts": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "It is prone to the non deterministic nature of agentic workflow where it could potentially get stuck in a loop.",
-   "evidence_locator": "paper Sec. 7",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No harness timeout described; Lambda-side limits not stated."
+   "resolved": false
   },
   "execution_isolation": {
-   "value": "subprocess",
+   "value": "remote",
    "not_reported": false,
-   "evidence_quote": "All patterns and their agents execute on a Dell Precision 3440 with Intel Core i5-10500 processor (6 cores, 12 threads) and 16 GB RAM, running Ubuntu 20.04.6 LTS",
+   "evidence_quote": "we deploy the MCP servers on AWS Lambda using the distributed approach",
    "evidence_locator": "paper Sec. 5.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default local MCP servers run on the same workstation; FaaS variant deploys containerized MCP servers on AWS Lambda."
+   "note": "Both local MCP servers (subprocess) and FaaS evaluated; no default stated."
   },
   "filesystem_access": {
-   "value": "full",
-   "not_reported": false,
-   "evidence_quote": "theFile Systemserver enables seamless read/write operations with the local file system",
-   "evidence_locator": "paper Sec. 4.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "theSerperserver enables web searches using the Google Serper API",
-   "evidence_locator": "paper Sec. 4.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No network restriction mechanism mentioned."
+   "resolved": false
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "When tools are specified to be executed by the Agent, our AgentX framework invokes the tool",
-   "evidence_locator": "paper Sec. 3.5",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Planner tool-filtering limits which tools are exposed, but no authorization check before execution."
+   "resolved": false,
+   "note": "Planner tool filtering is not authorisation."
   },
   "tracing": {
-   "value": "structured_traces",
-   "not_reported": false,
-   "evidence_quote": "It does not depend on external frameworks. The execution trace is returned by each module.",
-   "evidence_locator": "paper Sec. 5.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "Paper says 'The execution trace is returned by each module' without format."
   },
   "replayability": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "To ensure consistency and reproducible outputs, the temperature and top_p were set to their default value of 1.0.",
-   "evidence_locator": "paper Sec. 5.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No replay mechanism described."
+   "resolved": false
   },
   "eval_hooks": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "We implement our AgentX pattern using a Python framework consisting of modules for the different agent types and an orchestrator between the agents to implement the interaction pattern.",
-   "evidence_locator": "paper Sec. 5.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Accuracy scoring was done externally with an OpenAI 4o-mini judge for the study, not shipped as a harness hook."
+   "resolved": false,
+   "note": "No repo; LLM-judge scoring used in experiments."
   },
   "guardrails": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Without proper guardrails and retry mechanisms, agents can fail, provide incorrect information, or produce improper outputs.",
-   "evidence_locator": "paper Sec. 6.5",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "target_domain": {
    "value": [
@@ -392,15 +374,12 @@
     "web"
    ],
    "not_reported": false,
-   "evidence_quote": "a research report application is templatized to generate reports on varioustopics",
-   "evidence_locator": "paper Sec. 5.3",
+   "evidence_quote": "designed to execute a generalized execution flow applicable to any application defined by a user prompt.",
+   "evidence_locator": "paper Sec. 3.1",
    "confidence": "medium",
-   "quote_verbatim": false,
-   "flags": [
-    "quote_not_in_bundle"
-   ],
-   "resolved": false,
-   "note": "Applications: web exploration, stock correlation, research paper summarization, all via MCP tools."
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
   },
   "open_source": {
    "value": null,
@@ -411,29 +390,29 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "No repository URL or licence stated in the paper."
+   "note": "No repo URL in evidence."
   },
   "model_agnostic": {
-   "value": "no",
-   "not_reported": false,
-   "evidence_quote": "For all our experiments, we utilized OpenAI’s gpt-4o-mini large language model, accessed via their public cloud API.",
-   "evidence_locator": "paper Sec. 5.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Uses the official openai Python library directly; no provider abstraction described."
+   "resolved": false,
+   "note": "Only gpt-4o-mini via openai library evaluated."
   },
   "primary_artifact": {
    "value": "paper",
    "not_reported": false,
-   "evidence_quote": "We implement our AgentX pattern using a Python framework consisting of modules for the different agent types and an orchestrator between the agents",
+   "evidence_quote": "We implement our AgentX pattern using a Python framework consisting of modules for the different agent types and an orchestrator between the agents to implement the interaction pattern.",
    "evidence_locator": "paper Sec. 5.1",
-   "confidence": "medium",
+   "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No public repo given."
+   "note": "No repository available."
   },
   "first_release_date": {
    "value": "2025-09-09",
@@ -444,18 +423,18 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Basis: arXiv v1 date; no release tag exists."
+   "note": "Fallback to paper v1 date."
   },
   "pinned_version": {
-   "value": "arXiv:2509.07595v1 (2025-09-09)",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2509.07595v1 [cs.DC] 9 Sep 2025",
-   "evidence_locator": "paper p. 1",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No repo to pin."
+   "resolved": false,
+   "note": "No repository; paper arXiv:2509.07595v1."
   },
   "stars": {
    "value": null,
@@ -465,32 +444,46 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false,
-   "note": "No GitHub repository reported."
+   "resolved": false
   }
  },
  "cells_unresolved": [
+  "A2",
   "B2",
-  "M1",
+  "B3",
+  "C5",
+  "D2",
+  "D3",
+  "E3",
+  "F2",
+  "F3",
+  "G2",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
   "M2",
+  "M3",
+  "M6",
   "M7"
  ],
  "flag_counts": {
-  "absence_high_confidence": 1,
-  "quote_not_in_bundle": 1
+  "not_reported_with_value": 1
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:59:54+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:49:24+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109298,
  "doc_chars": 109585,
- "call_id": "A-agentx-00285",
- "tokens_in": 61666,
- "tokens_out": 3944,
+ "call_id": "A-agentx-00069",
+ "tokens_in": 62168,
+ "tokens_out": 2940,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.406930"
+ "cost_usd": "0.307472"
 }

@@ -1,0 +1,579 @@
+{
+ "system_id": "ehragent",
+ "name": "EHRAgent",
+ "version": "",
+ "repo_url": "https://github.com/wshi83/ehragent",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 109837,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2401.07128",
+    "chars_available": 15340,
+    "chars_used": 15340,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2401.07128",
+    "chars_available": 42913,
+    "chars_used": 23370,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2410.11239",
+    "chars_available": 25343,
+    "chars_used": 23370,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2604.16337",
+    "chars_available": 23497,
+    "chars_used": 23370,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2:cbb1080994894f68fc5f1dd9c9c3dfd67ba68e3a",
+    "chars_available": 53294,
+    "chars_used": 23370,
+    "truncated": true
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "init_message = EHRAgent_Message_Prompt.format(examples=examples, knowledge=knowledge, question=context[\"message\"])",
+   "evidence_locator": "ehragent/medagent.py:112@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Initial message is a template filled with retrieved examples, LLM-generated knowledge and the question; line number approximate from excerpt."
+  },
+  "env_context_strategy": {
+   "value": "mixed",
+   "not_reported": false,
+   "evidence_quote": "knowledge = self.retrieve_knowledge(self.config_list[0], context[\"message\"])",
+   "evidence_locator": "ehragent/medagent.py:107@7dfcaf36c230",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Metadata of EHR tables plus LLM-generated knowledge injected up front; model then runs code tools (LoadDB/FilterDB) to explore. Closest value."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The code executor runs the generated code and returns the results to the LLM.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action",
+    "native_function_calling"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"description\": \"run the entire code and return the execution result. Only generate the code.\",",
+   "evidence_locator": "ehragent/config.py:25@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "A single 'python' function whose argument is code; paper also says executor extracts code blocks from output."
+  },
+  "tool_count": {
+   "value": 1,
+   "not_reported": false,
+   "evidence_quote": "\"name\": \"python\",",
+   "evidence_locator": "ehragent/config.py:24@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only one function schema; EHR tools (LoadDB, FilterDB, GetValue, Calculator) are Python APIs callable inside code."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"functions\": [",
+   "evidence_locator": "ehragent/config.py:22@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No file-editing tool; code is regenerated whole each turn."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"description\": \"Valid Python code to execute.\",",
+   "evidence_locator": "ehragent/config.py:30@7dfcaf36c230",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "from autogen.agentchat import Agent, UserProxyAgent, ConversableAgent",
+   "evidence_locator": "ehragent/medagent.py:8@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only AutoGen conversational interface seen; no MCP/A2A in evidence."
+  },
+  "loop_primitives": {
+   "value": [
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The interaction ends either when a ‘TERMINATE’ signal appears in the generated messages or when t reaches a pre-defined threshold of stepsT .",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Generate code, execute, debug from errors, repeat; also react-like multi-turn."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "EHRAgent for-mulates a complex clinical problem-solving pro-cess as an executable code plan of action sequences",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Plan is the code itself; no stored plan object."
+  },
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "class MedAgent(UserProxyAgent):",
+   "evidence_locator": "ehragent/medagent.py:14@7dfcaf36c230",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "AutoGen two-agent chat (MedAgent executor proxy + assistant) plus debugger LLM call; closest could be single. Ambiguous."
+  },
+  "delegation_mechanism": {
+   "value": "message_bus",
+   "not_reported": false,
+   "evidence_quote": "recipient.receive(message, self, request_reply, silent)",
+   "evidence_locator": "ehragent/medagent.py:118@7dfcaf36c230",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agents exchange messages via AutoGen send/receive."
+  },
+  "human_in_loop": {
+   "value": [
+    "configurable"
+   ],
+   "not_reported": false,
+   "evidence_quote": "human_input_mode: Optional[str] = \"ALWAYS\",",
+   "evidence_locator": "ehragent/medagent.py:20@7dfcaf36c230",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "AutoGen human_input_mode parameter; main.py value not in evidence."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "reply = self.generate_reply(messages=self.chat_messages[sender], sender=sender)",
+   "evidence_locator": "ehragent/medagent.py:138@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "episodic_db"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we maintain a long-term memoryL for storing past successful code snippets and reorganizing few-shot examples by retrieving the most relevant samples fromL.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Retrieved by Levenshtein distance in retrieve_examples."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": [
+    "llm_judge",
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "this error context is presented to a ‘rubber duck’ LLM, prompting it to generate the most probable causes of the error.",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Execution feedback and separate debugger LLM call (error_debugger); not a test suite nor judge scoring strictly."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Output: Final answer (solved) or error message (unsolved) from O(t)(q).",
+   "evidence_locator": "paper Sec. 3 Algorithm 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The interaction ends either when a ‘TERMINATE’ signal appears in the generated messages or when t reaches a pre-defined threshold of stepsT .",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "cost_controls": {
+   "value": [
+    "caching"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"cache_seed\": seed,",
+   "evidence_locator": "ehragent/config.py:39@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "timeouts": {
+   "value": [
+    "per_tool"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"timeout\": 120,",
+   "evidence_locator": "ehragent/config.py:38@7dfcaf36c230",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "AutoGen llm_config timeout, likely LLM request timeout rather than tool."
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "The code executor automati-cally extracts the code from the LLM agent’s out-put and executes it within the local environment",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "The outputting results will be saved under the directory ``./logs/``.",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "ehragent/evaluate.py",
+   "evidence_locator": "file tree@7dfcaf36c230",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "to autonomously generate and execute code for complex clinical tasks within electronic health records (EHRs).",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Clinical EHR tabular reasoning."
+  },
+  "open_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Code public but no LICENSE file in evidence."
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "Our experiments are based on OpenAI API services.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "AzureOpenAI client hard-coded."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "The official repository for the code of the paper",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "main @ 7dfcaf36c230 (2024-12-26)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 7dfcaf36c230 2024-12-26",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tag; full hash not given."
+  },
+  "stars": {
+   "value": 143,
+   "not_reported": false,
+   "evidence_quote": "stars: 143",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Date of star count not stated."
+  }
+ },
+ "cells_unresolved": [
+  "A3",
+  "D3",
+  "E3",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
+  "H4",
+  "M2",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_no_line": 1,
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "A3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill-2",
+ "coded_at": "2026-09-23T10:13:56+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 109837,
+ "doc_chars": 11381,
+ "call_id": "B2-ehragent-00002",
+ "tokens_in": 22973,
+ "tokens_out": 590,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.103692"
+}

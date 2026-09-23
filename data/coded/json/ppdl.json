@@ -22,15 +22,15 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
-   "not_reported": false,
-   "evidence_quote": "Users specify the shape of data to be generated in Y AML, which makes it easy to see properly formatted prompts.",
-   "evidence_locator": "paper Sec. 2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Prompts are YAML blocks with Jinja2 expressions ${...} rendered per program."
+   "resolved": false,
+   "note": "Paper only; PDL is a language where users write prompts in YAML; no harness system prompt mechanism described."
   },
   "env_context_strategy": {
    "value": null,
@@ -40,7 +40,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Paper only; context is user-programmed."
   },
   "context_compaction": {
    "value": null,
@@ -50,32 +51,32 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Paper describes implicit context accumulation only; no config surface available."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "A PDL program implicitly accumulates the context in the background, so the input to this model call is everything that appeared before.",
-   "evidence_locator": "paper Sec. 2",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "tool_call_format": {
-   "value": [
-    "json_in_text"
-   ],
-   "not_reported": false,
-   "evidence_quote": "This may result in tool-use requests.",
-   "evidence_locator": "paper Sec. 4.1",
+   "evidence_quote": "Contribution to the background context is performed by adding a message to the sequence inpdl context",
+   "evidence_locator": "paper Sec. 3.1",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Tool-use requests from the LLM; exact format not specified in paper."
+   "note": "Messages appended as content; parsers can produce JSON (spec) but those are program-level."
+  },
+  "tool_call_format": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tool calls mentioned (Wikipedia search tool-use requests) but syntax not described."
   },
   "tool_count": {
    "value": null,
@@ -85,7 +86,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Tools are user-defined per program."
   },
   "edit_primitive": {
    "value": null,
@@ -115,163 +117,150 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No repo evidence to grep."
   },
   "loop_primitives": {
    "value": [
-    "generate_test_repair",
+    "fixed_pipeline",
     "multi_attempt",
     "tree_search"
    ],
    "not_reported": false,
-   "evidence_quote": "With SMC, during execution, particles with a low score drop their current execution path and restart from the state of a particle with a higher score.",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "high",
+   "evidence_quote": "providing a suite of plug-and-play probabilis- tic inference engines: simple majority voting, importance sampling, and particle filtering (aka. Sequential Monte Carlo or SMC).",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default/baseline IS@1 is a single trace; inference engines selectable: majority voting, importance sampling (multi_attempt), SMC (tree_search). generate_test_repair from the Rocq proof/repair loop."
+   "note": "Default is a user-written declarative flow (fixed_pipeline); majority voting/IS = multi_attempt; SMC resampling closest to tree_search. Loops/ReAct are user-programmable."
   },
   "planning_granularity": {
-   "value": "implicit",
+   "value": "none",
    "not_reported": false,
-   "evidence_quote": "The program first asks the LLM to generate an English plan for the problem at hand, then uses an LLM to judge the validity of the plan",
-   "evidence_locator": "paper Sec. 4.1",
-   "confidence": "medium",
+   "evidence_quote": "PPDL lets users specify the core logic of their program in a high-level prompting language",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Plan is free text in an application program, not a harness data structure."
+   "note": "Planning only if user writes it (e.g., Fig. 2 plan prompt)."
   },
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "Each particle represents a possible trace through the program, which might involve multiple LLM and tool calls.",
-   "evidence_locator": "paper Sec. 1",
+   "evidence_quote": "PDL programs represent the composition of calls to LLMs and tools",
+   "evidence_locator": "paper Sec. 2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "delegation_mechanism": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "a function definition, a function call, or a factor statement to update the score",
-   "evidence_locator": "paper Sec. 3.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Kernel block bodies list no agent-delegation construct."
+   "resolved": false
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Flow specifications in PPDL require no explicit inference scaling loops, as the runtime takes care of exploring a distribution of possible traces",
-   "evidence_locator": "paper Sec. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No human-approval mechanism described."
+   "resolved": false
   },
   "short_term_state": {
    "value": "structured_task_state",
    "not_reported": false,
    "evidence_quote": "During execution, the environmentSkeeps track of two special variables:S[pdl context]accumulates messages, andS[pdl score]is the trace likelihood.",
    "evidence_locator": "paper Sec. 3",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "PPDL includes constructs for variables, control structures (loops, conditionals, error handling), functions, file imports, and tool calls.",
-   "evidence_locator": "paper Sec. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No cross-run memory construct listed."
+   "resolved": false
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "launch a series of independent executions, calledpar-ticles, to estimate the posterior distribution",
-   "evidence_locator": "paper Sec. 2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "self_verification": {
    "value": [
     "linters_typecheck",
-    "llm_judge",
-    "test_execution"
+    "llm_judge"
    ],
    "not_reported": false,
-   "evidence_quote": "Line 28 shows a rule-based constraint, where we compute a score based on the errors and warnings from the flake8 linter.",
+   "evidence_quote": "Lines 14–18 score the plan that was generated using an LLM-as-a- judge",
    "evidence_locator": "paper Sec. 2",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Via factor constraints written by the user: LLM-as-judge, flake8 linter, Rocq prover verification."
+   "note": "User-written factors (LLM judge, flake8) in example programs, not harness-enforced defaults; type checking of outputs is built into PDL."
   },
   "retry_policy": {
-   "value": "until_pass",
-   "not_reported": false,
-   "evidence_quote": "IS@1: repeatedly retry until a proof is found or the token budget is exhausted",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Retry loops are program-level; SMC resampling restarts low-score particles."
+   "resolved": false,
+   "note": "Particle count configurable; no task retry policy described."
   },
   "rollback": {
-   "value": "snapshot",
-   "not_reported": false,
-   "evidence_quote": "particles with a low score drop their current execution path and restart from the state of a particle with a higher score",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Program-state rollback within SMC, not filesystem rollback."
+   "resolved": false
   },
   "termination_condition": {
-   "value": [
-    "max_tokens",
-    "test_pass"
-   ],
-   "not_reported": false,
-   "evidence_quote": "repeatedly retry until a proof is found or the token budget is exhausted",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Token budget and verifier success used in the case study."
+   "resolved": false,
+   "note": "Program ends when flow reduces to a value; token budget in case study is experiment-specific."
   },
   "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "We run all experiments with gpt-oss-120b, a temperature of 1.0, and a budget of 1M tokens.",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "timeouts": {
    "value": null,
@@ -284,14 +273,15 @@
    "resolved": false
   },
   "execution_isolation": {
-   "value": "subprocess",
-   "not_reported": false,
-   "evidence_quote": "Code blocks allow users to compose LLM calls with arbitrary code written in Python, Jinja2, or Shell.",
-   "evidence_locator": "paper Sec. 2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "Code blocks run Python/Jinja/Shell; isolation not described."
   },
   "filesystem_access": {
    "value": null,
@@ -314,15 +304,14 @@
    "resolved": false
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Code blocks allow users to compose LLM calls with arbitrary code written in Python, Jinja2, or Shell.",
-   "evidence_locator": "paper Sec. 2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No authorization mechanism described; code blocks execute directly."
+   "resolved": false
   },
   "tracing": {
    "value": null,
@@ -345,77 +334,17 @@
    "resolved": false
   },
   "eval_hooks": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "For each benchmark, we write a PPDL program to capture the logic of interacting with LLMs and add factors",
-   "evidence_locator": "paper Sec. 4.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Benchmarks run via user-written PPDL programs; no built-in eval runner described."
+   "resolved": false,
+   "note": "Benchmarks evaluated in paper but repo not in evidence."
   },
   "guardrails": {
-   "value": [
-    "action_policies"
-   ],
-   "not_reported": false,
-   "evidence_quote": "A hard constraint corre-sponds to afactorwith parameter−∞(probability0in log space).",
-   "evidence_locator": "paper Sec. 3",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Hard constraints kill traces rather than gate actions; closest value."
-  },
-  "target_domain": {
-   "value": [
-    "general_tool_use",
-    "research",
-    "swe"
-   ],
-   "not_reported": false,
-   "evidence_quote": "PPDL, the first probabilistic prompt programming language for flows of LLM and tool calls.",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Evaluated on code generation and theorem proving."
-  },
-  "open_source": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "PPDL is open-source and distributed with PDL:https://github.com/IBM/prompt-declaration-language/tree/icml-26.",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Licence file not seen."
-  },
-  "model_agnostic": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "PDL is based on LiteLLM, so this is a LiteLLM id for a watsonX model",
-   "evidence_locator": "paper Sec. 2",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "primary_artifact": {
-   "value": "paper",
-   "not_reported": false,
-   "evidence_quote": "PPDL is open-source and distributed with PDL:https://github.com/IBM/prompt-declaration-language/tree/icml-26.",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Coded from the paper; the icml-26 branch is the frozen artifact."
-  },
-  "first_release_date": {
    "value": null,
    "not_reported": true,
    "evidence_quote": "",
@@ -425,16 +354,71 @@
    "flags": [],
    "resolved": false
   },
-  "pinned_version": {
-   "value": "icml-26 branch (no commit hash available)",
+  "target_domain": {
+   "value": [
+    "general_tool_use"
+   ],
    "not_reported": false,
-   "evidence_quote": "https://github.com/IBM/prompt-declaration-language/tree/icml-26",
+   "evidence_quote": "PPDL is designed for developers and re- searchers who build multi-step LLM or agentic workflows",
    "evidence_locator": "paper Sec. 1",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "PPDL is open-source and distributed with PDL",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
    "resolved": true,
-   "note": "Only a branch name is given in the evidence."
+   "note": "License file not in evidence."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "PDL is based on LiteLLM",
+   "evidence_locator": "paper Sec. 2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "paper",
+   "not_reported": false,
+   "evidence_quote": "PPDL is open-source and distributed with PDL:https:// github.com/IBM/prompt-declaration-language/tree/icml-26.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only paper in evidence; code branch icml-26 frozen to paper."
+  },
+  "first_release_date": {
+   "value": "2026-08-05",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2608.05234v1 [cs.LG] 5 Aug 2026",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fallback to paper v1 date; no tag info."
+  },
+  "pinned_version": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Branch icml-26 named but no commit hash."
   },
   "stars": {
    "value": null,
@@ -448,33 +432,47 @@
   }
  },
  "cells_unresolved": [
+  "A1",
   "A2",
   "A3",
+  "B1",
   "B2",
   "B3",
   "B4",
   "B5",
+  "C4",
+  "C5",
+  "D2",
+  "D3",
+  "E2",
+  "E3",
+  "F1",
+  "F2",
   "F3",
+  "G1",
   "G2",
   "G3",
+  "G4",
   "H1",
   "H2",
-  "M5",
+  "H3",
+  "H4",
+  "M6",
   "M7"
  ],
  "flag_counts": {},
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:56:09+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:45:47+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 45408,
  "doc_chars": 45748,
- "call_id": "A-ppdl-00239",
- "tokens_in": 41568,
- "tokens_out": 3230,
+ "call_id": "A-ppdl-00023",
+ "tokens_in": 42070,
+ "tokens_out": 2656,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.288590"
+ "cost_usd": "0.221400"
 }

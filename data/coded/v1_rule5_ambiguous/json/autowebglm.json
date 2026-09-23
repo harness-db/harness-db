@@ -1,0 +1,525 @@
+{
+ "system_id": "autowebglm",
+ "name": "AutoWebGLM",
+ "version": "",
+ "repo_url": "https://github.com/thudm/autowebglm",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 109909,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2404.03648",
+    "chars_available": 31649,
+    "chars_used": 21805,
+    "truncated": true
+   },
+   {
+    "kind": "repo",
+    "record_id": "s2_snowball:1bdf6986738a32043bf6d267c214323b4fbef6e7",
+    "chars_available": 31649,
+    "chars_used": 21805,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2404.03648",
+    "chars_available": 44884,
+    "chars_used": 32707,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2_snowball:1bdf6986738a32043bf6d267c214323b4fbef6e7",
+    "chars_available": 44884,
+    "chars_used": 32707,
+    "truncated": true
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "miniwob_prompt = \"\"\"<html> %s </html>\n\nYou are a helpful assistant that can assist with web navigation tasks.",
+   "evidence_locator": "miniwob++/miniwob_tools/configs/prompt.py:1@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "%s slots for HTML, viewport, previous operation, task"
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "we use our HTML parser to identify operable components in each webpage",
+   "evidence_locator": "paper Sec. 4.1.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Simplified HTML tree of the current page is injected each step; closest value is file_tree_summary (a DOM outline rather than a file tree)."
+  },
+  "context_compaction": {
+   "value": [
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "HTML Pruner can efficiently convert a tree of elements into a concise representation.",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Observation (HTML) is pruned/simplified before entering the prompt; history is only a 'Previous Operation' string."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "#Current viewport position: %s\n\n#Previous Operation: %s\n\n#Task: %s",
+   "evidence_locator": "miniwob++/miniwob_tools/configs/prompt.py:1@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Screenshots go to an OCR module, not to the model."
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action",
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "You should output one command to interact to the currrent webpage.",
+   "evidence_locator": "miniwob++/miniwob_tools/configs/prompt.py:1@eb8524e55cc3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Default new action space has the model emit a function call like click('B'); an older format emits '#Operation: #Click# id'. Neither is native function calling; closest values chosen, parsed by extract_action/create_id_based_action."
+  },
+  "tool_count": {
+   "value": 10,
+   "not_reported": false,
+   "evidence_quote": "click(id) Click at an element\nhover(id) Hover on an element\nselect(id, option) Select option in an element",
+   "evidence_locator": "paper Sec. 3.2, Table 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Table 1 lists click, hover, select, type_string, scroll_page, go, jump_to, switch_tab, user_input, finish."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "𝐴 ={click, scroll, type,... }",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Web navigation agent; action space contains no file-editing primitive."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "#Provided functions:\ndef click(element_id: str) -> None:",
+   "evidence_locator": "miniwob++/miniwob_tools/configs/prompt.py:1@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Function signatures are hand-written in the prompt string."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we define a complete and self-consistent action space (in Table 1) for the language model to act in the web browsing world",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Proprietary action space only; no MCP/A2A in repo evidence."
+  },
+  "loop_primitives": {
+   "value": [
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "class PromptAgent(Agent):\n    \"\"\"prompt-based agent that emits action given the history\"\"\"",
+   "evidence_locator": "webarena/agent/agent.py@eb8524e55cc3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "PromptAgent calls the LLM once per step to predict the next action from the trajectory (observe -> act loop). The inner `while True` loop re-queries only on ActionParsingError, up to gen_config max_retry; that is step-level format retry, not multi_attempt. The excerpt does not show the outer episode loop, and line numbers are not available in the excerpt. TeacherForcingAgent replays a fixed reference action sequence and is not a model loop."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "#Thinking Process: {Your thinking process to complete the task, including detailed analysis.",
+   "evidence_locator": "miniwob++/miniwob_tools/configs/prompt.py:1@eb8524e55cc3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Free-text thinking process; no stored plan object."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "AutoWebGLM, based solely on a single ChatGLM3-6B, has a robust web browsing capability",
+   "evidence_locator": "paper Sec. 2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Our system comprises two key components: interaction framework and LM agent.",
+   "evidence_locator": "paper Fig. 3 caption",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": [
+    "on_permission"
+   ],
+   "not_reported": false,
+   "evidence_quote": "user_input(message) Notify user to interact",
+   "evidence_locator": "paper Sec. 3.2, Table 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Model-invoked pause for user interaction; no per-action approval gate."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "#Previous commands: %s",
+   "evidence_locator": "miniwob++/miniwob_tools/configs/prompt.py:1@eb8524e55cc3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "State is the current observation plus a previous-operations string."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "We identify four critical indicators for web browsing tasks: task description, simplified HTML, current location, and past operation records.",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No cross-run memory in the observation space."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "This iteration ceases when the action𝐴𝑡 is finish or reaches the maximum length.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No resume path reported."
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Existing agents notably lack the capability for correct inference and self-checking on web tasks.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No harness-enforced verifier at inference; RL/RFT verification happens at training time."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "if n >= lm_config.gen_config[\"max_retry\"]:",
+   "evidence_locator": "webarena/agent/agent.py:151@eb8524e55cc3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only step-level re-query on action parsing errors, not task-level retry."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "go(direction) Go forward or backward of the page",
+   "evidence_locator": "paper Sec. 3.2, Table 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only browser back-navigation; no state rollback mechanism."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "This iteration ceases when the action𝐴𝑡 is finish or reaches the maximum length.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "due to the high cost of deploying such large language models, smaller models with lower costs and comparable capabilities are usually preferred",
+   "evidence_locator": "paper Sec. 2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No budget/cache mechanism found in evidence."
+  },
+  "timeouts": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "iterative cycle persists until task termination",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No timeout reported in the available evidence."
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "We develop and deploy a Chrome extension based on AutoWebGLM",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Actions run in the user's browser via an extension / automated browsing program; evaluation uses modified WebArena and MiniWob++ environments."
+  },
+  "filesystem_access": {
+   "value": "virtual",
+   "not_reported": false,
+   "evidence_quote": "the automated web program is employed for action execution",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agent only acts on the webpage DOM; no filesystem access is exposed."
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "jump_to(url, newtab) Jump to URL",
+   "evidence_locator": "paper Sec. 3.2, Table 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Arbitrary URL navigation; no egress restriction reported."
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Upon outputting action, the automated web program is employed for action execution",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "action[\"raw_prediction\"] = response",
+   "evidence_locator": "webarena/agent/agent.py:146@eb8524e55cc3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Raw predictions recorded per action; no structured trace exporter shown."
+  },
+  "replayability": {
+   "value": "partial",
+   "not_reported": false,
+   "evidence_quote": "class TeacherForcingAgent(Agent):\n    \"\"\"Agent that follows a pre-defined action sequence\"\"\"",
+   "evidence_locator": "webarena/agent/agent.py:52@eb8524e55cc3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "A recorded action sequence can be replayed against the environment."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "After obtaining the output file, the score can be obtained through ```python eval.py [result_path]```.",
+   "evidence_locator": "README.md@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Equip me with a gun\nthrough this website.",
+   "evidence_locator": "paper Fig. 4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Unsafe tasks are filtered manually during data construction, not by a runtime guardrail."
+  },
+  "target_domain": {
+   "value": [
+    "web"
+   ],
+   "not_reported": false,
+   "evidence_quote": "AutoWebGLM: A Large Language Model-based Web Navigating Agent",
+   "evidence_locator": "paper title",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "This repository is licensed under the [Apache-2.0 License](LICENSE).",
+   "evidence_locator": "README.md@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "we develop the open AutoWebGLM based on ChatGLM3-6B",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agent is a finetuned ChatGLM3-6B; WebArena eval code does wrap multiple LLM backends."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "This is the official implementation of AutoWebGLM.",
+   "evidence_locator": "README.md@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2024-04-04",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2404.03648v2 [cs.CL] 12 Oct 2024",
+   "evidence_locator": "paper p. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tags in evidence; basis is arXiv v1 identifier date (2404)."
+  },
+  "pinned_version": {
+   "value": "commit:main eb8524e55cc3 (2024-09-27)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main eb8524e55cc3 2024-09-27",
+   "evidence_locator": "repository evidence header@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No tagged releases; pinned to main."
+  },
+  "stars": {
+   "value": 930,
+   "not_reported": false,
+   "evidence_quote": "stars: 930",
+   "evidence_locator": "repository evidence header@eb8524e55cc3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  }
+ },
+ "cells_unresolved": [],
+ "flag_counts": {
+  "locator_no_line": 6
+ },
+ "history": {
+  "C1": {
+   "superseded_pass": "A",
+   "value": "react",
+   "flags": "quote_not_in_bundle",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T03:52:43+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 109909,
+ "doc_chars": 12518,
+ "call_id": "B-autowebglm-00348",
+ "tokens_in": 21777,
+ "tokens_out": 282,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.092748"
+}

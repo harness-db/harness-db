@@ -1,0 +1,581 @@
+{
+ "system_id": "opensil-ut-authoring-workflow",
+ "name": "openSIL UT authoring workflow",
+ "version": "",
+ "repo_url": "",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 104653,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2606.19725",
+    "chars_available": 50840,
+    "chars_used": 43782,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2606.19725",
+    "chars_available": 60420,
+    "chars_used": 60420,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "Each LLM stage in the workflow uses a modular prompt template with the same general organization, while the content of each section is specialized to the task at hand.",
+   "evidence_locator": "paper Sec. 4.8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Stage-specific templates with inputs (FUT, logs, retrieved context); arguably dynamically_composed when VDB context is injected."
+  },
+  "env_context_strategy": {
+   "value": "embedding_rag",
+   "not_reported": false,
+   "evidence_quote": "a VDB implemented using Chroma stores and retrieves existing functions (knowledge base), existing UTs (ground truth), and reusable test doubles (libraries).",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "VDB retrieval is a configuration option (LCA-only disables it); the model does not navigate with tools."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Fixes problems found by the build or test run (compile errors, link errors, test run issues, or coverage gaps) using small edits.",
+   "evidence_locator": "paper Sec. 4.6",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Build logs, dispatcher output and LCOV hit/miss maps are fed as text."
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Each LLM step must return its output in a fixed format, so the workflow can reliably read and apply it. In our implementation, we use output schemas for:",
+   "evidence_locator": "paper Sec. 4.8",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Structured output schemas via LangChain; the exact mechanism is not stated. This is closer to fixed-pipeline outputs than to tool calls."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tools are exposed to the model; the LLM stages are nodes in a graph."
+  },
+  "edit_primitive": {
+   "value": [
+    "search_replace",
+    "whole_file_rewrite"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Repair/refinement edits: returns small, specific edits to apply when fixing build/test failures or improving coverage.",
+   "evidence_locator": "paper Sec. 4.8",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The drafting stage emits full ut_c/ut_h files; the repair stage emits small edits whose format is unspecified."
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The automated workflow is implemented as a state graph consisting of 11 steps (Figure 5).",
+   "evidence_locator": "paper Sec. 4.6",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "A LangGraph pipeline with a compile/dispatch/resolve repair loop."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "Steps: This section provides the stage-by-stage procedure the model should follow.",
+   "evidence_locator": "paper Sec. 4.8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "a workflow using multiple specialized LLM agents: some draft the initial UT files, others fix build issues using compiler/linker logs",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "LangGraph StateGraphhandles the workflow orchestration as a set of steps (nodes) with iterative loops",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fixed hand-off between graph nodes through shared state."
+  },
+  "human_in_loop": {
+   "value": [
+    "configurable",
+    "on_completion"
+   ],
+   "not_reported": false,
+   "evidence_quote": "In interactive mode, a user may review intermediate outputs and provide feedback; in non-interactive mode, execution is fully automated and governed by predefined stopping criteria.",
+   "evidence_locator": "paper Sec. 4.6",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Feedback happens at the break_point_2 iteration gate; which mode is the default is not stated."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "load— Initializes workflow state and validates inputs.",
+   "evidence_locator": "paper Sec. 4.6",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "LangGraph state object."
+  },
+  "long_term_memory": {
+   "value": [
+    "vector_store"
+   ],
+   "not_reported": false,
+   "evidence_quote": "it maintains three Chroma collections and issues one targeted query per collection:",
+   "evidence_locator": "paper Sec. 4.5",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The collections are a prebuilt project index rather than memory from past runs."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": [
+    "self_critique",
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "compile_node— Builds the UT with EDK II and saves the compiler/linker output",
+   "evidence_locator": "paper Sec. 4.6",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Adds a harness-run build, dispatch and LCOV coverage step; prompts contain a Validation section."
+  },
+  "retry_policy": {
+   "value": "until_pass",
+   "not_reported": false,
+   "evidence_quote": "The system maintains a structured loop that continues until either a coverage threshold is reached or a maximum number of iterations is exceeded.",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Default target is 90% coverage, with a limit of 10 iterations."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "stall_detection",
+    "test_pass"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The workflow stops when any of the following happens: (i) the non-interactive coverage target is reached (90% or above by default), (ii) coverage stops improving under break_point_2, or (iii) the workflow reaches its set iteration limit.",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "cost_controls": {
+   "value": [
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The workflow was instantiated with three commercially available LLMs selected to balance capability and computational cost.",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Models are assigned per stage by task."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "All experiments ran on a Windows machine with the EDK II build environment installed",
+   "evidence_locator": "paper Sec. 5",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "dispatch_node — Runs the UT, saves the run logs, and generates coverage using LCOV",
+   "evidence_locator": "paper Sec. 4.6",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The harness code is not public."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If a symbol is on the list, the workflow avoids generating a new definition for it.",
+   "evidence_locator": "paper Sec. 4.8",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Also applies template-constrained edit regions."
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "This study introduces an automated UT authoring workflow for the Open-Source Silicon Initialization Library (openSIL) firmware codebase",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "Additional code used in this work cannot be made publicly available due to legal and contractual restrictions",
+   "evidence_locator": "paper Data Availability Statement",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only the target codebase openSIL is MIT-licensed; the harness is closed."
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "the LLM interactions are managed throughLangChain ChatOpenAI.",
+   "evidence_locator": "paper Sec. 4.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "paper",
+   "not_reported": false,
+   "evidence_quote": "A pseudocode representation of the workflow pipeline developed in this study is provided as Supplementary Material",
+   "evidence_locator": "paper Data Availability Statement",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The linked repo is the target codebase, not the harness."
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper v2 is dated 21 Jun 2026; the v1 date is not given."
+  },
+  "pinned_version": {
+   "value": "arXiv:2606.19725v2",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2606.19725v2 [cs.SE] 21 Jun 2026",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No harness repo exists. The provided repo, openSIL genoa_poc@632b97619c45, is the evaluation target (the paper used phoenix_poc), not the harness."
+  },
+  "stars": {
+   "value": 590,
+   "not_reported": false,
+   "evidence_quote": "ref: commit:genoa_poc 632b97619c45 2026-06-09, stars: 590",
+   "evidence_locator": "https://github.com/openSIL/openSIL evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "The star count is for the openSIL firmware repo, not a harness repo. The count's date is not stated; the date shown is the commit date."
+  }
+ },
+ "cells_unresolved": [
+  "A3",
+  "B2",
+  "B4",
+  "B5",
+  "D3",
+  "E3",
+  "F3",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
+  "H3",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 1
+ },
+ "history": {
+  "A3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "A",
+   "value": "",
+   "flags": "",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill-2",
+ "coded_at": "2026-09-23T10:14:11+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 104653,
+ "doc_chars": 12747,
+ "call_id": "B2-opensil-ut-authoring-workflow-00012",
+ "tokens_in": 24843,
+ "tokens_out": 907,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.117512"
+}

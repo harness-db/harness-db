@@ -33,63 +33,66 @@
    "not_reported": false,
    "evidence_quote": "Retrieved results are then injected into the system prompt.",
    "evidence_locator": "paper Sec. 3.2",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Agent ORM has a `system` field; active retrieval injects memories into the system prompt per step."
+   "note": "Active Retrieval injects memories into system prompt; no prompt-assembly code in bundle."
   },
   "env_context_strategy": {
-   "value": "embedding_rag",
+   "value": "mixed",
    "not_reported": false,
-   "evidence_quote": "this topic is used to retrieve relevant memories from each memory component. Retrieved results are then injected into the system prompt.",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "medium",
+   "evidence_quote": "it first performs an automatic search over the memory base upon receiving a user query.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Also BM25 and string match retrieval tools; not a code repo domain so 'environment' = memory base."
+   "note": "Automatic retrieval injection plus agent-chosen retrieval tools (embedding_match, bm25_match, string_match). Environment is memory store, not repo."
   },
   "context_compaction": {
    "value": [
-    "summarize",
-    "truncate_oldest"
+    "summarize"
    ],
    "not_reported": false,
-   "evidence_quote": "Summarization preserves the last 5 messages (`keep_last_n_messages = 5`)\n- Summary is prepended; old messages are trimmed",
+   "evidence_quote": "Summary is prepended; old messages are trimmed",
    "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "summarize_messages in mirix/memory.py; tool return_char_limit field suggests possible output pruning but not confirmed."
   },
   "observation_format": {
    "value": [
-    "raw_text",
-    "screenshots"
+    "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "**Multi-Modal Input:** Text, images, voice, and screen captures processed seamlessly",
-   "evidence_locator": "README.md@7e18a5162925",
-   "confidence": "high",
+   "evidence_quote": "content_str += content.text + \"\\n\"",
+   "evidence_locator": "mirix/memory.py@7e18a5162925",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Observation conversion code not in bundle; inferred from text message content."
   },
   "tool_call_format": {
    "value": [
     "native_function_calling"
    ],
    "not_reported": false,
-   "evidence_quote": "it requires the language model to have strong abilities on function calling",
-   "evidence_locator": "paper Sec. 4.1.2",
+   "evidence_quote": "The OAI compatable JSON schema of the function.",
+   "evidence_locator": "mirix/orm/tool.py@7e18a5162925",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Tool ORM stores 'The OAI compatable JSON schema of the function.'"
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
   },
   "tool_count": {
    "value": null,
@@ -99,50 +102,51 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Tool list per agent not in the truncated bundle."
   },
   "edit_primitive": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "| `USER_DEFINED` | `ToolExecutionSandbox(...).run()` — isolated sandbox |",
+   "evidence_quote": "| `MIRIX_CORE` | `get_function_from_module(MIRIX_CORE_TOOL_MODULE_NAME, name)` |",
    "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "scalar_for_multi",
+    "locator_no_line"
    ],
-   "resolved": true,
-   "note": "No file-editing tool registered in the tool-type table; tools are memory tools."
+   "resolved": false,
+   "note": "Memory system; tool types list shows no file-editing tool. Memory edit tools only."
   },
   "tool_schema_source": {
    "value": [
-    "hand_written",
+    "auto_generated",
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "json_schema: Mapped[Optional[dict]] = mapped_column(\n        JSON, default=lambda: {}, doc=\"The OAI compatable JSON schema of the function.\"",
+   "evidence_quote": "This affects whether or not we generate json_schema and source_code on the fly.",
    "evidence_locator": "mirix/orm/tool.py@7e18a5162925",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true,
-   "note": "MCP tool type listed in docs/ARCHITECTURE.md; schema may also be generated on the fly from source code."
+   "resolved": true
   },
   "protocol_standardization": {
    "value": [
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "| `MCP` | Model Context Protocol — arguments passed as-is |",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
+   "evidence_quote": "List of connected MCP server names (e.g., ['gmail-native'])",
+   "evidence_locator": "mirix/orm/agent.py@7e18a5162925",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true
   },
@@ -154,74 +158,73 @@
    "not_reported": false,
    "evidence_quote": "Agents loop through `inner_step()` calls until a terminal tool is called",
    "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "event_driven via Kafka async memory extraction queue."
+   "note": "event_driven: Kafka async memory extraction queue."
   },
   "planning_granularity": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Agents loop through `inner_step()` calls until a terminal tool is called",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [
-    "locator_shape_unrecognised"
+    "not_reported_with_value"
    ],
-   "resolved": true,
-   "note": "No plan object in the chaining loop; procedural memory stores how-to steps but is not a run plan."
+   "resolved": false,
+   "note": "Set not_reported: no planning mechanism declared place in bundle."
   },
   "multi_agent_topology": {
    "value": "orchestrator_workers",
    "not_reported": false,
-   "evidence_quote": "we adopt a multi-agent architecture: six Memory Managers for six memory components, and a Meta Memory Manager responsible for task routing",
-   "evidence_locator": "paper Sec. 1",
+   "evidence_quote": "The Meta Memory Manager then analyzes the content and determines which memory components are relevant, routing the input to the corresponding Memory Managers.",
+   "evidence_locator": "paper Sec. 3.3",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "delegation_mechanism": {
-   "value": "role_handoff",
+   "value": "subagent_spawn",
    "not_reported": false,
-   "evidence_quote": "The Meta Memory Manager then analyzes the content and determines which memory components are relevant, routing the input to the corresponding Memory Managers.",
-   "evidence_locator": "paper Sec. 3.3",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Sub-agents are persistent agent records (parent_id) rather than newly spawned per task."
-  },
-  "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Agents loop through `inner_step()` calls until a terminal tool is called",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No confirmation/approval step in the documented execution loop; user interacts only as chat."
-  },
-  "short_term_state": {
-   "value": "conversation_only",
-   "not_reported": false,
-   "evidence_quote": "message_ids: Mapped[Optional[List[str]]] = mapped_column(\n        JSON, nullable=True, doc=\"List of message IDs in in-context memory.\"",
+   "evidence_quote": "The parent agent ID (for sub-agents in a meta-agent).",
    "evidence_locator": "mirix/orm/agent.py@7e18a5162925",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Sub-agents are persistent agents invoked by meta agent; closest value."
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No approval/confirmation config surface in bundle."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "List of message IDs in in-context memory.",
+   "evidence_locator": "mirix/orm/agent.py@7e18a5162925",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "AgentState with core memory blocks, tool rules."
   },
   "long_term_memory": {
    "value": [
@@ -234,62 +237,52 @@
    "evidence_locator": "README.md@7e18a5162925",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Procedural memory = skill library; pgvector embeddings = vector store; episodic memory persisted in PostgreSQL."
+   "note": "PostgreSQL+pgvector; procedural memory as skill library."
   },
   "state_persistence": {
-   "value": "full_resume",
-   "not_reported": false,
-   "evidence_quote": "message_ids: Mapped[Optional[List[str]]] = mapped_column(\n        JSON, nullable=True, doc=\"List of message IDs in in-context memory.\"",
-   "evidence_locator": "mirix/orm/agent.py@7e18a5162925",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Agent state incl. in-context message list and system prompt persisted in PostgreSQL, so a server restart continues the same agent."
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Agent state persisted in DB but resume path not shown."
   },
   "self_verification": {
-   "value": [
-    "self_critique"
-   ],
-   "not_reported": false,
-   "evidence_quote": "| `reflexion_agent` | `AgentType.reflexion_agent` | Self-reflection and learning |",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "When `max_chaining_steps` is reached, agents are directed to call their terminal tool immediately.",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No task-level retry in the documented loop."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Old edge gets `expired_at = now()`\n- New edge is inserted\n- History is preserved (not deleted)",
-   "evidence_locator": "docs/graph_memory_v2.md@7e18a5162925",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No rollback of actions; only memory versioning/expiry."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "termination_condition": {
    "value": [
@@ -297,29 +290,25 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "**Chat agents** terminate on `send_message()` — delivers response to user",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "max_chaining_steps provides the step cap."
-  },
-  "cost_controls": {
-   "value": [
-    "caching"
-   ],
-   "not_reported": false,
-   "evidence_quote": "| Redis Stack | `redis/redis-stack-server` | 6379 | Caching, fast lookups |",
+   "evidence_quote": "When `max_chaining_steps` is reached, agents are directed to call their terminal tool immediately.",
    "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Terminal tools send_message / finish_memory_update."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "timeouts": {
    "value": [
@@ -330,153 +319,26 @@
    "evidence_locator": "mirix/schemas/sandbox_config.py@7e18a5162925",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "E2B sandbox only, for user-defined tools."
   },
   "execution_isolation": {
-   "value": "container",
+   "value": "subprocess",
    "not_reported": false,
-   "evidence_quote": "**Step 1: Backend & Dashboard (Docker):**\n```\ndocker compose up -d --pull always\n```",
-   "evidence_locator": "README.md@7e18a5162925",
-   "confidence": "medium",
+   "evidence_quote": "Whether or not to use the venv, or run directly in the same run loop.",
+   "evidence_locator": "mirix/schemas/sandbox_config.py@7e18a5162925",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "User-defined tools additionally run in a LOCAL or E2B sandbox."
+   "note": "User-defined tools in local sandbox by default; E2B remote alternative; core tools in-process."
   },
   "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "sandbox_dir: str = Field(..., description=\"Directory for the sandbox environment.\")",
-   "evidence_locator": "mirix/schemas/sandbox_config.py@7e18a5162925",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Tool execution is confined to a sandbox directory; memory storage is a database."
-  },
-  "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "pip_requirements: Optional[List[str]] = Field(\n        None, description=\"A list of pip packages to install on the E2B Sandbox\"\n    )",
-   "evidence_locator": "mirix/schemas/sandbox_config.py@7e18a5162925",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No network restriction option appears in the sandbox config; package installs imply egress."
-  },
-  "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "| `USER_DEFINED` | `ToolExecutionSandbox(...).run()` — isolated sandbox |",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No per-action authorization; tools execute directly. Tool rules exist on the agent ORM but govern ordering."
-  },
-  "tracing": {
-   "value": "logs",
-   "not_reported": false,
-   "evidence_quote": "from mirix.log import get_logger",
-   "evidence_locator": "mirix/config.py@7e18a5162925",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Messages are also persisted per agent in PostgreSQL."
-  },
-  "replayability": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "messages: Mapped[List[\"Message\"]] = relationship(",
-   "evidence_locator": "mirix/orm/agent.py@7e18a5162925",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No replay path found in the provided evidence."
-  },
-  "eval_hooks": {
-   "value": "built_in",
-   "not_reported": false,
-   "evidence_quote": "The complete code for our evaluation and the predicted results from various baselines and MIRIX are provided in the public_evaluation branch",
-   "evidence_locator": "paper Sec. 4.1.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Evaluation code lives in a separate branch of the same repo."
-  },
-  "guardrails": {
-   "value": [
-    "action_policies"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Entries with high sensitivity are protected via access control and excluded from casual retrieval to prevent misuse or leakage.",
-   "evidence_locator": "paper Sec. 3.1",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Closest fit: retrieval-level access control on Knowledge Vault entries."
-  },
-  "target_domain": {
-   "value": [
-    "general_tool_use",
-    "other"
-   ],
-   "not_reported": false,
-   "evidence_quote": "MIRIX - Multi-Agent Personal Assistant with an Advanced Memory System",
-   "evidence_locator": "README.md@7e18a5162925",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "'other' = personal memory/assistant system; screen observation."
-  },
-  "open_source": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "Mirix is released under the Apache License 2.0.",
-   "evidence_locator": "README.md@7e18a5162925",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "model_agnostic": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "| `mirix/llm_api/` | LLM provider clients (OpenAI, Anthropic, Google, etc.) |",
-   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true
-  },
-  "primary_artifact": {
-   "value": "repo",
-   "not_reported": false,
-   "evidence_quote": "**Date**: 2026-04-03  \n**Status**: Implemented & Evaluated",
-   "evidence_locator": "docs/graph_memory_v2.md@7e18a5162925",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Pinned repo state postdates the 2025 paper."
-  },
-  "first_release_date": {
    "value": null,
    "not_reported": true,
    "evidence_quote": "",
@@ -486,50 +348,199 @@
    "flags": [],
    "resolved": false
   },
-  "pinned_version": {
-   "value": "tag:graph_revision_pre_squash @ 7e18a5162925 (2026-07-23)",
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "tool_rules exist but semantics not shown."
+  },
+  "tracing": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "none",
    "not_reported": false,
-   "evidence_quote": "ref: tag:graph_revision_pre_squash 7e18a5162925 2026-07-23",
-   "evidence_locator": "repository evidence header@7e18a5162925",
+   "evidence_quote": "The complete code for our evaluation and the predicted results from various baselines and MIRIX are provided in the public_evaluation branch3 in our official repository.",
+   "evidence_locator": "paper Sec. 4.1.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Evaluation in separate branch, not pinned ref."
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Your personal AI that builds memory through screen observation and natural conversation",
+   "evidence_locator": "README.md@7e18a5162925",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Personal assistant memory system."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "Mirix is released under the Apache License 2.0.",
+   "evidence_locator": "README.md@7e18a5162925",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
    ],
    "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "LLM provider clients (OpenAI, Anthropic, Google, etc.)",
+   "evidence_locator": "docs/ARCHITECTURE.md@7e18a5162925",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "Graph Memory adds a temporal knowledge graph on top of MIRIX's existing flat episodic and semantic memory.",
+   "evidence_locator": "docs/graph_memory_v2.md@7e18a5162925",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Repo postdates paper (v2 graph memory)."
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper v1 dated 10 Jul 2025 but tag data absent."
+  },
+  "pinned_version": {
+   "value": "tag:graph_revision_pre_squash @ 7e18a5162925 (2026-07-23)",
+   "not_reported": false,
+   "evidence_quote": "",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "missing_quote",
+    "locator_shape_unrecognised"
+   ],
+   "resolved": false,
+   "note": "Only short hash given."
   },
   "stars": {
    "value": 3444,
    "not_reported": false,
-   "evidence_quote": "stars: 3444",
-   "evidence_locator": "repository evidence header@7e18a5162925",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": false,
+   "note": "Date of star count not stated."
   }
  },
  "cells_unresolved": [
   "B2",
-  "M5"
+  "B3",
+  "C2",
+  "C5",
+  "D3",
+  "E1",
+  "E2",
+  "E3",
+  "F2",
+  "G2",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H4",
+  "M5",
+  "M6",
+  "M7"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 20
+  "locator_no_line": 17,
+  "scalar_for_multi": 1,
+  "not_reported_with_value": 1,
+  "missing_quote": 2,
+  "locator_shape_unrecognised": 2
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:46:19+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:31:23+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 89249,
  "doc_chars": 89576,
- "call_id": "A-mirix-00147",
- "tokens_in": 57206,
- "tokens_out": 4241,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.392055"
+ "call_id": "A-mirix-00149",
+ "tokens_in": 57746,
+ "tokens_out": 3243,
+ "cache_read": 16883,
+ "cache_write": 40861,
+ "cost_usd": "0.395133"
 }

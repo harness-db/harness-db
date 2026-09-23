@@ -31,24 +31,24 @@
   "system_prompt_style": {
    "value": "templated",
    "not_reported": false,
-   "evidence_quote": "Instead of free-form string prompts, DSPy programs use natural language signatures to assign work to the LM.",
+   "evidence_quote": "DSPy will parse this notation and expand the field names into meaningful instructions for the LM",
    "evidence_locator": "paper Sec. 3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Signature-based prompt built by adapter format_system_message; optimizers can rewrite instructions."
-  },
-  "env_context_strategy": {
-   "value": "agent_driven_navigation",
-   "not_reported": false,
-   "evidence_quote": "react = dspy.ReAct(\"question -> answer\", tools=[dspy.Retrieve(k=1)], max_iters=5)",
-   "evidence_locator": "paper Sec. 7",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "ReAct explores via user-supplied tools; retrieval tools are optional user choices."
+   "note": "Adapters (format_system_message) render signature into prompt; adapter source not in evidence. Optimizers can rewrite instructions (model_generated reachable via optimizers)."
+  },
+  "env_context_strategy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "ReAct module source not in evidence; environment context depends on user tools."
   },
   "context_compaction": {
    "value": null,
@@ -58,33 +58,32 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "ReAct loop source (trajectory truncation) not in evidence bundle."
   },
   "observation_format": {
-   "value": [
-    "raw_text"
-   ],
-   "not_reported": false,
-   "evidence_quote": "which consume a prompt string and return text completions",
-   "evidence_locator": "paper Sec. 3 footnote 3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "Observation formatting code not in evidence."
   },
   "tool_call_format": {
    "value": [
-    "json_in_text",
     "native_function_calling"
    ],
    "not_reported": false,
-   "evidence_quote": "def format_as_litellm_function_call(self):\n        return {\n            \"type\": \"function\",",
-   "evidence_locator": "dspy/adapters/types/tool.py:153-156@638e155cf725",
+   "evidence_quote": "def format_as_litellm_function_call(self):",
+   "evidence_locator": "dspy/adapters/types/tool.py:156@638e155cf725",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "ChatAdapter/JSONAdapter field-based parsing is the default for ReAct; native function-call formatting available."
+   "note": "Adapters list ChatAdapter/JSONAdapter/XMLAdapter; CodeAct/RLM use code_as_action. Default ReAct parser not in evidence; line approximate."
   },
   "tool_count": {
    "value": null,
@@ -95,20 +94,18 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Tool list is user-supplied; no shipped default tool set visible in evidence."
+   "note": "Tools are user-supplied; ReAct's built-in finish tool not visible in evidence."
   },
   "edit_primitive": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "This class is used to simplify the creation of tools for tool calling (function calling) in LLMs. Only supports functions for now.",
-   "evidence_locator": "dspy/adapters/types/tool.py:26-29@638e155cf725",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No file-editing tool ships; tools are arbitrary Python functions."
+   "resolved": false,
+   "note": "No shipped edit tool visible; tool registry is user-defined."
   },
   "tool_schema_source": {
    "value": [
@@ -116,107 +113,101 @@
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "automatically infer the values from the function",
-   "evidence_locator": "dspy/adapters/types/tool.py:48-50@638e155cf725",
-   "confidence": "high",
+   "evidence_quote": "args[k] = _resolve_json_schema_reference(TypeAdapter(v).json_schema())",
+   "evidence_locator": "dspy/adapters/types/tool.py:110@638e155cf725",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "MCP client protocol present: class _MCPToolClient(Protocol)."
+   "note": "MCP client protocol type present (_MCPToolClient); hand-written args also allowed."
   },
   "protocol_standardization": {
    "value": [
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "class _MCPToolClient(Protocol):\n    async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> Any: ...",
-   "evidence_locator": "dspy/adapters/types/tool.py:21-22@638e155cf725",
-   "confidence": "high",
+   "evidence_quote": "class _MCPToolClient(Protocol):",
+   "evidence_locator": "dspy/adapters/types/tool.py:21@638e155cf725",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "loop_primitives": {
    "value": [
+    "fixed_pipeline",
     "multi_attempt",
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "we first test ReAct (Yao et al., 2022), a multi-step agent for tool use, which is imple- mented as a built-in module in DSPy",
+   "evidence_quote": "react = dspy.ReAct(\"question -> answer\", tools=[dspy.Retrieve(k=1)], max_iters=5)",
    "evidence_locator": "paper Sec. 7",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "BestOfN/Refine/MultiChainComparison give multi_attempt."
-  },
-  "planning_granularity": {
-   "value": "implicit",
-   "not_reported": false,
-   "evidence_quote": "leads to a system that thinks step by step before committing to its output field",
-   "evidence_locator": "paper Sec. 3.2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "ReAct default; BestOfN/Refine modules listed in docs; pipelines via module composition."
+  },
+  "planning_granularity": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "a ReAct module for a particular signature can be declared as follows in DSPy",
+   "evidence_quote": "a multi-step agent for tool use, which is imple-\nmented as a built-in module in DSPy",
    "evidence_locator": "paper Sec. 7",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Pipelines of modules are single-agent programs; a teacher program can supervise during compilation."
-  },
-  "delegation_mechanism": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "DSPy modules can be composed in arbitrary pipelines in a define-by-run interface.",
-   "evidence_locator": "paper Sec. 3.2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
-  "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "which are general-purpose optimization strategies that determine how the modules should learn from data",
-   "evidence_locator": "paper Sec. 1",
+  "delegation_mechanism": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No confirmation/approval hook visible in evidence; optimization happens 'without manual intervention'."
+   "resolved": false
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "short_term_state": {
-   "value": "conversation_only",
-   "not_reported": false,
-   "evidence_quote": "it takes in keyword arguments corresponding to the signature input fields",
-   "evidence_locator": "paper Sec. 3.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "ReAct accumulates a trajectory of thought/action/observation fields."
+   "resolved": false,
+   "note": "ReAct trajectory structure not in evidence."
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Internally, Predict stores the supplied signature, an optional LM to use (initially None, but otherwise overrides the default LM for this module), and a list of demon- strations for prompting (initially empty).",
-   "evidence_locator": "paper Sec. 3.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Compiled demonstrations are optimizer artifacts, not cross-run memory."
+   "resolved": false
   },
   "state_persistence": {
    "value": null,
@@ -229,38 +220,35 @@
    "resolved": false
   },
   "self_verification": {
-   "value": [
-    "self_critique"
-   ],
-   "not_reported": false,
-   "evidence_quote": "they are compared in parallel by a built-in MultiChainComparison module",
-   "evidence_locator": "paper Sec. 6",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Refine/BestOfN and metric-based filtering also available; metrics may be DSPy programs (llm_judge-like)."
+   "resolved": false,
+   "note": "Refine/BestOfN listed in docs but source not in evidence."
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "a function having that signature",
-   "evidence_locator": "paper Sec. 3.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Refine/BestOfN modules provide opt-in fixed_n retries."
+   "resolved": false
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "DSPy modules can be composed in arbitrary pipelines in a define-by-run interface.",
-   "evidence_locator": "paper Sec. 3.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "termination_condition": {
    "value": [
@@ -268,209 +256,191 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "tools=[dspy.Retrieve(k=1)], max_iters=5)",
+   "evidence_quote": "max_iters=5",
    "evidence_locator": "paper Sec. 7",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "ReAct stops at max_iters or when the model emits a finish action; sandbox SUBMIT signals completion."
+   "note": "model_declared inferred from SUBMIT in runner.js (sandbox) and ReAct finish; low confidence."
   },
   "cost_controls": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "which is an optimizer for DSPy programs that improves the quality (or cost) of modules via prompting or finetuning",
-   "evidence_locator": "paper Sec. 4",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No token budget/caching setting visible in the provided evidence."
+   "resolved": false
   },
   "timeouts": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Only supports functions for now.",
-   "evidence_locator": "dspy/adapters/types/tool.py:28-29@638e155cf725",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No timeout parameter visible in the tool execution path shown."
+   "resolved": false
   },
   "execution_isolation": {
-   "value": "subprocess",
-   "not_reported": false,
-   "evidence_quote": "import pyodideModule from \"npm:pyodide@0.29.4/pyodide.js\";",
-   "evidence_locator": "dspy/primitives/runner.js:3@638e155cf725",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Code execution runs in a Deno/Pyodide sandbox subprocess; general tools are plain in-process Python functions."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "if (denoDir) await Deno.permissions.revoke({ name: \"read\", path: denoDir });",
-   "evidence_locator": "dspy/primitives/runner.js:140@638e155cf725",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Within the Pyodide sandbox permissions are revoked/scoped; plain Python tools have full host access."
-  },
-  "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "we have explored experimental dspy.SQL for executing SQL queries and dspy.PythonInterpreter for executing Python code in a sandbox.",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No network restriction mechanism visible in evidence."
-  },
-  "permission_model": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "parsed_kwargs = self._validate_and_parse_args(**kwargs)\n        result = self.func(**parsed_kwargs)",
-   "evidence_locator": "dspy/adapters/types/tool.py:176-178@638e155cf725",
+   "evidence_quote": "result = self.func(**parsed_kwargs)",
+   "evidence_locator": "dspy/adapters/types/tool.py:183@638e155cf725",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Args are schema-validated but no authorization gate."
+   "note": "ReAct tools run in-process; code interpreter uses Deno/Pyodide sandbox (runner.js)."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "tracing": {
-   "value": "structured_traces",
-   "not_reported": false,
-   "evidence_quote": "When running in compile mode, multi-stage traces are tracked transparently and in a thread-safe fashion throughout execution.",
-   "evidence_locator": "paper Sec. 4",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Callback system (with_callbacks) supports external instrumentation."
+   "resolved": false,
+   "note": "Callbacks (with_callbacks) exist; tracing backend not in evidence."
   },
   "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "multi-stage traces are tracked transparently",
-   "evidence_locator": "paper Sec. 4",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Saved/loaded compiled programs (save/load) reproduce prompts, not environments."
+   "resolved": false
   },
   "eval_hooks": {
    "value": "built_in",
    "not_reported": false,
    "evidence_quote": "- [Evaluate](Evaluate.md)",
-   "evidence_locator": "docs/docs/api/evaluation/index.md@638e155cf725",
-   "confidence": "high",
+   "evidence_locator": "docs/docs/api/evaluation/index.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true,
-   "note": "dspy.Evaluate plus metrics like answer_exact_match ship in the repo."
+   "resolved": true
   },
   "guardrails": {
-   "value": [
-    "action_policies"
-   ],
-   "not_reported": false,
-   "evidence_quote": "raise ValueError(f\"Arg {k} is invalid: {e.message}\")",
-   "evidence_locator": "dspy/adapters/types/tool.py:135@638e155cf725",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "JSON-schema validation blocks malformed tool calls before execution."
+   "resolved": false
   },
   "target_domain": {
    "value": [
-    "general_tool_use",
-    "research"
+    "general_tool_use"
    ],
    "not_reported": false,
-   "evidence_quote": "offers algorithms for **optimizing their prompts and weights**, whether you're building simple classifiers, sophisticated RAG pipelines, or Agent loops.",
-   "evidence_locator": "README.md@638e155cf725",
-   "confidence": "high",
+   "evidence_quote": "whether you're building simple classifiers, sophisticated RAG pipelines, or Agent loops",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "open_source": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "DSPy is available athttps://github.com/stanfordnlp/dspy.",
-   "evidence_locator": "paper Abstract",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "LICENSE file not in provided evidence; repo is public open source (MIT per project)."
+   "resolved": false,
+   "note": "LICENSE not in evidence."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "def format_as_litellm_function_call(self):",
-   "evidence_locator": "dspy/adapters/types/tool.py:153@638e155cf725",
-   "confidence": "high",
+   "evidence_locator": "dspy/adapters/types/tool.py:156@638e155cf725",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "litellm-based LM abstraction."
+   "resolved": true
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "ref: tag:3.3.1 638e155cf725 2026-08-21",
-   "evidence_locator": "repository evidence header",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Pinned repo (3.3.1) far postdates the 2023 paper."
-  },
-  "first_release_date": {
-   "value": "2023-10-05",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2310.03714v1 [cs.CL] 5 Oct 2023",
-   "evidence_locator": "paper p. 1",
-   "confidence": "low",
+   "evidence_quote": "For more extensive and\nup-to-date documentation of the framework, we refer readers tohttps://github.com/stanfordnlp/dspy.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Basis: paper v1 date; no tag list in evidence."
+   "note": "3.3.1 postdates 2023 paper."
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tag history in evidence; paper v1 2023-10-05 as fallback not applied since repo exists."
   },
   "pinned_version": {
    "value": "3.3.1 @ 638e155cf725 (2026-08-21)",
    "not_reported": false,
    "evidence_quote": "ref: tag:3.3.1 638e155cf725 2026-08-21",
-   "evidence_locator": "repository evidence header",
+   "evidence_locator": "evidence header",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Short hash only; full hash not in evidence."
+   "note": "Full hash not given."
   },
   "stars": {
    "value": 38143,
    "not_reported": false,
    "evidence_quote": "stars: 38143",
-   "evidence_locator": "repository evidence header",
+   "evidence_locator": "evidence header",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -480,25 +450,46 @@
   }
  },
  "cells_unresolved": [
+  "A2",
   "A3",
+  "A4",
   "B2",
-  "D3"
+  "B3",
+  "C2",
+  "C4",
+  "C5",
+  "D1",
+  "D2",
+  "D3",
+  "E1",
+  "E2",
+  "E3",
+  "F2",
+  "F3",
+  "G2",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H4",
+  "M2",
+  "M5"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 4
+  "locator_shape_unrecognised": 3
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:54:21+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:45:15+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 91565,
  "doc_chars": 91913,
- "call_id": "A-dspy-00227",
- "tokens_in": 58068,
- "tokens_out": 3985,
+ "call_id": "A-dspy-00011",
+ "tokens_in": 58570,
+ "tokens_out": 2800,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.389965"
+ "cost_usd": "0.290280"
 }

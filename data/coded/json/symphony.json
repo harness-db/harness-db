@@ -60,25 +60,23 @@
    "value": "static",
    "not_reported": false,
    "evidence_quote": "self.system_prompt = config.get(\"sys_prompt\", \"You are a helpful AI assistant.\")",
-   "evidence_locator": "agents/agent.py@ab5eb600f096",
+   "evidence_locator": "agents/agent.py:120@ab5eb60",
    "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Fixed per-agent system prompt string from config; paper mentions stage-specific prompts per worker node."
-  },
-  "env_context_strategy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "result = user.submit_task(task)",
-   "evidence_locator": "README.md@ab5eb600f096",
-   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Tasks are natural-language reasoning queries (BBH, AMC); no repository/environment context injection or navigation tools found."
+   "note": "The prompt is one fixed per-agent string from config, with a hard-coded fallback. The paper mentions 'stage-specific prompts' (Sec. 2.1), but the prompt files were not in the evidence bundle."
+  },
+  "env_context_strategy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The instance template and tool list were not in the bundle. Code beyond agents/agent.py line 200 was truncated."
   },
   "context_compaction": {
    "value": null,
@@ -88,22 +86,19 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No history-processing code was in the truncated bundle."
   },
   "observation_format": {
-   "value": [
-    "raw_text"
-   ],
-   "not_reported": false,
-   "evidence_quote": "def assign_task(self, task: Task) -> TaskResult:",
-   "evidence_locator": "agents/agent.py@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Text-only task/result exchange; no image or structured observation types in the shipped code."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The observation conversion code was not in the bundle."
   },
   "tool_call_format": {
    "value": null,
@@ -113,7 +108,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No action parser was visible in the bundle."
   },
   "tool_count": {
    "value": null,
@@ -123,20 +119,19 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No tool registry was visible in the bundle."
   },
   "edit_primitive": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "def assign_task(self, task: Task) -> TaskResult:\n        \"\"\"Execute assigned task and return result.\"\"\"",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Agent API exposes only task execution/decomposition; no file-editing tool registered."
+   "resolved": false,
+   "note": "No edit tool was visible in the bundle."
   },
   "tool_schema_source": {
    "value": null,
@@ -146,7 +141,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No tool schema code was visible in the bundle."
   },
   "protocol_standardization": {
    "value": [
@@ -154,145 +150,146 @@
    ],
    "not_reported": false,
    "evidence_quote": "**ISEP Integration**: Standardized intelligent service exchange",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "evidence_locator": "README.md@ab5eb60",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "ISEP protocol client (infra/ISEP.py); no MCP or A2A found."
+   "note": "The protocol is ISEP, which the README describes as a standardized exchange; its ISEPClient is imported at agents/agent.py:49. It is unclear whether ISEP is a published protocol. The repo was not grepped for MCP."
   },
   "loop_primitives": {
    "value": [
-    "multi_attempt",
-    "plan_execute"
+    "fixed_pipeline",
+    "multi_attempt"
    ],
    "not_reported": false,
-   "evidence_quote": "A query from user is decomposed into multiple sub-tasks by planning agents.",
-   "evidence_locator": "paper arxiv:2508.20019 Sec. 2.2 / Fig. 1",
-   "confidence": "high",
+   "evidence_quote": "Symphony employs a three-stage pipeline that integrates decentralized coordination with intelligent task execution",
+   "evidence_locator": "README.md@ab5eb60",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Plan-then-execute pipeline with M parallel CoTs aggregated by weighted majority vote (multi_attempt)."
+   "note": "The pipeline runs planning, then execution, then voting. The multi_attempt value reflects multiple CoT decompositions followed by a weighted vote (paper Sec. 2.2)."
   },
   "planning_granularity": {
    "value": "explicit_plan_object",
    "not_reported": false,
-   "evidence_quote": "subtask_id: int = 0\n    steps: List[str] = None\n    previous_results: List[str] = None",
-   "evidence_locator": "README.md (Task dataclass)@ab5eb600f096",
+   "evidence_quote": "steps: List[str] = None",
+   "evidence_locator": "README.md@ab5eb60",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Decomposition plan stored as ordered sub-task list carried in the Task contract."
+   "note": "The Task dataclass carries steps and previous_results. Planning agents decompose the query into ordered sub-tasks."
   },
   "multi_agent_topology": {
    "value": "peer",
    "not_reported": false,
    "evidence_quote": "**Trustless Coordination**: No central orchestrator required",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "evidence_locator": "README.md@ab5eb60",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Decentralized agents exchange beacons and responses as equals."
+   "note": "The design is decentralized: agents are selected by beacon match score, and a planning agent routes each subtask. This is close to orchestrator_workers per subtask."
   },
   "delegation_mechanism": {
    "value": "message_bus",
    "not_reported": false,
-   "evidence_quote": "the plan agent broadcast a BeaconBi,k [21] that describes\nthe sub-task requirements to all available agentsE",
-   "evidence_locator": "paper arxiv:2508.20019 Sec. 2.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Work is handed off via beacon broadcast/response over the communicator network."
-  },
-  "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "result = user.submit_task(task)",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "evidence_quote": "For each sub-taskti,k, the plan agent broadcast a BeaconBi,k [21] that describes\nthe sub-task requirements to all available agentsE ={E1,...,E N}.",
+   "evidence_locator": "paper arXiv:2508.20019 Sec. 2.2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "User submits a task and receives a result; no approval/confirmation hook in the pipeline."
+   "note": "Delegation happens by beacon broadcast followed by assignment to the best-matching agent."
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No run-loop or confirmation code was in the bundle."
   },
   "short_term_state": {
    "value": "structured_task_state",
    "not_reported": false,
-   "evidence_quote": "task_id: str\n    description: str\n    requirements: List[str]\n    context: Dict[str, Any]",
-   "evidence_locator": "README.md (Task dataclass)@ab5eb600f096",
+   "evidence_quote": "previous_results: List[str] = None",
+   "evidence_locator": "README.md@ab5eb60",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The Task dataclass holds steps and previous_results. LocalMemory caches task results."
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "task_cache (deque): Circular buffer storing recent task results.",
-   "evidence_locator": "core/memory.py@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "LocalMemory is in-process only; no cross-run persistence or skill/vector store."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "core/memory.py LocalMemory is an in-process deque cache. Whether it persists across runs was not visible because the file was truncated. The README ledger tracks reputation."
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Local memory manager for caching tasks and tracking neighbors.",
-   "evidence_locator": "core/memory.py@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No resume/checkpoint path found in the shipped agent/user code."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "self_verification": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The final answer ˆa is determined by a weighted\nmajority vote",
-   "evidence_locator": "paper arxiv:2508.20019 Sec. 2.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Aggregation by voting only; no harness-run tests, linters, or judge model."
+   "resolved": false,
+   "note": "CoT voting is selection, not verification; it is coded under C1. No verifier code was visible."
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "def submit_task(self, description: str, **kwargs) -> TaskResult:",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No task-level retry loop in the shipped API."
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "def assign_task(self, task: Task) -> TaskResult:",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No undo/revert/snapshot mechanism found."
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "termination_condition": {
    "value": null,
@@ -302,20 +299,19 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Only a generation max_tokens setting is visible in the README config. No run loop was visible."
   },
   "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "max_tokens: 512\n  temperature: 0.7",
-   "evidence_locator": "README.md (config_agent1.yaml)@ab5eb600f096",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Generation window cap per call; no caching or cost-based routing found."
+   "resolved": false,
+   "note": "Capability-based agent routing exists but is not cost-based."
   },
   "timeouts": {
    "value": null,
@@ -325,210 +321,230 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "execution_isolation": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Worker nodes are edge devices equipped with a quantized LLM(e.g., Mistral-\n7B [23]), a set of stage-specific prompts, and a lightweight Communicator.",
-   "evidence_locator": "paper arxiv:2508.20019 Sec. 2.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Agents run in-process on the host edge device; no sandbox/container layer in the repo."
+   "resolved": false,
+   "note": "No execution backend was visible in the bundle."
   },
   "filesystem_access": {
-   "value": "full",
-   "not_reported": false,
-   "evidence_quote": "storage:\n  lora_path: \"./lora_cache\"\n  memory_limit: \"8GB\"",
-   "evidence_locator": "README.md (config_agent1.yaml)@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No path restriction; relative to the host process boundary (G1=none)."
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "network:\n  host: \"0.0.0.0\"\n  port: 8001",
-   "evidence_locator": "README.md (config_agent1.yaml)@ab5eb600f096",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Public internet and intranet channels supported; no egress restriction options."
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "The selected agentEj∗ receives the\nsub-taskti,k along with relevant context from previously completed sub-tasks, executes it locally",
-   "evidence_locator": "paper arxiv:2508.20019 Sec. 2.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No allowlist/blocklist or confirmation gate in the execution path."
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "tracing": {
-   "value": "logs",
-   "not_reported": false,
-   "evidence_quote": "print(f\"[AGENT] Initialized agent {self.agent_id} with capabilities: {self.capabilities}\")",
-   "evidence_locator": "agents/agent.py@ab5eb600f096",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Unstructured print logging only; no structured trajectory export found."
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Only print statements were visible in the bundle."
   },
   "replayability": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "task_cache (deque): Circular buffer storing recent task results.",
-   "evidence_locator": "core/memory.py@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No replay/resume entry point in the repo."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "eval_hooks": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Workloads include: (1) Big-Bench-Hard [24]: For each of the 23 types of tasks, 6 questions are\nrandomly chosen, and (2) AMC [25]: 83 competition-style math questions.",
-   "evidence_locator": "paper arxiv:2508.20019 Sec. 3.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Benchmarks used in the paper, but no evaluation runner shipped in the selected code files."
+   "resolved": false,
+   "note": "The repo could not be searched for evaluation code. The paper evaluates on BBH and AMC."
   },
   "guardrails": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "def assign_task(self, task: Task) -> TaskResult:",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No input/output filters or action policies registered in the agent execution path."
+   "resolved": false,
+   "note": "The bundle was truncated."
   },
   "target_domain": {
    "value": [
     "other"
    ],
    "not_reported": false,
-   "evidence_quote": "Symphony outperforms existing baselines\non reasoning benchmarks, achieving substantial accuracy gains",
-   "evidence_locator": "paper arxiv:2508.20019 Abstract",
+   "evidence_quote": "Symphony outperforms existing baselines\non reasoning benchmarks",
+   "evidence_locator": "paper arXiv:2508.20019 Abstract",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "General multi-step reasoning/math tasks (BBH, AMC), not a code/web/GUI harness."
+   "note": "The target domain is general reasoning or QA on edge devices. This record was coded from the GradientHQ repo; the other Symphony systems in the bundle (ZHUWEI SYMPHONY, openai/symphony) were ignored."
   },
   "open_source": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "Our code is available at\nhttps://github.com/GradientHQ/Symphony.git.",
-   "evidence_locator": "paper arxiv:2508.20019 Abstract",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Public source; LICENSE file not visible in the provided evidence."
+   "resolved": false,
+   "note": "No LICENSE file was in the bundle."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "name: \"mistralai/Mistral-7B-Instruct-v0.3\"  # or \"deepseek-ai/deepseek-llm-7b-chat\"",
-   "evidence_locator": "README.md (model config)@ab5eb600f096",
-   "confidence": "medium",
+   "evidence_locator": "README.md@ab5eb60",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "BaseModel loads arbitrary HF models; paper evaluates Deepseek, Mistral, Qwen."
+   "note": "The loader handles local HuggingFace-style models through BaseModel, not litellm."
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "Symphony is a groundbreaking decentralized multi-agent framework",
-   "evidence_locator": "README.md@ab5eb600f096",
+   "evidence_quote": "Our code is available at\nhttps://github.com/GradientHQ/Symphony.git.",
+   "evidence_locator": "paper arXiv:2508.20019 Abstract",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Coded from the pinned repo commit; paper is arXiv:2508.20019."
+   "resolved": true
   },
   "first_release_date": {
    "value": "2025-08-27",
    "not_reported": false,
    "evidence_quote": "arXiv:2508.20019v1 [cs.LG] 27 Aug 2025",
-   "evidence_locator": "paper arxiv:2508.20019 (header)",
+   "evidence_locator": "paper arXiv:2508.20019 p. 1",
    "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "No tags visible; basis is the paper v1 date."
+   "note": "No tags or first-commit data were available, so the paper v1 date was used as the fallback."
   },
   "pinned_version": {
-   "value": "main ab5eb600f096 (2025-10-14)",
+   "value": "main @ ab5eb600f096 (2025-10-14)",
    "not_reported": false,
-   "evidence_quote": "ref: commit:main ab5eb600f096 2025-10-14",
-   "evidence_locator": "repository evidence header@ab5eb600f096",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": false,
+   "note": "There is no tag; the reference is a main-branch commit."
   },
   "stars": {
    "value": 46,
    "not_reported": false,
-   "evidence_quote": "stars: 46",
-   "evidence_locator": "repository evidence header@ab5eb600f096",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "repository evidence header (stars: 46)",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true,
-   "note": "GradientHQ/symphony as of evidence collection."
+   "resolved": false,
+   "note": "The star count comes from the bundle header and has no date stamp."
   }
  },
  "cells_unresolved": [
+  "A2",
   "A3",
+  "A4",
   "B1",
   "B2",
+  "B3",
   "B4",
+  "C5",
+  "D2",
+  "D3",
+  "E1",
+  "E2",
+  "E3",
   "F1",
-  "F3"
+  "F2",
+  "F3",
+  "G1",
+  "G2",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "M2",
+  "M6",
+  "M7"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 9
+  "locator_no_line": 6,
+  "missing_quote": 2,
+  "locator_shape_unrecognised": 2
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:56:09+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:46:31+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109773,
  "doc_chars": 110144,
- "call_id": "A-symphony-00241",
- "tokens_in": 65998,
- "tokens_out": 5158,
+ "call_id": "A-symphony-00025",
+ "tokens_in": 66500,
+ "tokens_out": 5373,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.458940"
+ "cost_usd": "0.373460"
 }

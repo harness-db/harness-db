@@ -1,0 +1,527 @@
+{
+ "system_id": "autoprep",
+ "name": "AutoPrep",
+ "version": "",
+ "repo_url": "https://github.com/ruc-datalab/autoprep",
+ "stratum": "P",
+ "weight": "4.4067",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 109907,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2412.10422",
+    "chars_available": 36231,
+    "chars_used": 36231,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2412.10422",
+    "chars_available": 73596,
+    "chars_used": 73243,
+    "truncated": true
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "prompt = head + '\\n\\n' + op_desc + '\\n\\n' + op_demo + '\\n\\n' + query",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:24@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Prompts are assembled from fixed dictionary parts plus a query template filled with the table and question; there is no separate system message. The line number is approximate: it is counted from the excerpt, not read from the file."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "table = df_to_str_columns_add_quo(df=data.tbl, exclude_cols=[c for c in data.tbl.columns if c not in cols], cut_line=row_lim)",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:19@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value. A serialized table snippet is injected into the prompt up front. The environment is a table, not a repository."
+  },
+  "context_compaction": {
+   "value": [
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "for row_lim in range(row_len, 0, -2):",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:17@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The number of table rows in the prompt is cut until the prompt fits within MAX_INPUT_LIMIT. No conversation history is kept."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.logger.log_message(msg=f'New Table is:\\n{data.tbl}')",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:53@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action"
+   ],
+   "not_reported": false,
+   "evidence_quote": "OpClass = AutoOP.deduce_op(out)",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:49@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The model emits an operator call or Python code inside backticks, which the harness parses and executes."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The paper describes function pools with operators such as extract, calculate and filter-columns, but these are not tool schemas and the evidence gives no count."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The data is stored in a pandas DataFrame object `df` so you DO NOT need to load the data.",
+   "evidence_locator": "src/model/mula_tabpro/prompt/op2code_prompt.py:1@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "There is no file editing. The agent transforms dataframes."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The operator `{NAMES['REMOVE_SYMBOL']}` aims to remove the specified symbol from the column.",
+   "evidence_locator": "src/model/mula_tabpro/prompt/cleaner_prompt.py:7@823f5d4a1a0d",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "from src.tools.utils import *",
+   "evidence_locator": "src/model/mula_tabpro/agent/simple_agent.py:4@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No MCP or A2A client file appears in the file tree."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "This stage executes the generated code for each operation and returns any errors encountered to the Programming stage for debugging.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The default flow is Planner, then Programmer, then Executor. Code errors trigger regeneration with the last error included."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "Planner: Determines a logical plan, outlining a sequence of high-level operations.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "AutoPrep decomposes the data prep process into three stages:",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The paper calls this a hierarchical structure. It is coded as pipeline because the hand-off order is fixed."
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "The central Planner agent can then determine which operations should be performed and assign them accordingly.",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "out = self.gpt.query(prompt)",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:43@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "return self.chains, data",
+   "evidence_locator": "src/model/mula_tabpro/agent/simple_agent.py:46@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "State is the chain of operations plus the TQAData table."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.icl_inses = []",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:36@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.logger.log_message(msg='Prompt: ' + prompt)",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:45@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "self_verification": {
+   "value": [
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "query = query.replace('Operator:', 'Last Error: ' + self.last_log + '\\n' + 'Operator:')",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:22@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value. The harness executes the code and feeds any execution error back to the model; it does not run tests. The file tree also contains llm_code_evaluator.py, but it was not examined."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.MAX_ERR_RAISE_CNT = 4",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:7@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "There is only step-level regeneration on error, capped at MAX_ERR_RAISE_CNT."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "data = op.execute(data)",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:52@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "if cur_op.type == NAMES['END']:",
+   "evidence_locator": "src/model/mula_tabpro/agent/simple_agent.py:26@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "max_steps is inferred from the MAX_ERR_RAISE_CNT error cap."
+  },
+  "cost_controls": {
+   "value": [
+    "token_budget"
+   ],
+   "not_reported": false,
+   "evidence_quote": "if cal_tokens(prompt) <= MAX_INPUT_LIMIT-MAX_OUTPUT_LIMIT:",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:25@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "result = execute_code_from_string(code, df)",
+   "evidence_locator": "src/model/autotqa/agent/executor.py:18@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Generated code is executed in-process."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "result = execute_code_from_string(code, df)",
+   "evidence_locator": "src/model/autotqa/agent/executor.py:18@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "result = execute_code_from_string(code, df)",
+   "evidence_locator": "src/model/autotqa/agent/executor.py:18@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "data = cur_op.execute(data)",
+   "evidence_locator": "src/model/mula_tabpro/agent/simple_agent.py:33@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "self.logger.log_message(msg=f'Output: {out}')",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:46@823f5d4a1a0d",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.logger.log_message(msg='Prompt: ' + prompt)",
+   "evidence_locator": "src/model/mula_tabpro/agent/op_agent.py:45@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "We adopt the evaluator from Binder [ 17] to address cases where program executions are semantically correct but do not exactly match the golden answers.",
+   "evidence_locator": "paper Sec. 6.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The file tree includes src/tools/utils/evaluate.py and binder_utils/evaluator.py."
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "data = cur_op.execute(data)",
+   "evidence_locator": "src/model/mula_tabpro/agent/simple_agent.py:33@823f5d4a1a0d",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "AutoPrep, a large language model (LLM)-based multi-agent framework that leverages the strengths of multiple agents, each specialized in a certain type of data prep",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The target domain is table question answering and data preparation."
+  },
+  "open_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No LICENSE file appears in the evidence."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "For closed-source LLMs, we select DeepSeek [24] (DeepSeek-V2.5-Chat) and GPT3.5 [ 9] (GPT3.5-Turbo-0613).",
+   "evidence_locator": "paper Sec. 6.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The paper evaluates four backbones. The client abstraction in src/llm/gpt_inference.py was not seen."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "The source code, data, and/or other artifacts have been made available at https://github.com/ruc-datalab/AutoPrep.",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "main @ 823f5d4a1a0d (2025-07-03)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 823f5d4a1a0d 2025-07-03",
+   "evidence_locator": "README.md@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No tagged release is visible, so this is pinned to the main commit given in the evidence header. Only the short hash is available."
+  },
+  "stars": {
+   "value": 16,
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 823f5d4a1a0d 2025-07-03, stars: 16",
+   "evidence_locator": "README.md@823f5d4a1a0d",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Star count comes from the evidence header, not a date-stamped gh api call. Repo: ruc-datalab/AutoPrep."
+  }
+ },
+ "cells_unresolved": [
+  "B2",
+  "F3",
+  "M2",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_no_line": 2
+ },
+ "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M6": {
+   "superseded_pass": "A",
+   "value": "main @ 823f5d4a1a0d (2025-07-03)",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  },
+  "M7": {
+   "superseded_pass": "A",
+   "value": "16",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:12:59+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 109907,
+ "doc_chars": 11270,
+ "call_id": "B-autoprep-00992",
+ "tokens_in": 22684,
+ "tokens_out": 640,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.103536"
+}

@@ -1,0 +1,519 @@
+{
+ "system_id": "vulnsage",
+ "name": "VulnSage",
+ "version": "",
+ "repo_url": "https://github.com/vulnsage/vulnsage",
+ "stratum": "P",
+ "weight": "4.4067",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 105602,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2604.05130",
+    "chars_available": 54902,
+    "chars_used": 43783,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2604.05130",
+    "chars_available": 61369,
+    "chars_used": 61369,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "You are a security engineer proficient in vulnerability research. You need\nto analyze vulnerabilities in {{language}} code, generate an executable\nPoC",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Supervisor prompt uses {{language}} variable rendered per run; sub-agent sys_prompt uses format placeholder {name}."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "- **`detailed_trace`**: Mapping from function names to actual source code snippets for precise reasoning.",
+   "evidence_locator": "README.md@7d863fe6b087",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Context comes from injected white-box analysis reports (trace, call_chain, detailed_trace code snippets, class_constructors) rather than a file tree. Closest value is file_tree_summary, meaning context is injected up front; this does not fit the value list exactly, so the case belongs under Ambiguities. The toolkit (installJavaPackage, executeJavaCode, findSanitizer, etc.) has no generic view/grep tools, so agent_driven_navigation is not supported and mixed is not coded. A single value is given as a string because A2 is single-valued."
+  },
+  "context_compaction": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "It splits the large alert\ninformation into several shorter prompts, preventing each from ex-\nceeding the maximum token limit",
+   "evidence_locator": "paper Sec. 3.4.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No history_processor/condenser/truncation of conversation history found in the evidence; constraint accumulation splits prompts but does not shrink message history."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "For runtime information, the agent records the execution traces.\nIf there is a runtime error in PoC execution, it also records the error\nstack.",
+   "evidence_locator": "paper Sec. 3.5.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Observations are text (compilation/runtime error messages, execution traces)."
+  },
+  "tool_call_format": {
+   "value": [
+    "xml_tags"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Respond with specific tags as outlined below:\n<observation>{what you observe}</observation>\n<thought>{what you thought}</thought>\n<action>{the action name you want to call}</action>",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Actions selected via <action> tags parsed from text (AgentScope ReAct)."
+  },
+  "tool_count": {
+   "value": 7,
+   "not_reported": false,
+   "evidence_quote": "service_toolkit.add(installJavaPackage)\n        service_toolkit.add(initJavaEnvironment)\n        service_toolkit.add(executeJavaCode)\n        service_toolkit.add(generateJavaCode)\n        service_toolkit.add(reflectSelfCritics)\n        service_toolkit.add(findSanitizer)\n        service_toolkit.add(final_output)",
+   "evidence_locator": "frontend/sage4j/agent.py:15-21@7d863fe",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "JavaAgent registers 7 tools; JS agent registers 7 (installJsModule, executeJsCode, generateJsCode, findSanitizer, reflectSelfCritics, final_output, initJsEnvironment). Supervisor exposes sub-agents as actions (6 actions incl. Finish)."
+  },
+  "edit_primitive": {
+   "value": [
+    "whole_file_rewrite"
+   ],
+   "not_reported": false,
+   "evidence_quote": "service_toolkit.add(generateJavaCode)",
+   "evidence_locator": "frontend/sage4j/agent.py:18@7d863fe",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Code generation produces complete exploit script code (lastScriptCode full file), not a diff or search/replace edit tool."
+  },
+  "tool_schema_source": {
+   "value": [
+    "auto_generated"
+   ],
+   "not_reported": false,
+   "evidence_quote": "service_toolkit = ServiceToolkit()\n        service_toolkit.add(installJavaPackage)",
+   "evidence_locator": "frontend/sage4j/agent.py:14-15@7d863fe",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "AgentScope ServiceToolkit derives function schemas from Python function signatures/docstrings via add()."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "service_toolkit = ServiceToolkit()",
+   "evidence_locator": "frontend/sage4j/agent.py:14@7d863fe",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tools registered directly via ServiceToolkit; no MCP/A2A client in the VulnSage agent code shown; AgentScope service registry only."
+  },
+  "loop_primitives": {
+   "value": [
+    "generate_test_repair",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The Validation Agent and Reflec-\ntion Agents form a feedback-driven self-refinement loop that uses\nexecution traces and runtime error analysis to either improve the\nexploit iteratively",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Supervisor follows ReAct; validation executes exploit and reflection agents repair -> generate_test_repair."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "we do not explicitly enforce the super-\nvisor agent to follow a fixed order of taking actions",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Planning only in ReAct free-text reasoning; no stored plan object."
+  },
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "One supervisor agent at the top accepts the library code as the\ninput, invokes sub-agents to discover exploitable vulnerabilities",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Supervisor Agent orchestrates specialized sub-agents (Code Analyzer, Code Generation, Validation, Reflection)."
+  },
+  "delegation_mechanism": {
+   "value": "subagent_spawn",
+   "not_reported": false,
+   "evidence_quote": "invokes sub-agents to discover exploitable vulnerabilities\nwith valid exploit code",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Supervisor invokes sub-agents as actions; work handed to distinct agent instances."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the supervisor will pick one of\nthem after the Validation Agent responds",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fully automated CLI run; no confirmation/approval gate found in evidence."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "if use_memory:\n            self.memory = TemporaryMemory()\n        else:\n            self.memory = None",
+   "evidence_locator": "frontend/agentscope/agents/agent.py:88-91@7d863fe",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agent state is message list in TemporaryMemory; constraints accumulated are passed in prompts."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "In-memory memory module, not writing to hard disk",
+   "evidence_locator": "frontend/agentscope/memory/temporary_memory.py:25@7d863fe",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No cross-run persisted memory/skills used by VulnSage agents in evidence."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "If we let VulnSage restart from scratch, it may nevertheless eventually\nproduce a working exploit.",
+   "evidence_locator": "paper Sec. 5.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Runs restart from scratch; no resume of interrupted state found."
+  },
+  "self_verification": {
+   "value": [
+    "self_critique",
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The Validation Agent checks whether the exploit succeeds by exe-\ncuting the code in a sandbox. If it fails, it provides runtime feedback",
+   "evidence_locator": "paper Sec. 3.5",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Validation Agent runs the exploit (test_execution enforced by harness); Reflection/reflectSelfCritics provide self_critique. Also static/dynamic anti-cheat checks."
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "For each alert, VulnSage is allowed at most 20 attempts to\ngenerate a valid result.",
+   "evidence_locator": "paper Sec. 4",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "max_iters=25 (Java) / 20 (JS) per agent; up to 20 attempts per alert."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "the Code Generation Agent then utilizes an LLM\nto generate candidate exploits.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Exploits regenerated afresh each round; no undo/git-reset rollback of file changes found in evidence."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "this feature lets the Supervisor Agent terminate it-\nself when it calls the finish action once it generates the exploit or\nconcludes that the alert is a false positive.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Finish action = model_declared; max_iters (25/20) and 20 attempts per alert = max_steps."
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "each vulnerability costs\n$0.97. In the worst-case scenario, the cost is $3.49.",
+   "evidence_locator": "paper Sec. 5.5",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Cost measured but no token_budget/routing/caching mechanism found in evidence."
+  },
+  "timeouts": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The Validation Agent prepares an\nexecutable environment for exploits and verifies exploit validity",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No per-tool or per-run timeout found in the provided evidence."
+  },
+  "execution_isolation": {
+   "value": "container",
+   "not_reported": false,
+   "evidence_quote": "We assume you have Docker and Docker Compose installed.",
+   "evidence_locator": "README.md Step 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Frontend and validation server run in Docker containers; exploit executed in server sandbox."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "The Validation Agent checks whether the exploit succeeds by exe-\ncuting the code in a sandbox.",
+   "evidence_locator": "paper Sec. 3.5",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Code executed in sandbox container with package install; full access within container boundary."
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "JNDI Injection: The execution requests an evil JNDI provider.",
+   "evidence_locator": "paper Sec. 3.5.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Exploits make network requests (JNDI/LDAP); no egress restriction found."
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "the Validation Agent performs\nan analysis and rejects it if it contains direct command-execution\nAPI calls (like Runtime.exec, child\\_process.exec).",
+   "evidence_locator": "paper Sec. 3.5.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Anti-cheat blocklist of direct command-execution APIs; closest to static_allowlist (blocklist)."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "For runtime information, the agent records the execution traces.",
+   "evidence_locator": "paper Sec. 3.5.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Execution info (compilation + runtime traces) recorded; AgentScope studio logging available. Closest to structured_traces."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "If we let VulnSage restart from scratch, it may nevertheless eventually\nproduce a working exploit.",
+   "evidence_locator": "paper Sec. 5.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No replay/resume mechanism for recorded trajectories found in evidence."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "server/ — Source code of the validation environment (Go).",
+   "evidence_locator": "README.md Structure",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Validation server evaluates whether exploits succeed against oracles; ships in repo (server/)."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the validation\npipeline applies both static and dynamic anti-cheat checks.",
+   "evidence_locator": "paper Sec. 3.5.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Anti-cheat static/dynamic checks reject exploits calling command-execution APIs directly -> action_policies."
+  },
+  "target_domain": {
+   "value": [
+    "other",
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we propose VulnSage, a multi-\nagent framework for AEG.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Automated exploit generation / software vulnerability domain; coded swe + other (security/AEG)."
+  },
+  "open_source": {
+   "value": "partial",
+   "not_reported": false,
+   "evidence_quote": "The internal white-box analysis engine is not open-sourced due to licensing restrictions.",
+   "evidence_locator": "README.md Note",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Frontend and server open-sourced; static analysis engine closed."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "we replace our default LLM (Qwen3-Max) with\nothers to study how the LLM affects our approach.",
+   "evidence_locator": "paper Sec. 5.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "AgentScope supports multiple providers (openai, anthropic, dashscope, litellm, etc.); evaluated GPT-4o, DeepSeek, Qwen."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "We open-sourced our implementation anonymously in https:\n//github.com/Vulnsage/VulnSage.",
+   "evidence_locator": "paper Sec. 4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Pinned to repo commit; paper ICPC 2026."
+  },
+  "first_release_date": {
+   "value": "2026-03-31",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 7d863fe6b087 2026-03-31",
+   "evidence_locator": "repo header",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tags in evidence; using pinned commit date as basis."
+  },
+  "pinned_version": {
+   "value": "main @ 7d863fe6b087 (2026-03-31)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 7d863fe6b087 2026-03-31",
+   "evidence_locator": "repo header",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No release tag; pinned to main commit."
+  },
+  "stars": {
+   "value": 32,
+   "not_reported": false,
+   "evidence_quote": "stars: 32",
+   "evidence_locator": "repo header",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Stars at pinned reference."
+  }
+ },
+ "cells_unresolved": [],
+ "flag_counts": {
+  "locator_no_line": 1,
+  "locator_shape_unrecognised": 3
+ },
+ "history": {
+  "A2": {
+   "superseded_pass": "A",
+   "value": "agent_driven_navigation",
+   "flags": "list_for_single",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill-2",
+ "coded_at": "2026-09-23T04:41:39+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 105602,
+ "doc_chars": 12507,
+ "call_id": "B2-vulnsage-00075",
+ "tokens_in": 22348,
+ "tokens_out": 305,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.095492"
+}

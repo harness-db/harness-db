@@ -1,0 +1,564 @@
+{
+ "system_id": "nvidia-object-oriented-agents",
+ "name": "NVIDIA Object-Oriented Agents (NOOA)",
+ "version": "v0.0.9",
+ "repo_url": "https://github.com/nvidia-nemo/labs-oo-agents",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 98510,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2607.20709",
+    "chars_available": 69994,
+    "chars_used": 69994,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "github:NVIDIA-NeMo/labs-OO-Agents",
+    "chars_available": 28137,
+    "chars_used": 28137,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "dynamically_composed",
+   "not_reported": false,
+   "evidence_quote": "The default static prefix contains a smallNOOAsystem prompt (about 1k characters), the active strategy instructions (about 2.5k characters for CodeAct), an execution-context block showing imported types and libraries",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Assembled from context blocks: static blocks plus dynamic blocks re-rendered every turn. Evidence is the paper only; the repo code was not opened."
+  },
+  "env_context_strategy": {
+   "value": "agent_driven_navigation",
+   "not_reported": false,
+   "evidence_quote": "Method arguments, the live agent asself , and the agent’s environment (imports, methods, and constants defined in the agent’s source file) are injected as locals",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The model explores live objects via doc()/pprint in a REPL. The dynamic context also renders pprint(self) previews. BenchAgent adds tree-sitter repository navigation tools."
+  },
+  "context_compaction": {
+   "value": [
+    "summarize",
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Long histories can be collapsed into summary events, akin to MemGPT’s context management [43]",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Bounded previews truncate observations and arguments (pass by reference). The events.collapse API performs summarization. The repo has src/nooa/agents/summarization.py. Which of these is on by default is not stated."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text",
+    "screenshots"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Media arguments – images, audio, video, and files – are rendered as native multimodal content blocks rather than text",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Events are rendered as typed Python reprs in XML-like tags (text). Captured images are passed as multimodal content."
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action",
+    "native_function_calling"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The model may callexecute_python(...) to compute, inspect internal agent state, call helpers, or invoke other generation methods",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "CodeAct is the default strategy: Python code is sent through an execute_python tool call. PredictStrategy returns a typed value in a single LLM call instead."
+  },
+  "tool_count": {
+   "value": 2,
+   "not_reported": false,
+   "evidence_quote": "the model must choose between continuing computation with execute_python(...) or terminating the method with return_result(...)",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Default CodeAct exposes execute_python and return_result. Agent methods are callable from inside code, not as separate schemas. The seven memory tools are added when memory is installed."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Cells can contain loops, conditionals, library calls, async operations, helper calls, and subagent invocations.",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The core framework has no dedicated edit tool; edits are made through Python code. BenchAgent has shell file-editing tools, but their primitive is unreported."
+  },
+  "tool_schema_source": {
+   "value": [
+    "auto_generated",
+    "mcp"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Python methods and type annotations supply the callable interfaces, reducing the need to write separate tool-schema definitions.",
+   "evidence_locator": "README.md@54e8fa2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The repo includes an MCP client at src/nooa/mcp/client.py."
+  },
+  "protocol_standardization": {
+   "value": [
+    "mcp"
+   ],
+   "not_reported": false,
+   "evidence_quote": "src/nooa/mcp/client.py",
+   "evidence_locator": "file tree@54e8fa2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "loop_primitives": {
+   "value": [
+    "generate_test_repair",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the harness records the observation, re-renders the updated state, and repeats until the model callsreturn_result(...) with a value that is type validated.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "On return, a type-validation failure feeds an error back to the model, giving a repair loop. The event manager is a typed event log."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "Dynamic blocks hold information whose value changes as the program runs, such as aTODO listor selected relevant fields onself .",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The todo list is a developer or BenchAgent feature, not a core default."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "The cell can inspect objects withdoc(obj) , print bounded previews with pprint() , call deterministic helpers, await generation methods, spawn subagents",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The default is a single agent. The model can spawn subagents from code (orchestrator_workers is reachable)."
+  },
+  "delegation_mechanism": {
+   "value": "subagent_spawn",
+   "not_reported": false,
+   "evidence_quote": "it can define a new@strategy -decorated function with an ellipsis body and fan it out over a batch with asyncio.gather , creating parallel subagent calls in ordinary Python.",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "Durable state is stored on the agent object, rather than only in conversation history.",
+   "evidence_locator": "paper Sec. 2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "episodic_db",
+    "skill_library",
+    "vector_store"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The entire store is one SQLite file that can be inspected directly; vector indexes are derived from it and interchangeable.",
+   "evidence_locator": "paper Sec. 3.7",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Memory is optional (nooa-memory, installed via MemoryManager.install). Skills are available per examples/quickstart/10_skills.py. The core default has no long-term memory."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": [
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "When the model returns a result, the harness validates it against the return annotation.",
+   "evidence_locator": "paper Sec. 3.6",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "This is closer to type/contract validation than to tests; closest value chosen. CyberGym uses a separate LLM judge, but only in that example."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "If the result is invalid, the harness sends the model an error message describing the failure, and the loop continues.",
+   "evidence_locator": "paper Sec. 3.6",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Validation retries happen at step level, not whole-task. Predict runs a local retry loop on validation failure."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "repeats until the model callsreturn_result(...) with a value that is type validated.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No step or cost caps are reported in the evidence."
+  },
+  "cost_controls": {
+   "value": [
+    "caching",
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "This three-region layout is designed to maximize KV-cache reuse across turns",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-method model override lets a small model serve classification (Sec. 3.1)."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The ARC sandbox example has a hard cell timeout, but only in that example."
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "NOOAexecutes model-written code in the agent’s own process.",
+   "evidence_locator": "paper Sec. 7",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "absence_high_confidence"
+   ],
+   "resolved": true,
+   "note": "An optional sandbox exists at src/nooa/runtime/sandbox; OpenShell is recommended."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "`open()` gives arbitrary file access",
+   "evidence_locator": "README.md@54e8fa2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "LLM-generated code may take dangerous or unwanted actions, including sending private data to uncontrolled locations",
+   "evidence_locator": "README.md@54e8fa2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "NOOA validates generated code (AST checks) and applies module deny-lists before execution.",
+   "evidence_locator": "README.md@54e8fa2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "This is a deny-list."
+  },
+  "tracing": {
+   "value": "opentelemetry",
+   "not_reported": false,
+   "evidence_quote": "examples/advanced/tracing_otlp.py",
+   "evidence_locator": "file tree@54e8fa2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Traces are on by default when the viewer runs."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "`BenchAgent` and the Harbor benchmark runner",
+   "evidence_locator": "README.md@54e8fa2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Dangerous or loop-breaking APIs such aseval , exec , compile , input , and blocking event-loop calls are rejected with specific errors.",
+   "evidence_locator": "paper Sec. 3.4",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "general_tool_use",
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "NOOAtakes a simpler approach: an agent is a Python object.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "Apache 2.0. See [LICENSE]",
+   "evidence_locator": "README.md@54e8fa2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "Choose from supported hosted or local [LiteLLM-supported](https://docs.litellm.ai/) model",
+   "evidence_locator": "README.md@54e8fa2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:v0.0.9 54e8fa23778ec384dc5813cee61b8f814276e05b 2026-08-18",
+   "evidence_locator": "repo metadata",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "The pinned tag postdates the paper (2026-07-22)."
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "v0.0.9 @ 54e8fa23778ec384dc5813cee61b8f814276e05b (2026-08-18)",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:v0.0.9 54e8fa23778ec384dc5813cee61b8f814276e05b 2026-08-18",
+   "evidence_locator": "repo metadata",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  }
+ },
+ "cells_unresolved": [
+  "C5",
+  "D3",
+  "E3",
+  "F3",
+  "H2",
+  "M5",
+  "M7"
+ ],
+ "flag_counts": {
+  "locator_no_line": 9,
+  "absence_high_confidence": 1,
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T03:56:11+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 98510,
+ "doc_chars": 12714,
+ "call_id": "B-nvidia-object-oriented-agents-00470",
+ "tokens_in": 23274,
+ "tokens_out": 535,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.103796"
+}

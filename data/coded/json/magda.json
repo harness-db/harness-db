@@ -24,63 +24,60 @@
   "system_prompt_style": {
    "value": "templated",
    "not_reported": false,
-   "evidence_quote": "As we are not fine-tuning the LLM to be able to use the CLIP-tool, we provide an in-context description of the tool together with instructions on how to use it.",
-   "evidence_locator": "paper Sec. 2.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Per-agent prompts instantiated with disease/guidelines variables."
-  },
-  "env_context_strategy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "an end-to-end guideline-driven approach that requires only a clinical guideline and a medical image as input to perform zero-shot diagnosis",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Guidelines are task input, not repository/environment context; no navigation."
-  },
-  "context_compaction": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "the collected positive and negative disease descriptions are passed to the diagnosis agent",
-   "evidence_locator": "paper Sec. 2.2",
+   "evidence_quote": "we ask the model to provide reasoning before answering the question \"Does the patient have [d]?\"",
+   "evidence_locator": "paper Sec. 2.3",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No compaction mechanism described."
+   "note": "Per-disease prompt with disease variable; paper only."
+  },
+  "env_context_strategy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper only; no repo/config. Guidelines are injected per disease but no repository environment."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper only; no history processing described."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "depending on whether the tool returns a positive or negative result for the given description, we append \"Positive\" or \"Negative\" to the inference text",
+   "evidence_quote": "we append \"Positive\" or \"Negative\" to the inference text and continue the LLM inference from there",
    "evidence_locator": "paper Sec. 2.2",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Image goes to CLIP, not to the LLM."
+   "resolved": true
   },
   "tool_call_format": {
    "value": [
     "json_in_text"
    ],
    "not_reported": false,
-   "evidence_quote": "During inference, the tool can be called using the call:\nCLIP: [positive description] / [negative description] ->",
+   "evidence_quote": "CLIP: [positive description] / [negative description] ->",
    "evidence_locator": "paper Sec. 2.2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Closest value: a custom textual call format parsed from generated text; not JSON, not XML."
+   "note": "Custom text-pattern call parsed from output; closest value json_in_text, actual syntax is a plain-text marker (ambiguity)."
   },
   "tool_count": {
    "value": 1,
@@ -90,50 +87,46 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Only the CLIP tool is exposed."
+   "resolved": true
   },
   "edit_primitive": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "requires only a clinical guideline and a medical image as input to perform zero-shot diagnosis",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No file editing; diagnosis task."
+   "resolved": false,
+   "note": "No file editing domain; paper only."
   },
   "tool_schema_source": {
    "value": [
     "hand_written"
    ],
    "not_reported": false,
-   "evidence_quote": "we provide an in-context description of the tool together with instructions on how to use it. Through one example",
+   "evidence_quote": "we provide an in-context description of the tool together with instructions on how to use it",
    "evidence_locator": "paper Sec. 2.2",
-   "confidence": "medium",
+   "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "we provide an in-context description of the tool together with instructions on how to use it",
-   "evidence_locator": "paper Sec. 2.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No protocol mentioned anywhere in the paper."
+   "resolved": false,
+   "note": "Paper only; no dependency list."
   },
   "loop_primitives": {
    "value": [
-    "fixed_pipeline"
+    "fixed_pipeline",
+    "react"
    ],
    "not_reported": false,
    "evidence_quote": "The multi-agent system consists of three agents that take over different tasks in the diagnosis procedure",
@@ -142,18 +135,17 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Screening -> diagnosis -> refinement, fixed sequence."
+   "note": "Screening->diagnosis->refinement pipeline; screening agent interleaves tool calls within inference."
   },
   "planning_granularity": {
-   "value": "none",
+   "value": "implicit",
    "not_reported": false,
-   "evidence_quote": "we ask the model to provide reasoning before answering the question",
+   "evidence_quote": "a prompt engineering technique where the model is asked to provide step-by-step reasoning before answering a question",
    "evidence_locator": "paper Sec. 2.3",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Chain-of-thought reasoning only, no plan representation."
+   "resolved": true
   },
   "multi_agent_topology": {
    "value": "pipeline",
@@ -163,8 +155,7 @@
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Three specialised agents in a fixed hand-off sequence."
+   "resolved": true
   },
   "delegation_mechanism": {
    "value": "role_handoff",
@@ -174,245 +165,224 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Fixed hand-off between agent roles."
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "It then gives the final diagnosis prediction for the patient at hand.",
-   "evidence_locator": "paper Sec. 2.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Output is decision support for clinicians but no gating step in the run."
+   "resolved": false
   },
   "short_term_state": {
-   "value": "conversation_only",
-   "not_reported": false,
-   "evidence_quote": "we append \"Positive\" or \"Negative\" to the inference text and continue the LLM inference from there",
-   "evidence_locator": "paper Sec. 2.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The LLMs used are not fine-tuned and all adaptions to the tasks are performed in-context.",
-   "evidence_locator": "paper Sec. 2.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "This agent is run once for every disease",
-   "evidence_locator": "paper Sec. 2.2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No persistence/resume described."
+   "resolved": false
   },
   "self_verification": {
    "value": [
     "self_critique"
    ],
    "not_reported": false,
-   "evidence_quote": "This agent is responsible for refining the predictions of the diagnosis agent by considering inter-dependencies of diseases and evaluating the quality of the reasoning.",
-   "evidence_locator": "paper Sec. 2.1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "The refinement agent is run once per patient.",
+   "evidence_quote": "The refinement agent is tasked with evaluating the provided reasoning.",
    "evidence_locator": "paper Sec. 2.4",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Same backbone LLM instantiated as refinement agent."
+  },
+  "retry_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "requires only a clinical guideline and a medical image as input to perform zero-shot diagnosis",
-   "evidence_locator": "paper Sec. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No state-changing actions to revert."
+   "resolved": false
   },
   "termination_condition": {
    "value": null,
    "not_reported": true,
-   "evidence_quote": "From the model replies we parse the final patient predictions",
-   "evidence_locator": "paper Sec. 2.4",
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "not_reported_with_value"
-   ],
+   "quote_verbatim": false,
+   "flags": [],
    "resolved": false,
-   "note": "Value list has no 'pipeline completion' option; run ends when the fixed three-stage pipeline finishes. Closest reportable: none of the listed values apply exactly."
+   "note": "Pipeline ends after refinement; no termination mechanism described."
   },
   "cost_controls": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "This reduces the memory requirements while keeping the loss in model accuracy minimal.",
-   "evidence_locator": "paper Sec. 3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Quantization reduces compute but no token budget/caching/routing described."
+   "resolved": false
   },
   "timeouts": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "we are able to run text generations on a single Nvidia A40 GPU using a temperature of 0.8",
-   "evidence_locator": "paper Sec. 3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "execution_isolation": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "we are able to run text generations on a single Nvidia A40 GPU using a temperature of 0.8",
-   "evidence_locator": "paper Sec. 3",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Local in-process model and CLIP calls; no sandbox."
+   "resolved": false
   },
   "filesystem_access": {
-   "value": "read_only",
-   "not_reported": false,
-   "evidence_quote": "requires only a clinical guideline and a medical image as input to perform zero-shot diagnosis",
-   "evidence_locator": "paper Sec. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Agents only read image/guidelines; no filesystem tool."
+   "resolved": false
   },
   "network_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "we are able to run text generations on a single Nvidia A40 GPU",
-   "evidence_locator": "paper Sec. 3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Local models only; no network access granted to agents."
+   "resolved": false
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "During inference, the tool can be called using the call:\nCLIP: [positive description] / [negative description] ->",
-   "evidence_locator": "paper Sec. 2.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Tool calls executed as emitted."
+   "resolved": false
   },
   "tracing": {
-   "value": "logs",
-   "not_reported": false,
-   "evidence_quote": "A transparent reasoning process through chain-of-thought reasoning, providing insights into the diagnostic decision-making",
-   "evidence_locator": "paper Sec. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Reasoning text is surfaced; no trace infrastructure described."
+   "resolved": false
   },
   "replayability": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "run text generations on a single Nvidia A40 GPU using a temperature of 0.8",
-   "evidence_locator": "paper Sec. 3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No replay mechanism; sampling temperature 0.8."
+   "resolved": false
   },
   "eval_hooks": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "We evaluate our method on two chest X-ray datasets, CheXpert [5] and ChestXRay 14 Longtail [4,19].",
-   "evidence_locator": "paper Sec. 3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No public repo pinned; evaluation described in paper only."
+   "resolved": false,
+   "note": "Paper evaluates on CheXpert, but no repo to check for runner."
   },
   "guardrails": {
-   "value": [
-    "output_filters"
-   ],
-   "not_reported": false,
-   "evidence_quote": "we only count a positive finding if its probability exceeds a threshold ψ",
-   "evidence_locator": "paper Sec. 2.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Threshold filters tool output before it re-enters the LLM."
+   "resolved": false
   },
   "target_domain": {
    "value": [
     "other"
    ],
    "not_reported": false,
-   "evidence_quote": "a multi-agent framework that unifies the incorporation of clinical guidelines as knowledge sources, dynamic prompting of a vision-language model",
-   "evidence_locator": "paper Sec. 1",
+   "evidence_quote": "a new approach for zero-shot guideline-driven decision support",
+   "evidence_locator": "paper Abstract",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Domain: medical/radiology diagnostic assistance."
+   "note": "Medical diagnostic assistance (chest X-ray)."
   },
   "open_source": {
-   "value": "no",
-   "not_reported": false,
-   "evidence_quote": "Where available, we used the image findings from the public Xplainer repository [9] as guidelines",
-   "evidence_locator": "paper Sec. 3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No code release stated for MAGDA itself."
+   "resolved": false,
+   "note": "No repo URL in evidence."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "we compare exchanging our Mixtral 8x7B instruct model for other well-known LLMs, namely Llama2 70B chat [17] and GPT-4 [1]",
+   "evidence_quote": "we compare exchanging our Mixtral 8x7B instruct model for other well-known LLMs, namely",
    "evidence_locator": "paper Sec. 4",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -420,36 +390,34 @@
   "primary_artifact": {
    "value": "paper",
    "not_reported": false,
-   "evidence_quote": "MAGDA: Multi-agent guideline-driven diagnostic assistance",
-   "evidence_locator": "paper title",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No repo URL given."
-  },
-  "first_release_date": {
-   "value": "2024-09-10",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2409.06351v1  [cs.AI]  10 Sep 2024",
-   "evidence_locator": "paper p. 1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Basis: arXiv v1 date."
-  },
-  "pinned_version": {
-   "value": "arXiv:2409.06351v1 (2024-09-10)",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2409.06351v1  [cs.AI]  10 Sep 2024",
+   "evidence_quote": "arXiv:2409.06351v1 [cs.AI] 10 Sep 2024",
    "evidence_locator": "paper p. 1",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
+  },
+  "first_release_date": {
+   "value": "2024-09-10",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2409.06351v1 [cs.AI] 10 Sep 2024",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fallback: paper v1 date; no repo."
+  },
+  "pinned_version": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No repo; paper arXiv 2409.06351v1."
   },
   "stars": {
    "value": null,
@@ -463,25 +431,44 @@
   }
  },
  "cells_unresolved": [
+  "A2",
+  "A3",
+  "B3",
+  "B5",
+  "C5",
+  "D1",
+  "D2",
+  "D3",
+  "E2",
+  "E3",
   "F1",
+  "F2",
+  "F3",
+  "G1",
+  "G2",
+  "G3",
+  "G4",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "M2",
+  "M6",
   "M7"
  ],
- "flag_counts": {
-  "not_reported_with_value": 1,
-  "locator_shape_unrecognised": 1
- },
+ "flag_counts": {},
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:47:46+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:32:18+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 22277,
  "doc_chars": 22560,
- "call_id": "A-magda-00160",
- "tokens_in": 31774,
- "tokens_out": 3678,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.250820"
+ "call_id": "A-magda-00162",
+ "tokens_in": 32314,
+ "tokens_out": 2511,
+ "cache_read": 16883,
+ "cache_write": 15429,
+ "cost_usd": "0.177037"
 }

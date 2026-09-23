@@ -45,15 +45,15 @@
   "system_prompt_style": {
    "value": "templated",
    "not_reported": false,
-   "evidence_quote": "\"template\": \"\"\"OBSERVATION:\n{observation}\nURL: {url}\nOBJECTIVE: {objective}\nPREVIOUS ACTION: {previous_action}\"\"\"",
+   "evidence_quote": "\"template\": \"\"\"OBSERVATION:\n{observation}\nURL: {url}\nOBJECTIVE: {objective}\nPREVIOUS ACTION: {previous_action}\"\"\",",
    "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Fixed intro plus meta-prompts selected per action; prompt constructed via prompt_constructor.construct(trajectory, intent, prompt_type, meta_data)."
+   "note": "Fixed intro plus meta_prompts filled with variables ({reasons}). Line numbers are not available in the bundle. Coded from dxhou/CoAct (the paper's repo). CoAct-1 (Salesforce) is a different system and is excluded."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
@@ -63,9 +63,10 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "The agent navigates web pages through browser actions (goto, click, scroll). The current page observation is given at each step. The README mentions an optional search-engine augmentation for the global plan, which was used in experiments."
   },
   "context_compaction": {
    "value": [
@@ -77,10 +78,10 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Observation length capped; no summarization of history in code shown."
+   "note": "The observation length cap is inferred from the config field. The code applying it is not in the bundle."
   },
   "observation_format": {
    "value": [
@@ -92,38 +93,38 @@
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "--render_screenshot renders screenshots for humans, not necessarily fed to the model."
+   "note": "--render_screenshot renders output for humans only. It is not shown as model input."
   },
   "tool_call_format": {
    "value": [
-    "code_as_action"
+    "cli_flags"
    ],
    "not_reported": false,
-   "evidence_quote": "\"action_splitter\": \"```\"",
+   "evidence_quote": "\"answer_phrase\": \"In summary, the next action I will perform is\",\n\t\"action_splitter\": \"```\"",
    "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Actions are emitted inside triple-backtick blocks and parsed by extract_action/create_id_based_action; not a provider tool-call API. Closest value chosen."
+   "note": "Actions are bracketed command strings such as `click [id]` inside backticks, parsed from the text. cli_flags is the closest value, but the format is really a bracket-argument DSL, so this is an ambiguity."
   },
   "tool_count": {
-   "value": 12,
+   "value": 13,
    "not_reported": false,
-   "evidence_quote": "`click [id]`",
+   "evidence_quote": "`stop [answer]`: Issue this action when you believe the task is complete.",
    "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "click, type, hover, press, scroll, new_tab, tab_focus, close_tab, goto, go_back, go_forward, stop = 12; plus a meta `check` action."
+   "note": "Count of prompt-listed actions: click, type, hover, press, scroll, new_tab, tab_focus, close_tab, goto, go_back, go_forward, stop, check. Plus the decisions move/revise/request. These are not function schemas."
   },
   "edit_primitive": {
    "value": [
@@ -135,22 +136,22 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Action list contains only browser operations; no file-editing primitive."
+   "note": "The action list contains browser actions only, with no file-editing action."
   },
   "tool_schema_source": {
    "value": [
     "hand_written"
    ],
    "not_reported": false,
-   "evidence_quote": "prompt = {\n\t\"intro\": \"\"\"You are an autonomous intelligent agent",
+   "evidence_quote": "`click [id]`: This action clicks on an element with a specific id on the webpage.",
    "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true
   },
@@ -159,85 +160,87 @@
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "from llms.providers.openai_utils import (\n    generate_from_openai_chat_completion,",
+   "evidence_quote": "f\"Provider {lm_config.provider} not implemented\"",
    "evidence_locator": "agent/agent.py@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "No MCP/A2A client anywhere in the shown code; only direct OpenAI calls and WebArena action space."
+   "note": "Only the OpenAI client appears in the evidence. No MCP or A2A appears in the shipped files."
   },
   "loop_primitives": {
    "value": [
-    "plan_execute",
-    "react"
+    "generate_test_repair",
+    "plan_execute"
    ],
+   "not_reported": false,
+   "evidence_quote": "If they align, proceed to the next phase and output the action decision as ```move```. If discrepancies arise, you have two options: 1) If you suspect issues with your local plan, output the action ```revise```",
+   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The global plan is split into phases. The local plan is executed, then checked, then revised or replanned."
+  },
+  "planning_granularity": {
+   "value": "hierarchical",
    "not_reported": false,
    "evidence_quote": "The global planning agent decomposes tasks into subtasks (“Phase 1, Phase 2 ... Phase N”) and assigns them to the local execution agent.",
    "evidence_locator": "paper Sec. 2",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "GlobalPlanner.global_plan returns a parsed plan list, and LocalAgent.local_plan returns a parsed local plan."
   },
-  "planning_granularity": {
-   "value": "explicit_plan_object",
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "Specifically, our CoAct framework involves two agents:",
+   "evidence_locator": "README.md@cf50f1574f8a",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Two-level global planner/local executor. The paper calls this hierarchical, but only two levels exist, so orchestrator_workers is closest."
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "Local execution agents can request adjustments to the global plan, enabling macro-level re-planning.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Phases are passed from the GlobalPlanner to the LocalAgent within one run. The run loop (test_plan.py) is not in the bundle."
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The run loop test_plan.py is not included in the evidence."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
    "not_reported": false,
    "evidence_quote": "parsed_global_plan = self.prompt_constructor.parse_global_plan(response)",
    "evidence_locator": "agent/agent.py@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Plan parsed into a list of phases stored and delivered one by one."
-  },
-  "multi_agent_topology": {
-   "value": "hierarchical",
-   "not_reported": false,
-   "evidence_quote": "Introducing CoAct, a hierarchical framework enhancing agent collaboration on complex real-world tasks.",
-   "evidence_locator": "README.md@cf50f1574f8a",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "delegation_mechanism": {
-   "value": "role_handoff",
-   "not_reported": false,
-   "evidence_quote": "provides detailed sub-task descriptions to local execution agents",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Two fixed agents exchange subtasks/requests; no new agent instance is spawned."
-  },
-  "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "python3 test_plan.py \\\n --test_start_idx 0 \\\n --test_end_idx 3 \\\n --model gpt-3.5-turbo",
-   "evidence_locator": "README.md@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Batch CLI run with no approval/confirmation flag."
-  },
-  "short_term_state": {
-   "value": "conversation_only",
-   "not_reported": false,
-   "evidence_quote": "def next_action(\n        self, trajectory: Trajectory, action_description: str, meta_data: dict[str, Any]\n    ) -> Action:",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true
   },
@@ -248,63 +251,57 @@
    "not_reported": false,
    "evidence_quote": "We have not implemented an efficient memory mechanism to address these issues",
    "evidence_locator": "paper Sec. 5",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "absence_high_confidence"
-   ],
+   "flags": [],
    "resolved": true
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "def reset(self, test_config_file: str) -> None:\n        pass",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "No resume path found in the shown code."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The runner source is not in the bundle."
   },
   "self_verification": {
    "value": [
     "self_critique"
    ],
    "not_reported": false,
-   "evidence_quote": "`check`: You're responsible for ensuring that the actions in the global plan execute successfully. Check the results of the actions and compare them to the global plan.",
+   "evidence_quote": "`check`: You're responsible for ensuring that the actions in the global plan execute successfully.",
    "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "If execution falters, the agents re-plan to ensure success.",
-   "evidence_locator": "paper Sec. 2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Re-planning happens inside the single run; no whole-task retry loop reported."
+   "resolved": false,
+   "note": "The runner is missing from the bundle. The revise/request replanning happens within the run and is not a task-level retry."
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "`go_back`: Navigate to the previously viewed page.",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Only browser back-navigation; no repository/filesystem rollback mechanism."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The environment and runner code are truncated in the bundle."
   },
   "termination_condition": {
    "value": [
@@ -312,29 +309,24 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "`stop [answer]`: Issue this action when you believe the task is complete.",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
+   "evidence_quote": "force stop intervention which forcibly terminates the dialogue when it exceeds a specified number of exchanges",
+   "evidence_locator": "paper Sec. 3.1",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "max_steps via force-stop: 'FS denotes force stop intervention which forcibly terminates the dialogue when it exceeds a specified number of exchanges' (paper Sec. 3.1)."
+   "note": "The model issues a `stop [answer]` action. The paper also mentions a maximum round limit."
   },
   "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "context_length=lm_config.gen_config[\"context_length\"],\n                    max_tokens=lm_config.gen_config[\"max_tokens\"],",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The runner code is not in the bundle."
   },
   "timeouts": {
    "value": null,
@@ -344,55 +336,49 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "The runner and environment code are not in the bundle."
   },
   "execution_isolation": {
-   "value": "container",
-   "not_reported": false,
-   "evidence_quote": "Follow the Docker setup instructions provided at [webarena/environment_docker]",
-   "evidence_locator": "README.md@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Websites run in WebArena Docker; the agent itself runs Playwright locally."
+   "resolved": false,
+   "note": "The browser_env deployment code is truncated. Websites are hosted on WebArena docker/EC2 per env_config, and a Playwright browser runs locally."
   },
   "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "`goto [url]`: Navigate to a specific URL.",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Agent acts only through a browser; no filesystem access primitive. Closest value chosen."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "REDDIT = os.environ.get(\"REDDIT\", \"http://ec2-3-131-244-37.us-east-2.compute.amazonaws.com:9999\")",
-   "evidence_locator": "browser_env/env_config.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No egress restriction configured; browser reaches configured hosts over the network."
+   "resolved": false
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "action = create_id_based_action(parsed_action_description)",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Parsed action is executed directly; malformed actions become a none-action."
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "tracing": {
    "value": "structured_traces",
@@ -401,7 +387,9 @@
    "evidence_locator": "README.md@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "replayability": {
@@ -421,24 +409,21 @@
    "evidence_locator": "README.md@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "WebArena evaluation_harness package ships in the repo."
+   "note": "The evaluation_harness package is inherited from WebArena."
   },
   "guardrails": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "except ActionParsingError as e:\n            action = create_none_action()",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Only parse-failure handling; no blocklist, filter or safety policy found."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "target_domain": {
    "value": [
@@ -449,7 +434,9 @@
    "evidence_locator": "README.md@cf50f1574f8a",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "open_source": {
@@ -461,90 +448,103 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "No LICENSE file in the provided evidence for xmhou2002/CoAct."
+   "note": "The LICENSE file is not in the bundle."
   },
   "model_agnostic": {
    "value": "no",
    "not_reported": false,
-   "evidence_quote": "raise NotImplementedError(\n                f\"Provider {lm_config.provider} not implemented\"\n            )",
+   "evidence_quote": "raise NotImplementedError(f\"provider {args.provider} not implemented\")",
    "evidence_locator": "agent/agent.py@cf50f1574f8a",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Only provider == \"openai\" is supported."
+   "note": "Only the openai provider is implemented."
   },
   "primary_artifact": {
-   "value": "repo",
+   "value": "paper",
    "not_reported": false,
-   "evidence_quote": "Code is available at https://github.com/xmhou2002/ CoAct.",
-   "evidence_locator": "paper Sec. 1",
+   "evidence_quote": "For more details, please refer to our paper",
+   "evidence_locator": "README.md@cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The repo is research code frozen to the arXiv 2406.13381 paper."
   },
   "first_release_date": {
    "value": "2024-06-19",
    "not_reported": false,
    "evidence_quote": "arXiv:2406.13381v1 [cs.CL] 19 Jun 2024",
    "evidence_locator": "paper p. 1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No tags available; basis is paper v1 date (fallback)."
+   "note": "Fallback to the paper v1 date, because tags and the first commit are not in the evidence."
   },
   "pinned_version": {
    "value": "main @ cf50f1574f8a (2024-07-08)",
    "not_reported": false,
-   "evidence_quote": "ref: commit:main cf50f1574f8a 2024-07-08",
-   "evidence_locator": "repository evidence header (github.com/dxhou/CoAct)@cf50f1574f8a",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Mirror of xmhou2002/CoAct; untagged, coded at main."
-  },
-  "stars": {
-   "value": 32,
-   "not_reported": false,
-   "evidence_quote": "stars: 32",
-   "evidence_locator": "repository evidence header@cf50f1574f8a",
+   "evidence_quote": "This is REPOSITORY EVIDENCE for the record above, at the pinned reference (protocol 4.5).",
+   "evidence_locator": "dxhou/CoAct commit:main cf50f1574f8a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Successor repo SalesforceAIResearch/CoAct-1 has 28 stars."
+   "note": "No tag is available, and the full hash is not given. The record URL xmhou2002/coact redirects to dxhou/CoAct."
+  },
+  "stars": {
+   "value": 32,
+   "not_reported": false,
+   "evidence_quote": "This is REPOSITORY EVIDENCE for the record above, at the pinned reference (protocol 4.5).",
+   "evidence_locator": "evidence header repo https://github.com/dxhou/CoAct",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Star count of 32 is taken from the bundle header, with no date given. This is not a fresh gh api call."
   }
  },
  "cells_unresolved": [
+  "C5",
+  "D3",
+  "E2",
+  "E3",
+  "F2",
   "F3",
+  "G1",
+  "G2",
+  "G3",
+  "G4",
   "H2",
+  "H4",
   "M2"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 22,
-  "absence_high_confidence": 1
+  "locator_no_line": 18,
+  "locator_shape_unrecognised": 2
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:44:09+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:29:27+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 97194,
  "doc_chars": 97522,
- "call_id": "A-coact-00119",
- "tokens_in": 59852,
- "tokens_out": 5333,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.432585"
+ "call_id": "A-coact-00121",
+ "tokens_in": 60392,
+ "tokens_out": 5656,
+ "cache_read": 16883,
+ "cache_write": 43507,
+ "cost_usd": "0.464561"
 }

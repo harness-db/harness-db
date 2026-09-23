@@ -26,47 +26,48 @@
    "not_reported": false,
    "evidence_quote": "When the Responses API receives a prompt, it assembles model context: user prompt, prior conversation state, and tool instructions.",
    "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Skills metadata also injected before sending prompt."
+   "note": "Skill metadata is also injected before the call, which is why this is coded dynamically_composed. No system-prompt code is available."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
    "not_reported": false,
-   "evidence_quote": "stage resources in the container file system and let the model decide what to open, parse, or transform with shell commands",
-   "evidence_locator": "paper Sec. Container context / File systems",
-   "confidence": "medium",
+   "evidence_quote": "A better pattern is to stage resources in the container file system and let the model decide what to open, parse, or transform with shell commands.",
+   "evidence_locator": "paper Sec. File systems",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "context_compaction": {
    "value": [
-    "summarize",
+    "model_native",
     "tool_output_pruning"
    ],
    "not_reported": false,
-   "evidence_quote": "produce a compaction item that preserves key prior state in an encrypted token-efficient representation",
+   "evidence_quote": "we added native compaction in the Responses API, designed to align with how the model behaves and how it's been trained.",
    "evidence_locator": "paper Sec. When the context window gets full: compaction",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Output cap per command gives tool_output_pruning: \"The Responses API enforces that cap and returns a bounded result\"."
+   "note": "There is also a per-command output cap that preserves the beginning and end of the output ('The Responses API enforces that cap and returns a bounded result'). The compaction item is model-generated and encrypted."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "The API service forwards those commands to the container runtime, streams back shell output, and feeds it to the model in the next request’s context.",
+   "evidence_quote": "the API multiplexes those streams back into structured tool outputs as context",
    "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Shell output text. Coded as raw_text rather than structured_json because the model reads terminal output."
   },
   "tool_call_format": {
    "value": [
@@ -76,35 +77,33 @@
    "not_reported": false,
    "evidence_quote": "If it chooses shell execution, it returns one or more shell commands to Responses API service.",
    "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Hosted tool call via Responses API tool interface; action content is a shell command line."
-  },
-  "tool_count": {
-   "value": 1,
-   "not_reported": false,
-   "evidence_quote": "the shell tool—the simplest way to see this loop in action",
-   "evidence_locator": "paper Sec. The shell tool",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Only the shell tool is described as the hosted tool in this configuration; code interpreter and custom tools also available."
+   "note": "This is the provider-hosted shell tool; custom tools use function calling."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The evidence has no tool list. The shell tool is described, and code interpreter is mentioned."
   },
   "edit_primitive": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Built on familiar Unix tooling, our shell tool can do anything you'd expect, with utilities like grep, curl, and awk available out of the box.",
-   "evidence_locator": "paper Sec. The shell tool",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No dedicated edit tool described; edits happen through shell."
+   "resolved": false,
+   "note": "The post describes no edit tool and gives no tool registry."
   },
   "tool_schema_source": {
    "value": null,
@@ -117,83 +116,78 @@
    "resolved": false
   },
   "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "the Responses API provides orchestration, the shell tool provides executable actions, the hosted container provides persistent runtime context, skills layer reusable workflow logic",
-   "evidence_locator": "paper Sec. How agents are made",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No MCP/A2A mentioned in the post."
+   "resolved": false,
+   "note": "There is no dependency or source listing to check for protocols."
   },
   "loop_primitives": {
    "value": [
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "the model proposes an action like reading files or fetching data with API, the platform runs it, and the result feeds into the next step",
-   "evidence_locator": "paper Sec. The shell tool",
+   "evidence_quote": "The Responses API repeats this loop until the model returns a completion without additional shell commands.",
+   "evidence_locator": "paper Sec. Orchestrating the agent loop",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "planning_granularity": {
-   "value": "implicit",
-   "not_reported": false,
-   "evidence_quote": "The model proposes steps and commands; the platform runs them in an isolated environment",
-   "evidence_locator": "paper Sec. intro",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No stored plan object described."
+   "resolved": false
   },
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "The Responses API repeats this loop until the model returns a completion without additional shell commands.",
-   "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "medium",
+   "evidence_quote": "the Responses API provides orchestration, the shell tool provides executable actions",
+   "evidence_locator": "paper Sec. How agents are made",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "delegation_mechanism": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "We need an orchestrator to get model output, invoke tools, and pass the tool response back to the model in a loop, until the task is complete.",
-   "evidence_locator": "paper Sec. Orchestrating the agent loop",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The Responses API repeats this loop until the model returns a completion without additional shell commands.",
-   "evidence_locator": "paper Sec. Orchestrating the agent loop",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No approval gate described."
+   "resolved": false
   },
   "short_term_state": {
-   "value": "conversation_only",
-   "not_reported": false,
-   "evidence_quote": "it assembles model context: user prompt, prior conversation state, and tool instructions",
-   "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "The post mentions 'prior conversation state' but not the state object."
   },
   "long_term_memory": {
    "value": [
@@ -208,76 +202,6 @@
    "resolved": true
   },
   "state_persistence": {
-   "value": "checkpoint",
-   "not_reported": false,
-   "evidence_quote": "the hosted container provides persistent runtime context",
-   "evidence_locator": "paper Sec. How agents are made",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Conversation state is stored server-side and containers persist; no explicit resume path described."
-  },
-  "self_verification": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The model can then inspect the results, issue follow-up commands, or produce a final answer.",
-   "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No harness-enforced verification described; model may validate via shell."
-  },
-  "retry_policy": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
-   "confidence": "low",
-   "quote_verbatim": false,
-   "flags": [],
-   "resolved": false,
-   "note": "Post mentions \"how to handle timeouts and retries\" as a problem but gives no task-level retry policy."
-  },
-  "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Inside the container, the model can read files, query databases, and access external systems under network policy controls.",
-   "evidence_locator": "paper Sec. Container context",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "termination_condition": {
-   "value": [
-    "model_declared"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The Responses API repeats this loop until the model returns a completion without additional shell commands.",
-   "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "the model specifies an output cap per command",
-   "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Output cap bounds context spend; compaction threshold configurable."
-  },
-  "timeouts": {
    "value": null,
    "not_reported": true,
    "evidence_quote": "",
@@ -287,26 +211,90 @@
    "flags": [],
    "resolved": false
   },
-  "execution_isolation": {
-   "value": "container",
-   "not_reported": false,
-   "evidence_quote": "the platform runs them in an isolated environment with a filesystem for inputs and outputs, optional structured storage (like SQLite), and restricted network access",
-   "evidence_locator": "paper Sec. intro",
-   "confidence": "high",
-   "quote_verbatim": true,
+  "self_verification": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
-  "filesystem_access": {
-   "value": "full",
+  "retry_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "termination_condition": {
+   "value": [
+    "model_declared"
+   ],
    "not_reported": false,
-   "evidence_quote": "Inside the container, the model can read files, query databases, and access external systems under network policy controls.",
-   "evidence_locator": "paper Sec. Container context",
+   "evidence_quote": "The Responses API repeats this loop until the model returns a completion without additional shell commands.",
+   "evidence_locator": "paper Sec. Orchestrating the agent loop",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Full within the container boundary."
+   "note": "No other caps are described."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Timeouts are named as a problem the system addresses, but no mechanism is described."
+  },
+  "execution_isolation": {
+   "value": "remote",
+   "not_reported": false,
+   "evidence_quote": "The API service forwards those commands to the container runtime, streams back shell output",
+   "evidence_locator": "paper Sec. Orchestrating the agent loop",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "This is a hosted container service. It is coded remote, but it is a container underneath."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "network_policy": {
    "value": "allowlist",
@@ -319,26 +307,24 @@
    "resolved": true
   },
   "permission_model": {
-   "value": "policy_engine",
-   "not_reported": false,
-   "evidence_quote": "we built hosted containers to use a sidecar egress proxy. All outbound network requests flow through a centralized policy layer that enforces allowlists and access controls",
-   "evidence_locator": "paper Sec. Network access",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Shell commands themselves are executed without per-call approval; policy applies at egress."
+   "resolved": false
   },
   "tracing": {
-   "value": "logs",
-   "not_reported": false,
-   "evidence_quote": "enforces allowlists and access controls while keeping traffic observable",
-   "evidence_locator": "paper Sec. Network access",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Responses API stores conversation state; richer tracing not described in this post."
+   "resolved": false
   },
   "replayability": {
    "value": null,
@@ -351,38 +337,35 @@
    "resolved": false
   },
   "eval_hooks": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "the Responses API provides orchestration, the shell tool provides executable actions, the hosted container provides persistent runtime context",
-   "evidence_locator": "paper Sec. How agents are made",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No benchmark evaluation hooks described."
+   "resolved": false
   },
   "guardrails": {
    "value": [
-    "action_policies",
     "output_filters"
    ],
    "not_reported": false,
-   "evidence_quote": "For credentials, we use domain-scoped secret injection at egress. The model and container only see placeholders, while raw secret values stay outside model-visible context",
+   "evidence_quote": "The model and container only see placeholders, while raw secret values stay outside model-visible context",
    "evidence_locator": "paper Sec. Network access",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Egress allowlist = action_policies; secret placeholders = output_filters."
+   "note": "Secret masking via domain-scoped injection at egress."
   },
   "target_domain": {
    "value": [
-    "general_tool_use",
-    "swe"
+    "general_tool_use"
    ],
    "not_reported": false,
-   "evidence_quote": "the shell tool enables a much wider range of use cases, like running Go or Java programs or starting a NodeJS server",
-   "evidence_locator": "paper Sec. The shell tool",
+   "evidence_quote": "like running services, requesting data from APIs, or generating more useful artifacts like spreadsheets or reports",
+   "evidence_locator": "paper intro",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
@@ -391,20 +374,20 @@
   "open_source": {
    "value": "no",
    "not_reported": false,
-   "evidence_quote": "OpenAI’s Responses API, together with the shell tool and a hosted container workspace, is designed to address these practical problems.",
-   "evidence_locator": "paper Sec. intro",
-   "confidence": "medium",
+   "evidence_quote": "we built the necessary components to equip the Responses API",
+   "evidence_locator": "paper intro",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Hosted proprietary service; no repo."
+   "note": "This is a hosted proprietary service, and no repo is given."
   },
   "model_agnostic": {
    "value": "no",
    "not_reported": false,
-   "evidence_quote": "the selected model must be trained to propose shell commands—models GPT‑5.2 and later are trained for this",
+   "evidence_quote": "models GPT‑5.2 and later are trained for this",
    "evidence_locator": "paper Sec. Orchestrating the agent loop",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -416,37 +399,30 @@
    "evidence_locator": "paper title",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "OpenAI engineering blog post; no public repo."
+   "note": "This is an engineering blog post."
   },
   "first_release_date": {
-   "value": "2026-03-11",
-   "not_reported": false,
-   "evidence_quote": "March 11, 2026",
-   "evidence_locator": "paper header",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Basis: date of the blog post announcing the shell tool + container; no release tag available."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The post is dated March 11, 2026; that is not a release date."
   },
   "pinned_version": {
-   "value": "blog post 2026-03-11 (no version/commit)",
-   "not_reported": false,
-   "evidence_quote": "March 11, 2026",
-   "evidence_locator": "paper header",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Closed hosted service; pinned to the publication date of the post."
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "stars": {
    "value": null,
@@ -456,32 +432,46 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false,
-   "note": "No repository."
+   "resolved": false
   }
  },
  "cells_unresolved": [
+  "B2",
+  "B3",
   "B4",
+  "B5",
+  "C2",
+  "C4",
+  "C5",
+  "D1",
+  "D3",
+  "E1",
   "E2",
+  "E3",
+  "F2",
   "F3",
+  "G2",
+  "G4",
+  "H1",
   "H2",
+  "H3",
+  "M5",
+  "M6",
   "M7"
  ],
- "flag_counts": {
-  "locator_shape_unrecognised": 3
- },
+ "flag_counts": {},
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:49:08+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:33:30+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 14298,
  "doc_chars": 14638,
- "call_id": "A-responses-api-00175",
- "tokens_in": 27955,
- "tokens_out": 3574,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.229125"
+ "call_id": "A-responses-api-00177",
+ "tokens_in": 28495,
+ "tokens_out": 2707,
+ "cache_read": 16883,
+ "cache_write": 11610,
+ "cost_usd": "0.150405"
 }

@@ -29,55 +29,41 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
-   "not_reported": false,
-   "evidence_quote": "Each repair graph agent invoked by the dispatcher issues one LLM call using a specific prompt. The code and configuration agents share the same high-level prompt structure, but differ in their edit context",
-   "evidence_locator": "paper Sec. IV",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Prompt contains five ordered parts filled with per-case fault signature and candidates."
+   "resolved": false,
+   "note": "Two different papers named ORCA are bundled: a VLM hallucination agent and a microservice APR pipeline (arXiv 2608.17018). No repo is available. This coding follows the APR paper, which is the SWE harness. Its repair prompts have five ordered parts, but the paper does not describe the system prompt mechanism. Record identity is ambiguous; flag for human review."
   },
   "env_context_strategy": {
    "value": "mixed",
    "not_reported": false,
    "evidence_quote": "Each prompt contains five ordered parts: failure-side evidence from the fault signature, a structured edit context derived from localization, target-file context, a textual repair graph summary, and an exact-match edit instruction.",
    "evidence_locator": "paper Sec. IV",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Localized candidates injected up front (closest to file_tree_summary) plus Exploration agent with file inspection/repository search (agent_driven_navigation)."
-  },
-  "context_compaction": {
-   "value": [
-    "tool_output_pruning"
-   ],
-   "not_reported": false,
-   "evidence_quote": "ORCA applies fixed caps per telemetry source across deployment substrates.",
-   "evidence_locator": "paper Sec. III",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Caps on telemetry evidence entering the prompt; no history-level compaction described."
+   "note": "The prompt is given telemetry-localized context (SBFL ranking, not BM25). The fallback Exploration agent also navigates the repository itself ('file inspection, repository search')."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper only; no history-management mechanism is described. The telemetry fault signature applies 'fixed caps per telemetry source', but that is input distillation, not history compaction."
   },
   "observation_format": {
    "value": [
     "raw_text"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The fault signature is a structured textual summary of the differences between the failure telemetry and the reference telemetry.",
-   "evidence_locator": "paper Sec. III",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "tool_call_format": {
-   "value": [
-    "json_in_text"
    ],
    "not_reported": false,
    "evidence_quote": "The structured edit context is a JSON-formatted object that packages the localization output for the corresponding agent.",
@@ -86,18 +72,29 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Repair graph agents return an exact-match search-and-replace edit from one LLM call; the Exploration agent has an action space (read file, search, list dir, submit patch) but the call syntax is not stated."
+   "note": "Text inputs and observations. The JSON edit context is an input, not a tool observation."
+  },
+  "tool_call_format": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The Exploration agent's action syntax is not described."
   },
   "tool_count": {
-   "value": 4,
-   "not_reported": false,
-   "evidence_quote": "an action space that includes file inspection, repository search, file editing, and validation commands",
-   "evidence_locator": "paper Sec. IV",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Count of Exploration-agent action space; repair graph agents are single constrained LLM calls with no tools. ReAct baseline lists read file, search, list dir, submit patch."
+   "resolved": false,
+   "note": "The action space includes inspection, search, editing and validation commands, but no tool count is given."
   },
   "edit_primitive": {
    "value": [
@@ -107,11 +104,11 @@
    "not_reported": false,
    "evidence_quote": "The model must return an exact-match search-and-replace edit: the search text must be copied verbatim from the target file, and the replacement text specifies the new content for that region.",
    "evidence_locator": "paper Sec. IV",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Accepted edits are converted into a unified-diff patch candidate."
+   "note": "The paper states that accepted edits are converted into a unified diff. The unified diff is the output format, not something the model emits; including it is a judgement call."
   },
   "tool_schema_source": {
    "value": null,
@@ -124,36 +121,33 @@
    "resolved": false
   },
   "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Each agent instance operates in a sandboxed repository workspace, with an action space that includes file inspection, repository search, file editing, and validation commands.",
-   "evidence_locator": "paper Sec. IV",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No MCP/A2A mentioned anywhere in the paper."
+   "resolved": false,
+   "note": "No repo available to grep."
   },
   "loop_primitives": {
    "value": [
     "fixed_pipeline",
-    "generate_test_repair",
     "multi_attempt",
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "A deterministic dispatcher maps the localization outputs to the patch-generation agents in Algorithm 1.",
+   "evidence_quote": "ORCA launchesN independent Exploration-agent runs and combines their outputs with file-level majority voting.",
    "evidence_locator": "paper Sec. IV",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default two-stage fixed pipeline; Exploration agent is an interactive loop; TGPV verification after generation; N independent Exploration runs with majority voting (default N=1)."
+   "note": "The default path is a deterministic dispatcher pipeline (Algorithm 1). The interactive Exploration agent is the fallback. The default is N=1; multi_attempt is reached with N>1."
   },
   "planning_granularity": {
-   "value": "none",
+   "value": "implicit",
    "not_reported": false,
    "evidence_quote": "A deterministic dispatcher maps the localization outputs to the patch-generation agents in Algorithm 1.",
    "evidence_locator": "paper Sec. IV",
@@ -161,7 +155,7 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No plan object or planning step described; routing is rule-based."
+   "note": "No plan object is described."
   },
   "multi_agent_topology": {
    "value": "pipeline",
@@ -171,103 +165,92 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Specialised agents dispatched deterministically; outputs merged."
+   "resolved": true
   },
   "delegation_mechanism": {
    "value": "role_handoff",
    "not_reported": false,
    "evidence_quote": "If no repair graph agent produces a candidate, Line 4 invokes the Exploration agent with the fault signature, ranked code candidates, and configuration candidates.",
    "evidence_locator": "paper Sec. IV",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Deterministic dispatcher hands the case to another specialised agent role."
+   "note": "Hand-off is decided by the dispatcher, not by an agent. Closest allowed value."
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "ORCA emits a unified-diff patch candidate for application code or deployment configuration.",
-   "evidence_locator": "paper Sec. I",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No human approval step described in the pipeline."
+   "resolved": false
   },
   "short_term_state": {
-   "value": "structured_task_state",
-   "not_reported": false,
-   "evidence_quote": "The structured edit context is a JSON-formatted object that packages the localization output for the corresponding agent.",
-   "evidence_locator": "paper Sec. IV",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Fault signature + candidate lists + repair graph carried through the pipeline."
+   "resolved": false
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "ORCA takes paired failure and reference telemetry bundles, the project workspace when available, and an optional issue title and body.",
-   "evidence_locator": "paper Sec. I",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No cross-run persisted memory described."
+   "resolved": false
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "An empty-edit check rejects outputs with no repository change and treats step-budget exhaustion without edits as an abstention.",
-   "evidence_locator": "paper Sec. IV",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No resume/checkpoint path described."
+   "resolved": false
   },
   "self_verification": {
    "value": [
-    "linters_typecheck",
     "test_execution"
    ],
    "not_reported": false,
-   "evidence_quote": "TGPV therefore separates verification into four checks.",
-   "evidence_locator": "paper Sec. IV",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "C2 runs paired fault-revealing unit tests; C1/C2 check patch application and syntactic/semantic correctness (compilation); C4 replays telemetry. Verification is post-hoc, not fed back by default."
-  },
-  "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Unless otherwise stated, the main experiments use N=1 and an interaction-step budget of B=15 per instance.",
-   "evidence_locator": "paper Sec. IV",
+   "evidence_quote": "ORCA evaluates generated patches with a Telemetry-Grounded Patch Verifier that separates patch validity, syntactic and semantic correctness, test-oracle integrity, and telemetry replay.",
+   "evidence_locator": "paper Abstract",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Configurable fixed_n via N independent Exploration-agent runs (N in {1,3,5}) combined by majority voting; default N=1."
+   "note": "The verifier's output is reported, not fed back to the model, so this may be evaluation rather than a harness loop. The C3 test-oracle integrity check is noted."
+  },
+  "retry_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The Exploration fallback runs only after the repair-graph agents yield no patch; this is not retry-on-failure."
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Each agent instance operates in a sandboxed repository workspace, with an action space that includes file inspection, repository search, file editing, and validation commands.",
-   "evidence_locator": "paper Sec. IV",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No undo/revert mechanism described; rejected edits are simply not converted to a patch."
+   "resolved": false
   },
   "termination_condition": {
    "value": [
@@ -275,61 +258,57 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "An instance either produces repository edits that are converted into a unified-diff patch candidate or abstains when it cannot identify a repair location.",
+   "evidence_quote": "An empty-edit check rejects outputs with no repository change and treats step-budget exhaustion without edits as an abstention.",
    "evidence_locator": "paper Sec. IV",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Step-budget B=15 per Exploration instance; repair graph agents are single calls."
+   "note": "Default step budget is B=15. Abstention is treated as model_declared."
   },
   "cost_controls": {
    "value": [
-    "none"
+    "token_budget"
    ],
    "not_reported": false,
-   "evidence_quote": "Efficiency is reported as average token cost and wall-clock time per case.",
-   "evidence_locator": "paper Sec. V-C",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Token cost is measured, not capped; no caching or routing mechanism described (the deterministic dispatcher routes agents, not models)."
-  },
-  "timeouts": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Unless otherwise stated, the main experiments use N=1 and an interaction-step budget of B=15 per instance.",
+   "evidence_quote": "Unless otherwise stated, the main experiments use N=1and an interaction-step budget ofB=15per instance.",
    "evidence_locator": "paper Sec. IV",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Only a step budget, which is not a timeout; wall-clock time is reported but not enforced."
+   "note": "This is a step budget, not a token cap. It is the closest value; low confidence."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "execution_isolation": {
    "value": "container",
    "not_reported": false,
-   "evidence_quote": "we identify the versions immediately before and after the repair and deploy both in containerized environments",
-   "evidence_locator": "paper Sec. V-A",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Exploration agent operates in a sandboxed repository workspace; TGPV redeploys the patched stack."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
    "evidence_quote": "Each agent instance operates in a sandboxed repository workspace",
    "evidence_locator": "paper Sec. IV",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Repair graph agents are further scoped: the context defines the target locations the model may edit."
+   "note": "Sandbox type is unspecified. Elsewhere the paper states patched stacks are deployed in 'containerized environments'."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "network_policy": {
    "value": null,
@@ -342,66 +321,58 @@
    "resolved": false
   },
   "permission_model": {
-   "value": "static_allowlist",
-   "not_reported": false,
-   "evidence_quote": "In both repair graph agents, the context defines the target locations the model may edit and the telemetry evidence associated with those locations.",
-   "evidence_locator": "paper Sec. IV",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Edit locations restricted to localized candidates; exact-match check rejects other edits."
+   "resolved": false
   },
   "tracing": {
-   "value": "structured_traces",
-   "not_reported": false,
-   "evidence_quote": "ORCA checks each generated patch along four axes: patch validity, syntactic and semantic correctness, test-oracle integrity, and telemetry replay.",
-   "evidence_locator": "paper Sec. I",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Per-case verifier outcomes are returned with the patch; no explicit trace-logging facility described for this ORCA."
+   "resolved": false,
+   "note": "Only the VLM ORCA paper mentions reasoning traces."
   },
   "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "This check redeploys the patched stack, replays the same traffic profile, and recomputes the telemetry signal associated with the failure-side fault signature.",
-   "evidence_locator": "paper Sec. IV",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
    "quote_verbatim": false,
-   "flags": [
-    "quote_not_in_bundle"
-   ],
+   "flags": [],
    "resolved": false,
-   "note": "Telemetry replay of workload, not of agent trajectories; T=0 used to keep generation deterministic."
+   "note": "'Telemetry replay' means traffic replay for verification, not trajectory replay."
   },
   "eval_hooks": {
-   "value": "built_in",
-   "not_reported": false,
-   "evidence_quote": "The resulting patch candidate is evaluated by the Telemetry-Grounded Patch Verifier (TGPV), which reports patch validity, syntactic and semantic correctness, test-oracle integrity, and telemetry replay.",
-   "evidence_locator": "paper Sec. I",
-   "confidence": "high",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
    "quote_verbatim": false,
-   "flags": [
-    "quote_not_in_bundle"
-   ],
+   "flags": [],
    "resolved": false,
-   "note": "Evaluation runner and 575-case benchmark ship with the system; benchmark to be made publicly available."
+   "note": "No repo available. The paper says the benchmark 'will be made publicly available'."
   },
   "guardrails": {
-   "value": [
-    "action_policies",
-    "input_filters"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The agent accepts the output only when the search text matches the target file exactly; otherwise it rejects the edit before verifier execution.",
-   "evidence_locator": "paper Sec. IV",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Input sanitization: ORCA sanitizes the issue title and body to reduce solution leakage; TGPV C3 flags patches that edit test files."
+   "resolved": false,
+   "note": "Exact-match edit rejection and issue sanitization exist, but no guardrail registry can be examined."
   },
   "target_domain": {
    "value": [
@@ -423,15 +394,14 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false,
-   "note": "Benchmark stated to be made publicly available; no licence or code release statement for the system."
+   "resolved": false
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "We compare seven LLMs from four providers: DeepSeek-V4-pro, DeepSeek-Flash, Claude-Opus-4.8, GPT-5.1, GPT-5-mini, GPT-4o-mini, and Qwen3-Coder-30B",
+   "evidence_quote": "We compare seven LLMs from four providers",
    "evidence_locator": "paper Sec. V-E",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -439,13 +409,12 @@
   "primary_artifact": {
    "value": "paper",
    "not_reported": false,
-   "evidence_quote": "We propose ORCA, an observability-grounded automated program repair pipeline for microservice incidents.",
-   "evidence_locator": "paper Sec. I",
-   "confidence": "medium",
+   "evidence_quote": "ORCA: Observability-Grounded Program Repair for Microservice Incidents",
+   "evidence_locator": "paper title",
+   "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "No repository URL given in the evidence."
+   "resolved": true
   },
   "first_release_date": {
    "value": "2026-08-17",
@@ -456,18 +425,18 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Basis: arXiv v1 date; no release tags available."
+   "note": "Based on the paper v1 date; no repo exists."
   },
   "pinned_version": {
-   "value": "arXiv:2608.17018v1 (2026-08-17)",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2608.17018v1 [cs.SE] 17 Aug 2026",
-   "evidence_locator": "paper p. 1",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No repo pin available."
+   "resolved": false,
+   "note": "No repo available."
   },
   "stars": {
    "value": null,
@@ -478,32 +447,47 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "No repository URL, so no star count."
+   "note": "No repo available."
   }
  },
  "cells_unresolved": [
+  "A1",
+  "A3",
+  "B1",
+  "B2",
   "B4",
+  "B5",
+  "C5",
+  "D1",
+  "D2",
+  "D3",
+  "E2",
+  "E3",
+  "F3",
+  "G2",
   "G3",
+  "G4",
+  "H1",
   "H2",
   "H3",
+  "H4",
   "M2",
+  "M6",
   "M7"
  ],
- "flag_counts": {
-  "quote_not_in_bundle": 2
- },
+ "flag_counts": {},
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:47:46+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:32:18+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 91741,
  "doc_chars": 92020,
- "call_id": "A-orca-00164",
- "tokens_in": 57172,
- "tokens_out": 4427,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.396535"
+ "call_id": "A-orca-00166",
+ "tokens_in": 57712,
+ "tokens_out": 3224,
+ "cache_read": 16883,
+ "cache_write": 40827,
+ "cost_usd": "0.394481"
 }

@@ -44,39 +44,37 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Fixed SEARCH_SYSTEM_PROMPT constant; REACT_PROMPT used as system prompt for the ReAct agent."
+   "note": "Fixed SEARCH_SYSTEM_PROMPT constant for the search LLM; the orchestrating agent's prompt comes from smolagents (not in evidence)."
   },
   "env_context_strategy": {
    "value": "retrieval_bm25",
    "not_reported": false,
-   "evidence_quote": "we scrape the associated webpages, embed passage chunks and retrieve the top n relevant passages from each webpage based on the re-ranker score",
-   "evidence_locator": "paper Sec. 2.1.3",
-   "confidence": "medium",
+   "evidence_quote": "{\"role\": \"user\", \"content\": f\"Context:\\n{context}\\n\\nQuestion: {query}\"}",
+   "evidence_locator": "src/opendeepsearch/ods_agent.py:143@ec7aa06",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Closest value is embedding retrieval; the environment is the web, retrieved via SERP + semantic reranking. Coded embedding_rag would be closer — see note in A2 below."
+   "note": "Closest value: web search + reranker-based semantic retrieval is injected as context (closer to embedding_rag rerank). Mismatch: retrieval is web SERP + rerankers (Jina/Infinity), not BM25; could arguably be embedding_rag."
   },
   "context_compaction": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "messages = [\n            {\"role\": \"system\", \"content\": self.system_prompt},\n            {\"role\": \"user\", \"content\": f\"Context:\\n{context}\\n\\nQuestion: {query}\"}\n        ]",
-   "evidence_locator": "src/opendeepsearch/ods_agent.py:140-143@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Search agent builds a fresh message list each call; no history processor in repo."
+   "resolved": false,
+   "note": "Agent loop/history handled by smolagents, not in evidence bundle."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "output_type = \"string\"",
-   "evidence_locator": "src/opendeepsearch/ods_tool.py:15@ec7aa06",
+   "evidence_quote": "return response.choices[0].message.content",
+   "evidence_locator": "src/opendeepsearch/ods_agent.py:153@ec7aa06",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -85,48 +83,48 @@
   "tool_call_format": {
    "value": [
     "code_as_action",
-    "json_in_text"
+    "native_function_calling"
    ],
    "not_reported": false,
    "evidence_quote": "code_agent = CodeAgent(tools=[search_agent], model=model)",
-   "evidence_locator": "README.md (Integrating with SmolAgents & LiteLLM)@ec7aa06",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default ODS-v2 uses smolagents CodeAgent (Python code actions); ODS-v1 ToolCallingAgent uses structured tool calls with REACT_PROMPT."
+   "note": "CodeAgent (ODS-v2) shown first; ToolCallingAgent with REACT_PROMPT alternative. Parsers live in smolagents."
   },
   "tool_count": {
    "value": 1,
    "not_reported": false,
    "evidence_quote": "code_agent = CodeAgent(tools=[search_agent], model=model)",
-   "evidence_locator": "README.md (Integrating with SmolAgents & LiteLLM)@ec7aa06",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default example exposes only web_search; 2 with WolframAlphaTool added (calculate). Smolagents built-ins not counted from this evidence."
+   "note": "web_search only in default CodeAgent example; smolagents may add final_answer. Max shipped: web_search + calculate."
   },
   "edit_primitive": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "OpenDeepSearch is a lightweight yet powerful search tool designed for seamless integration with AI agents.",
-   "evidence_locator": "README.md (Description)@ec7aa06",
+   "evidence_quote": "name = \"web_search\"",
+   "evidence_locator": "src/opendeepsearch/ods_tool.py:6@ec7aa06",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No file-editing tool in the repo tree; only search and wolfram tools."
+   "note": "Only shipped tools are web_search and calculate; no edit tool."
   },
   "tool_schema_source": {
    "value": [
     "hand_written"
    ],
    "not_reported": false,
-   "evidence_quote": "inputs = {\n        \"query\": {\n            \"type\": \"string\",\n            \"description\": \"The search query to perform\",\n        },\n    }",
-   "evidence_locator": "src/opendeepsearch/ods_tool.py:8-14@ec7aa06",
+   "evidence_quote": "\"description\": \"The search query to perform\",",
+   "evidence_locator": "src/opendeepsearch/ods_tool.py:12@ec7aa06",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -143,261 +141,239 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No mcp/a2a files in the 38-path file tree."
+   "note": "Tools are smolagents Tool subclasses; no MCP client in the file tree."
   },
   "loop_primitives": {
    "value": [
+    "fixed_pipeline",
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "We provide two versions of Open Reasoning Agent: one based on ReAct and the other based on CodeAct.",
-   "evidence_locator": "paper Sec. 4",
-   "confidence": "high",
+   "evidence_quote": "sources = self.serp_search.get_sources(query)",
+   "evidence_locator": "src/opendeepsearch/ods_agent.py:109@ec7aa06",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "ODS-v1 additionally falls back to CoT self-consistency sampling (multi_attempt-like) per Sec. 2.2.1, not in repo code shown."
+   "note": "Search tool is fixed pipeline (search->process->LLM); orchestrator is smolagents CodeAgent/ToolCallingAgent ReAct loop."
   },
   "planning_granularity": {
    "value": "implicit",
    "not_reported": false,
-   "evidence_quote": "These steps iterate until a response is returned, though the agent may not return an answer if insufficient information is available.",
-   "evidence_locator": "paper Sec. 2.2.1",
-   "confidence": "medium",
+   "evidence_quote": "prompt_templates=REACT_PROMPT # Using REACT_PROMPT as system prompt",
+   "evidence_locator": "README.md",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Planning only in free-text Thought steps; no stored plan object."
+   "resolved": true
   },
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "react_agent = ToolCallingAgent(\n    tools=[search_agent, wolfram_tool],\n    model=model,\n    prompt_templates=REACT_PROMPT",
-   "evidence_locator": "README.md (ReAct agent with math and search tools)@ec7aa06",
+   "evidence_quote": "code_agent = CodeAgent(tools=[search_agent], model=model)",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "One orchestrating agent; the search tool internally calls an LLM but is a tool, not a peer agent."
+   "note": "Search tool internally calls an LLM, but it is a tool, not an agent."
   },
   "delegation_mechanism": {
    "value": "none",
    "not_reported": false,
    "evidence_quote": "code_agent = CodeAgent(tools=[search_agent], model=model)",
-   "evidence_locator": "README.md (Integrating with SmolAgents & LiteLLM)@ec7aa06",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "result = code_agent.run(query)",
-   "evidence_locator": "README.md (Integrating with SmolAgents & LiteLLM)@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Run is a single call with no approval hook; gradio demo is just a query UI."
+   "resolved": false,
+   "note": "Run loop in smolagents, not in evidence."
   },
   "short_term_state": {
-   "value": "conversation_only",
-   "not_reported": false,
-   "evidence_quote": "messages = [\n            {\"role\": \"system\", \"content\": self.system_prompt},\n            {\"role\": \"user\", \"content\": f\"Context:\\n{context}\\n\\nQuestion: {query}\"}\n        ]",
-   "evidence_locator": "src/opendeepsearch/ods_agent.py:140-143@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "Agent state held by smolagents, not in evidence."
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "self.search_tool = OpenDeepSearchAgent(\n            self.search_model_name,\n            reranker=self.reranker,",
-   "evidence_locator": "src/opendeepsearch/ods_tool.py:38-41@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Setup loads no persisted cross-run store; dynamic few-shot example bank described in paper Sec. 2.2.1 is static prompt material."
+   "resolved": false,
+   "note": "Paper mentions vector-similarity dynamic few-shot selection (Sec. 2.2.1); not visible in repo evidence."
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "return loop.run_until_complete(self.ask(query, max_sources, pro_mode))",
-   "evidence_locator": "src/opendeepsearch/ods_agent.py:170@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "self_verification": {
-   "value": [
-    "self_critique"
-   ],
-   "not_reported": false,
-   "evidence_quote": "When the ReAct agent fails to provide an answer—as determined by a Llama-3-8B judge model—the system defaults to Chain-of-Thought Self-Consistency.",
-   "evidence_locator": "paper Sec. 2.2.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Paper describes an llm_judge fallback for ODS-v1; not visible in pinned repo code shown."
+   "resolved": false,
+   "note": "Paper Sec. 2.2.1 describes Llama-3-8B judge + CoT-SC fallback for ODS-v1; not visible in pinned repo evidence."
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "answer = self.search_tool.ask_sync(query, max_sources=2, pro_mode=True)",
-   "evidence_locator": "src/opendeepsearch/ods_tool.py:35@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Single pass; the ReAct loop may search again but that is not a task-level retry."
+   "resolved": false
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "answer = self.search_tool.ask_sync(query, max_sources=2, pro_mode=True)",
-   "evidence_locator": "src/opendeepsearch/ods_tool.py:35@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No file/state mutation to revert; no undo/reset code in the repo tree."
+   "resolved": false
   },
   "termination_condition": {
-   "value": [
-    "model_declared"
-   ],
-   "not_reported": false,
-   "evidence_quote": "These steps iterate until a response is returned",
-   "evidence_locator": "paper Sec. 2.2.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Step caps come from smolagents defaults, not evidenced here."
+   "resolved": false,
+   "note": "Termination handled by smolagents run loop, not in evidence."
   },
   "cost_controls": {
-   "value": [
-    "model_routing"
-   ],
-   "not_reported": false,
-   "evidence_quote": "export LITELLM_SEARCH_MODEL_ID='openrouter/google/gemini-2.0-flash-001'  # For search tasks\n   export LITELLM_ORCHESTRATOR_MODEL_ID='openrouter/google/gemini-2.0-flash-001'  # For agent orchestration",
-   "evidence_locator": "README.md (Setup, step 3)@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Task-specific model selection (search vs orchestrator vs eval); no token budget or cache found."
+   "resolved": false
   },
   "timeouts": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "response = completion(\n            model=self.model,\n            messages=messages,\n            temperature=self.temperature,\n            top_p=self.top_p\n        )",
-   "evidence_locator": "src/opendeepsearch/ods_agent.py:145-150@ec7aa06",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No timeout argument in the shown code paths."
+   "resolved": false
   },
   "execution_isolation": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "result = search_agent.forward(query)",
-   "evidence_locator": "README.md (Using OpenDeepSearch Standalone)@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Library runs in-process on the host; smolagents CodeAgent Python execution is likewise local by default per this evidence."
+   "resolved": false,
+   "note": "CodeAgent executor configuration not in evidence."
   },
   "filesystem_access": {
-   "value": "full",
-   "not_reported": false,
-   "evidence_quote": "pip install -e . #you can also use: uv pip install -e .",
-   "evidence_locator": "README.md (Installation)@ec7aa06",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Installed as a local library in the host process; no sandboxing configuration shipped."
+   "resolved": false
   },
   "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "sources = self.serp_search.get_sources(query)",
-   "evidence_locator": "src/opendeepsearch/ods_agent.py:110@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Unrestricted outbound web search/scraping; no network policy file in the tree."
+   "resolved": false
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "def forward(self, query: str):\n        answer = self.search_tool.ask_sync(query, max_sources=2, pro_mode=True)",
-   "evidence_locator": "src/opendeepsearch/ods_tool.py:34-35@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false
   },
   "tracing": {
    "value": "logs",
    "not_reported": false,
    "evidence_quote": "print(f\"QUERY: {query}\\n\\nRESULT: {final_result}\")",
-   "evidence_locator": "src/opendeepsearch/wolfram_tool.py:81@ec7aa06",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Only print-style logging in repo code shown; smolagents may log more."
-  },
-  "replayability": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "return loop.run_until_complete(self.ask(query, max_sources, pro_mode))",
-   "evidence_locator": "src/opendeepsearch/ods_agent.py:170@ec7aa06",
+   "evidence_locator": "src/opendeepsearch/wolfram_tool.py:84@ec7aa06",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "No replay or trajectory-reload code in the 38-path tree; live web search also precludes reproduction."
+   "resolved": true
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "eval_hooks": {
    "value": "built_in",
    "not_reported": false,
    "evidence_quote": "evals/eval_tasks.py",
-   "evidence_locator": "File tree@ec7aa06",
-   "confidence": "high",
+   "evidence_locator": "file tree @ec7aa06",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "evals/ directory with autograde_df.py, grader_prompts.py and SimpleQA/FRAMES test sets."
+   "note": "evals/ with SimpleQA and FRAMES datasets and autograder."
   },
   "guardrails": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "def forward(self, query: str):\n        answer = self.search_tool.ask_sync(query, max_sources=2, pro_mode=True)",
-   "evidence_locator": "src/opendeepsearch/ods_tool.py:34-35@ec7aa06",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No filters or action blocking in the shipped tool code."
+   "resolved": false
   },
   "target_domain": {
    "value": [
@@ -405,8 +381,8 @@
     "web"
    ],
    "not_reported": false,
-   "evidence_quote": "OpenDeepSearch is a lightweight yet powerful search tool designed for seamless integration with AI agents. It enables deep web search and retrieval",
-   "evidence_locator": "README.md (Description)@ec7aa06",
+   "evidence_quote": "It enables deep web search and retrieval, optimized for use with Hugging Face's",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -416,18 +392,18 @@
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "LICENSE",
-   "evidence_locator": "File tree@ec7aa06",
-   "confidence": "medium",
+   "evidence_locator": "file tree @ec7aa06",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "LICENSE file present at repo root; licence text not shown in evidence."
+   "note": "LICENSE file present; text not in evidence."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "model (str): The identifier for the language model to use (compatible with LiteLLM).",
-   "evidence_locator": "src/opendeepsearch/ods_agent.py:33@ec7aa06",
+   "evidence_quote": "model: Optional[str] = None, #We use LiteLLM to call the model",
+   "evidence_locator": "src/opendeepsearch/ods_agent.py:16@ec7aa06",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -436,65 +412,89 @@
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "The open-source repository that contains both versions of ODS can be found at https://github.com/sentient-agi/OpenDeepSearch",
-   "evidence_locator": "paper Sec. 2",
-   "confidence": "high",
+   "evidence_quote": "ref: commit:main ec7aa06dc5ead71821a3d92ea56e54a8a9d16ece 2025-04-04",
+   "evidence_locator": "github repo metadata",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Paper arXiv 2503.20201 v1 2025-03-26; repo lacks ODS-v1 judge/CoT-SC details."
   },
   "first_release_date": {
-   "value": "2025-03-26",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2503.20201v1 [cs.LG] 26 Mar 2025",
-   "evidence_locator": "paper p. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No tag information in evidence; basis is paper v1 date."
+   "resolved": false,
+   "note": "No tag or first-commit date in evidence; paper v1 is 2025-03-26 as fallback if accepted."
   },
   "pinned_version": {
-   "value": "commit:main ec7aa06dc5ead71821a3d92ea56e54a8a9d16ece (2025-04-04)",
+   "value": "main @ ec7aa06dc5ead71821a3d92ea56e54a8a9d16ece (2025-04-04)",
    "not_reported": false,
    "evidence_quote": "ref: commit:main ec7aa06dc5ead71821a3d92ea56e54a8a9d16ece 2025-04-04",
-   "evidence_locator": "github:sentient-agi/OpenDeepSearch@ec7aa06",
+   "evidence_locator": "github repo metadata",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "No tag; main commit."
   },
   "stars": {
    "value": 3836,
    "not_reported": false,
    "evidence_quote": "stars: 3836",
-   "evidence_locator": "repo evidence header@ec7aa06",
-   "confidence": "high",
+   "evidence_locator": "repository evidence header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Snapshot date not stated."
   }
  },
- "cells_unresolved": [],
+ "cells_unresolved": [
+  "A3",
+  "C5",
+  "D1",
+  "D2",
+  "D3",
+  "E1",
+  "E2",
+  "E3",
+  "F1",
+  "F2",
+  "F3",
+  "G1",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
+  "H4",
+  "M5"
+ ],
  "flag_counts": {
-  "locator_shape_unrecognised": 2
+  "locator_shape_unrecognised": 3
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:54:21+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:45:15+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 94763,
  "doc_chars": 95164,
- "call_id": "A-open-deep-search-00230",
- "tokens_in": 65834,
- "tokens_out": 4731,
+ "call_id": "A-open-deep-search-00014",
+ "tokens_in": 66336,
+ "tokens_out": 3186,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.447445"
+ "cost_usd": "0.329064"
 }

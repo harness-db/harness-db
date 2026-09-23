@@ -31,24 +31,24 @@
   "system_prompt_style": {
    "value": "templated",
    "not_reported": false,
-   "evidence_quote": "prompt = self.prompt_constructor.construct(\n                trajectory, intent, page_screenshot_img, images, meta_data\n            )",
-   "evidence_locator": "agent/agent.py:161-163@d79b968a5e5a",
+   "evidence_quote": "prompt = self.prompt_constructor.construct(trajectory, intent, meta_data)",
+   "evidence_locator": "agent/agent.py:160@d79b968a5e5a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Prompt built from a JSON instruction file (e.g. p_som_cot_id_actree_3s_video_frame.json) with intent/observation variables."
+   "note": "Prompt JSON files (agent/prompts/jsons) rendered by PromptConstructor with task intent/observation; constructor body not in evidence. Line number approximate within first 200 lines shown."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
    "not_reported": false,
-   "evidence_quote": "Agents are prompted to generate a single action from the action space at each time step.",
-   "evidence_locator": "paper Sec. 3.3.1",
+   "evidence_quote": "At each step, the agent is presented with the overlaid Set-of-Marks screenshot and text observation space, along with the chosen video information to be put into context.",
+   "evidence_locator": "paper Sec. 3.3",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Agent navigates the web with click/goto/scroll actions; Set-of-Marks observation per step."
+   "note": "Environment observation (SoM screenshot + element tree) given each step; model navigates by browser actions. Video/summary context also injected."
   },
   "context_compaction": {
    "value": [
@@ -56,64 +56,63 @@
    ],
    "not_reported": false,
    "evidence_quote": "llm_config.gen_config[\"max_obs_length\"] = args.max_obs_length",
-   "evidence_locator": "llms/lm_config.py:41@d79b968a5e5a",
+   "evidence_locator": "llms/lm_config.py:43@d79b968a5e5a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Observations truncated to max_obs_length; prompt includes only recent state."
+   "note": "Observation length cap configured; truncation site in prompt_constructor not shown."
   },
   "observation_format": {
    "value": [
-    "raw_text",
+    "a11y_tree",
     "set_of_marks"
    ],
    "not_reported": false,
-   "evidence_quote": "the agent is presented with the overlaid Set-of-Marks screenshot and text observation space",
+   "evidence_quote": "a screenshot of the webpage with bounding boxes over said elements is generated for input into the agent along with the text state representation",
    "evidence_locator": "paper Sec. 3.3",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Video frames/video also input as context. observation_type image_som default in README."
   },
   "tool_call_format": {
    "value": [
-    "json_in_text"
+    "cli_flags"
    ],
    "not_reported": false,
    "evidence_quote": "parsed_response = self.prompt_constructor.extract_action(response)",
-   "evidence_locator": "agent/agent.py:174@d79b968a5e5a",
+   "evidence_locator": "agent/agent.py:172@d79b968a5e5a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Action string parsed out of free text (e.g. ```click [id]```); closest value is text-embedded action, not provider function calling."
+   "note": "Closest value: model emits text actions like 'click [elem]' extracted from free text and parsed by create_id_based_action; no native function calling."
   },
   "tool_count": {
    "value": 14,
    "not_reported": false,
-   "evidence_quote": "Table 4: List of Action Types and Descriptions",
-   "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "high",
+   "evidence_quote": "stop [answer] End the task with an output.",
+   "evidence_locator": "paper Sec. 3.3.1 Table 4",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "14 action types listed: click, hover, type, press, new tab, tab focus, tab close, goto, go back, go forward, scroll, clear, upload, stop."
+   "note": "Counted 14 action types in Table 4 as tool definitions; these are text action types, not function schemas."
   },
   "edit_primitive": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "click [elem] Click on elementelem.",
+   "evidence_quote": "Agents are prompted to generate a single action from the action space at each time step.",
    "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "absence_high_confidence"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Web action space only; no file-editing primitive."
+   "note": "Action space (Table 4) has no file-editing action; web domain."
   },
   "tool_schema_source": {
    "value": [
@@ -121,25 +120,23 @@
    ],
    "not_reported": false,
    "evidence_quote": "agent/prompts/jsons/p_som_cot_id_actree_3s_video_frame.json",
-   "evidence_locator": "file tree@d79b968a5e5a",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Action descriptions authored by hand in JSON prompt files."
+   "note": "Action space described in hand-authored prompt files."
   },
   "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Each action is associated with Playwright Python code that automatically performs the action within the browser.",
-   "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No MCP/A2A anywhere in the file tree."
+   "resolved": false,
+   "note": "No dependency file or source grep available in evidence."
   },
   "loop_primitives": {
    "value": [
@@ -148,28 +145,29 @@
    "not_reported": false,
    "evidence_quote": "Given current observation ot∈O , an agent generates executable action at∈A , resulting in a new state st+1∈ S",
    "evidence_locator": "paper Sec. 3.2.1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "planning_granularity": {
-   "value": "implicit",
-   "not_reported": false,
-   "evidence_quote": "agents show inconsistencies in both their reasoning and planning",
-   "evidence_locator": "paper Sec. 6",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "CoT prompting only; no stored plan object."
+   "note": "Run loop in run.py not included in evidence."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "--instruction_path agent/prompts/jsons/p_som_cot_id_actree_3s_video_frame.json",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "CoT prompt; no plan object."
   },
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "class PromptAgent(Agent):\n    \"\"\"prompt-based agent that emits action given the history\"\"\"",
-   "evidence_locator": "agent/agent.py:97-98@d79b968a5e5a",
-   "confidence": "high",
+   "evidence_quote": "class PromptAgent(Agent):",
+   "evidence_locator": "agent/agent.py:99@d79b968a5e5a",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -177,233 +175,210 @@
   "delegation_mechanism": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "class PromptAgent(Agent):\n    \"\"\"prompt-based agent that emits action given the history\"\"\"",
-   "evidence_locator": "agent/agent.py:97-98@d79b968a5e5a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Agents are prompted to generate a single action from the action space at each time step.",
-   "evidence_locator": "paper Sec. 3.3.1",
+   "evidence_quote": "class PromptAgent(Agent):",
+   "evidence_locator": "agent/agent.py:99@d79b968a5e5a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No confirmation step in the agent loop; run_demo.py exists but default run.py is autonomous."
+   "note": "Summary agent pre-calls GPT-4o to summarize video; not delegation."
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "run.py loop not in evidence."
   },
   "short_term_state": {
    "value": "conversation_only",
    "not_reported": false,
-   "evidence_quote": "def next_action(\n        self, trajectory: Trajectory, intent: str, meta_data: Any\n    ) -> Action:",
-   "evidence_locator": "agent/agent.py:36-38@d79b968a5e5a",
+   "evidence_quote": "self, trajectory: Trajectory, intent: str, meta_data: Any",
+   "evidence_locator": "agent/agent.py:37@d79b968a5e5a",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Trajectory of observations/actions plus meta_data action history."
+   "note": "Trajectory list plus meta_data (action history)."
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "def reset(self, test_config_file: str) -> None:\n        pass",
-   "evidence_locator": "agent/agent.py:190-191@d79b968a5e5a",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No cross-run memory store in the repo tree."
+   "resolved": false
   },
   "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "def reset(self, test_config_file: str) -> None:\n        pass",
-   "evidence_locator": "agent/agent.py:190-191@d79b968a5e5a",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No resume path found; results saved as html trajectories only."
+   "resolved": false
   },
   "self_verification": {
-   "value": [
-    "llm_judge"
-   ],
-   "not_reported": false,
-   "evidence_quote": "For the intermediate intent evaluation, we use the string-based existing functionality evaluators to assess the agent's response",
-   "evidence_locator": "paper Sec. 3.7",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Evaluation harness includes LLM-based fuzzy/image evaluators; applied post-hoc, not fed back to the agent."
+   "resolved": false
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "if n >= lm_config.gen_config[\"max_retry\"]:\n                    action = create_none_action()",
-   "evidence_locator": "agent/agent.py:184-185@d79b968a5e5a",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "max_retry is step-level action-parsing requery, not task-level retry."
+   "resolved": false,
+   "note": "Step-level requery on ActionParsingError up to max_retry exists (agent.py) — not task retry."
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "click [elem] Click on elementelem.",
-   "evidence_locator": "paper Sec. 3.3.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No undo/revert action in the action space; environment reset happens between tasks."
+   "resolved": false
   },
   "termination_condition": {
    "value": [
-    "max_steps",
     "model_declared"
    ],
    "not_reported": false,
    "evidence_quote": "stop [answer] End the task with an output.",
-   "evidence_locator": "paper Sec. 3.3.1",
+   "evidence_locator": "paper Sec. 3.3.1 Table 4",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "max_steps cap inherited from WebArena run.py (--max_steps); stop action is model-declared."
+   "note": "Max-steps likely in run.py but not in evidence."
   },
   "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "llm_config.gen_config[\"context_length\"] = args.context_length",
-   "evidence_locator": "llms/lm_config.py:39@d79b968a5e5a",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Token caps (max_tokens, context_length, max_obs_length); no caching or routing found."
+   "resolved": false
   },
   "timeouts": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "llm_config.gen_config[\"max_retry\"] = args.max_retry",
-   "evidence_locator": "llms/lm_config.py:43@d79b968a5e5a",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No harness timeout observed in the available evidence; browser-level Playwright timeouts not shown."
+   "resolved": false
   },
   "execution_isolation": {
    "value": "subprocess",
    "not_reported": false,
-   "evidence_quote": "Each action is associated with Playwright Python code that automatically performs the action within the browser.",
-   "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Agent runs locally in a Python process driving Playwright; the websites under test are the dockerized environments."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "upload [file path] [elem] Upload a local file using a upload button.",
-   "evidence_locator": "paper Sec. 3.3.1",
+   "evidence_quote": "playwright install",
+   "evidence_locator": "README.md",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Only file interaction is upload via browser; no general filesystem tool."
+   "note": "Playwright browser on host; websites in Docker."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "goto [url] Openurl.",
-   "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No network restriction configured; agent can navigate to arbitrary URLs."
+   "resolved": false
   },
   "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "parsed_response = self.prompt_constructor.extract_action(response)",
-   "evidence_locator": "agent/agent.py:174@d79b968a5e5a",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Parsed actions are executed directly; no allowlist or approval."
+   "resolved": false
   },
   "tracing": {
-   "value": "structured_traces",
+   "value": "logs",
    "not_reported": false,
    "evidence_quote": "The trajectory will be saved in <your_result_dir>/0.html.",
-   "evidence_locator": "README.md@d79b968a5e5a",
-   "confidence": "medium",
+   "evidence_locator": "README.md",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Per-step trajectory rendering plus result logs."
+   "note": "HTML trajectory render."
   },
   "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "class TeacherForcingAgent(Agent):\n    \"\"\"Agent that follows a pre-defined action sequence\"\"\"",
-   "evidence_locator": "agent/agent.py:48-49@d79b968a5e5a",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Recorded action sequences can be replayed via TeacherForcingAgent; environment state may differ."
+   "resolved": false,
+   "note": "TeacherForcingAgent replays reference action sequences, not recorded trajectories."
   },
   "eval_hooks": {
    "value": "built_in",
    "not_reported": false,
-   "evidence_quote": "Each task also has an automatic evaluator function for both 'intent' and 'intermediate intent' that returns a score of 0 or 1",
-   "evidence_locator": "paper Sec. 3.4",
+   "evidence_quote": "evaluation_harness/evaluators.py",
+   "evidence_locator": "README.md file tree",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "evaluation_harness/evaluators.py ships in the repo."
+   "resolved": true
   },
   "guardrails": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "action[\"raw_prediction\"] = response",
-   "evidence_locator": "agent/agent.py:181@d79b968a5e5a",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No filters or action policies present in the loop; invalid actions become a none action."
+   "resolved": false
   },
   "target_domain": {
    "value": [
     "web"
    ],
    "not_reported": false,
-   "evidence_quote": "VideoWebArena is an agent benchmark dedicated towards evaluating long context multimodal agents with video-based tasks.",
-   "evidence_locator": "README.md@d79b968a5e5a",
+   "evidence_quote": "VideoWebArena tests agents' ability to take videos in-context and utilize them to complete realistic web tasks.",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -413,30 +388,29 @@
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "LICENSE",
-   "evidence_locator": "file tree@d79b968a5e5a",
-   "confidence": "medium",
+   "evidence_locator": "file tree",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "LICENSE file present; license text not shown in evidence."
+   "note": "LICENSE file exists; contents not in evidence."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "if args.provider in [\"openai\", \"google\", \"azopenai\", \"vllm\"]:",
-   "evidence_locator": "llms/lm_config.py:36@d79b968a5e5a",
+   "evidence_locator": "llms/lm_config.py:37@d79b968a5e5a",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Also huggingface and anthropic provider modules."
+   "resolved": true
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "Link to code https://github.com/ljang0/videowebarena/",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "high",
+   "evidence_quote": "Our code is heavily based off the <a href=\"https://github.com/web-arena-x/webarena\">WebArena codebase",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -445,56 +419,76 @@
    "value": "2024-10-14",
    "not_reported": false,
    "evidence_quote": "[10/14/2024]: release of the VideoWebArena benchmark and codebase.",
-   "evidence_locator": "README.md@d79b968a5e5a",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Basis: README news entry; no tags in evidence."
+   "note": "README release date; no tag info."
   },
   "pinned_version": {
    "value": "main @ d79b968a5e5a (2024-12-25)",
    "not_reported": false,
-   "evidence_quote": "ref: commit:main d79b968a5e5a 2024-12-25",
-   "evidence_locator": "repository evidence header@d79b968a5e5a",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true,
-   "note": "Untagged repo; pinned to the evidence commit."
+   "resolved": false,
+   "note": "No tagged release; main commit."
   },
   "stars": {
    "value": 14,
    "not_reported": false,
-   "evidence_quote": "stars: 14",
-   "evidence_locator": "repository evidence header@d79b968a5e5a",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "evidence header stars",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": false,
+   "note": "From evidence header, date unstated."
   }
  },
- "cells_unresolved": [],
+ "cells_unresolved": [
+  "B5",
+  "C5",
+  "D2",
+  "D3",
+  "E1",
+  "E2",
+  "E3",
+  "F2",
+  "F3",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
+  "H4",
+  "M6",
+  "M7"
+ ],
  "flag_counts": {
-  "absence_high_confidence": 1,
+  "missing_quote": 2,
   "locator_shape_unrecognised": 2
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:56:55+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:47:00+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 68630,
  "doc_chars": 69059,
- "call_id": "A-videowebarena-reference-agent-00248",
- "tokens_in": 50956,
- "tokens_out": 4105,
+ "call_id": "A-videowebarena-reference-agent-00032",
+ "tokens_in": 51458,
+ "tokens_out": 3043,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.357405"
+ "cost_usd": "0.266692"
 }

@@ -1,0 +1,536 @@
+{
+ "system_id": "ai-office",
+ "name": "AI Office (Team of Rivals)",
+ "version": "",
+ "repo_url": "",
+ "stratum": "O",
+ "weight": "46.35",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 77742,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "paper",
+    "record_id": "s2_snowball:b4de19bfbf02de734b3ffd3947b69b7aa0812f60",
+    "chars_available": 77471,
+    "chars_used": 77471,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "dynamically_composed",
+   "not_reported": false,
+   "evidence_quote": "Message visibility is filtered based on FSM state, ensuring agents receive only messages relevant to their role and phase.",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-agent focused prompts; retrieved context injected. Mechanism of system prompt not described."
+  },
+  "env_context_strategy": {
+   "value": "mixed",
+   "not_reported": false,
+   "evidence_quote": "retrieve relevant context from memory and metadata, construct ex-ecution DAGs",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Retrieval of memory/metadata (pgvector) plus agents receive schemas, summaries and sample rows from remote executor."
+  },
+  "context_compaction": {
+   "value": [
+    "summarize",
+    "tool_output_pruning"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Summarizers: Distill intermediate results into compact summaries for downstream agents, enabling context mini-mization without losing decision-relevant information.",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tool outputs remain in remote execution layer; only summaries return."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "agents perceive summaries, schemas, and sample rows rather than full datasets or API responses",
+   "evidence_locator": "paper Sec. 3.4.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Inter-agent messages are Pydantic-typed structured messages; format of LLM-facing content not specified."
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Rather than agents directly calling tools and ingesting full responses, they write code that executes remotely",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper mentions 50+ agents, 32 data writers, 50+ transformation primitives, but no tool schema count."
+  },
+  "edit_primitive": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Agents invoke MCP servers from code, not via schemas exposed to the model."
+  },
+  "protocol_standardization": {
+   "value": [
+    "mcp"
+   ],
+   "not_reported": false,
+   "evidence_quote": "they write code that invokes tools like MCP servers",
+   "evidence_locator": "paper Sec. 1.4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "loop_primitives": {
+   "value": [
+    "event_driven",
+    "generate_test_repair",
+    "plan_execute"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The execution sequence follows a fixed pattern:Planner first, Critics last, with iterative loops in between.",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "FSM routing; critic rejection triggers retry; event-sourced SessionLog and cooperative message passing kernel."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "The planner generates an execution DAG with pre-declared success criteria and acceptance gates.",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "hierarchical",
+   "not_reported": false,
+   "evidence_quote": "Decision-making follows a strict hierarchy, never horizontal consensus.",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Planner/PlanManager -> PlanExecutor -> teams (writer/executor/critic); multi-level."
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "Handoff pattern: Agents delegate to specialists; PlanMan-ager routes to PlanExecutor→ CodingInnerLoopTeam→ Critics",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Also structured message passing; executor may spawn sub-agents."
+  },
+  "human_in_loop": {
+   "value": [
+    "on_completion",
+    "on_permission",
+    "on_plan"
+   ],
+   "not_reported": false,
+   "evidence_quote": "No execution proceeds without human sign-off on the plan and its criteria.",
+   "evidence_locator": "paper Sec. 3.3.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Policy violations escalate to user gate for approval; users review final outputs (user rejection)."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "the entire ordered state of all agents (including their con-text, reasoning, intermediate results, and execution status) is completely serialized",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "vector_store"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Persistence: Vector memory (PostgreSQL + pgvector) cap-tures insights; indexed by scope (account/user/session); se-mantic search across all prior analyses",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "state_persistence": {
+   "value": "full_resume",
+   "not_reported": false,
+   "evidence_quote": "users can return days or weeks later to re-sume from the exact checkpoint",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "self_verification": {
+   "value": [
+    "llm_judge"
+   ],
+   "not_reported": false,
+   "evidence_quote": "writers and critics run on different model providers to achieve cognitive diversity and avoid monoculture",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Code, Chart, Output, Plan critics with veto; code executed in Jupyter."
+  },
+  "retry_policy": {
+   "value": "until_pass",
+   "not_reported": false,
+   "evidence_quote": "This loop repeats until critics approve or escalation occurs.",
+   "evidence_locator": "paper Sec. 3.2.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Persistent failure escalates to user; model upgrade on critique failure."
+  },
+  "rollback": {
+   "value": "snapshot",
+   "not_reported": false,
+   "evidence_quote": "users can time-travel backward to any previous checkpoint to undo changes",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "termination_condition": {
+   "value": [
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "This loop repeats until critics approve, criteria are met, or persistent failure triggers escalation to the user.",
+   "evidence_locator": "paper Sec. 3.3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Termination via critic approval / escalation; no step/cost caps reported. Closest value."
+  },
+  "cost_controls": {
+   "value": [
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Writers start with fast, economical models; upgrade only on critique failure.",
+   "evidence_locator": "paper Sec. 3.5.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "remote",
+   "not_reported": false,
+   "evidence_quote": "Transformation code and tool invoca-tions execute in isolated environment",
+   "evidence_locator": "paper Sec. 3.4.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Remote code executor (Jupyter)."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": "policy_engine",
+   "not_reported": false,
+   "evidence_quote": "GuardrailsAgent enforces policies",
+   "evidence_locator": "paper Sec. 3.2.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Policy violations escalate to user gate."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "Event-sourced SessionLog with column-level lineage.",
+   "evidence_locator": "paper Table 2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": "partial",
+   "not_reported": false,
+   "evidence_quote": "Each checkpoint represents a complete, reproducible snapshot of the multi-agent system state.",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No repo; evaluation on production sessions."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Policy violations (guardrails triggered, security constraints violated, compliance checks failed) immediately escalate to a user gate for explicit ap-proval before proceeding.",
+   "evidence_locator": "paper Sec. 3.2.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Our evaluation covers financial analysis ex-clusively.",
+   "evidence_locator": "paper Sec. 5.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Enterprise data/financial analysis."
+  },
+  "open_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No repository given; production system by Isotopes AI."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "Different agents can use different providers, matching model strengths to task re-quirements.",
+   "evidence_locator": "paper Sec. 6",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "paper",
+   "not_reported": false,
+   "evidence_quote": "This paper describes the architecture of such a system in practice",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2026-01-20",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2601.14351v1 [cs.MA] 20 Jan 2026",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Paper v1 date fallback; no repo."
+  },
+  "pinned_version": {
+   "value": "arXiv:2601.14351v1",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2601.14351v1 [cs.MA] 20 Jan 2026",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No repo; coded from paper v1."
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  }
+ },
+ "cells_unresolved": [
+  "B2",
+  "B3",
+  "B4",
+  "F3",
+  "G2",
+  "G3",
+  "H3",
+  "M2",
+  "M7"
+ ],
+ "flag_counts": {},
+ "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:07:17+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 77742,
+ "doc_chars": 12604,
+ "call_id": "B-ai-office-00829",
+ "tokens_in": 23342,
+ "tokens_out": 594,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.105248"
+}

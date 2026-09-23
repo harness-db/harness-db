@@ -1,0 +1,618 @@
+{
+ "system_id": "phoneclaw",
+ "name": "PhoneClaw",
+ "version": "mac-gateway-v0.1.1",
+ "repo_url": "https://github.com/kellyvv/phoneclaw",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 62189,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "paper",
+    "record_id": "github:kellyvv/PhoneClaw",
+    "chars_available": 61992,
+    "chars_used": 61992,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "dynamically_composed",
+   "not_reported": false,
+   "evidence_quote": "system prompt 改为只注入 top-K 匹配项",
+   "evidence_locator": "doc/architecture-decisions.md (ADR-006)",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Skill matching injects skill info into system prompt; Light path injects none. Editable System Prompt also shipped."
+  },
+  "env_context_strategy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Light 路径不注入任何 Skill 信息，节省 context window",
+   "evidence_locator": "doc/architecture-decisions.md (ADR-001)",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Phone environment, not a repo; skills are injected into prompt, no filesystem/repo context. Closest value; mismatch noted."
+  },
+  "context_compaction": {
+   "value": [
+    "truncate_oldest"
+   ],
+   "not_reported": false,
+   "evidence_quote": "内置模型切换、System Prompt 编辑、缓存清理和历史裁剪",
+   "evidence_locator": "README.md 技术与体验特性",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "历史裁剪 = history trimming; see also Agent/Engine/ConversationMemoryPolicy.swift"
+  },
+  "observation_format": {
+   "value": [
+    "raw_text",
+    "screenshots"
+   ],
+   "not_reported": false,
+   "evidence_quote": "接收 JSON 参数，返回 JSON 结果",
+   "evidence_locator": "doc/iphone_agent_permissions_phase1.md Skill 协议定义",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Tool results are JSON-ish rendered as text; camera/photo images fed to the VLM (MiniCPM-V)."
+  },
+  "tool_call_format": {
+   "value": [
+    "xml_tags"
+   ],
+   "not_reported": false,
+   "evidence_quote": "模型先 emit `<tool_call>` 调用真实 iOS API",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tools/ToolRegistry.swift not included in evidence; exact count of exposed tools unknown (health skill alone has 9)."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "文件与目录操作",
+   "evidence_locator": "README.md 后续计划 1",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "File operations listed as unchecked/planned; no file-editing tool ships."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "每项能力对应一个 Markdown 文件（SKILL.md），新增或修改能力不需要重新编译 App",
+   "evidence_locator": "README.md 技术与体验特性",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "SKILL.md frontmatter + Swift-registered tools in Tools/ToolRegistry.swift."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "再去 `Tools/ToolRegistry.swift` + `Tools/Handlers/<Name>.swift` 注册对应工具",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No MCP/A2A mention anywhere in README or file tree."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "plan_execute",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "保留 processInput 的 5 路分流（VLM / Planner / Preflight / Agent / Light）",
+   "evidence_locator": "doc/architecture-decisions.md ADR-001",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Agent path is tool-call loop (maxRounds=10); Planner path is Selection → Planning; routing itself is a fixed dispatch."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "保留 Selection → Planning 两步 LLM 调用",
+   "evidence_locator": "doc/architecture-decisions.md ADR-003",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Planner emits validated JSON plan (validateSkillSelection); only on capable models (supportsStructuredPlanning)."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "更强的规划模型或多模型协作链路",
+   "evidence_locator": "README.md 后续计划 3",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "Multi-model collaboration listed as unchecked future work."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "更强的规划模型或多模型协作链路",
+   "evidence_locator": "README.md 后续计划 3",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false
+  },
+  "human_in_loop": {
+   "value": [
+    "on_permission"
+   ],
+   "not_reported": false,
+   "evidence_quote": "对不明确的时间、标题、联系人和删除/批量操作会先问清楚再执行，避免误删或创建错误内容",
+   "evidence_locator": "README.md 最新更新 2026-06-23",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "Clarification/confirmation before destructive ops; plus iOS system permission prompts and Mac pairing approval (在 Mac 端审批配对)."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "新增历史会话记录，支持新会话、切换会话和删除会话",
+   "evidence_locator": "README.md 历史更新 2026-04-07",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "ChatSessionStore keeps message history; planner plan is transient."
+  },
+  "long_term_memory": {
+   "value": [
+    "file_notes",
+    "skill_library"
+   ],
+   "not_reported": false,
+   "evidence_quote": "在 `Skills/Library/<skill-id>/` 下增加一个 `SKILL.md`，或者运行时写到应用沙盒",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Skill library of Markdown files persists across runs; user-added skills written to app sandbox."
+  },
+  "state_persistence": {
+   "value": "checkpoint",
+   "not_reported": false,
+   "evidence_quote": "新增历史会话记录，支持新会话、切换会话和删除会话",
+   "evidence_locator": "README.md 历史更新 2026-04-07",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "Sessions persist and can be reopened; no explicit mid-run resume code cited."
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "框架会在启动时自动校验 `allowed-tools` 与 `ToolRegistry` 是否同步",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only startup schema validation and validateSkillSelection on plan JSON; no tests/linters/judge over agent output."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Selection 有独立的 `validateSkillSelection()` 验证，失败可以便宜重试",
+   "evidence_locator": "doc/architecture-decisions.md ADR-003",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Only step-level validation retry, not whole-task retry."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "剪贴板中转",
+   "evidence_locator": "README.md 后续计划 4",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "No undo/rollback mechanism described; side effects go to iOS system stores."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "现有终止逻辑（无 tool_call + maxRounds=10 + validation failure + shouldSkipToolFollowUp）已足够健壮",
+   "evidence_locator": "doc/architecture-decisions.md ADR-002",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "model_declared = absence of tool_call ends chain; maxRounds=10 is the step cap."
+  },
+  "cost_controls": {
+   "value": [
+    "model_routing",
+    "token_budget"
+   ],
+   "not_reported": false,
+   "evidence_quote": "推理预算改为按实际可用内存动态计算",
+   "evidence_locator": "README.md 历史更新 2026-04-08",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "Inference/token budget from memory; 5-way routing and local vs Mac remote model selection. Prefix caching explicitly rejected (ADR-007) though cross-turn KV reuse was later added."
+  },
+  "timeouts": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "端侧每次 LLM 调用延迟 3-8 秒",
+   "evidence_locator": "doc/architecture-decisions.md ADR-001",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No per-tool or per-run timeouts documented in the evidence."
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "在 iPhone 上完成推理和 Skill 调用，可用自然语言处理日历、提醒事项、通讯录、剪贴板、健康数据等本机任务",
+   "evidence_locator": "README.md 核心能力",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "absence_high_confidence"
+   ],
+   "resolved": true,
+   "note": "Skills run in-process as Swift functions inside the iOS app sandbox."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "或者运行时写到应用沙盒",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "iOS app sandbox plus permission-gated system stores; no general filesystem tool."
+  },
+  "network_policy": {
+   "value": "allowlist",
+   "not_reported": false,
+   "evidence_quote": "只有用户明确使用联网搜索、读取网页或配对 Mac 远程推理时才离开 iPhone",
+   "evidence_locator": "README.md 技术与体验特性",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Network reachable only through the `network`-type skills (web-search/URL read) and LAN gateway; otherwise offline."
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "allowed-tools:\n- my-tool-name # device 类必填; content 类可留空数组 []",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Each skill declares an allowed-tools list validated against ToolRegistry; plus iOS OS-level permission grants."
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "写错的 tool 名会立刻在控制台暴露",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Live/Debug/LiveMetrics.swift exists; no structured trajectory export documented."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "写错的 tool 名会立刻在控制台暴露",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No replay facility mentioned in README or file tree."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "Sources/IOS27CoreAIExperiment/BenchmarkRecord.swift",
+   "evidence_locator": "File tree Experiments/iOS27CoreAI",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Benchmark harness exists for planning-model experiments, not an agent-task benchmark runner."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "框架会在启动时自动校验 `allowed-tools` 与 `ToolRegistry` 是否同步",
+   "evidence_locator": "README.md 自定义 Skill",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Also Agent/Engine/GuardedSkillRouter.swift in file tree; destructive ops require clarification first."
+  },
+  "target_domain": {
+   "value": [
+    "general_tool_use",
+    "gui_computer_use",
+    "web"
+   ],
+   "not_reported": false,
+   "evidence_quote": "PhoneClaw turns phones into local AI agent runtimes with on-device models, native mobile Skills, LiveLand, and optional Mac Gateway inference.",
+   "evidence_locator": "github:kellyvv/PhoneClaw description",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Closest fit: on-device mobile assistant driving iOS system APIs (calendar/contacts/health), plus web search/URL reading. Not an SWE harness; mismatch noted."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "Apache 2.0",
+   "evidence_locator": "README.md License",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "让 iPhone 端可以配对并使用 Mac 上的 Ollama、Codex CLI 或 Antigravity CLI 作为远程推理源",
+   "evidence_locator": "README.md 最新更新 2026-06-08",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Local backends LiteRT/MLX/MiniCPM-V plus remote Ollama/CLI providers via BackendDispatcher."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:mac-gateway-v0.1.1 81583a2f4f8ff9dfc5129c37fcf413e530d55264 2026-06-23",
+   "evidence_locator": "github:kellyvv/PhoneClaw header",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2026-04-20",
+   "not_reported": false,
+   "evidence_quote": "发布未签名 IPA，可通过 [Sideloadly](https://sideloadly.io/) 签名安装到 iPhone",
+   "evidence_locator": "README.md 历史更新 2026-04-20",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Earliest release referenced in README is v1.1.0 on 2026-04-20; no tag list available."
+  },
+  "pinned_version": {
+   "value": "mac-gateway-v0.1.1 @ 81583a2f4f8ff9dfc5129c37fcf413e530d55264 (2026-06-23)",
+   "not_reported": false,
+   "evidence_quote": "ref: tag:mac-gateway-v0.1.1 81583a2f4f8ff9dfc5129c37fcf413e530d55264 2026-06-23",
+   "evidence_locator": "github:kellyvv/PhoneClaw header",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Star count not present in the evidence."
+  }
+ },
+ "cells_unresolved": [
+  "B2",
+  "B3",
+  "C3",
+  "C4",
+  "C5",
+  "D1",
+  "D3",
+  "E3",
+  "F2",
+  "G2",
+  "M7"
+ ],
+ "flag_counts": {
+  "locator_shape_unrecognised": 11,
+  "quote_not_in_bundle": 9,
+  "absence_high_confidence": 1
+ },
+ "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T03:55:06+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 62189,
+ "doc_chars": 10904,
+ "call_id": "B-phoneclaw-00432",
+ "tokens_in": 25303,
+ "tokens_out": 834,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.117892"
+}

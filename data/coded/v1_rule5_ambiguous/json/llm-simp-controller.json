@@ -1,0 +1,536 @@
+{
+ "system_id": "llm-simp-controller",
+ "name": "LLM SIMP controller (Direct Numeric Control agent)",
+ "version": "",
+ "repo_url": "",
+ "stratum": "O",
+ "weight": "46.35",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 72102,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2603.25099",
+    "chars_available": 71832,
+    "chars_used": 71832,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "static",
+   "not_reported": false,
+   "evidence_quote": "The system prompt encodes domain knowledge in four parts",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fixed system prompt; per-call state goes in the user prompt."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "the solver state is serialized into a structured text prompt and submitted to the Gemini API",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: the solver state vector is injected up front each call; there is no navigation and no file tree."
+  },
+  "context_compaction": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Each API call transmits≈500 input tokens (system prompt plus the serialized state observation)",
+   "evidence_locator": "paper Sec. 5.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Each call is stateless, so no history accumulates."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the solver state is serialized into a structured text prompt",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The model returns a JSON object with exact floating-point values for all four solver parameters plus a restart flag",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Uses structured JSON output mode."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "There are no tools; the single action is a JSON output."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The LLM outputs a single JSON object at each call",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "(i) a parameter description with physical bounds",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "loop_primitives": {
+   "value": [
+    "event_driven"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Everykth iteration (de-faultk= 5), the solver state is serialized into a structured text prompt",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: the solver loop invokes the LLM periodically as a controller. The meta-loop reflects across runs."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "a four-stage advisory schedule (Table 1) that acts as a pacing hint",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "a meta-optimization loop uses a second LLM pass to tune the agent’s call frequency and gate threshold across runs",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Coded as single; the meta-optimizer is an outer between-runs pass."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "the inner agent adapts parameter values within a run; the outer loop adapts the agent’s own decision rules across runs",
+   "evidence_locator": "paper Sec. 1.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "The prompt is built from thirteen scalar quantities drawn from the state vector at each call",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "file_notes"
+   ],
+   "not_reported": false,
+   "evidence_quote": "proposes updates to the primary agent’s own hyperparameters — grayness gate threshold, LLM call frequency, and phase timing constants — via regex patching of the source constants",
+   "evidence_locator": "paper Sec. 1.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: cross-run adaptation is persisted by patching source constants."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "All numeric outputs are clamped to the ranges in Table 2 by a deterministic safety layer before application.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The safety clamps are guardrails, not verification of the work."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "When the Gemini API is unavailable or returns an invalid response, the agent falls back to a smooth deterministic ramp",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "rollback": {
+   "value": "snapshot",
+   "not_reported": false,
+   "evidence_quote": "Restart flag —{T,F}Reload snapshot",
+   "evidence_locator": "paper Sec. 3.2 Table 2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The model can restart from the best valid density snapshot."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The inner loop executes the SIMP solver for up to Nmain-loop iterations",
+   "evidence_locator": "paper Fig. 1 caption",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "cost_controls": {
+   "value": [
+    "token_budget"
+   ],
+   "not_reported": false,
+   "evidence_quote": "with a 200-token output cap",
+   "evidence_locator": "paper Sec. 5.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "This is a per-call output cap only."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "All numeric outputs are clamped to the ranges in Table 2 by a deterministic safety layer before application.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Actions are only parameter values applied in-process to the solver."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "permission_model": {
+   "value": "policy_engine",
+   "not_reported": false,
+   "evidence_quote": "The safety layer capsβ≤8.0wheneverG>0.20, regardless of what the LLM requests.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The deterministic rule-based safety layer clamps actions."
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "The DNC architecture produces a human-readable call log that can be reviewed post-hoc by the engineer",
+   "evidence_locator": "paper Sec. 5.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "including the three-field SIMP solver, LLM agent, all baseline controllers, the meta-optimization loop scripts",
+   "evidence_locator": "paper Data and Code Availability",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Benchmark comparison scripts are promised but the code is unreleased."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Hard gate:β≤8.0whileG>0.20(not overridable)",
+   "evidence_locator": "paper Sec. 3.2 Table 2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "a large language model (LLM) acts as anonline adaptive controllerfor SIMP topology optimization",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The domain is scientific solver control."
+  },
+  "open_source": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "Code and reproduction scripts will be released upon publication.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The code has not been released yet."
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "submitted to the Gemini API (modelgemini-3.1-flash-lite-preview 1)",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "paper",
+   "not_reported": false,
+   "evidence_quote": "Code and reproduction scripts will be released upon publication.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The paper v1 date is not in the evidence; only v2 (15 May 2026) is shown."
+  },
+  "pinned_version": {
+   "value": "arXiv:2603.25099v2",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2603.25099v2 [cs.CE] 15 May 2026",
+   "evidence_locator": "paper p. 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "There is no repository."
+  },
+  "stars": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  }
+ },
+ "cells_unresolved": [
+  "B2",
+  "B5",
+  "C5",
+  "D3",
+  "F3",
+  "G2",
+  "G3",
+  "H2",
+  "M5",
+  "M7"
+ ],
+ "flag_counts": {},
+ "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M7": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:09:53+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 72102,
+ "doc_chars": 12674,
+ "call_id": "B-llm-simp-controller-00909",
+ "tokens_in": 23340,
+ "tokens_out": 716,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.107680"
+}

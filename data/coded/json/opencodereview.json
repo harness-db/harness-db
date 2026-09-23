@@ -40,22 +40,24 @@
    "not_reported": false,
    "evidence_quote": "constructs the SubAgent's input by injecting the file's diff, the resolved rule, the list of other changed files, and any user-provided background information into a prompt template",
    "evidence_locator": "paper Sec. 3.2.3",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Prompt files under internal/config/template/prompts/main_task_system.md."
+   "note": "Rule text resolved per file from four-tier chain; could be argued dynamically_composed."
   },
   "env_context_strategy": {
    "value": "mixed",
    "not_reported": false,
-   "evidence_quote": "each SubAgent executes a ReAct loop with the file's diff, the resolved rule, and a curated tool set ( file_read, file_find, code_search, file_read_diff, code_comment, task_done)",
-   "evidence_locator": "paper Fig. 2 caption",
-   "confidence": "high",
+   "evidence_quote": "The agent can read full file contents, search the codebase, inspect other changed files for context",
+   "evidence_locator": "README.md@8d023aa",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Diff/rule injected deterministically plus agent-driven navigation tools."
+   "note": "Diff and changed-file list injected up front (paper Sec. 3.2.3) plus tool-driven navigation (file_read, file_find, code_search)."
   },
   "context_compaction": {
    "value": [
@@ -63,66 +65,63 @@
     "tool_output_pruning"
    ],
    "not_reported": false,
-   "evidence_quote": "At60%utilization, an asynchronous background compression is triggered; at80%, a synchronous compression forcibly summarizes the middle region of the conversation history",
+   "evidence_quote": "at80%, a synchronous compression forcibly summarizes the middle region of the conversation history into a structured summary while preserving the system prompt and the most recent interactions",
    "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Bounded tool outputs (Max 500 lines per call) give tool_output_pruning."
+   "note": "MemoryCompressionTask in internal/scan/agent.go; tool outputs bounded (Max 500 lines per call, paper Table 2)."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "the tool's output is returned as an observation and appended to the conversation history",
+   "evidence_quote": "the tool's output is returned as an observation and appended to the conversa-tion history",
    "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Conversion code not in bundle; all tools are text-returning."
   },
   "tool_call_format": {
    "value": [
     "native_function_calling"
    ],
    "not_reported": false,
-   "evidence_quote": "MainToolDefs holds llm.ToolDef entries enabled in main_task, built once at startup.",
-   "evidence_locator": "internal/agent/agent.go:~90@8d023aa",
+   "evidence_quote": "MainToolDefs          []llm.ToolDef",
+   "evidence_locator": "internal/scan/agent.go:50@8d023aa",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Tool definitions sent to the LLM API as tool defs."
+   "note": "Tool definitions passed to LLM client as tool defs; parser not in bundle."
   },
   "tool_count": {
    "value": 6,
    "not_reported": false,
-   "evidence_quote": "OpenCodeReviewprovides a fixed set of six review-specific tools, each with a bounded output",
+   "evidence_quote": "provides a fixed set of six review-specific tools, each with a bounded output",
    "evidence_locator": "paper Sec. 3.3.2",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "MCP server can add external tools."
+   "note": "file_read, file_find, code_search, file_read_diff, code_comment, task_done; tools.json content not in bundle; MCP tools excluded."
   },
   "edit_primitive": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "file_readRead a file's content by path and optional line range",
+   "evidence_quote": "code_commentSubmit a review comment Parsed and collected asynchronously",
    "evidence_locator": "paper Table 2",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "absence_high_confidence"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Review-only tool set; no file editing tool."
+   "note": "Tool set (Table 2) has no file-editing tool; review-only agent."
   },
   "tool_schema_source": {
    "value": [
@@ -130,13 +129,13 @@
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "Package toolsconfig loads tool definitions from JSON config files.",
+   "evidence_quote": "// Package toolsconfig loads tool definitions from JSON config files.",
    "evidence_locator": "internal/config/toolsconfig/toolsconfig.go:4@8d023aa",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "MCP server documented to extend the review agent with external tools."
+   "note": "Embedded tools.json; MCP server docs: 'extend the review agent with external tools'."
   },
   "protocol_standardization": {
    "value": [
@@ -144,16 +143,18 @@
    ],
    "not_reported": false,
    "evidence_quote": "[MCP Server](https://open-codereview.ai/docs/mcp) — extend the review agent with external tools",
-   "evidence_locator": "README.md Documentation section@8d023aa",
-   "confidence": "high",
+   "evidence_locator": "README.md@8d023aa",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "cmd/opencodereview/review_mcp_more_test.go also in tree."
   },
   "loop_primitives": {
    "value": [
     "fixed_pipeline",
-    "plan_execute",
     "react"
    ],
    "not_reported": false,
@@ -163,124 +164,118 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Three-stage deterministic pipeline (dispatch, review, reflection); PLAN_TASK pre-pass disabled via --no-plan."
+   "note": "Wrapped in fixed pipeline: dispatch -> per-file ReAct -> relocation -> reflection filter; optional plan/dedup/summary phases."
   },
   "planning_granularity": {
-   "value": "implicit",
+   "value": "explicit_plan_object",
    "not_reported": false,
-   "evidence_quote": "SkipPlan disables the PLAN_TASK pre-pass even when the template\n\tdefines one. Set via the --no-plan CLI flag.",
-   "evidence_locator": "internal/scan/agent.go:~60@8d023aa",
-   "confidence": "medium",
+   "evidence_quote": "// SkipPlan disables the PLAN_TASK pre-pass even when the template\n\t// defines one.",
+   "evidence_locator": "internal/scan/agent.go:63-64@8d023aa",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Plan is a prompt phase, not a stored plan object."
+   "note": "A PLAN_TASK pre-pass exists; whether its output is stored as a structured object is not visible in bundle; could be implicit."
   },
   "multi_agent_topology": {
    "value": "orchestrator_workers",
    "not_reported": false,
    "evidence_quote": "dispatches one SubAgent per file in parallel",
    "evidence_locator": "paper Fig. 2 caption",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Deterministic (non-LLM) orchestrator dispatches file-level SubAgents; reflector is separate filter."
   },
   "delegation_mechanism": {
    "value": "subagent_spawn",
    "not_reported": false,
    "evidence_quote": "Each SubAgent is then launched as an indepen-dent concurrent task, enabling file-level parallelism.",
    "evidence_locator": "paper Sec. 3.2.3",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Each SubAgent is then launched as an indepen-dent concurrent task, enabling file-level parallelism.",
-   "evidence_locator": "paper Sec. 3.2.3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No approval/confirmation gate described in the loop; run is a non-interactive CLI."
+   "resolved": false,
+   "note": "Confirmation/permission code not in bundle; tools are read-only so gating likely absent but unverified."
   },
   "short_term_state": {
-   "value": "conversation_only",
+   "value": "structured_task_state",
    "not_reported": false,
-   "evidence_quote": "the tool's output is returned as an observation and appended to the conversation history",
-   "evidence_locator": "paper Sec. 3.3.1",
+   "evidence_quote": "Session *session.SessionHistory",
+   "evidence_locator": "internal/llmloop/loop.go:36@8d023aa",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Comments are collected by CommentCollector outside the conversation."
+   "note": "Session history with task records, comment collector, token counters."
   },
   "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Resume is an optional read-only checkpoint index from a previous scan\n\t// session.",
-   "evidence_locator": "internal/scan/agent.go:~57@8d023aa",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Only session checkpoints persist; no memory re-injection across runs found."
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No memory code in bundle; user-global rules are config, not memory."
   },
   "state_persistence": {
    "value": "full_resume",
    "not_reported": false,
-   "evidence_quote": "# Resume an interrupted range or commit review\nocr session list\nocr review --from main --to feature-branch --resume <session-id>",
-   "evidence_locator": "README.md Quick Start@8d023aa",
+   "evidence_quote": "// Resume is an optional read-only checkpoint index from a previous scan\n\t// session.",
+   "evidence_locator": "internal/scan/agent.go:59-60@8d023aa",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "README: 'ocr review ... --resume <session-id>'; resume is per-file checkpoint granularity."
   },
   "self_verification": {
    "value": [
     "llm_judge"
    ],
    "not_reported": false,
-   "evidence_quote": "an external reflector examines each comment against the diff alone under an asymmetric information boundary, filtering those directly contradicted by diff evidence",
+   "evidence_quote": "an external reflector examines each comment against the diff alone under an asymmetric information boundary",
    "evidence_locator": "paper Fig. 2 caption",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Same LLM but separate call with different information boundary; --no-filter disables."
+   "note": "Same LLM, separate call; REVIEW_FILTER_TASK, disabled via --no-filter."
   },
   "retry_policy": {
    "value": "none",
    "not_reported": false,
    "evidence_quote": "The loop continues until the agent invokestask_done or reaches a maximum iteration bound.",
    "evidence_locator": "paper Sec. 3.3.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No task-level re-attempt policy described."
+   "note": "No task-level retry seen; LLM transport retries exist (retry report)."
   },
   "rollback": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "file_readRead a file's content by path and optional line range",
+   "evidence_quote": "code_commentSubmit a review comment Parsed and collected asynchronously",
    "evidence_locator": "paper Table 2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Read-only review tools; nothing to roll back."
+   "note": "Agent makes no file changes (read-only tool set)."
   },
   "termination_condition": {
    "value": [
@@ -292,26 +287,25 @@
    "not_reported": false,
    "evidence_quote": "The loop continues until the agent invokestask_done or reaches a maximum iteration bound. We set the default bound to 30",
    "evidence_locator": "paper Sec. 3.3.1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "MaxTokensBudget stops dispatch (internal/scan/agent.go:71-75); empty-round detection prompts to act or terminate."
+  },
+  "cost_controls": {
+   "value": [
+    "caching",
+    "token_budget"
+   ],
+   "not_reported": false,
+   "evidence_quote": "// MaxTokensBudget, when > 0, caps total token usage (input+output, as\n\t// reported by the API).",
+   "evidence_locator": "internal/scan/agent.go:71-72@8d023aa",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Empty-round detection = stall_detection; MaxTokensBudget caps tokens (0 = unlimited by default)."
-  },
-  "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "MaxTokensBudget, when > 0, caps total token usage (input+output, as\n\t// reported by the API). Once the running total exceeds it, no further\n\t// batches are dispatched.",
-   "evidence_locator": "internal/scan/agent.go:~70@8d023aa",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Cache read/write tokens are tracked but no explicit caching config cited."
+   "note": "Cache read/write token tracking in llmloop/loop.go; default budget 0 = unlimited."
   },
   "timeouts": {
    "value": [
@@ -319,103 +313,105 @@
     "per_tool"
    ],
    "not_reported": false,
-   "evidence_quote": "code_searchSearch for text patterns across the repository Max 100 matches, 10s timeout",
-   "evidence_locator": "paper Table 2",
-   "confidence": "high",
+   "evidence_quote": "// Concurrent task timeout in minutes. 0 means no timeout.",
+   "evidence_locator": "internal/agent/agent.go:106@8d023aa",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "ConcurrentTaskTimeout in minutes per subtask; 0 means no timeout."
+   "note": "code_search 10s timeout (paper Table 2); per-subtask timeout, default off."
   },
   "execution_isolation": {
    "value": "subprocess",
    "not_reported": false,
    "evidence_quote": "cmd := exec.CommandContext(ctx, \"git\", args...)",
-   "evidence_locator": "internal/gitcmd/runner.go:52@8d023aa",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "CLI runs on host; git subprocesses, no sandbox."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "binary files are excluded; (2) user-defined exclude patterns are ap-plied if configured",
-   "evidence_locator": "paper Sec. 3.2.3",
+   "evidence_locator": "internal/gitcmd/runner.go:53@8d023aa",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Tools read within the repository directory; read-only in practice."
+   "note": "Runs on host as CLI; no shell tool."
   },
-  "network_policy": {
-   "value": "open",
+  "filesystem_access": {
+   "value": "read_only",
    "not_reported": false,
-   "evidence_quote": "cmd := exec.CommandContext(ctx, \"git\", args...)",
-   "evidence_locator": "internal/gitcmd/runner.go:52@8d023aa",
-   "confidence": "low",
+   "evidence_quote": "code_commentSubmit a review comment Parsed and collected asynchronously",
+   "evidence_locator": "paper Table 2",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No network restriction mechanism found in the shown code."
+   "note": "Tools only read repo files; relative to host subprocess boundary."
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tools have no network capability; no network config surface in bundle."
   },
   "permission_model": {
    "value": "static_allowlist",
    "not_reported": false,
-   "evidence_quote": "a built-in extension allowlist filters unsupported file types",
-   "evidence_locator": "paper Sec. 3.2.3",
-   "confidence": "medium",
+   "evidence_quote": "provides a fixed set of six review-specific tools",
+   "evidence_locator": "paper Sec. 3.3.2",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No per-action approval; action space limited to six fixed tools."
+   "note": "Curated fixed tool set rather than per-call authorization."
   },
   "tracing": {
    "value": "opentelemetry",
    "not_reported": false,
-   "evidence_quote": "Package telemetry provides OpenTelemetry-based observability for OpenCodeReview CLI.",
+   "evidence_quote": "// Package telemetry provides OpenTelemetry-based observability for OpenCodeReview CLI.",
    "evidence_locator": "internal/telemetry/config.go:4@8d023aa",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Disabled by default (Enabled: false); session JSONL records are always written."
+   "note": "Off by default (OCR_ENABLE_TELEMETRY); session JSONL always written."
   },
   "replayability": {
    "value": "partial",
    "not_reported": false,
    "evidence_quote": "[Session Viewer](https://open-codereview.ai/docs/viewer) — browse and replay review sessions in browser",
-   "evidence_locator": "README.md Documentation section@8d023aa",
-   "confidence": "medium",
+   "evidence_locator": "README.md@8d023aa",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Viewer replay is display, not re-execution."
   },
   "eval_hooks": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "A real-world code review benchmark built from **50** popular open-source repositories, **200** real Pull Requests",
-   "evidence_locator": "README.md Benchmark@8d023aa",
+   "evidence_quote": "On AACR-Bench (i.e., 200 real-world PRs, 10 languages, 1,505",
+   "evidence_locator": "paper Abstract",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "AACR-Bench is an external dataset on Hugging Face; no eval runner seen in the repo tree."
+   "note": "No eval runner seen in file tree; AACR-Bench on Hugging Face."
   },
   "guardrails": {
    "value": [
-    "action_policies",
-    "output_filters"
+    "action_policies"
    ],
    "not_reported": false,
-   "evidence_quote": "the reflector's task is narrowly scoped: filter only those comments that are directly contradicted by evidence within the diff itself",
-   "evidence_locator": "paper Sec. 3.4.1",
-   "confidence": "medium",
+   "evidence_quote": "a strict focus rule in the system prompt instructs the SubAgent that findings from other files must not be-come the subject of comments",
+   "evidence_locator": "paper Sec. 3.3.2",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Action policies: bounded tool outputs, timeouts, fixed tool set, file allowlist."
+   "note": "Weak fit: file filtering allowlist and reflection filter on outputs could be output_filters."
   },
   "target_domain": {
    "value": [
@@ -423,46 +419,51 @@
    ],
    "not_reported": false,
    "evidence_quote": "Open Code Review is an AI-powered code review CLI tool.",
-   "evidence_locator": "README.md What is Open Code Review?@8d023aa",
+   "evidence_locator": "README.md@8d023aa",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "open_source": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "[Apache-2.0](LICENSE) — Copyright 2026 Alibaba",
-   "evidence_locator": "README.md License@8d023aa",
+   "evidence_locator": "README.md@8d023aa",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "OpenAI & Anthropic compatible",
-   "evidence_locator": "github description@8d023aa",
-   "confidence": "high",
+   "evidence_locator": "repo description@8d023aa",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "internal/llm/providers.go, protocol.go abstract providers."
+   "note": "Own provider abstraction (internal/llm/providers.go), custom providers, Bedrock."
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
    "evidence_quote": "ref: tag:v1.11.1 8d023aafcec05f8ba5628fca3eaba88078e5d201 2026-08-31",
-   "evidence_locator": "github:alibaba/open-code-review@8d023aa",
-   "confidence": "high",
+   "evidence_locator": "github:alibaba/open-code-review",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Paper arXiv 2608.09290v2 describes the same system."
   },
   "first_release_date": {
    "value": null,
@@ -472,13 +473,14 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "No tag history in evidence."
   },
   "pinned_version": {
    "value": "v1.11.1 @ 8d023aafcec05f8ba5628fca3eaba88078e5d201 (2026-08-31)",
    "not_reported": false,
    "evidence_quote": "ref: tag:v1.11.1 8d023aafcec05f8ba5628fca3eaba88078e5d201 2026-08-31",
-   "evidence_locator": "github:alibaba/open-code-review@8d023aa",
+   "evidence_locator": "github:alibaba/open-code-review",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -490,34 +492,38 @@
    "value": 37415,
    "not_reported": false,
    "evidence_quote": "stars: 37415",
-   "evidence_locator": "github:alibaba/open-code-review@8d023aa",
-   "confidence": "high",
+   "evidence_locator": "REPOSITORY EVIDENCE header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Date of star count not stated in evidence."
   }
  },
  "cells_unresolved": [
+  "C5",
+  "D2",
+  "G3",
   "M5"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 8,
-  "absence_high_confidence": 1
+  "locator_no_line": 6,
+  "locator_shape_unrecognised": 3
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:33:15+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:21:33+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109887,
  "doc_chars": 110277,
  "call_id": "A-opencodereview-00009",
- "tokens_in": 68094,
- "tokens_out": 4112,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.443270"
+ "tokens_in": 68634,
+ "tokens_out": 4233,
+ "cache_read": 16883,
+ "cache_write": 51749,
+ "cost_usd": "0.502037"
 }

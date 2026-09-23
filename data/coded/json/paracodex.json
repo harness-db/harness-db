@@ -33,21 +33,22 @@
    "not_reported": false,
    "evidence_quote": "Each stage is driven by a specific template that constrains the output space while retaining domain flexibility.",
    "evidence_locator": "paper Sec. 3.4",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Staged prompt templates in pipeline/prompts/ and Codex skills."
+   "note": "Per-stage prompt templates (pipeline/prompts/*.md) passed to Codex CLI; Codex's own system prompt not in evidence."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
    "not_reported": false,
-   "evidence_quote": "PARACODEXis a guided agentic workflow in which the model iteratively uses standard development tools.",
-   "evidence_locator": "paper Sec. 3",
-   "confidence": "medium",
+   "evidence_quote": "The pipeline uses external tools accessible to the agent.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Agent runs inside Codex CLI with terminal access; system metadata read from system_info.txt."
   },
   "context_compaction": {
    "value": null,
@@ -57,7 +58,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Compaction delegated to Codex CLI; its config not in evidence."
   },
   "observation_format": {
    "value": [
@@ -66,23 +68,21 @@
    "not_reported": false,
    "evidence_quote": "full build logs and profiler traces are fed back to verify every step deterministically",
    "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "tool_call_format": {
-   "value": [
-    "shell_only"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The pipeline uses external tools accessible to the agent. Compiler diagnostics from NVIDIA HPC SDK surface issues; Makefile-based harnesses validate correctness",
-   "evidence_locator": "paper Sec. 3.3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Built on Codex CLI; underlying tool-call format not stated in evidence."
+   "resolved": false,
+   "note": "Tool calling handled by Codex CLI/SDK (pipeline/utils/run_codex.ts), not shown."
   },
   "tool_count": {
    "value": null,
@@ -92,7 +92,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Tool list belongs to Codex CLI; not in evidence."
   },
   "edit_primitive": {
    "value": null,
@@ -103,7 +104,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Paper mentions 'patch-level OpenMP target edits' but no edit tool definition in evidence."
+   "note": "Paper mentions patch-level edits; Codex edit tool not in evidence."
   },
   "tool_schema_source": {
    "value": null,
@@ -116,32 +117,29 @@
    "resolved": false
   },
   "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "The pipeline uses external tools accessible to the agent.",
-   "evidence_locator": "paper Sec. 3.3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No MCP/A2A anywhere in the README, file tree or paper."
+   "resolved": false,
+   "note": "No grep possible over truncated repo."
   },
   "loop_primitives": {
    "value": [
     "fixed_pipeline",
-    "generate_test_repair",
-    "react"
+    "generate_test_repair"
    ],
    "not_reported": false,
    "evidence_quote": "PARACODEXexecutes a three-stage workflow as depicted in Figure 1.",
    "evidence_locator": "paper Sec. 3.2",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Three fixed stages with a correctness gate agent repairing until validation passes."
+   "note": "Stages with correctness-gate repair: 'using compilation errors and numerical mismatches as structured feedback to drive targeted fixes until correctness is achieved' (Sec. 3). Inner loop is Codex react."
   },
   "planning_granularity": {
    "value": "explicit_plan_object",
@@ -152,295 +150,31 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "analysis.md, data_plan.md, optimization_plan.md files persisted and re-read across stages."
+   "note": "Also analysis.md and optimization_plan.md."
   },
   "multi_agent_topology": {
    "value": "pipeline",
    "not_reported": false,
    "evidence_quote": "Multi-Agent Pipeline: Specialized AI agents for translation, optimization, and verification",
-   "evidence_locator": "README.md@5b4af3fd",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Agents in pipeline/agents/: initial_translation_codex.py, optimize_codex.py, supervisor_codex.py."
+   "note": "pipeline/agents/: initial_translation, optimize, supervisor."
   },
   "delegation_mechanism": {
    "value": "role_handoff",
    "not_reported": false,
    "evidence_quote": "Between each stage, a correctness-gate agentis invoked.",
    "evidence_locator": "paper Sec. 3.2",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Stages hand off via artifacts to separate specialised agent invocations."
+   "note": "Closest value; stages invoked sequentially by pipeline, likely as separate Codex runs."
   },
   "human_in_loop": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "we operate the agent in a non-interactive automation mode",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Web UI only starts/monitors jobs; no per-action approval."
-  },
-  "short_term_state": {
-   "value": "structured_task_state",
-   "not_reported": false,
-   "evidence_quote": "makes iterations reproducible via structured plans, logs, and profiles",
-   "evidence_locator": "paper Fig. 1 caption",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Markdown artifacts (analysis.md, data_plan.md, optimization_plan.md) act as the task state."
-  },
-  "long_term_memory": {
-   "value": [
-    "skill_library"
-   ],
-   "not_reported": false,
-   "evidence_quote": "ParaCodex Codex skills → `~/.codex/skills/paracodex/`",
-   "evidence_locator": "README.md@5b4af3fd",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Skills installed once at setup and loaded by the Codex CLI in every run."
-  },
-  "state_persistence": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Job Management: Run multiple translations, inspect artifacts per job",
-   "evidence_locator": "README.md@5b4af3fd",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No resume path visible in evidence; artifacts are written but not reloaded into a running agent."
-  },
-  "self_verification": {
-   "value": [
-    "llm_judge",
-    "test_execution"
-   ],
-   "not_reported": false,
-   "evidence_quote": "It then compiles and runs the candidate code against the input serial code using a manually-written Makefile-based harness.",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Harness-enforced compile/run correctness gate plus a correctness-gate (supervisor) agent reviewing and repairing."
-  },
-  "retry_policy": {
-   "value": "until_pass",
-   "not_reported": false,
-   "evidence_quote": "using compilation errors and numerical mismatches as structured feedback to drive targeted fixes until correctness is achieved",
-   "evidence_locator": "paper Sec. 3",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "rollback": {
-   "value": "snapshot",
-   "not_reported": false,
-   "evidence_quote": "A strict revert-on-regression policy is enforced: if GPU time worsens by more than 10%, the change is auto-matically rolled back.",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "high",
-   "quote_verbatim": false,
-   "flags": [
-    "quote_not_in_bundle"
-   ],
-   "resolved": false,
-   "note": "Rollback of saved candidate code versions, not git."
-  },
-  "termination_condition": {
-   "value": [
-    "model_declared",
-    "test_pass"
-   ],
-   "not_reported": false,
-   "evidence_quote": "After functional validation, the agent profiles the program with NVIDIA Nsight Sys-tems",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Stages end when correctness gate passes; no explicit step/cost caps in evidence."
-  },
-  "cost_controls": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "PARACODEXaverages 837,701 tokens per kernel (1.11× baseline).",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Token usage is measured/analysed (pipeline/analyze_token_usage.py) but no budget cap or caching is described."
-  },
-  "timeouts": {
-   "value": [
-    "per_tool"
-   ],
-   "not_reported": false,
-   "evidence_quote": "self.gpu_timeout_seconds = int(\n            os.environ.get(\"GPU_TIMEOUT_SECONDS\", \"300\")\n        )",
-   "evidence_locator": "pipeline/utils/config.py:50-52@5b4af3fd",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "300 s default timeout on GPU runs."
-  },
-  "execution_isolation": {
-   "value": "subprocess",
-   "not_reported": false,
-   "evidence_quote": "NVIDIA GPU: With OpenMP offloading support",
-   "evidence_locator": "README.md@5b4af3fd",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Codex CLI and make/nsys run directly on the host machine with local workdirs; no container in evidence."
-  },
-  "filesystem_access": {
-   "value": "scoped",
-   "not_reported": false,
-   "evidence_quote": "Codex workdir - main working directory",
-   "evidence_locator": "pipeline/utils/config.py:33@5b4af3fd",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Agent operates in the configured CODEX_WORKDIR / data/src tree."
-  },
-  "network_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "the agent operated without internet access and did not use web search at any stage",
-   "evidence_locator": "paper Sec. 4.1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "absence_high_confidence"
-   ],
-   "resolved": true
-  },
-  "permission_model": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "we operate the agent in a non-interactive automation mode",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No allowlist or approval layer described; pipeline/scripts/safe_cmd.sh exists but its content is not in evidence."
-  },
-  "tracing": {
-   "value": "structured_traces",
-   "not_reported": false,
-   "evidence_quote": "Live Log Streaming: Watch the agent work in real time",
-   "evidence_locator": "README.md@5b4af3fd",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Per-kernel artifacts like initial_transcript.txt, supervisor_transcript.txt and nsys reports are written under results/."
-  },
-  "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "This ensures the entire engineering loop is auditable and replayable with-out human intervention.",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "eval_hooks": {
-   "value": "built_in",
-   "not_reported": false,
-   "evidence_quote": "Point the webapp's **Source Directory** to `workdirs/<suite>/data/src/` for each benchmark.",
-   "evidence_locator": "README.md@5b4af3fd",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "performance_testers/ and pipeline/parbench_verify.py plus per-suite workdirs ship benchmark evaluation."
-  },
-  "guardrails": {
-   "value": [
-    "action_policies"
-   ],
-   "not_reported": false,
-   "evidence_quote": "A strict revert-on-regression policy is enforced: if GPU time worsens by more than 10%, the change is auto-matically rolled back.",
-   "evidence_locator": "paper Sec. 3.2",
-   "confidence": "medium",
-   "quote_verbatim": false,
-   "flags": [
-    "quote_not_in_bundle"
-   ],
-   "resolved": false,
-   "note": "Correctness gate and regression revert block/undo bad edits."
-  },
-  "target_domain": {
-   "value": [
-    "swe"
-   ],
-   "not_reported": false,
-   "evidence_quote": "A framework for translating code between serial and parallel programming models (OpenMP, CUDA, HIP, SYCL, OpenCL) using AI agents",
-   "evidence_locator": "README.md@5b4af3fd",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "HPC parallel-code generation/translation, a code domain."
-  },
-  "open_source": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "LICENSE",
-   "evidence_locator": "LICENSE@5b4af3fd",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "LICENSE file present at repo root; licence text not in evidence."
-  },
-  "model_agnostic": {
-   "value": "no",
-   "not_reported": false,
-   "evidence_quote": "| Codex (OpenAI) | ✅ Supported |\n| OpenCode | 🔜 Coming soon |",
-   "evidence_locator": "README.md@5b4af3fd",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "OpenAI Codex CLI only; OpenCode engine 'coming soon' (pipeline/utils/run_opencode.py present)."
-  },
-  "primary_artifact": {
-   "value": "repo",
-   "not_reported": false,
-   "evidence_quote": "PARACODEXrepository: https://github.com/\nScientific-Computing-Lab/ParaCodex",
-   "evidence_locator": "paper Sec. 1 footnote 1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "first_release_date": {
    "value": null,
    "not_reported": true,
    "evidence_quote": "",
@@ -449,60 +183,313 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "No tags or first-commit date in evidence; paper v1 dated 2026-01-07."
+   "note": "Paper says non-interactive mode; no config surface for approvals in evidence."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "makes iterations reproducible via structured plans, logs, and profiles",
+   "evidence_locator": "paper Figure 1 caption",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Plan artifacts as files; closest value."
+  },
+  "long_term_memory": {
+   "value": [
+    "skill_library"
+   ],
+   "not_reported": false,
+   "evidence_quote": "ParaCodex Codex skills → `~/.codex/skills/paracodex/`",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Static skills installed once; not learned memory."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "self_verification": {
+   "value": [
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "It then compiles and runs the candidate code against the input serial code using a manually-written Makefile-based harness.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "GATE SDK checksums; revert-on-regression profiling."
+  },
+  "retry_policy": {
+   "value": "until_pass",
+   "not_reported": false,
+   "evidence_quote": "drive targeted fixes until correctness is achieved",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "rollback": {
+   "value": "snapshot",
+   "not_reported": false,
+   "evidence_quote": "if GPU time worsens by more than 10%, the change is automatically rolled back.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "Mechanism unspecified; closest value."
+  },
+  "termination_condition": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "timeouts": {
+   "value": [
+    "per_tool"
+   ],
+   "not_reported": false,
+   "evidence_quote": "os.environ.get(\"GPU_TIMEOUT_SECONDS\", \"300\")",
+   "evidence_locator": "pipeline/utils/config.py:50@5b4af3fdaffd",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "compile, test, and profile on target hardware",
+   "evidence_locator": "paper Abstract",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Codex CLI on host; Codex sandbox config not shown."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper: 'the agent operated without internet access' in experiments (Sec. 4.1); enforcement not shown."
+  },
+  "permission_model": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "pipeline/scripts/safe_cmd.sh exists but not shown."
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "Live Log Streaming: Watch the agent work in real time",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Transcripts saved per kernel in results/."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "Supports Rodinia, NAS, HeCBench, ParEval, and custom benchmarks.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "performance_testers/ and parbench_verify.py in tree."
+  },
+  "guardrails": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "A framework for translating code between serial and parallel programming models (OpenMP, CUDA, HIP, SYCL, OpenCL) using AI agents",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "LICENSE file exists but content not in evidence."
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "| Codex (OpenAI) | ✅ Supported |",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "OpenCode coming soon; run_opencode.py present."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ParaCodex is run through its **web interface**",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Repo main postdates paper v1 (2026-01-07)."
+  },
+  "first_release_date": {
+   "value": "2026-01-07",
+   "not_reported": false,
+   "evidence_quote": "arXiv:2601.04327v1 [cs.DC] 7 Jan 2026",
+   "evidence_locator": "paper p. 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Fallback to paper v1 date; no tags in evidence."
   },
   "pinned_version": {
    "value": "main @ 5b4af3fdaffd (2026-06-23)",
    "not_reported": false,
    "evidence_quote": "ref: commit:main 5b4af3fdaffd 2026-06-23",
-   "evidence_locator": "repository evidence header",
+   "evidence_locator": "evidence header",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "Untagged; pinned to main commit."
+   "note": "No tag; short hash only."
   },
   "stars": {
    "value": 6,
    "not_reported": false,
    "evidence_quote": "stars: 6",
-   "evidence_locator": "repository evidence header (2026-06-23)",
-   "confidence": "high",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Date of star count not stated."
   }
  },
  "cells_unresolved": [
   "A3",
+  "B1",
   "B2",
   "B3",
   "B4",
+  "B5",
+  "C5",
+  "D3",
   "E3",
+  "F1",
+  "F2",
+  "G2",
+  "G3",
+  "G4",
+  "H2",
   "H4",
-  "M5"
+  "M2"
  ],
  "flag_counts": {
-  "quote_not_in_bundle": 2,
-  "absence_high_confidence": 1,
-  "locator_shape_unrecognised": 3
+  "quote_not_in_bundle": 1,
+  "locator_shape_unrecognised": 2
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:44:09+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:29:27+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 78218,
  "doc_chars": 78581,
- "call_id": "A-paracodex-00123",
- "tokens_in": 57682,
- "tokens_out": 3879,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.385385"
+ "call_id": "A-paracodex-00125",
+ "tokens_in": 58222,
+ "tokens_out": 3133,
+ "cache_read": 16883,
+ "cache_write": 41337,
+ "cost_usd": "0.396741"
 }

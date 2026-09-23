@@ -31,13 +31,13 @@
   "system_prompt_style": {
    "value": "dynamically_composed",
    "not_reported": false,
-   "evidence_quote": "from .prompts import (\n    SystemPromptBuilder,\n    extract_context_hints,\n    load_project_instructions,\n)",
-   "evidence_locator": "agentao/agent.py:29-33@4b1ba8d789e8",
+   "evidence_quote": "Each turn begins by building the model input from the user request, system instructions, conversation history, available tool schemas, relevant memory, plan state, and host-provided constraints.",
+   "evidence_locator": "paper Sec. 4.2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "SystemPromptBuilder assembles prompt with project instructions, skills, tools."
+   "note": "SystemPromptBuilder imported in agentao/agent.py; AGENTAO.md project instructions and date context injected per docs."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
@@ -47,30 +47,30 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Memory recall and AGENTAO.md injection also add context; the instance template itself was not in the evidence."
   },
   "context_compaction": {
    "value": [
-    "summarize",
-    "tool_output_pruning"
+    "summarize"
    ],
    "not_reported": false,
    "evidence_quote": "Token tracking, LLM-summarized compaction, overflow recovery, file re-injection",
-   "evidence_locator": "README.md Feature Overview@4b1ba8d789e8",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "sanitize phase normalizes/redacts tool output before model sees it."
+   "note": "The paper says the sanitize phase 'redact[s] or normalizes outputs'. Per-observation truncation code was not visible in the evidence."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "the formatting phase converts tool results into model-readable messages; and the sanitization phase redacts or normalizes outputs",
+   "evidence_quote": "the formatting phase converts tool results into model-readable messages",
    "evidence_locator": "paper Sec. 4.1",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -88,42 +88,39 @@
    "resolved": true
   },
   "tool_count": {
-   "value": 13,
-   "not_reported": false,
-   "evidence_quote": "ﬁle_ops\nshell\nsearch\nweb\nmemory\nskill\nagents\n(sub-agent)\nask_user\ntodo\nplan\ngoal\nMCP tools",
-   "evidence_locator": "paper Fig. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Counted the 13 tool-system boxes in Figure 1 (file_ops, shell, search, web, memory, skill, agents, ask_user, todo, plan, goal, MCP tools, plus grouping ambiguity); exact default registry not visible in evidence."
+   "resolved": false,
+   "note": "The tool registry (register_builtin_tools) was truncated from the evidence. Tool categories are listed but not counted."
   },
   "edit_primitive": {
-   "value": [
-    "search_replace",
-    "whole_file_rewrite"
-   ],
-   "not_reported": false,
-   "evidence_quote": "File tools inspect, create, or modify local artifacts.",
-   "evidence_locator": "paper Sec. 4.4",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Specific edit primitives not shown in available evidence; inferred from file-tool description."
+   "resolved": false,
+   "note": "The file_ops tool definition was not in the evidence."
   },
   "tool_schema_source": {
    "value": [
-    "hand_written",
     "mcp"
    ],
    "not_reported": false,
-   "evidence_quote": "translate protocol schemas into model-visible tool schemas",
+   "evidence_quote": "The runtime can namespace externally derived tools, translate protocol schemas into model-visible tool schemas",
    "evidence_locator": "paper Sec. 4.4",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "The built-in tool schema source was not visible in the evidence."
   },
   "protocol_standardization": {
    "value": [
@@ -132,7 +129,7 @@
    ],
    "not_reported": false,
    "evidence_quote": "MCP (stdio / Streamable HTTP / SSE) for tools · ACP (stdio JSON-RPC) for full agents · plugin lifecycle",
-   "evidence_locator": "README.md Feature Overview@4b1ba8d789e8",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -142,59 +139,62 @@
   "loop_primitives": {
    "value": [
     "event_driven",
-    "plan_execute",
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "ChatLoopRunner\nruntime/chat_loop\nloop ≤ max_itera�ons",
-   "evidence_locator": "paper Fig. 1",
+   "evidence_quote": "The runner constructs model context, invokes the LLM client through a provider-neutral interface, receives assistant messages and tool-call proposals, and delegates executable actions to the tool runner.",
+   "evidence_locator": "paper Sec. 4.1",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "react is default; plan mode is config-reachable; host event stream drives observers."
+   "note": "event_driven is based on the host EventStream and transport events."
   },
   "planning_granularity": {
    "value": "explicit_plan_object",
    "not_reported": false,
    "evidence_quote": "/plan       Enter plan mode (read-only thinking with .agentao/plan.md)",
-   "evidence_locator": "README.md CLI Quickstart@4b1ba8d789e8",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
-  },
-  "multi_agent_topology": {
-   "value": "single",
-   "not_reported": false,
-   "evidence_quote": "Built-in `codebase-investigator` / `generalist` · custom `.agentao/agents/<name>.md` · foreground/background dashboard",
-   "evidence_locator": "README.md Feature Overview@4b1ba8d789e8",
+   "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "enable_builtin_agents: bool = False in Agentao.__init__, so sub-agents off by default; orchestrator_workers reachable."
+   "note": "TodoWriteTool is imported in agent.py."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "enable_builtin_agents: bool = False,",
+   "evidence_locator": "agentao/agent.py",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Built-in and custom sub-agents are reachable (orchestrator_workers). The CLI factory may enable them; exact line not given."
   },
   "delegation_mechanism": {
    "value": "none",
    "not_reported": false,
    "evidence_quote": "enable_builtin_agents: bool = False,",
-   "evidence_locator": "agentao/agent.py:155@4b1ba8d789e8",
-   "confidence": "medium",
+   "evidence_locator": "agentao/agent.py",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
    "resolved": true,
-   "note": "subagent_spawn reachable by enabling built-in agents."
+   "note": "subagent_spawn is reachable via the agent tools and .agentao/agents/*.md definitions."
   },
   "human_in_loop": {
    "value": [
     "configurable",
-    "on_permission",
-    "on_plan"
+    "on_permission"
    ],
    "not_reported": false,
-   "evidence_quote": "Tool confirmation · permission modes (`read-only` / `workspace-write` / `full-access` / `plan`) · macOS `sandbox-exec`",
-   "evidence_locator": "README.md Why Agentao@4b1ba8d789e8",
+   "evidence_quote": "Tool confirmation · permission modes (`read-only` / `workspace-write` / `full-access` / `plan`)",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -205,7 +205,7 @@
    "not_reported": false,
    "evidence_quote": "A session contains conversation state, task metadata, active permissions, memory references, and replay pointers.",
    "evidence_locator": "paper Sec. 4.6",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -213,62 +213,59 @@
   "long_term_memory": {
    "value": [
     "episodic_db",
-    "file_notes",
     "skill_library"
    ],
    "not_reported": false,
    "evidence_quote": "SQLite-backed persistent memory with two scopes (user / project), automatic recall, jieba 中文 segmentation",
-   "evidence_locator": "README.md Feature Overview@4b1ba8d789e8",
-   "confidence": "high",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "file_notes = AGENTAO.md project instructions; skill_library = skills/; episodic_db = SQLite memory."
+   "note": "No enum value fits a SQLite memory store exactly; episodic_db is the closest. Skills are loaded from skills/."
   },
   "state_persistence": {
    "value": "full_resume",
    "not_reported": false,
    "evidence_quote": "This allows long-running work to be paused, resumed, inspected, or embedded into host applications",
    "evidence_locator": "paper Sec. 4.6",
-   "confidence": "high",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "self_verification": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "the formatting phase converts tool results into model-readable messages; and the sanitization phase redacts or normalizes outputs before they are exposed to the model or host.",
-   "evidence_locator": "paper Sec. 4.1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No harness-enforced test execution, linting, or judge found in the pipeline description; the agent may run tests via shell."
+   "resolved": false,
+   "note": "No verification config surface is visible in the evidence."
   },
   "retry_policy": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "If the agent cannot complete the task, encounters a denied operation, omits the required terminal marker, or exceeds the iteration budget, the runtime fails loudly.",
-   "evidence_locator": "paper Sec. 5.3",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Retry is delegated to the outer scheduler, not the harness."
+   "resolved": false,
+   "note": "The run loop code was truncated. The paper leaves retries to the scheduler."
   },
   "rollback": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "Confirmation, cancellation where supported, replay-based diagnosis, and fail-closed execution.",
-   "evidence_locator": "paper Sec. 3.2 Table 2",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Irreversible side effects are handled by confirmation/cancellation, not by a rollback/undo mechanism in the evidence."
+   "resolved": false,
+   "note": "The file tool definitions were not in the evidence."
   },
   "termination_condition": {
    "value": [
@@ -276,52 +273,37 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "ifycontains no tool callsthen\n6:r←EXTRACTFINALRESPONSE(y)",
-   "evidence_locator": "paper Sec. 4.2 Algorithm 1",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "max_steps = K_max / max_iterations loop bound."
-  },
-  "cost_controls": {
-   "value": [
-    "token_budget"
-   ],
-   "not_reported": false,
-   "evidence_quote": "max_context_tokens: Maximum context window tokens (default 200K).",
-   "evidence_locator": "agentao/agent.py:172@4b1ba8d789e8",
+   "evidence_quote": "ifycontains no tool callsthen",
+   "evidence_locator": "paper Algorithm 1",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "max_steps comes from the loop bound K_max / max_iterations. The on_max_iterations_callback parameter is in agent.py."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No cost config was visible in the evidence."
   },
   "timeouts": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "Permission events are emitted before execution starts, and terminal lifecycle events are emitted when execution completes, fails, or is cancelled.",
-   "evidence_locator": "paper Sec. 4.7",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No timeout mechanism appears in the available evidence; cancellation is token-based, not time-based."
+   "resolved": false
   },
   "execution_isolation": {
    "value": "subprocess",
-   "not_reported": false,
-   "evidence_quote": "Agentao is a governed agent runtime — a local-first, private-first, embeddable agent harness for Python hosts.",
-   "evidence_locator": "README.md@4b1ba8d789e8",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "macOS sandbox-exec optionally isolates shell; no container by default."
-  },
-  "filesystem_access": {
-   "value": "scoped",
    "not_reported": false,
    "evidence_quote": "Shell tools execute commands within the configured working directory and optional sandbox.",
    "evidence_locator": "paper Sec. 4.4",
@@ -329,25 +311,36 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default workspace-write mode scopes file edits to the working directory; full-access mode widens this."
+   "note": "macOS sandbox-exec is optional; the sandbox_policy parameter defaults to None."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "workspace-writeProject-scoped modification.",
+   "evidence_locator": "paper Table 3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Scoping is relative to the host. Default mode appears to be workspace-write."
   },
   "network_policy": {
    "value": "open",
    "not_reported": false,
-   "evidence_quote": "Web tools access external information when enabled.",
-   "evidence_locator": "paper Sec. 4.4",
+   "evidence_quote": "prompt for broad shell or network actions",
+   "evidence_locator": "paper Table 3",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No network allowlist/egress control appears in the evidence; broad network actions are prompted, not blocked."
+   "note": "Network actions are gated by prompt rather than blocked."
   },
   "permission_model": {
    "value": "policy_engine",
    "not_reported": false,
-   "evidence_quote": "The permission decision function maps a proposed tool invocation to one of three outcomes:\nD:T×A×Σ×P→{ALLOW,PROMPT,DENY}",
+   "evidence_quote": "The policyP is composed from multiple sources: hardline safety checks, per-run restrictions, user or host rules, permission-mode presets, and tool-level defaults.",
    "evidence_locator": "paper Sec. 4.3",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -355,34 +348,32 @@
   "tracing": {
    "value": "structured_traces",
    "not_reported": false,
-   "evidence_quote": "Live thinking display · streaming tool output · full LLM logging · JSONL replay",
-   "evidence_locator": "README.md Why Agentao@4b1ba8d789e8",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "No OpenTelemetry export found in evidence."
-  },
-  "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "Replay is implemented as an append-only event timeline. Each record is a structured event envelope, and schema snapshots are used to make replay files stable across releases.",
-   "evidence_locator": "paper Sec. 4.6",
+   "evidence_quote": "JSONL session recordings under `.agentao/replays/`",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
-  "eval_hooks": {
-   "value": "none",
+  "replayability": {
+   "value": "partial",
    "not_reported": false,
-   "evidence_quote": "The purpose of these cases is not to provide a quantitative benchmark or to compare task success rates against other agent frameworks.",
-   "evidence_locator": "paper Sec. 5",
+   "evidence_quote": "Replay is implemented as an append-only event timeline.",
+   "evidence_locator": "paper Sec. 4.6",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "No benchmark evaluation runner appears in the repo evidence."
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "guardrails": {
    "value": [
@@ -393,21 +384,20 @@
    "not_reported": false,
    "evidence_quote": "Pre-tool hooks can deny a proposed action, downgrade an allowed action to confirmation, or inject project-specific restrictions.",
    "evidence_locator": "paper Sec. 4.5",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "output_filters = sanitize/redaction phase; input_filters = prompt hooks."
+   "note": "output_filters: the sanitize phase redacts outputs. input_filters: prompt hooks exist, but whether they can block input is uncertain."
   },
   "target_domain": {
    "value": [
     "general_tool_use",
-    "swe",
-    "web"
+    "swe"
    ],
    "not_reported": false,
-   "evidence_quote": "It aims to provide a reusable runtime harness that can be embedded in SaaS assistants, data workbenches, batch jobs, audit pipelines, ACP servers, and other host applications.",
-   "evidence_locator": "paper Sec. 2.6 Table 1",
+   "evidence_quote": "Agentao shares the concern for local files and shell-mediated actions, but generalizes beyond coding tasks.",
+   "evidence_locator": "paper Table 1",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
@@ -416,19 +406,19 @@
   "open_source": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "## License\n\nOpen source. Use and modify as needed.",
-   "evidence_locator": "README.md License@4b1ba8d789e8",
-   "confidence": "medium",
+   "evidence_quote": "Open source. Use and modify as needed.",
+   "evidence_locator": "README.md",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "No OSI licence name given in the README; no LICENSE file in evidence."
+   "note": "The LICENSE file was not in the evidence."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "For Anthropic / Gemini / DeepSeek / any OpenAI-compatible provider, set `<NAME>_API_KEY` + `<NAME>_BASE_URL` + `<NAME>_MODEL`",
-   "evidence_locator": "README.md Installation@4b1ba8d789e8",
+   "evidence_quote": "For Anthropic / Gemini / DeepSeek / any OpenAI-compatible provider",
+   "evidence_locator": "README.md",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -437,11 +427,13 @@
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "The code is publicly available athttps://github.com/jin-bo/agentao.",
-   "evidence_locator": "paper Abstract",
+   "evidence_quote": "ref: tag:v0.4.21 4b1ba8d789e8 2026-08-30",
+   "evidence_locator": "evidence header",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
    "resolved": true
   },
   "first_release_date": {
@@ -457,8 +449,8 @@
   "pinned_version": {
    "value": "v0.4.21 @ 4b1ba8d789e8 (2026-08-30)",
    "not_reported": false,
-   "evidence_quote": "tag:v0.4.21 4b1ba8d789e8 2026-08-30",
-   "evidence_locator": "repository evidence header@4b1ba8d789e8",
+   "evidence_quote": "ref: tag:v0.4.21 4b1ba8d789e8 2026-08-30",
+   "evidence_locator": "evidence header",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -470,8 +462,8 @@
    "value": 302,
    "not_reported": false,
    "evidence_quote": "stars: 302",
-   "evidence_locator": "repository evidence header@4b1ba8d789e8",
-   "confidence": "high",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_shape_unrecognised"
@@ -480,23 +472,31 @@
   }
  },
  "cells_unresolved": [
+  "B2",
+  "B3",
+  "E1",
+  "E2",
+  "E3",
+  "F2",
+  "F3",
+  "H3",
   "M5"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 2
+  "locator_shape_unrecognised": 5
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:32:31+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:21:00+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 109955,
  "doc_chars": 110307,
  "call_id": "A-agentao-00006",
- "tokens_in": 65175,
- "tokens_out": 4308,
+ "tokens_in": 65715,
+ "tokens_out": 3430,
  "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.433575"
+ "cache_write": 65713,
+ "cost_usd": "0.594312"
 }

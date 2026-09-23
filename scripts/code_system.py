@@ -800,10 +800,28 @@ def system_record(row: dict[str, str], bundle: Bundle, coding: dict[str, CellChe
     return rec
 
 
+#: Windows treats these as device names whatever the extension: a file called con.json can be
+#: created but not opened by name, and git reports "No such file or directory" for a file that
+#: os.listdir shows (hit on 2026-09-23 by a system whose id is "con").
+WINDOWS_RESERVED = frozenset({"con", "prn", "aux", "nul",
+                              *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))})
+
+
+def system_json_name(system_id: str) -> str:
+    """File name for one system's coding, kept openable on Windows.
+
+    Readers list the directory rather than look names up, so the suffix costs nothing; it is applied
+    here rather than in ``fulltext_screen.safe_id`` because that function also names the fetched
+    full texts, and renaming those would break every lookup against the existing corpus.
+    """
+    stem = fs.safe_id(system_id)
+    return f"{stem}-sys.json" if stem.lower() in WINDOWS_RESERVED else f"{stem}.json"
+
+
 def write_system_json(directory: Path, rec: dict[str, Any]) -> None:
     """The per-system file ``scripts/kappa.py coding`` reads (the authoritative merge for one coder)."""
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / f"{fs.safe_id(rec['system_id'])}.json").write_text(
+    (directory / system_json_name(rec["system_id"])).write_text(
         json.dumps(rec, indent=1, ensure_ascii=False), encoding="utf-8")
 
 

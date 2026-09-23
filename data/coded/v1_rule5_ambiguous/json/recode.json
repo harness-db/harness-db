@@ -1,0 +1,570 @@
+{
+ "system_id": "recode",
+ "name": "ReCode",
+ "version": "",
+ "repo_url": "https://github.com/foundationagents/recode",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 70340,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "s2_snowball:7b3fc9cc77d7ca4d702c6941696cd959c04f97aa",
+    "chars_available": 30425,
+    "chars_used": 30425,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2_snowball:7b3fc9cc77d7ca4d702c6941696cd959c04f97aa",
+    "chars_available": 39480,
+    "chars_used": 39480,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "return EXPAND_PROMPT.format(available_actions=self.available_actions, examples=examples, task=task, variables=variables)",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Env-specific actions.txt and few-shots loaded per env; single user prompt template, no separate system message seen."
+  },
+  "env_context_strategy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Only the current function signature and available variables are provided, without any tree structure or execution history.",
+   "evidence_locator": "paper Fig. 2 caption",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Non-repo environments (ALFWorld/WebShop/SciWorld); context is task text plus variable namespace; closest value."
+  },
+  "context_compaction": {
+   "value": [
+    "structured_checkpoint"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Crucially, the policy model only sees the current variable state, not the full execution history.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "History replaced by serialized variable namespace (get_variables)."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "if isinstance(result, list):\n            result = \"\\n\".join(result)",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action",
+    "xml_tags"
+   ],
+   "not_reported": false,
+   "evidence_quote": "expanded_code = parse_xml_tag(response, \"execute\").strip()",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Python code inside <execute> tags, exec'd by Executor."
+  },
+  "tool_count": {
+   "value": 2,
+   "not_reported": false,
+   "evidence_quote": "self._base_globals = {\n            \"run\": self.run,\n            \"re\": re,\n        }",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "run() primitive plus optional ask_llm; env actions are strings passed to run(). Count is approximate."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "`envs/` – Environment wrappers and assets for `alfworld`, `webshop`, and `sciworld`.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No file-editing tool; non-SWE environments."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "`prompts/<env_name>/actions.txt` – concise description of valid `run(\"...\")` calls/tools.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "def register_function(self, name: str, func: Callable):",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Only Python-callable registration; no MCP in file tree."
+  },
+  "loop_primitives": {
+   "value": [
+    "generate_test_repair",
+    "tree_search"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Each node is executed immediately; fresh observations decide whether to expand further, retry, or finish.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Recursive DFS expansion of code tree (no backtracking over alternatives); re-expand on invalid code."
+  },
+  "planning_granularity": {
+   "value": "hierarchical",
+   "not_reported": false,
+   "evidence_quote": "Organizes partial programs in a tree where each node captures one sub-task and records its execution trace.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "self.llm = AsyncLLM()\n        self.executor = Executor(if_run_print=True)",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.llm = AsyncLLM()",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "while not env.is_done():\n        actions = await agent.act(observations)\n        observations = await env.run(actions)",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "self.root: Optional[CodeNode] = None\n        self.current_node: Optional[CodeNode] = None",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Code tree plus variable namespace."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "def reset(self):\n        self.actions.clear()\n        self._variables.clear()",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "def reset(self, running_config: dict, init_info: dict=None) -> None:\n        self.root = None",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "blocks = split_blocks(expanded_code)\n                validate_blocks(blocks)",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Only syntax validation; paper describes error-traceback self-correction."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "DEFAULT_MAX_RETRY = 5",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "max_retry/max_rewrite are step-level re-expansion, not task retries."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.current_node.status = NodeStatus.ERROR",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "if self.current_node and self.current_node.depth >= self.max_depth:",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Tree completion ends run; depth cap and env max steps (80 in ALFWorld)."
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Cost tracking loads `configs/prices.json`.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Cost tracking only, no cap seen."
+  },
+  "timeouts": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "exec(block, exec_globals)",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "exec(block, exec_globals)",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line",
+    "absence_high_confidence"
+   ],
+   "resolved": true,
+   "note": "In-process exec with restricted globals."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "exec_globals = {**self._base_globals, **self._variables}",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "exec(block, exec_globals)",
+   "evidence_locator": "utils/executor.py@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "included disallowed constructs (e.g., def/async def)",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "`running_logs/instance_<id>.log` – per-instance traces (when multiple instances are launched).",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "`utils/` – Shared components: async OpenAI wrapper, constrained executor, logging helpers, error types.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "`run.py` – CLI entry point that instantiates agents/envs, manages concurrency, and writes run summaries.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "validate_blocks(blocks)",
+   "evidence_locator": "agents/recode/agent.py@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "other",
+    "web"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Environment wrappers and assets for `alfworld`, `webshop`, and `sciworld`.",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "The code is available at https://github.com/FoundationAgents/ReCode.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "LICENSE file present; text not shown."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "base_url: \"https://api.openai.com/v1\"",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "OpenAI-compatible base_url; paper uses GPT, Gemini, DeepSeek."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "This repository hosts the reference implementation used in the paper",
+   "evidence_locator": "README.md@6e7223f71281",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "main @ 6e7223f71281 (2026-04-21)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 6e7223f71281 2026-04-21",
+   "evidence_locator": "README.md:1@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tagged release is visible. The pin is the main-branch commit from the evidence header. Only the short hash is available; the full hash is not in the evidence."
+  },
+  "stars": {
+   "value": 566,
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 6e7223f71281 2026-04-21, stars: 566",
+   "evidence_locator": "README.md:1@6e7223f71281",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The star count comes from the evidence header for FoundationAgents/ReCode. The date the count was taken is not given explicitly; the 2026-04-21 date belongs to the commit."
+  }
+ },
+ "cells_unresolved": [
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_no_line": 32,
+  "absence_high_confidence": 1
+ },
+ "history": {
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M6": {
+   "superseded_pass": "A",
+   "value": "main @ 6e7223f71281 (2026-04-21)",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  },
+  "M7": {
+   "superseded_pass": "A",
+   "value": "566",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T04:09:38+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 70340,
+ "doc_chars": 8337,
+ "call_id": "B-recode-00902",
+ "tokens_in": 20824,
+ "tokens_out": 415,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.091596"
+}

@@ -1,0 +1,533 @@
+{
+ "system_id": "craft",
+ "name": "CRAFT",
+ "version": "",
+ "repo_url": "https://github.com/ibm/craft",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 72280,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2506.09600",
+    "chars_available": 29702,
+    "chars_used": 29702,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2506.09600",
+    "chars_available": 42257,
+    "chars_used": 42257,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "self.prompt = (\n                wiki + \"\\n#Available tools\\n\" + json.dumps(tools_info) + instruction",
+   "evidence_locator": "tau_bench/agents/chat_react_agent.py:43@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Default tool-calling agent uses wiki (policy) as system message; opt-in hierarchy prompt and per-step policy reminders (remind_policy) inject extra system messages."
+  },
+  "env_context_strategy": {
+   "value": "agent_driven_navigation",
+   "not_reported": false,
+   "evidence_quote": "sys_msg = {\"role\": \"system\", \"content\": self.wiki}",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:46@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Environment is a tau-bench database accessed via domain tools (get_user_details etc.); policy wiki injected up front. Closest value."
+  },
+  "context_compaction": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "messages.extend([next_message, tool_reply])",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:83@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Full message list is resent each step; no truncation seen."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "\"content\": env_response.observation,",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:80@01ab049ef3a2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "json_in_text",
+    "native_function_calling",
+    "xml_tags"
+   ],
+   "not_reported": false,
+   "evidence_quote": "tools=self.tools_info,",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:67@01ab049ef3a2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Default tool-calling (README); react agent parses 'Action:' JSON; RITS agent parses <START_TOOL_CALL> tags."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tool files listed per domain (airline ~15, retail ~17) but tool list registration not shown."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "tau_bench/envs/airline/tools/update_reservation_flights.py",
+   "evidence_locator": "file tree@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Domain API tools only; no file editing."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "def get_info() -> dict[str, Any]:",
+   "evidence_locator": "tau_bench/envs/tool.py:10@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "class Tool(abc.ABC):",
+   "evidence_locator": "tau_bench/envs/tool.py:4@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "for _ in range(max_num_steps):",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:50@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Agent is react loop; CRAFT attacker pipeline PolicyAnalyzer->DeceptionPlanner/AvoidanceAdvisor->DialogueExecutor (paper Sec. 3)."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "the planner\ngenerates a concrete prompt for the red-teaming\nLLM to use in eliciting a policy violation from the\nagent.",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Attack plans cached as JSON per task (attacks_cache strategies files); target agent has no plan."
+  },
+  "multi_agent_topology": {
+   "value": "pipeline",
+   "not_reported": false,
+   "evidence_quote": "consists of a set of modular agents, each\nassigned a specific role in the red-teaming process.",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Attacker side only when --user-attack-strategy CRAFT; default user simulator is single."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "It receives explicit instructions from the planning\nagents and executes the dialogue",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Plans passed as prompt text, precomputed."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "user-strategy (=wheather the user is LLM or Human)",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Human can play user role; not action gating."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "messages: List[Message] = [sys_msg, human_msg]",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:48@01ab049ef3a2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "env_reset_res = env.reset(task_index=task_index)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:43@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Cached per-task strategies are precomputed artifacts, not memory."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "env_reset_res = env.reset(task_index=task_index)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:43@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "action = message_to_action(next_message)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:72@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "agents/checkers (llm_checker, deterministic_checker) exist but content not shown."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "for _ in range(max_num_steps):",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:50@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Paper runs n=4 independent trials for pass@k evaluation."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "env_reset_res = env.reset(task_index=task_index)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:43@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "if env_response.done:\n                break",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:88-89@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "max_num_steps=30 default; done set by environment (user stop/transfer)."
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "#     total_cost += res._hidden_params[\"response_cost\"]",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:71@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "model_utils/api/cache.py and router.py exist, contents not shown; paper mentions caching PolicyAnalyzer outputs."
+  },
+  "timeouts": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "res = completion(",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:63@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "env_response = env.step(action)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:73@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tools are in-process Python functions over simulated DB."
+  },
+  "filesystem_access": {
+   "value": "virtual",
+   "not_reported": false,
+   "evidence_quote": "tau_bench/envs/airline/data/reservations.json",
+   "evidence_locator": "file tree@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Agent only touches in-memory simulated database."
+  },
+  "network_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "env_response = env.step(action)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:73@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Tools have no network capability; LLM calls are harness-side."
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "env_response = env.step(action)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:73@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "return SolveResult(\n            reward=reward,\n            info=info,\n            messages=messages,",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:90-93@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [
+    "not_reported_with_value"
+   ],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "τ-break: a benchmark for evaluating the security of policy-adherent agents.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "evaluate_attack.py in repo."
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "action = message_to_action(next_message)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:72@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Defenses are prompt-level (hierarchy prompt, policy reminders), opt-in."
+  },
+  "target_domain": {
+   "value": [
+    "general_tool_use",
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "CRAFT: a multi-agent, strategic red-teaming framework.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Customer-service tool agents red-teaming."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "git clone git@github.com:IBM/CRAFT.git",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "License file not shown; paper says attack details may be redacted."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "from litellm import completion",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py:4@01ab049ef3a2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "This code is based on the paper",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "pinned_version": {
+   "value": "main @ 01ab049ef3a2 (2025-09-16)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 01ab049ef3a2 2025-09-16",
+   "evidence_locator": "README.md:1@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tagged release shown; pinned to main commit as stated in evidence header (short hash only)."
+  },
+  "stars": {
+   "value": 1,
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 01ab049ef3a2 2025-09-16, stars: 1",
+   "evidence_locator": "README.md:1@01ab049ef3a2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Star count from evidence header for IBM/CRAFT; retrieval date not stated beyond pinned ref date 2025-09-16."
+  }
+ },
+ "cells_unresolved": [
+  "B2",
+  "H2",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_no_line": 2,
+  "not_reported_with_value": 1
+ },
+ "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M6": {
+   "superseded_pass": "A",
+   "value": "main @ 01ab049ef3a2 (2025-09-16)",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  },
+  "M7": {
+   "superseded_pass": "A",
+   "value": "1",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill-2",
+ "coded_at": "2026-09-23T04:39:44+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 72280,
+ "doc_chars": 9177,
+ "call_id": "B2-craft-00018",
+ "tokens_in": 21683,
+ "tokens_out": 562,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.097972"
+}

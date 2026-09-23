@@ -31,28 +31,28 @@
   "system_prompt_style": {
    "value": "templated",
    "not_reported": false,
-   "evidence_quote": "sys_msg = {\"role\": \"system\", \"content\": self.wiki} if not self.use_hirarchy_prompt else {\"role\": \"system\", \"content\":  hirarchy_prompt['additional_prompt'] + hirarchy_prompt['start_of_policy'] + self.wiki + hirarchy_prompt['end_of_policy']}",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_quote": "sys_msg = {\"role\": \"system\", \"content\": self.wiki} if not self.use_hirarchy_prompt else",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "System prompt is the domain policy wiki, optionally wrapped in hierarchy template."
+   "note": "System prompt is the domain policy wiki, optionally wrapped in hierarchy tags. Per-step policy reminders are opt-in via remind_policy. No line numbers are available in the evidence."
   },
   "env_context_strategy": {
-   "value": "none",
+   "value": "agent_driven_navigation",
    "not_reported": false,
-   "evidence_quote": "human_msg = {\"role\": \"user\", \"content\": obs}",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
-   "confidence": "medium",
+   "evidence_quote": "tools=self.tools_info,",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "No repository/environment; task is a conversational customer-service env with API tools only."
+   "note": "The agent queries the domain database through API tools. There is no repository context injection."
   },
   "context_compaction": {
    "value": [
@@ -60,14 +60,14 @@
    ],
    "not_reported": false,
    "evidence_quote": "messages.extend([next_message, tool_reply])",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Full message list is resent each step; no truncation or summarization code."
+   "note": "The run loop appends the full history and contains no compaction step."
   },
   "observation_format": {
    "value": [
@@ -75,160 +75,157 @@
    ],
    "not_reported": false,
    "evidence_quote": "\"content\": env_response.observation,",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
-   "confidence": "high",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true
   },
   "tool_call_format": {
    "value": [
     "json_in_text",
-    "native_function_calling",
-    "xml_tags"
+    "native_function_calling"
    ],
    "not_reported": false,
-   "evidence_quote": "res = completion(\n                messages=injected_messages,\n                model=self.model,\n                custom_llm_provider=self.provider,\n                tools=self.tools_info,",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_quote": "{{\"name\": <The name of the action>, \"arguments\": <The arguments to the action in json format>}}",
+   "evidence_locator": "tau_bench/agents/chat_react_agent.py@01ab049ef3a2",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Default --agent-strategy tool-calling uses native tools; chat_react_agent parses 'Action: {json}'; rits_agent parses <START_TOOL_CALL> tags."
+   "note": "The default in the README is tool-calling, which uses native function calling. ReAct mode and the RITS agent parse JSON from the text; the RITS agent wraps it in <START_TOOL_CALL> tags."
   },
   "tool_count": {
-   "value": 14,
-   "not_reported": false,
-   "evidence_quote": "tau_bench/envs/airline/tools/book_reservation.py",
-   "evidence_locator": "file tree@01ab049",
-   "confidence": "medium",
-   "quote_verbatim": true,
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Airline domain (README default --env airline) ships 14 tool files under envs/airline/tools; retail ships 17."
+   "resolved": false,
+   "note": "Tool definition files are listed but not opened. The file tree shows 15 airline tool files, including think and transfer_to_human_agents."
   },
   "edit_primitive": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "tau_bench/envs/tool.py",
-   "evidence_locator": "tau_bench/envs/tool.py@01ab049",
+   "evidence_quote": "tau_bench/envs/airline/tools/book_reservation.py",
+   "evidence_locator": "file tree@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Tools are domain API functions (reservations, orders); no file-editing tool exists."
+   "note": "The tool registry contains domain API tools only and has no file-editing tool."
   },
   "tool_schema_source": {
    "value": [
     "hand_written"
    ],
    "not_reported": false,
-   "evidence_quote": "@staticmethod\n    def get_info() -> dict[str, Any]:\n        raise NotImplementedError",
-   "evidence_locator": "tau_bench/envs/tool.py@01ab049",
+   "evidence_quote": "def get_info() -> dict[str, Any]:",
+   "evidence_locator": "tau_bench/envs/tool.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true,
-   "note": "Each tool class returns a hand-written schema dict from get_info()."
+   "resolved": true
   },
   "protocol_standardization": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "class Tool(abc.ABC):\n    @staticmethod\n    def invoke(*args, **kwargs):\n        raise NotImplementedError",
-   "evidence_locator": "tau_bench/envs/tool.py@01ab049",
+   "evidence_quote": "class Tool(abc.ABC):",
+   "evidence_locator": "tau_bench/envs/tool.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Proprietary Tool ABC; no MCP/A2A code in file tree."
+   "note": "The tool interface is proprietary and the file tree contains no MCP files."
   },
   "loop_primitives": {
    "value": [
+    "fixed_pipeline",
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "instruction = REACT_INSTRUCTION if use_reasoning else ACT_INSTRUCTION",
-   "evidence_locator": "tau_bench/agents/chat_react_agent.py@01ab049",
-   "confidence": "high",
+   "evidence_quote": "for _ in range(max_num_steps):",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Target agent loops over max_num_steps calling model then env.step; CRAFT attacker side adds planning agents."
+   "note": "The target agent runs a ReAct loop. The CRAFT attacker is a pipeline of PolicyAnalyzer, DeceptionPlanner, AvoidanceAdvisor and DialogueExecutor, per paper Sec. 3."
   },
   "planning_granularity": {
    "value": "implicit",
    "not_reported": false,
-   "evidence_quote": "Thought:\n<A single line of reasoning to process the context and inform the decision making. Do not include extra lines.>",
-   "evidence_locator": "tau_bench/agents/chat_react_agent.py@01ab049",
-   "confidence": "medium",
+   "evidence_quote": "the planner generates a concrete prompt for the red-teaming LLM",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Attacker side has cached plans from DeceptionPlanner, but no stored plan object for the agent."
+   "flags": [],
+   "resolved": true
   },
   "multi_agent_topology": {
    "value": "pipeline",
    "not_reported": false,
-   "evidence_quote": "CRAFT is a policy-aware red-teaming multi-agent system, designed to expose vulnerabilities in policy-constrained LLM-based agents through strategic, multi-step adversarial planning.",
-   "evidence_locator": "paper Sec. 1",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "PolicyAnalyzer -> DeceptionPlanner/AvoidanceAdvisor -> DialogueExecutor is a fixed hand-off sequence of specialised agents."
-  },
-  "delegation_mechanism": {
-   "value": "role_handoff",
-   "not_reported": false,
-   "evidence_quote": "Finally, the DialogueExecutor is responsible for executing the interaction with the target agent. It receives explicit instructions from the planning agents and executes the dialogue",
+   "evidence_quote": "consists of a set of modular agents, each assigned a specific role in the red-teaming process.",
    "evidence_locator": "paper Sec. 3",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Strategies are cached per task ID in attacks_cache."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "It receives explicit instructions from the planning agents",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Planner output is passed as precomputed prompt text, not through a delegation mechanism."
   },
   "human_in_loop": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "action = message_to_action(next_message)\n            env_response = env.step(action)",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
-   "confidence": "medium",
+   "evidence_quote": "user-strategy (=wheather the user is LLM or Human)",
+   "evidence_locator": "README.md@01ab049ef3a2",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Actions executed directly; --user-strategy can be human but that replaces the user simulator, not a gate."
+   "note": "A human can play the user role, but this replaces the model rather than gating it, so it is not human-in-the-loop."
   },
   "short_term_state": {
    "value": "conversation_only",
    "not_reported": false,
    "evidence_quote": "messages: List[Message] = [sys_msg, human_msg]",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true
   },
@@ -238,66 +235,66 @@
    ],
    "not_reported": false,
    "evidence_quote": "env_reset_res = env.reset(task_index=task_index)",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Cached PolicyAnalyzer/strategy JSONs are precomputed attack artefacts, not cross-run agent memory."
+   "note": "Cached strategy files are static inputs, not memory carried across runs."
   },
   "state_persistence": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "response = env.reset(task_index=task_index)",
-   "evidence_locator": "tau_bench/agents/chat_react_agent.py@01ab049",
+   "evidence_quote": "env_reset_res = env.reset(task_index=task_index)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true,
-   "note": "Every task run starts from env.reset; no resume path."
+   "resolved": true
   },
   "self_verification": {
    "value": [
-    "llm_judge"
+    "none"
    ],
    "not_reported": false,
-   "evidence_quote": "tau_bench/agents/checkers/llm_checker.py",
-   "evidence_locator": "file tree@01ab049",
+   "evidence_quote": "if env_response.done:",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Also deterministic_checker.py; used for outcome evaluation rather than agent self-review."
+   "note": "The file tree lists agents/checkers, including llm_checker.py, but these files were not opened in the evidence."
   },
   "retry_policy": {
    "value": "none",
    "not_reported": false,
    "evidence_quote": "for _ in range(max_num_steps):",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "n=4 independent trials are for pass@k measurement, not retry-on-failure."
+   "note": "The paper runs 4 independent trials per task for pass@k; these are evaluation repeats, not a retry policy."
   },
   "rollback": {
    "value": "none",
    "not_reported": false,
    "evidence_quote": "env_response = env.step(action)",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
-   "confidence": "medium",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true,
-   "note": "No undo/revert mechanism in the env step loop."
+   "resolved": true
   },
   "termination_condition": {
    "value": [
@@ -305,242 +302,257 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "if env_response.done:\n                break",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_quote": "self, env: Env, task_index: Optional[int] = None, max_num_steps: int = 30",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "max_num_steps: int = 30 caps turns; done flag ends the episode."
+   "note": "The loop also stops when env_response.done is set, which is triggered by the user simulator ending the dialogue."
   },
   "cost_controls": {
    "value": [
     "caching"
    ],
    "not_reported": false,
-   "evidence_quote": "caching intermediate artefacts (e.g., Pol- icyAnalyzer outputs) to prevent redundant model inferences",
+   "evidence_quote": "caching intermediate artefacts (e.g., Pol- icyAnalyzer outputs) to prevent redundant model inferences.",
    "evidence_locator": "paper Sec. 9",
-   "confidence": "medium",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Cached attack strategies under tau_bench/attacks_cache; also model_utils/api/cache.py."
+   "resolved": true
   },
   "timeouts": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "res = completion(\n                messages=injected_messages,\n                model=self.model,",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_quote": "res = completion(",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true,
-   "note": "No timeout parameters visible in agent loop or tool invocation."
+   "resolved": true
   },
   "execution_isolation": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "@staticmethod\n    def invoke(*args, **kwargs):",
-   "evidence_locator": "tau_bench/envs/tool.py@01ab049",
-   "confidence": "medium",
+   "evidence_quote": "env_response = env.step(action)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Tools are Python functions executed in-process against JSON data files."
+   "note": "Tools are Python functions over an in-memory JSON database."
   },
   "filesystem_access": {
    "value": "virtual",
    "not_reported": false,
-   "evidence_quote": "tau_bench/envs/airline/data/reservations.json",
-   "evidence_locator": "file tree@01ab049",
-   "confidence": "medium",
+   "evidence_quote": "tau_bench/envs/airline/data/flights.json",
+   "evidence_locator": "file tree@01ab049ef3a2",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Agent acts on an in-memory simulated database, not a real filesystem."
+   "note": "The agent has no filesystem access, only a simulated database. Coded as the closest value."
   },
   "network_policy": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "tau_bench/envs/airline/data/flights.json",
-   "evidence_locator": "file tree@01ab049",
+   "evidence_quote": "no personal identifying information or live back-end systems are queried during experiments",
+   "evidence_locator": "paper Sec. 9",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Tools operate only on local JSON data; no network egress for agent actions (LLM API calls excluded)."
+   "note": "The agent's tools have no network access; only LLM API calls leave the process."
   },
   "permission_model": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "action = message_to_action(next_message)\n            env_response = env.step(action)",
-   "evidence_locator": "tau_bench/agents/rits_agent.py@01ab049",
+   "evidence_quote": "action = message_to_action(next_message)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
-   "resolved": true,
-   "note": "Every emitted tool call is executed; policy adherence is prompt-level only."
+   "resolved": true
   },
   "tracing": {
    "value": "logs",
    "not_reported": false,
-   "evidence_quote": "from tau_bench.common import log_message",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
-   "resolved": true,
-   "note": "Messages are logged; SolveResult carries messages and info for result files."
-  },
-  "replayability": {
-   "value": "partial",
-   "not_reported": false,
-   "evidence_quote": "with seed set to 10 for re- producibility",
-   "evidence_locator": "paper Sec. 5.2",
+   "evidence_quote": "log_message(next_message)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Seeded reruns; no trajectory replay code found."
+   "note": "The format of log_message and of any saved results is not shown in the evidence."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "env_reset_res = env.reset(task_index=task_index)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
   },
   "eval_hooks": {
    "value": "built_in",
    "not_reported": false,
    "evidence_quote": "evaluate_attack.py",
-   "evidence_locator": "file tree@01ab049",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Repo ships run.py, evaluate_attack.py and display_results.py for the tau-break benchmark."
-  },
-  "guardrails": {
-   "value": [
-    "input_filters"
-   ],
-   "not_reported": false,
-   "evidence_quote": "\"content\": \"Reminder: The following policy must be strictly followed:\\n\" + self.wiki",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_locator": "file tree@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "action = message_to_action(next_message)",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
    ],
    "resolved": true,
-   "note": "Defenses are prompt-level (hierarchical prompt, policy reminders) injected into the input; no action blocking."
+   "note": "Policy reminders and hierarchical prompting are opt-in, prompt-level defenses only."
   },
   "target_domain": {
    "value": [
-    "general_tool_use",
     "other"
    ],
    "not_reported": false,
-   "evidence_quote": "CRAFT, a targeted attack method that leverages policy knowledge and multi-agent strategic planning to induce policy violations in state-of-the-art agents",
-   "evidence_locator": "paper Sec. 8",
-   "confidence": "medium",
+   "evidence_quote": "CRAFT**: a multi-agent, strategic red-teaming framework.",
+   "evidence_locator": "README.md@01ab049ef3a2",
+   "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Domain is customer-service tool-using agents plus red-teaming/safety evaluation."
+   "note": "Red-teaming of customer-service tool agents."
   },
   "open_source": {
-   "value": "yes",
-   "not_reported": false,
-   "evidence_quote": "git clone git@github.com:IBM/CRAFT.git && cd ./CRAFT",
-   "evidence_locator": "README.md@01ab049",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Public repo; no LICENSE file visible in the file tree."
+   "resolved": false,
+   "note": "No LICENSE file appears in the file tree. The paper says the release redacts attack implementation details."
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "from litellm import completion",
-   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049",
+   "evidence_locator": "tau_bench/agents/tool_calling_agent.py@01ab049ef3a2",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_shape_unrecognised"
+    "locator_no_line"
    ],
    "resolved": true
   },
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "This code is based on the paper [\"Effective Red-Teaming of Policy-Adherent Agents\"](https://arxiv.org/abs/2506.09600).",
-   "evidence_locator": "README.md@01ab049",
+   "evidence_quote": "This code is based on the paper",
+   "evidence_locator": "README.md@01ab049ef3a2",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "first_release_date": {
-   "value": "2025-06-11",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2506.09600v3 [cs.MA] 23 Aug 2025",
-   "evidence_locator": "paper p. 1",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No tags; basis is arXiv v1 date implied by id 2506.09600."
+   "resolved": false,
+   "note": "No tags or first-commit date appear in the evidence. Paper v3 is dated 23 Aug 2025."
   },
   "pinned_version": {
-   "value": "commit:main 01ab049ef3a2 (2025-09-16)",
+   "value": "main @ 01ab049ef3a2 (2025-09-16)",
    "not_reported": false,
-   "evidence_quote": "repo: https://github.com/IBM/CRAFT, ref: commit:main 01ab049ef3a2 2025-09-16",
-   "evidence_locator": "repository evidence header@01ab049",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true
+   "resolved": false,
+   "note": "Taken from the evidence header, which gives only a short hash and no tag."
   },
   "stars": {
    "value": 1,
    "not_reported": false,
-   "evidence_quote": "stars: 1",
-   "evidence_locator": "repository evidence header@01ab049",
-   "confidence": "high",
-   "quote_verbatim": true,
+   "evidence_quote": "",
+   "evidence_locator": "evidence header (stars: 1)",
+   "confidence": "medium",
+   "quote_verbatim": false,
    "flags": [
+    "missing_quote",
     "locator_shape_unrecognised"
    ],
-   "resolved": true,
-   "note": "As of 2025-09-16."
+   "resolved": false,
+   "note": "Star count from the evidence header; the retrieval date is not given."
   }
  },
- "cells_unresolved": [],
+ "cells_unresolved": [
+  "B2",
+  "M2",
+  "M5",
+  "M6",
+  "M7"
+ ],
  "flag_counts": {
-  "locator_shape_unrecognised": 25
+  "locator_no_line": 28,
+  "missing_quote": 2,
+  "locator_shape_unrecognised": 2
  },
  "pass": "A",
  "coder": "llm-prefill",
- "coded_at": "2026-09-20T18:33:57+00:00",
- "model": "claude-opus-5",
- "prompt_version": "code-v1-2026-09-20",
+ "coded_at": "2026-09-23T10:22:04+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
  "bundle_chars": 72280,
  "doc_chars": 72602,
  "call_id": "A-craft-00018",
- "tokens_in": 51831,
- "tokens_out": 4419,
- "cache_read": 0,
- "cache_write": 0,
- "cost_usd": "0.369630"
+ "tokens_in": 52371,
+ "tokens_out": 3844,
+ "cache_read": 16883,
+ "cache_write": 35486,
+ "cost_usd": "0.364153"
 }

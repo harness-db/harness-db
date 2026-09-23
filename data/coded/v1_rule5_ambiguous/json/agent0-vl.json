@@ -1,0 +1,569 @@
+{
+ "system_id": "agent0-vl",
+ "name": "Agent0-VL",
+ "version": "",
+ "repo_url": "https://github.com/aiming-lab/agent0",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "0.1.0",
+ "bundle": {
+  "chars": 80804,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "s2_snowball:ed71e484c8d368302e21c09e614d78a13e467ad6",
+    "chars_available": 84771,
+    "chars_used": 43762,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2_snowball:ed71e484c8d368302e21c09e614d78a13e467ad6",
+    "chars_available": 36538,
+    "chars_used": 36538,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "static",
+   "not_reported": false,
+   "evidence_quote": "SYSTEM_PROMPT = (\n    \"Solve the following problem step by step. You now have the ability to selectively write executable Python code to enhance your reasoning process.",
+   "evidence_locator": "Agent0/curriculum_train/vllm_service_init/start_vllm_server_tool.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Fixed system prompt string in the serving script; Agent0-VL role prompts (Solver/Verifier) not shown in evidence."
+  },
+  "env_context_strategy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Given an input x= (I,q) , the\nmodel generates a multimodal trajectory",
+   "evidence_locator": "paper Sec. 2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Input is a query plus image; no repository/environment context injection."
+  },
+  "context_compaction": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The resulting\nobservationsot are incorporated into the context, allowing\nthe agent to iteratively refine its reasoning",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No compaction mechanism described or found in evidence."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "An observation ot∈O contains feed-\nback from external tools or environment, such as returned\nnumerical results or textual retrievals.",
+   "evidence_locator": "paper Sec. 2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Sandbox returns stdout text; processed images are written to a temp dir but evidence does not show image observations returned to the model."
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action"
+   ],
+   "not_reported": false,
+   "evidence_quote": "write a self-contained Python code block wrapped in ```python ... ``` to help you calculate the answer",
+   "evidence_locator": "Agent0/curriculum_train/vllm_service_init/start_vllm_server_tool.py@f775b5101e62",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Paper's case study also shows a JSON tool_name/tool_input form (json_in_text)."
+  },
+  "tool_count": {
+   "value": 1,
+   "not_reported": false,
+   "evidence_quote": "This script enhances the LLM's problem-solving capabilities by integrating a code execution tool.",
+   "evidence_locator": "Agent0/curriculum_train/vllm_service_init/start_vllm_server_tool.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Single Python code-execution sandbox tool is the default tool exposed."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Context manager to temporarily make files read-only during execution\n    Prevents sandbox code from modifying original input files",
+   "evidence_locator": "Agent0-VL/verl/utils/sandbox/executor.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No file-editing tool; only code execution."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "First, provide your reasoning and write a self-contained Python code block wrapped in ```python ... ``` to help you calculate the answer.",
+   "evidence_locator": "Agent0/curriculum_train/vllm_service_init/start_vllm_server_tool.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Tool interface described by a hand-written prompt, no schema generator."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Used when the ``SANDBOX_ENDPOINT`` environment variable points to a running\nsandbox service (e.g. https://github.com/bytedance/SandboxFusion)",
+   "evidence_locator": "Agent0-VL/sandbox/local_sandbox.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Only a proprietary HTTP sandbox client; no MCP/A2A in the evidence."
+  },
+  "loop_primitives": {
+   "value": [
+    "generate_test_repair",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "a Solver that performs multi-turn tool-integrated rea-\nsoning, and a Verifier that generates structured feedback and\nfine-grained self-rewards through tool-grounded critique.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Solver reason-act-observe loop plus verify-and-repair cycle."
+  },
+  "planning_granularity": {
+   "value": "implicit",
+   "not_reported": false,
+   "evidence_quote": "<think> Goal: Restart reasoning based on the `PATCH`. 2. Corrected Premise: Blind Spot = Quadrant 4 (Q4, $x > 0, y < 0$). 3. New Plan",
+   "evidence_locator": "paper Fig. 4",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Planning appears only in free-text reasoning; no stored plan object."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "We define a shared policy πθ\nthat governs both roles through a role indicatorm∈{S,V}",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Solver and Verifier are two roles of one model; closest value single."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "We first de-\nscribe the dual-role architecture composed of aSolverand a\nVerifier",
+   "evidence_locator": "paper Sec. 3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Solver and Verifier are two roles of the same VLM, not separate agents; no subagent spawn or handoff mechanism appears in the excerpts. Absence inferred from prose, hence low confidence."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "achieving continual self-improvement. Through this zero-external-\nreward evolution, Agent0-VL aligns its reasoning and veri-\nfication behaviors without any human annotation",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": false,
+   "flags": [
+    "quote_not_in_bundle"
+   ],
+   "resolved": false,
+   "note": "No confirmation/approval hooks found in evidence."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "where each\ntransition encodes one reasoning-tool-feedback interaction.",
+   "evidence_locator": "paper Sec. 2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Trajectory of messages/observations is the state."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Zero external data required for training",
+   "evidence_locator": "README.md@f775b5101e62",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No cross-run memory store in evidence; learning is via weight updates, not memory."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Initialize trajectoryτ i←∅, states 1.",
+   "evidence_locator": "paper Algorithm 1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No resume path in evidence."
+  },
+  "self_verification": {
+   "value": [
+    "llm_judge",
+    "self_critique"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the Verifier, which validates intermediate reasoning steps\nthrough generative critique and tool-based feedback, gener-\nating fine-grained reward signals and repair instructions.",
+   "evidence_locator": "paper Sec. 1",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Same model acts as verifier/judge; no harness-run tests or linters."
+  },
+  "retry_policy": {
+   "value": "adaptive",
+   "not_reported": false,
+   "evidence_quote": "ifconf t <τ c then\n11: Generate repair ∆t =f θ(st,at,Vt); re-\nsamplea′\nt∼π θ(·|st,∆t,RA).",
+   "evidence_locator": "paper Algorithm 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Repair/resampling gated by a confidence threshold."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Prevents sandbox code from modifying original input files",
+   "evidence_locator": "Agent0-VL/verl/utils/sandbox/executor.py@f775b5101e62",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No git/snapshot revert of agent changes; sandbox simply blocks modification."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "max_tokens",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "sampling_params_single_turn = vllm.SamplingParams(\n    max_tokens=2048,",
+   "evidence_locator": "Agent0/curriculum_train/vllm_service_init/start_vllm_server_tool.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Trajectory horizon T bounds turns (paper Algorithm 1); <answer> ends the rollout."
+  },
+  "cost_controls": {
+   "value": [
+    "caching"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Sticky session: send multi-turn chat completions to same server for automatic prefix caching",
+   "evidence_locator": "Agent0/executor_train/verl/verl/experimental/agent_loop/agent_loop.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Prefix caching via sticky sessions; no monetary budget."
+  },
+  "timeouts": {
+   "value": [
+    "per_tool"
+   ],
+   "not_reported": false,
+   "evidence_quote": "# Execution time limit (seconds)\nEXEC_TIME_LIMIT = 10",
+   "evidence_locator": "Agent0-VL/verl/utils/sandbox/executor.py@f775b5101e62",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Also run_timeout/compile_timeout in the HTTP sandbox client; no run-level timeout."
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "Falls back to the local subprocess sandbox when ``SANDBOX_ENDPOINT`` is\n    unset or aiohttp is unavailable",
+   "evidence_locator": "Agent0-VL/sandbox/local_sandbox.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Default is local subprocess sandbox; remote SandboxFusion service reachable via SANDBOX_ENDPOINT."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "Context manager to temporarily make files read-only during execution\n    Prevents sandbox code from modifying original input files",
+   "evidence_locator": "Agent0-VL/verl/utils/sandbox/executor.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Input files read-only, outputs to a temp processed-images dir."
+  },
+  "network_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "r'\\bsocket\\.',",
+   "evidence_locator": "Agent0-VL/verl/utils/sandbox/executor.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Socket/network calls blocked by dangerous-pattern screening; bash tool also blocks curl/wget/ssh."
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "# Security: Prohibit dangerous system calls. Static regex screening is a\n# best-effort first line of defence",
+   "evidence_locator": "Agent0-VL/verl/utils/sandbox/executor.py@f775b5101e62",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Blocklist (DANGEROUS_PATTERNS, forbidden_commands) coded as static_allowlist per rule."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "RolloutTraceConfig.init(\n            config.trainer.project_name,",
+   "evidence_locator": "Agent0/executor_train/verl/verl/experimental/agent_loop/agent_loop.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "verl rollout tracing backend, configurable."
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "Agent loop worker takes a batch of messages and run each message in an agent loop.",
+   "evidence_locator": "Agent0/executor_train/verl/verl/experimental/agent_loop/agent_loop.py@f775b5101e62",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No replay path found in evidence."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "Experiments on geometric problem solving and visual sci-\nentific analysis show that Agent0-VL achieves an 12.5%\nimprovement over the base model.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Benchmark evaluation reported; evaluation runner not visible in the shown files."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Checks if the command contains potentially dangerous operations.",
+   "evidence_locator": "Agent0/executor_train/verl_tool/servers/tools/utils/bash_session.py@f775b5101e62",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Pre-execution blocking of dangerous code/commands."
+  },
+  "target_domain": {
+   "value": [
+    "general_tool_use",
+    "research"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Experiments on geometric problem solving and visual scientific analysis",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Multimodal reasoning with a code-execution tool; not SWE or web."
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.",
+   "evidence_locator": "README.md@f775b5101e62",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "parser.add_argument('--model_path', type=str, default='Qwen/Qwen3-4B-Base')",
+   "evidence_locator": "Agent0/curriculum_train/vllm_service_init/start_vllm_server_tool.py@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Self-evolving trained open-weights model served by vLLM; not an API-provider-agnostic harness."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "**[11/29/2025]** The code of Agent0 was released!",
+   "evidence_locator": "README.md@f775b5101e62",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": "2025-11-25",
+   "not_reported": false,
+   "evidence_quote": "**[11/25/2025]** Agent0-VL was released on [arXiv](https://arxiv.org/abs/2511.19900)!",
+   "evidence_locator": "README.md@f775b5101e62",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "No tags in evidence; basis is arXiv v1 release date of Agent0-VL."
+  },
+  "pinned_version": {
+   "value": "main @ f775b5101e62 (2026-07-10)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main f775b5101e62 2026-07-10",
+   "evidence_locator": "repository evidence header s2_snowball:ed71e484",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Untagged; pinned to the evidence commit."
+  },
+  "stars": {
+   "value": 1262,
+   "not_reported": false,
+   "evidence_quote": "stars: 1262",
+   "evidence_locator": "repository evidence header s2_snowball:ed71e484",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "aiming-lab/Agent0 stars as of the pinned evidence snapshot."
+  }
+ },
+ "cells_unresolved": [
+  "C5"
+ ],
+ "flag_counts": {
+  "locator_no_line": 22,
+  "quote_not_in_bundle": 1,
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "C4": {
+   "superseded_pass": "A",
+   "value": "role_handoff",
+   "flags": "quote_not_in_bundle",
+   "reason": "pass A left it unresolved"
+  },
+  "C5": {
+   "superseded_pass": "B",
+   "value": "none",
+   "flags": "scalar_for_multi",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-23T03:52:55+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v1-2026-09-20",
+ "effort": "low",
+ "bundle_chars": 80804,
+ "doc_chars": 12540,
+ "call_id": "B-agent0-vl-00362",
+ "tokens_in": 22510,
+ "tokens_out": 307,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.096180"
+}
