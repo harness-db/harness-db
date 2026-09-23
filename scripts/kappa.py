@@ -35,6 +35,52 @@ def cohen_kappa(a: list[str], b: list[str]) -> tuple[float, float, int]:
     return (po - pe) / (1 - pe), po, n
 
 
+def gwet_ac1(a: list[str], b: list[str]) -> float:
+    """Gwet's AC1: agreement corrected for chance without Cohen's prevalence sensitivity.
+
+    Cohen's kappa estimates chance agreement from the marginals, so when nearly every system falls
+    in one category - which is what a dimension most sources are silent about looks like - expected
+    agreement approaches observed agreement and kappa collapses even though the two readings agree
+    almost everywhere ("the kappa paradox", Feinstein & Cicchetti 1990; Byrt, Bishop & Carlin 1993).
+    AC1 (Gwet 2008) estimates chance agreement from how evenly the categories are used instead, so a
+    dimension is not marked unreliable merely for having a dominant value.
+    """
+    n = len(a)
+    if n == 0:
+        return float("nan")
+    po = sum(1 for x, y in zip(a, b) if x == y) / n
+    cats = set(a) | set(b)
+    q = len(cats)
+    if q < 2:
+        return 1.0 if po == 1.0 else 0.0
+    ca, cb = Counter(a), Counter(b)
+    pi = {k: (ca[k] + cb[k]) / (2 * n) for k in cats}
+    pe = sum(v * (1 - v) for v in pi.values()) / (q - 1)
+    return 1.0 if pe == 1.0 else (po - pe) / (1 - pe)
+
+
+def disagreement_shape(a: list[str], b: list[str]) -> tuple[float, float]:
+    """(share of cells that disagree, share of those disagreements that are a not_reported flip).
+
+    A not_reported flip - one reading says the sources are silent, the other names a value - is a
+    different defect from two readings naming different values: it points at the manual's sentinel
+    rule rather than at the dimension's value set, and it is repaired by re-reading, not by redefining.
+    """
+    diffs = [(x, y) for x, y in zip(a, b) if x != y]
+    if not a:
+        return float("nan"), float("nan")
+    if not diffs:
+        return 0.0, 0.0
+    nr = sum(1 for x, y in diffs if "NR" in (x, y))
+    return len(diffs) / len(a), nr / len(diffs)
+
+
+def majority_share(a: list[str], b: list[str]) -> float:
+    """How concentrated the dimension is: the most common label's share of all codings."""
+    c = Counter(a) + Counter(b)
+    return max(c.values()) / sum(c.values()) if c else float("nan")
+
+
 def norm(cell) -> str:
     if not isinstance(cell, dict):
         return str(cell)
@@ -73,14 +119,41 @@ def cmd_coding(args) -> int:
             a, b = per_dim.setdefault(key, ([], []))
             a.append(norm(s1["coding"][key]))
             b.append(norm(s2["coding"][key]))
-    print(f"{'dimension':28} {'n':>4} {'agree':>6} {'kappa':>6}  flag")
-    low = 0
+    print(f"{'dimension':28} {'n':>4} {'agree':>6} {'kappa':>6} {'AC1':>6} {'top':>5} {'NRflip':>7}  reading")
+    rows, low_k, low_ac1 = [], 0, 0
     for key, (a, b) in per_dim.items():
         k, po, n = cohen_kappa(a, b)
-        flag = "" if k >= args.threshold else "<-- below threshold"
-        low += bool(flag)
-        print(f"{key:28} {n:4d} {po:6.3f} {k:6.3f}  {flag}")
-    print(f"systems={len(names)} dimensions={len(per_dim)} below_threshold={low}")
+        ac1 = gwet_ac1(a, b)
+        top = majority_share(a, b)
+        dis, nrflip = disagreement_shape(a, b)
+        # Why a dimension scores low decides what to do about it, so name it rather than only flag it.
+        if k >= args.threshold:
+            reading = "reliable"
+        elif ac1 >= args.threshold and po >= 0.6:
+            reading = "prevalence artifact: agrees, one value dominates"
+        elif nrflip >= 0.5:
+            reading = "not_reported flips: sentinel rule, not the value set"
+        else:
+            reading = "GENUINE disagreement: revise or drop"
+        low_k += k < args.threshold
+        low_ac1 += ac1 < args.threshold
+        rows.append({"dimension": key, "n": n, "agreement": round(po, 4), "kappa": round(k, 4),
+                     "ac1": round(ac1, 4), "majority_share": round(top, 4),
+                     "disagreement_rate": round(dis, 4), "nr_flip_share_of_disagreements": round(nrflip, 4),
+                     "reading": reading})
+        print(f"{key:28} {n:4d} {po:6.3f} {k:6.3f} {ac1:6.3f} {top:5.2f} {nrflip:7.2f}  {reading}")
+    genuine = [r for r in rows if r["reading"].startswith("GENUINE")]
+    print(f"\nsystems={len(names)} dimensions={len(per_dim)} "
+          f"below_threshold_kappa={low_k} below_threshold_ac1={low_ac1} "
+          f"genuinely_unreliable={len(genuine)}")
+    if genuine:
+        print("revise or drop (protocol 4.4 / tracker task 33): "
+              + ", ".join(r["dimension"] for r in genuine))
+    if args.json:
+        Path(args.json).write_text(json.dumps(
+            {"systems": len(names), "threshold": args.threshold, "dimensions": rows}, indent=2),
+            encoding="utf-8")
+        print(f"wrote {args.json}")
     return 0
 
 
@@ -96,6 +169,7 @@ def main() -> int:
     c.add_argument("dir_a")
     c.add_argument("dir_b")
     c.add_argument("--threshold", type=float, default=0.6)
+    c.add_argument("--json", help="also write the per-dimension table as JSON")
     c.set_defaults(fn=cmd_coding)
     args = ap.parse_args()
     return args.fn(args)

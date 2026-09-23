@@ -85,9 +85,16 @@ def main() -> int:
         if not s.get("papers"):
             warnings.append(f"{sid}: no papers linked")
 
-        # 4. evidence per cell (readable message)
+        # 4. evidence per cell (readable message). Three states, and only one of them makes a claim
+        #    that needs evidence: `not_reported` says the sources are silent, `unresolved` says the
+        #    coder could not settle it and claims nothing, and anything else asserts a value and must
+        #    cite where it came from. An unresolved cell carrying a value would be the real error.
         for key, cell in (s.get("coding") or {}).items():
             if not isinstance(cell, dict):
+                continue
+            if cell.get("unresolved"):
+                if cell.get("value") is not None:
+                    errors.append(f"{sid}.{key}: marked unresolved but carries a value")
                 continue
             if not cell.get("not_reported") and not str(cell.get("evidence", "")).strip():
                 errors.append(f"{sid}.{key}: coded value without evidence")

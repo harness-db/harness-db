@@ -5,20 +5,26 @@ schema and `scripts/validate.py` expect, with the many-to-many link between them
 
     data/papers.csv    one row per record assessed at full text, in either identification arm,
                        with its decision and (for exclusions) the reason. Records are the unit here.
-    data/systems.json  one object per FULLY CODED system, schema-conformant, listing the papers.csv
-                       ids that describe it and carrying its 38 coded cells.
+    data/systems.json  one object per coded system, schema-conformant, listing the papers.csv ids
+                       that describe it and carrying all 38 cells.
 
 Systems are the unit of analysis, records are not: a system links to every record that describes it
 (4.2), which is why `papers` is a list.
 
-The schema requires all 38 dimensions inside `coding`, so a system enters this file only once every
-cell is resolved - either a valid value or an explicit `not_reported`. Systems coding has not reached,
-and systems whose cells pass B has still to repair, stay out and are counted in the run report; the
-census of every included system is data/systems_candidates.csv. Nothing is coerced on the way in:
-unwrapping a one-element list or guessing an out-of-enum value would put a reading in the dataset
-that no reader could trace to a quote. This script is therefore re-runnable, and is meant to be run
-again after each coding pass. Stratum and weight live in data/coding_frame.csv, not here, because the
-release schema fixes the set of system fields.
+A system enters on protocol 4.7's rule - at least 19 of the 38 dimensions settled - and each cell
+lands in one of three states, which are kept apart because they mean different things:
+
+    coded         a value with evidence a reader can re-open
+    not_reported  the sources were read and say nothing. This is a FINDING: it is the quantity the
+                  under-reporting result (RQ4) counts, and 24% of cells are in this state
+    unresolved    the coder could not settle it and claims nothing about the sources (1% of cells)
+
+Demanding all 38 instead would admit 77 systems of 1,116 and throw away the ~31 cells a typical
+system does settle; collapsing `unresolved` into `not_reported` would inflate the headline rate.
+Nothing is coerced on the way in: unwrapping a one-element list or guessing an out-of-enum value
+would put a reading in the dataset that no reader could trace to a quote. This script is re-runnable
+and is meant to be run again after each coding pass. Stratum and weight live in
+data/coding_frame.csv, not here, because the release schema fixes the set of system fields.
 
 Usage:
     python scripts/build_tables.py [--quiet]
@@ -37,6 +43,15 @@ SCREEN = REPO / "data" / "screening"
 CODED = REPO / "data" / "coded" / "json"
 
 # the release shape for one coded cell (schema/harness_db.schema.json, additionalProperties: false)
+CODABILITY_MIN = 19  # protocol 4.7: at least 19 of 38 dimensions codable
+#: flags that stop a claimed value from entering the release: the value broke its dimension's
+#: shape, or the quote behind it could not be found in the text the coder was given. Taken from
+#: code_system.INVALID_FLAGS + NO_EVIDENCE_FLAGS so the two stay in step.
+BLOCKING_FLAGS = frozenset({
+    "cell_missing", "cell_not_object", "not_in_enum", "scalar_for_multi", "list_for_single",
+    "empty_multi", "bad_integer", "bad_boolean", "bad_date", "none_with_other_values",
+    "missing_quote", "quote_not_in_bundle", "absence_without_evidence", "not_reported_with_value",
+})
 CELL_FIELDS = ("value", "evidence", "confidence", "not_reported", "coder", "note")
 PAPER_COLUMNS = ["id", "title", "authors", "year", "venue", "arxiv_id", "doi", "url", "source",
                  "included", "exclusion_reason"]
@@ -75,10 +90,20 @@ def cell_problem(dim: dict[str, object], cell: dict[str, object]) -> str | None:
     dataset that no reader could trace back to a quote.
     """
     value, nr = cell.get("value"), bool(cell.get("not_reported"))
+    # `not_reported` is a finding and belongs in the release, even though code_system records it as
+    # `resolved: false` so that pass B tries again. Reading that flag as "unresolved" here collapsed
+    # every "the sources are silent" cell into "the coder could not settle it" and left the released
+    # set with no not_reported cells at all - erasing the under-reporting rate the review reports.
+    # So the coder's flags are consulted only for cells that actually claim a value.
     if nr:
         return None if value is None else "not_reported with a value"
     if value is None:
         return "unresolved (no value, not marked not_reported)"
+    if (bad := [f for f in (cell.get("flags") or []) if f in BLOCKING_FLAGS]):
+        return "coder flagged it: " + ", ".join(sorted(bad))
+    if not str(cell.get("evidence_quote") or "").strip() and not str(cell.get("evidence_locator") or "").strip():
+        # protocol: every coded value carries evidence, and an absence needs one too (manual rule 5)
+        return "value without evidence"
     multi, kind = bool(dim.get("multi")), str(dim.get("type") or "enum")
     allowed = dim.get("values") or []
     if multi:
@@ -95,6 +120,21 @@ def cell_problem(dim: dict[str, object], cell: dict[str, object]) -> str | None:
     if kind == "enum" and allowed and value not in allowed:
         return f"value outside the enum: {value!r}"
     return None
+
+
+def unresolved_cell(cell: dict[str, object], coder: str) -> dict[str, object]:
+    """A cell the coder could not settle, marked as such rather than dressed up as a finding.
+
+    It keeps whatever note explains the difficulty, but claims no value and no evidence: recoding it
+    as `not_reported` would assert the sources are silent, which is exactly the quantity the review
+    reports, and dropping the system entirely would discard the 30-odd cells that were settled.
+    """
+    out: dict[str, object] = {"value": None, "not_reported": False, "unresolved": True, "coder": coder}
+    flags = ", ".join(str(f) for f in (cell.get("flags") or []))
+    note = str(cell.get("note") or "").strip()
+    reason = f"unresolved after the repair pass ({flags})" if flags else "unresolved after the repair pass"
+    out["note"] = f"{reason}. {note}" if note else reason
+    return out
 
 
 def release_cell(cell: dict[str, object], coder: str) -> dict[str, object]:
@@ -167,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
 
     systems: list[dict[str, object]] = []
     dims = load_dimensions()
-    linked = unlinked = skipped_uncoded = skipped_unrepaired = 0
+    linked = unlinked = skipped_uncoded = skipped_unrepaired = skipped_uncodable = 0
     problem_counts: collections.Counter[str] = collections.Counter()
     for s in read_csv(REPO / "data" / "systems_candidates.csv"):
         sid = s["system_id"]
@@ -196,19 +236,30 @@ def main(argv: list[str] | None = None) -> int:
             skipped_uncoded += 1
             continue
         coding = {k: v for k, v in cd["coding"].items() if isinstance(v, dict)}
+        if len(coding) < len(dims):
+            skipped_unrepaired += 1
+            problem_counts[f"only {len(coding)} of {len(dims)} dimensions attempted"] += 1
+            continue
         problems = {k: why for k, v in coding.items()
                     if (dim := dims.get(k)) and (why := cell_problem(dim, v))}
-        if problems or len(coding) < len(dims):
-            skipped_unrepaired += 1
-            for why in problems.values():
-                problem_counts[why] += 1
+        # Protocol 4.7: a system is codable when at least 19 of the 38 dimensions can be coded from
+        # its sources. Demanding all 38 would admit 77 systems of 1,116 and throw away the ~31 cells
+        # a typical system does settle; the cells that stayed unresolved are published as such.
+        settled = len(dims) - len(problems)
+        if settled < CODABILITY_MIN:
+            skipped_uncodable += 1
+            problem_counts[f"only {settled} of {len(dims)} cells settled (protocol 4.7 needs {CODABILITY_MIN})"] += 1
             continue
+        for why in problems.values():
+            problem_counts[why] += 1
         coder = f"llm-{cd.get('model', 'opus')}-{cd.get('prompt_version', '')}".rstrip("-")
-        entry["coding"] = {k: release_cell(v, coder) for k, v in coding.items()}
+        entry["coding"] = {k: (unresolved_cell(v, coder) if k in problems else release_cell(v, coder))
+                           for k, v in coding.items()}
         if (at := str(cd.get("coded_at") or "")):
             entry["coded_at"] = at[:10]  # schema wants a plain date
 
-        notes = [f"grouped_by={s.get('grouped_by') or 'single'}",
+        notes = [f"unresolved_cells={len(problems)}",
+                 f"grouped_by={s.get('grouped_by') or 'single'}",
                  f"codability={s.get('codability_flag') or 'unknown'}",
                  f"max_codable_count={s.get('max_codable_count') or '0'}"]
         if (rd := (s.get("release_date") or "").strip()):
@@ -227,7 +278,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"systems.json: {len(systems)} systems released, every one of the {len(dims)} "
               f"dimensions resolved ({coded} carry coded cells)")
         print(f"  not yet coded        : {skipped_uncoded}")
-        print(f"  coded, awaiting pass B: {skipped_unrepaired}")
+        print(f"  incomplete coding runs  : {skipped_unrepaired}")
+        print(f"  below protocol 4.7 (<{CODABILITY_MIN}/38 settled): {skipped_uncodable}")
         for why, n in problem_counts.most_common(6):
             print(f"      {n:5} cells  {why}")
         print(f"record links : {linked} systems link to at least one assessed record, {unlinked} to none")

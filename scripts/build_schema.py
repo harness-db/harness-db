@@ -37,10 +37,17 @@ def value_schema(dim: dict) -> dict:
 
 
 def cell_schema(dim: dict) -> dict:
-    """One coded cell: value + evidence + confidence + not_reported + coder.
+    """One coded cell: value + evidence + confidence + not_reported + unresolved + coder.
 
-    Rule: a cell is either not_reported=true (value may be null) or it carries a
-    non-empty evidence string and a value that matches the dimension's type.
+    Rule: a cell is either not_reported=true, or unresolved=true (both may have a null value and
+    carry no evidence), or it carries a non-empty evidence string and a value matching the
+    dimension's type.
+
+    The three states are deliberately distinct. ``not_reported`` is a finding: the sources were read
+    and say nothing, which is what the under-reporting result (RQ4) counts. ``unresolved`` is an
+    admission: the coder could not settle the cell, so nothing is claimed about the sources at all.
+    Collapsing the second into the first would inflate the very rate the review reports (schema v1,
+    2026-09-23; 24% of cells were unresolved after the repair pass).
     """
     return {
         "type": "object",
@@ -51,12 +58,16 @@ def cell_schema(dim: dict) -> dict:
                          "description": "Verbatim quote with section, URL, or path:line@commit"},
             "confidence": {"type": "string", "enum": CONFIDENCE},
             "not_reported": {"type": "boolean", "default": False},
+            "unresolved": {"type": "boolean", "default": False,
+                           "description": "The coder could not settle this cell; no claim is made "
+                                          "about the sources. NOT the same as not_reported."},
             "coder": {"type": "string", "description": "Coder id, e.g. c1, c2, llm"},
             "note": {"type": "string"},
         },
         "required": ["value", "not_reported"],
         "additionalProperties": False,
-        "if": {"properties": {"not_reported": {"const": True}}},
+        "if": {"anyOf": [{"properties": {"not_reported": {"const": True}}, "required": ["not_reported"]},
+                         {"properties": {"unresolved": {"const": True}}, "required": ["unresolved"]}]},
         "then": {},
         "else": {
             "required": ["value", "evidence", "confidence"],
