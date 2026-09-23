@@ -134,6 +134,18 @@ def status(stage: str, **fields: object) -> None:
     STATUS.write_text(json.dumps(doc, indent=2), encoding="utf-8")
 
 
+def clear_stage_notes(stage: str, *keys: str) -> None:
+    if not STATUS.exists():
+        return
+    doc = json.loads(STATUS.read_text(encoding="utf-8"))
+    st = (doc.get("stages") or {}).get(stage)
+    if not isinstance(st, dict) or not any(k in st for k in keys):
+        return
+    for k in keys:
+        st.pop(k, None)
+    STATUS.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+
+
 def run(cmd: list[str], log_path: Path) -> int:
     log.info("run: %s", " ".join(cmd[:10]))
     with log_path.open("a", encoding="utf-8") as fh:
@@ -151,6 +163,10 @@ def code_cmd(args: argparse.Namespace, pass_name: str, extra: list[str] | None =
 def drive(label: str, target: list[str], done_fn, cmd: list[str], args: argparse.Namespace,
           deadline: float) -> bool:
     """Re-invoke ``cmd`` until every id in ``target`` is done, waiting out usage-limit windows."""
+    # status() merges keys so a stage accumulates target/done/waiting_until across calls, which also
+    # means a terminal note from an earlier attempt ("stopped: credits exhausted") would sit beside a
+    # later run's progress and read as current. Clear those when the stage starts again.
+    clear_stage_notes(label, "stopped", "left")
     stalls = 0
     while True:
         left = sorted(set(target) - done_fn())
