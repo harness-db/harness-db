@@ -1,35 +1,21 @@
 {
  "system_id": "coact",
- "name": "CoAct",
+ "name": "CoAct-1",
  "version": "",
- "repo_url": "https://github.com/xmhou2002/coact",
+ "repo_url": "https://github.com/salesforceairesearch/coact-1",
  "stratum": "H",
  "weight": "1.0",
- "schema_version": "0.2.0",
+ "schema_version": "1.0.0",
  "bundle": {
-  "chars": 97194,
+  "chars": 80120,
   "truncated": true,
   "parts": [
    {
     "kind": "repo",
-    "record_id": "s2_snowball:e93f1fdaecd63298d60fd2574ae4f241912edb37",
-    "chars_available": 32294,
-    "chars_used": 21791,
-    "truncated": true
-   },
-   {
-    "kind": "repo",
     "record_id": "s2_snowball:44e985d7cefa7f578dd345a8aa9e3f3e5178dad7",
     "chars_available": 96053,
-    "chars_used": 21791,
+    "chars_used": 43767,
     "truncated": true
-   },
-   {
-    "kind": "paper",
-    "record_id": "s2_snowball:e93f1fdaecd63298d60fd2574ae4f241912edb37",
-    "chars_available": 16888,
-    "chars_used": 16888,
-    "truncated": false
    },
    {
     "kind": "paper",
@@ -43,183 +29,156 @@
  },
  "coding": {
   "system_prompt_style": {
-   "value": "templated",
+   "value": "static",
    "not_reported": false,
-   "evidence_quote": "\"template\": \"\"\"OBSERVATION:\n{observation}\nURL: {url}\nOBJECTIVE: {objective}\nPREVIOUS ACTION: {previous_action}\"\"\",",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "medium",
+   "evidence_quote": "You are a GUI agent. You are given a task and a screenshot of the screen. You need to perform a series of pyautogui actions to complete the task.",
+   "evidence_locator": "mm_agents/coact/cua_agent/opencua_cua_agent/prompt.py:5@dff8213655de",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Fixed intro plus meta_prompts filled with variables ({reasons}). Line numbers are not available in the bundle. Coded from dxhou/CoAct (the paper's repo). CoAct-1 (Salesforce) is a different system and is excluded."
+   "note": "Only OpenCUA prompt constants visible; orchestrator prompt construction truncated. Template variants with {password} exist."
   },
   "env_context_strategy": {
    "value": "agent_driven_navigation",
    "not_reported": false,
-   "evidence_quote": "The current web page's accessibility tree: This is a simplified representation of the webpage, providing key information.",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "medium",
+   "evidence_quote": "After the initial state is ready, we will take a screenshot as the initial input along with a user task to CoAct-1 and baselines.",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "The agent navigates web pages through browser actions (goto, click, scroll). The current page observation is given at each step. The README mentions an optional search-engine augmentation for the global plan, which was used in experiments."
+   "note": "Screenshot plus exploration via code/GUI actions."
   },
   "context_compaction": {
    "value": [
-    "tool_output_pruning"
+    "summarize"
    ],
    "not_reported": false,
-   "evidence_quote": "llm_config.gen_config[\"max_obs_length\"] = args.max_obs_length",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
-   "confidence": "medium",
+   "evidence_quote": "this detailed history is processed by a dedicated summarizer model. This model condenses the entire interaction into a concise summary",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "The observation length cap is inferred from the config field. The code applying it is not in the bundle."
+   "flags": [],
+   "resolved": true
   },
   "observation_format": {
    "value": [
-    "a11y_tree"
+    "raw_text",
+    "screenshots"
    ],
    "not_reported": false,
-   "evidence_quote": "\"observation\": \"accessibility_tree\",",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "high",
+   "evidence_quote": "This summary, along with the final screenshot representing the new state of the environment, is then returned to the Orchestrator.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "--render_screenshot renders output for humans only. It is not shown as model input."
+   "flags": [],
+   "resolved": true
   },
   "tool_call_format": {
    "value": [
-    "cli_flags"
+    "code_as_action",
+    "native_function_calling"
    ],
    "not_reported": false,
-   "evidence_quote": "\"answer_phrase\": \"In summary, the next action I will perform is\",\n\t\"action_splitter\": \"```\"",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
+   "evidence_quote": "This is the preferred way of handling function calls with OpeaAI and compatible frameworks.",
+   "evidence_locator": "coact/autogen/tools/tool.py:141@dff8213655de",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Actions are bracketed command strings such as `click [id]` inside backticks, parsed from the text. cli_flags is the closest value, but the format is really a bracket-argument DSL, so this is an ambiguity."
+   "note": "Programmer writes Python/Bash code blocks executed by code executor (MarkdownCodeExtractor); orchestrator uses AG2 tool calls."
   },
   "tool_count": {
-   "value": 13,
-   "not_reported": false,
-   "evidence_quote": "`stop [answer]`: Issue this action when you believe the task is complete.",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "Count of prompt-listed actions: click, type, hover, press, scroll, new_tab, tab_focus, close_tab, goto, go_back, go_forward, stop, check. Plus the decisions move/revise/request. These are not function schemas."
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Orchestrator tool registration file not in evidence (truncated)."
   },
   "edit_primitive": {
    "value": [
     "none"
    ],
    "not_reported": false,
-   "evidence_quote": "The actions you can perform fall into several categories:",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "The action list contains browser actions only, with no file-editing action."
-  },
-  "tool_schema_source": {
-   "value": [
-    "hand_written"
-   ],
-   "not_reported": false,
-   "evidence_quote": "`click [id]`: This action clicks on an element with a specific id on the webpage.",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true
-  },
-  "protocol_standardization": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "f\"Provider {lm_config.provider} not implemented\"",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "Only the OpenAI client appears in the evidence. No MCP or A2A appears in the shipped files."
-  },
-  "loop_primitives": {
-   "value": [
-    "generate_test_repair",
-    "plan_execute"
-   ],
-   "not_reported": false,
-   "evidence_quote": "If they align, proceed to the next phase and output the action decision as ```move```. If discrepancies arise, you have two options: 1) If you suspect issues with your local plan, output the action ```revise```",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "The global plan is split into phases. The local plan is executed, then checked, then revised or replanned."
-  },
-  "planning_granularity": {
-   "value": "hierarchical",
-   "not_reported": false,
-   "evidence_quote": "The global planning agent decomposes tasks into subtasks (“Phase 1, Phase 2 ... Phase N”) and assigns them to the local execution agent.",
-   "evidence_locator": "paper Sec. 2",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "GlobalPlanner.global_plan returns a parsed plan list, and LocalAgent.local_plan returns a parsed local plan."
-  },
-  "multi_agent_topology": {
-   "value": "orchestrator_workers",
-   "not_reported": false,
-   "evidence_quote": "Specifically, our CoAct framework involves two agents:",
-   "evidence_locator": "README.md@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "Two-level global planner/local executor. The paper calls this hierarchical, but only two levels exist, so orchestrator_workers is closest."
-  },
-  "delegation_mechanism": {
-   "value": "role_handoff",
-   "not_reported": false,
-   "evidence_quote": "Local execution agents can request adjustments to the global plan, enabling macro-level re-planning.",
-   "evidence_locator": "paper Sec. 3.2",
+   "evidence_quote": "Supported languages include Python, shell scripts (bash, shell, sh),",
+   "evidence_locator": "coact/autogen/coding/local_commandline_code_executor.py:90@dff8213655de",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Phases are passed from the GlobalPlanner to the LocalAgent within one run. The run loop (test_plan.py) is not in the bundle."
+   "note": "Edits via code execution only; tool registry not fully visible."
+  },
+  "tool_schema_source": {
+   "value": [
+    "auto_generated"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If None, the schema will be generated from the function signature.",
+   "evidence_locator": "coact/autogen/tools/tool.py:29@dff8213655de",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "hand-written parameters_json_schema also supported."
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No dependency file or grep available in evidence."
+  },
+  "loop_primitives": {
+   "value": [
+    "plan_execute",
+    "react"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The Orchestrator embodies the high-level meta-policy, πOrch. It is responsible for task decomposition and dynamic planning",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "planning_granularity": {
+   "value": "hierarchical",
+   "not_reported": false,
+   "evidence_quote": "In CoAct-1, the policy π is implemented hierarchically.",
+   "evidence_locator": "paper Sec. 3.1",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "CoAct-1 fea-\ntures an Orchestrator that dynamically delegates subtasks to either a conventional\nGUI Operator or a specialized Programmer agent",
+   "evidence_locator": "paper Abstract",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "subagent_spawn",
+   "not_reported": false,
+   "evidence_quote": "Each agent\nestablishes a dedicated conversation to perform its role.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
   },
   "human_in_loop": {
    "value": null,
@@ -230,31 +189,27 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "The run loop test_plan.py is not included in the evidence."
+   "note": "Run loop not in evidence."
   },
   "short_term_state": {
-   "value": "structured_task_state",
+   "value": "conversation_only",
    "not_reported": false,
-   "evidence_quote": "parsed_global_plan = self.prompt_constructor.parse_global_plan(response)",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true
-  },
-  "long_term_memory": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "We have not implemented an efficient memory mechanism to address these issues",
-   "evidence_locator": "paper Sec. 5",
-   "confidence": "medium",
+   "evidence_quote": "This memory contains the\n\"instance conversation history\" of their multi-round interaction with the OS.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
+  },
+  "long_term_memory": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "state_persistence": {
    "value": null,
@@ -264,22 +219,17 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false,
-   "note": "The runner source is not in the bundle."
+   "resolved": false
   },
   "self_verification": {
-   "value": [
-    "self_critique"
-   ],
-   "not_reported": false,
-   "evidence_quote": "`check`: You're responsible for ensuring that the actions in the global plan execute successfully.",
-   "evidence_locator": "agent/prompts/raw/p_local_agent.py@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "retry_policy": {
    "value": null,
@@ -289,8 +239,7 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false,
-   "note": "The runner is missing from the bundle. The revise/request replanning happens within the run and is not a task-level retry."
+   "resolved": false
   },
   "rollback": {
    "value": null,
@@ -300,8 +249,7 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false,
-   "note": "The environment and runner code are truncated in the bundle."
+   "resolved": false
   },
   "termination_condition": {
    "value": [
@@ -309,56 +257,61 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "force stop intervention which forcibly terminates the dialogue when it exceeds a specified number of exchanges",
-   "evidence_locator": "paper Sec. 3.1",
+   "evidence_quote": "We set the maximum roundI for the Programmer to\n20, the maximum stepK for the GUI Operator to 25, and the maximum roundJ for the Orchestrator\nto 15.",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Orchestrator outputs termination signal (Sec. 3.2)."
+  },
+  "cost_controls": {
+   "value": [
+    "model_routing"
+   ],
+   "not_reported": false,
+   "evidence_quote": "we adopt OpenAI\no3 for Orchestrator and OpenAI o4-mini for Programmer.",
+   "evidence_locator": "paper Sec. 4.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Static per-role model assignment; closest value."
+  },
+  "timeouts": {
+   "value": [
+    "per_tool"
+   ],
+   "not_reported": false,
+   "evidence_quote": "timeout (int): The timeout for code execution, default is 60 seconds.",
+   "evidence_locator": "coact/autogen/coding/local_commandline_code_executor.py:107@dff8213655de",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The model issues a `stop [answer]` action. The paper also mentions a maximum round limit."
-  },
-  "cost_controls": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
-   "confidence": "low",
-   "quote_verbatim": false,
-   "flags": [],
-   "resolved": false,
-   "note": "The runner code is not in the bundle."
-  },
-  "timeouts": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
-   "confidence": "low",
-   "quote_verbatim": false,
-   "flags": [],
-   "resolved": false,
-   "note": "The runner and environment code are not in the bundle."
+   "note": "Unclear if this executor is used by default vs remote interpreter."
   },
   "execution_isolation": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
-   "confidence": "low",
-   "quote_verbatim": false,
+   "value": "vm",
+   "not_reported": false,
+   "evidence_quote": "We recommend running the VM with KVM support.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
    "flags": [],
-   "resolved": false,
-   "note": "The browser_env deployment code is truncated. Websites are hosted on WebArena docker/EC2 per env_config, and a Playwright browser runs locally."
+   "resolved": true,
+   "note": "OSWorld VM in docker provider; code runs via remote interpreter in VM."
   },
   "filesystem_access": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "we implement a remote code interpreter that can take long Python and Bash scripts as\ninput and return the execution result back to the sender.",
+   "evidence_locator": "paper Sec. 4.3",
    "confidence": "low",
-   "quote_verbatim": false,
+   "quote_verbatim": true,
    "flags": [],
-   "resolved": false
+   "resolved": true,
+   "note": "Relative to VM."
   },
   "network_policy": {
    "value": null,
@@ -371,25 +324,24 @@
    "resolved": false
   },
   "permission_model": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "(r\"\\brm\\s+-rf\\b\", \"Use of 'rm -rf' command is not allowed.\"),",
+   "evidence_locator": "coact/autogen/coding/local_commandline_code_executor.py:200@dff8213655de",
    "confidence": "low",
-   "quote_verbatim": false,
+   "quote_verbatim": true,
    "flags": [],
-   "resolved": false
+   "resolved": true,
+   "note": "Blocklist in AG2 local executor; unclear if default path."
   },
   "tracing": {
    "value": "structured_traces",
    "not_reported": false,
-   "evidence_quote": "`--save_trace_enabled`: Enables saving of execution traces.",
-   "evidence_locator": "README.md@cf50f1574f8a",
-   "confidence": "medium",
+   "evidence_quote": "The results, which include screenshots, coding and GUI actions, will be saved in the `./results_coact` directory by default.",
+   "evidence_locator": "README.md",
+   "confidence": "low",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
+   "flags": [],
    "resolved": true
   },
   "replayability": {
@@ -405,17 +357,73 @@
   "eval_hooks": {
    "value": "built_in",
    "not_reported": false,
-   "evidence_quote": "mypy --install-types --non-interactive browser_env agents evaluation_harness",
-   "evidence_locator": "README.md@cf50f1574f8a",
+   "evidence_quote": "python show_result.py",
+   "evidence_locator": "README.md",
    "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "OSWorld evaluators run via run_coact.py."
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Command line code is sanitized against a list of dangerous commands to prevent self-destructive commands from being executed,",
+   "evidence_locator": "coact/autogen/coding/local_commandline_code_executor.py:89@dff8213655de",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "gui_computer_use"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Official implementation for the paper \"CoAct-1: Computer-using Agents with Coding as Actions\"",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "This release is for research only purposes. See the [license](LICENSE.txt) for more details. This release should not be used to develop models that compete with OpenAI.",
+   "evidence_locator": "README.md@dff8213655de",
+   "confidence": "low",
    "quote_verbatim": true,
    "flags": [
     "locator_no_line"
    ],
    "resolved": true,
-   "note": "The evaluation_harness package is inherited from WebArena."
+   "note": "LICENSE.txt itself is not in the excerpts. The code headers show Apache-2.0/MIT for the AG2-derived code (coact/autogen/agentchat/agent.py:3,6). The research-only disclaimer may conflict with an OSI licence, so this should be verified against LICENSE.txt."
   },
-  "guardrails": {
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "Fill your OpenAI API key in the `OAI_CONFIG_LIST`, which is for driving the AG2 agents.",
+   "evidence_locator": "README.md",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "GUI operator requires OpenAI computer-use-preview; AG2 supports others."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "Code: https://github.com/SalesforceAIResearch/CoAct-1",
+   "evidence_locator": "paper p. 1",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
    "value": null,
    "not_reported": true,
    "evidence_quote": "",
@@ -425,122 +433,77 @@
    "flags": [],
    "resolved": false
   },
-  "target_domain": {
-   "value": [
-    "web"
-   ],
-   "not_reported": false,
-   "evidence_quote": "achieves superior performance over baseline methods on long-horizon web tasks.",
-   "evidence_locator": "README.md@cf50f1574f8a",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true
-  },
-  "open_source": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
-   "confidence": "low",
-   "quote_verbatim": false,
-   "flags": [],
-   "resolved": false,
-   "note": "The LICENSE file is not in the bundle."
-  },
-  "model_agnostic": {
-   "value": "no",
-   "not_reported": false,
-   "evidence_quote": "raise NotImplementedError(f\"provider {args.provider} not implemented\")",
-   "evidence_locator": "agent/agent.py@cf50f1574f8a",
-   "confidence": "high",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "Only the openai provider is implemented."
-  },
-  "primary_artifact": {
-   "value": "paper",
-   "not_reported": false,
-   "evidence_quote": "For more details, please refer to our paper",
-   "evidence_locator": "README.md@cf50f1574f8a",
-   "confidence": "medium",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true,
-   "note": "The repo is research code frozen to the arXiv 2406.13381 paper."
-  },
-  "first_release_date": {
-   "value": "2024-06-19",
-   "not_reported": false,
-   "evidence_quote": "arXiv:2406.13381v1 [cs.CL] 19 Jun 2024",
-   "evidence_locator": "paper p. 1",
-   "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [],
-   "resolved": true,
-   "note": "Fallback to the paper v1 date, because tags and the first commit are not in the evidence."
-  },
   "pinned_version": {
-   "value": "main @ cf50f1574f8a (2024-07-08)",
+   "value": "main @ dff8213655de (2026-06-02)",
    "not_reported": false,
-   "evidence_quote": "This is REPOSITORY EVIDENCE for the record above, at the pinned reference (protocol 4.5).",
-   "evidence_locator": "dxhou/CoAct commit:main cf50f1574f8a",
+   "evidence_quote": "Code: https://github.com/SalesforceAIResearch/CoAct-1",
+   "evidence_locator": "paper p. 1",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "No tag is available, and the full hash is not given. The record URL xmhou2002/coact redirects to dxhou/CoAct."
+   "note": "From evidence header ref commit:main dff8213655de; no tag."
   },
   "stars": {
-   "value": 32,
+   "value": 28,
    "not_reported": false,
-   "evidence_quote": "This is REPOSITORY EVIDENCE for the record above, at the pinned reference (protocol 4.5).",
-   "evidence_locator": "evidence header repo https://github.com/dxhou/CoAct",
+   "evidence_quote": "Code: https://github.com/SalesforceAIResearch/CoAct-1",
+   "evidence_locator": "paper p. 1",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_shape_unrecognised"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Star count of 32 is taken from the bundle header, with no date given. This is not a fresh gh api call."
+   "note": "Stars 28 from evidence header."
   }
  },
  "cells_unresolved": [
+  "B2",
+  "B5",
   "C5",
+  "D2",
   "D3",
+  "E1",
   "E2",
   "E3",
-  "F2",
-  "F3",
-  "G1",
-  "G2",
   "G3",
-  "G4",
   "H2",
-  "H4",
-  "M2"
+  "M5"
  ],
  "flag_counts": {
-  "locator_no_line": 18,
-  "locator_shape_unrecognised": 2
+  "locator_no_line": 1
  },
  "history": {
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
   "C5": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
    "reason": "pass B did not resolve it either"
   },
+  "D2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
   "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E1": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -558,37 +521,7 @@
    "flags": "",
    "reason": "pass B did not resolve it either"
   },
-  "F2": {
-   "superseded_pass": "B",
-   "value": "",
-   "flags": "",
-   "reason": "pass B did not resolve it either"
-  },
-  "F3": {
-   "superseded_pass": "B",
-   "value": "",
-   "flags": "",
-   "reason": "pass B did not resolve it either"
-  },
-  "G1": {
-   "superseded_pass": "B",
-   "value": "",
-   "flags": "",
-   "reason": "pass B did not resolve it either"
-  },
-  "G2": {
-   "superseded_pass": "B",
-   "value": "",
-   "flags": "",
-   "reason": "pass B did not resolve it either"
-  },
   "G3": {
-   "superseded_pass": "B",
-   "value": "",
-   "flags": "",
-   "reason": "pass B did not resolve it either"
-  },
-  "G4": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -600,13 +533,13 @@
    "flags": "",
    "reason": "pass B did not resolve it either"
   },
-  "H4": {
-   "superseded_pass": "B",
+  "M2": {
+   "superseded_pass": "A",
    "value": "",
    "flags": "",
-   "reason": "pass B did not resolve it either"
+   "reason": "pass A left it unresolved"
   },
-  "M2": {
+  "M5": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -615,16 +548,16 @@
  },
  "pass": "B",
  "coder": "llm-prefill",
- "coded_at": "2026-09-23T18:37:22+00:00",
+ "coded_at": "2026-09-24T14:52:03+00:00",
  "model": "claude-opus-5-5",
  "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
- "bundle_chars": 97194,
- "doc_chars": 12680,
- "call_id": "B-coact-00121",
- "tokens_in": 24503,
- "tokens_out": 1021,
+ "bundle_chars": 80120,
+ "doc_chars": 12679,
+ "call_id": "B-coact-00026",
+ "tokens_in": 24840,
+ "tokens_out": 1093,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.118432"
+ "cost_usd": "0.121220"
 }

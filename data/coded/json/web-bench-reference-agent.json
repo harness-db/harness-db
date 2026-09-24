@@ -1,0 +1,544 @@
+{
+ "system_id": "web-bench-reference-agent",
+ "name": "Web-Bench reference agent (Web-Agent)",
+ "version": "v1.0.0",
+ "repo_url": "https://github.com/bytedance/web-bench",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "1.0.0",
+ "bundle": {
+  "chars": 71875,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "arxiv:2505.07473",
+    "chars_available": 43395,
+    "chars_used": 43395,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "arxiv:2505.07473",
+    "chars_available": 28060,
+    "chars_used": 28060,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "static",
+   "not_reported": false,
+   "evidence_quote": "content: getSystemMessage(),",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:106@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "getSystemMessage() takes no arguments; prompt.ts not in the evidence bundle, so its contents were not inspected."
+  },
+  "env_context_strategy": {
+   "value": "file_tree_summary",
+   "not_reported": false,
+   "evidence_quote": "text: '```' + filePath + '\\n' + files[filePath] + '\\n' + '```',",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:55@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The full contents of the project files are injected into the prompt, not an outline. There are no navigation tools. This mismatch was coded as the closest value and flagged as an ambiguity."
+  },
+  "context_compaction": {
+   "value": [
+    "truncate_oldest"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If the com-bined input exceeds the context length, it will be truncated.",
+   "evidence_locator": "paper Sec. 3.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "compileChatMessages(model, messages, contextLength, maxTokens) at agent.ts:108-114 truncates the input to fit the context length. The exact truncation strategy was not visible in the evidence."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "text: `I got the following error, please help me to fix error and apply changes to origin files",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:66@707911319a11",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Build and test errors are fed back to the model as plain text."
+  },
+  "tool_call_format": {
+   "value": [
+    "other_markdown"
+   ],
+   "not_reported": false,
+   "evidence_quote": "const snippets = MarkdownParser.parseMarkdownCodeBlocks(response)",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:164@707911319a11",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "not_in_enum"
+   ],
+   "resolved": false,
+   "note": "No allowed value fits: the action is Markdown code blocks labelled with a filename, which rewrite whole files. Closest value would be code_as_action, but the blocks are file contents, not executed code. Recorded as an ambiguity; this value should be reviewed against the allowed list."
+  },
+  "tool_count": {
+   "value": 0,
+   "not_reported": false,
+   "evidence_quote": "const snippets = MarkdownParser.parseMarkdownCodeBlocks(response)",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:164@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "No tool schemas are sent with the LLM call; chat(compiledMessages, config) passes messages only."
+  },
+  "edit_primitive": {
+   "value": [
+    "whole_file_rewrite"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Do not compress the original code in file and return full file.",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:61@707911319a11",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "There are no tools, so tool_schema_source is not applicable."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "request: (req: AgentRequest) => Promise<AgentResponse>",
+   "evidence_locator": "tools/types/src/agent.ts:88@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The only interfaces are a proprietary AgentRequest/AgentResponse and an HTTP interface."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Retry: with error context from Build or Test.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Each attempt is a single LLM call, not a ReAct loop. The evaluator loop is: call agent, rewrite files, build, E2E test, then retry once with the error."
+  },
+  "planning_granularity": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "I only want the returned results to contain code, without any explanations.",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:72@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "const agent = new BenchAgent(model)",
+   "evidence_locator": "apps/eval/src/custom-eval-runner.ts:23@707911319a11",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "const agent = new BenchAgent(model)",
+   "evidence_locator": "apps/eval/src/custom-eval-runner.ts:23@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "request: (req: AgentRequest) => Promise<AgentResponse>",
+   "evidence_locator": "tools/types/src/agent.ts:88@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The IAgent interface has no approval or confirmation hooks."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "return [\n      {\n        role: 'user',\n        content: res,",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:76-80@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "State is one user message per call; project files carry state across tasks."
+  },
+  "long_term_memory": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "const { files = {}, error, task } = req",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:51@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The evaluator run loop was not in the bundle. startTask/endTask config exists, but a resume path was not shown."
+  },
+  "self_verification": {
+   "value": [
+    "test_execution"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Test: end-to-end (E2E) test with Playwright.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "An optional build step also checks the files for errors."
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "Second attempt, if failed, evaluation is done.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Config retry defaults to 2 (config.ts). Separately, there are 3 transport retries at agent.ts:99, which are not counted here."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Evaluator file-rewrite code was not in the bundle."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Second attempt, if failed, evaluation is done.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Each run is 20 tasks with at most 2 attempts each. The run ends on the first task that fails both attempts."
+  },
+  "cost_controls": {
+   "value": [
+    "token_budget"
+   ],
+   "not_reported": false,
+   "evidence_quote": "maxTokens: number",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "LLMOption sets contextLength and maxTokens per request."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No timeout code appeared in the provided files."
+  },
+  "execution_isolation": {
+   "value": "container",
+   "not_reported": false,
+   "evidence_quote": "Web-Bench uses Docker for reproducible evaluations.",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The agent itself executes no actions."
+  },
+  "filesystem_access": {
+   "value": "scoped",
+   "not_reported": false,
+   "evidence_quote": "Rewrite files: update files or create new files.",
+   "evidence_locator": "paper Sec. 3.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The model returns files that the evaluator writes into the project output directory."
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The Dockerfile was not in the bundle."
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "files[snippet.filename] = snippet.code",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:169@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "[JSON.stringify(request), JSON.stringify(response)].join('\\n'),",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:152@707911319a11",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "request.log records one JSON request/response pair per call; an emitter log is also produced."
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The replay code, if any, was not in the bundle."
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "await this.evaluatorRunner.run()",
+   "evidence_locator": "apps/eval/src/bench-eval-runner.ts:67@707911319a11",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "files[snippet.filename] = snippet.code",
+   "evidence_locator": "tools/bench-agent/src/agent.ts:169@707911319a11",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "swe"
+   ],
+   "not_reported": false,
+   "evidence_quote": "Web-Bench** is a benchmark designed to evaluate the performance of LLMs in actual Web development.",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "open_source": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "[Apache 2.0](./LICENSE.md)",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "export type ModelProvider = 'anthropic' | 'openrouter' | 'openai' | 'doubao' | 'deepseek' | 'aliyun'",
+   "evidence_locator": "tools/types/src/agent.ts:17@707911319a11",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "On our given benchmark agent (Web-Agent), SOTA (Claude 3.7 Sonnet) achieves only 25.1\\% Pass@1",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Tag dates were not supplied beyond the v1.0.0 pin (2025-05-13). It is not known whether this is the first tag."
+  },
+  "pinned_version": {
+   "value": "v1.0.0 @ 707911319a11 (2025-05-13)",
+   "not_reported": false,
+   "evidence_quote": "On our given benchmark agent (Web-Agent)",
+   "evidence_locator": "README.md",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The pin comes from the evidence header: tag:v1.0.0 707911319a11 2025-05-13. The full commit hash was not given."
+  },
+  "stars": {
+   "value": 293,
+   "not_reported": false,
+   "evidence_quote": "On our given benchmark agent (Web-Agent)",
+   "evidence_locator": "README.md",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The star count comes from the evidence header: stars: 293. The retrieval date is not stated."
+  }
+ },
+ "cells_unresolved": [
+  "B1",
+  "B4",
+  "D3",
+  "E3",
+  "F3",
+  "G3",
+  "H2",
+  "M5"
+ ],
+ "flag_counts": {
+  "not_in_enum": 1
+ },
+ "history": {
+  "B1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-24T14:53:09+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 71875,
+ "doc_chars": 10723,
+ "call_id": "B-web-bench-reference-agent-00057",
+ "tokens_in": 23151,
+ "tokens_out": 620,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.105004"
+}

@@ -1,0 +1,546 @@
+{
+ "system_id": "spagents",
+ "name": "SpAgents",
+ "version": "",
+ "repo_url": "https://github.com/spagents/spagents",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "1.0.0",
+ "bundle": {
+  "chars": 103057,
+  "truncated": false,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "s2:db7d40fb0d0fb7fe4d99bee0ca8814e3d6452894",
+    "chars_available": 42870,
+    "chars_used": 42870,
+    "truncated": false
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2:db7d40fb0d0fb7fe4d99bee0ca8814e3d6452894",
+    "chars_available": 59749,
+    "chars_used": 59749,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "templated",
+   "not_reported": false,
+   "evidence_quote": "query = DataAgentPrompt[\"get_data_CHN\"].format(task_info_text=task_info_text)",
+   "evidence_locator": "agent/data_agent.py:60@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Per-agent Python format-string templates in utils/prompt.py; the separate system_prompt comes from config, which was not included. DoctorAgent also injects retrieved cases (see A2)."
+  },
+  "env_context_strategy": {
+   "value": "embedding_rag",
+   "not_reported": false,
+   "evidence_quote": "case_ref_text = self.long_term_memory.get_ref_case(patient_text, k=self.k)",
+   "evidence_locator": "agent/doctor_agent.py:72@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "FAISS/ClinicalBERT retrieval of past cases when long_term_memory is configured; DataAgent also injects patient data from a CSV lookup."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The LLM wrapper modules (module/*_llm.py), which would hold history handling, were not in the evidence."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "df_text = \"SPARCC评分表格如下：\\n\" + df_text",
+   "evidence_locator": "agent/tool_agent.py:107@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action",
+    "json_in_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "result = eval(code_text)",
+   "evidence_locator": "agent/tool_agent.py:78@db7d40f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "DataAgent parses JSON func_name/func_args from text (extract_json_from_text); ToolAgent evals generated Python code."
+  },
+  "tool_count": {
+   "value": 3,
+   "not_reported": false,
+   "evidence_quote": "函数名称：get_patient_data_by_name(name)",
+   "evidence_locator": "utils/prompt.py:9@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "2 DataAgent tools described in the prompt plus 1 ToolAgent tool (tool_run_sparcc_score) when EdemaSystem is configured. The tools are spread across agents."
+  },
+  "edit_primitive": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "工具的函数名称：self.tool_run_sparcc_score(npy_img_path=None, patient_id=None, dicom_path=None)",
+   "evidence_locator": "utils/prompt.py:103@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The tool descriptions list no file-editing tool. This is a medical-diagnosis system."
+  },
+  "tool_schema_source": {
+   "value": [
+    "hand_written"
+   ],
+   "not_reported": false,
+   "evidence_quote": "函数名称：get_patient_data_by_id(id)\n    参数：id（病人ID，格式为字符串）",
+   "evidence_locator": "utils/prompt.py@f4fb0141961f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Tool descriptions are hand-written in prompt text (utils/prompt.py DataAgentPrompt); the line number is not given in the excerpt. No MCP/OpenAPI seen in the excerpts."
+  },
+  "protocol_standardization": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.tool_description += \"## 工具\" + str(len(self.tool_name_list)) + \"：\\n\" + ToolAgentPrompt[\"Tool_EdemaSystem_CHN\"]",
+   "evidence_locator": "agent/tool_agent.py:55@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The tool registry is hand-coded; no MCP or other protocol client appears among the files shown."
+  },
+  "loop_primitives": {
+   "value": [
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "for i in range(self.max_data_tries):",
+   "evidence_locator": "agent/data_agent.py@f4fb0141961f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Single LLM call parsed to JSON func call, executed via getattr; retried with retry prompt on parse/exec failure (max_data_tries default 3). Closest value; also resembles fixed_pipeline across agents, not shown in these excerpts. Line number not given in the excerpt."
+  },
+  "planning_granularity": {
+   "value": "explicit_plan_object",
+   "not_reported": false,
+   "evidence_quote": "agent_list = extract_list_from_text(response)",
+   "evidence_locator": "agent/planner_agent.py:74@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The plan is a list of agent names that is used within one call but is not re-read across steps."
+  },
+  "multi_agent_topology": {
+   "value": "orchestrator_workers",
+   "not_reported": false,
+   "evidence_quote": "self.data_agent = DataAgent(config[\"DataAgent\"])",
+   "evidence_locator": "agent/planner_agent.py:50@db7d40f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "delegation_mechanism": {
+   "value": "role_handoff",
+   "not_reported": false,
+   "evidence_quote": "flag, patient_data = self.data_agent.perform_task(task_info_json[\"task_info\"])",
+   "evidence_locator": "agent/planner_agent.py:96@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The Planner calls pre-instantiated worker agents; no new agents are spawned. Closest value chosen."
+  },
+  "human_in_loop": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "return_text = self.analysis_doctor_agent_res(json_result)",
+   "evidence_locator": "agent/planner_agent.py:173@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The planner run loop shows no approval gate. Physician feedback is used only for memory learning."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "self.planner_llm.reset_hist()",
+   "evidence_locator": "agent/planner_agent.py:57@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "long_term_memory": {
+   "value": [
+    "vector_store"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.index = faiss.IndexFlatL2(self.vector_dim)",
+   "evidence_locator": "module/long_term_memory.py:40@db7d40f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Enabled when long_term_memory is present in config; it persists in SQLite."
+  },
+  "state_persistence": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "for i in range(self.max_planner_tries):",
+   "evidence_locator": "agent/planner_agent.py:65@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "self_verification": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "success, json_data = extract_json_from_text(response)",
+   "evidence_locator": "agent/doctor_agent.py:82@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Only JSON format checks are performed."
+  },
+  "retry_policy": {
+   "value": "fixed_n",
+   "not_reported": false,
+   "evidence_quote": "self.max_planner_tries = config_planner.get(\"max_planner_tries\", 3)",
+   "evidence_locator": "agent/planner_agent.py:40@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Retries are mostly triggered by format or execution failures."
+  },
+  "rollback": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "def delete_entry(self, medical_record):",
+   "evidence_locator": "module/long_term_memory.py:69@db7d40f",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The system does not modify files, so there is nothing to roll back."
+  },
+  "termination_condition": {
+   "value": [
+    "max_steps",
+    "model_declared"
+   ],
+   "not_reported": false,
+   "evidence_quote": "for i in range(self.max_planner_tries):",
+   "evidence_locator": "agent/planner_agent.py:65@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "cost_controls": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "self.max_planner_tries = config_planner.get(\"max_planner_tries\", 3)",
+   "evidence_locator": "agent/planner_agent.py:40@db7d40f",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "The LLM client modules were not in the evidence."
+  },
+  "execution_isolation": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "result = eval(code_text)",
+   "evidence_locator": "agent/tool_agent.py:78@db7d40f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "absence_high_confidence"
+   ],
+   "resolved": true,
+   "note": "LLM-generated code is eval'd in-process."
+  },
+  "filesystem_access": {
+   "value": "full",
+   "not_reported": false,
+   "evidence_quote": "result = eval(code_text)",
+   "evidence_locator": "agent/tool_agent.py:78@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "network_policy": {
+   "value": "open",
+   "not_reported": false,
+   "evidence_quote": "result = eval(code_text)",
+   "evidence_locator": "agent/tool_agent.py:78@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "permission_model": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "result = eval(code_text)",
+   "evidence_locator": "agent/tool_agent.py:78@db7d40f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "absence_high_confidence"
+   ],
+   "resolved": true
+  },
+  "tracing": {
+   "value": "logs",
+   "not_reported": false,
+   "evidence_quote": "self.logger = TxtLog(config_planner.get(\"log_path\", log_path))",
+   "evidence_locator": "agent/planner_agent.py:41@db7d40f",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "self.logger.info(response)",
+   "evidence_locator": "agent/planner_agent.py:73@db7d40f",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "evaluation/evaluation_v2.py",
+   "evidence_locator": "file tree@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "none"
+   ],
+   "not_reported": false,
+   "evidence_quote": "result = eval(code_text)",
+   "evidence_locator": "agent/tool_agent.py:78@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "an early diagnostic system based on a multi-agent framework integrating large language models (LLMs) and imaging models",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Medical diagnosis (axSpA)."
+  },
+  "open_source": {
+   "value": "partial",
+   "not_reported": false,
+   "evidence_quote": "Code is openly available at the following link for non -commercial purpose:",
+   "evidence_locator": "paper Code Availability",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "The code is available for non-commercial use only; no LICENSE file was shown."
+  },
+  "model_agnostic": {
+   "value": "yes",
+   "not_reported": false,
+   "evidence_quote": "elif model_type == \"deepseek_llm\":",
+   "evidence_locator": "agent/planner_agent.py:28@db7d40f",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Multiple vendor wrappers are supported (Qwen, DeepSeek, Doubao, Huatuo), without litellm."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "https://github.com/SpAgents/SpAgents.",
+   "evidence_locator": "paper Code Availability",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tag or first-commit date was given."
+  },
+  "pinned_version": {
+   "value": "main @ f4fb0141961f (2025-11-10)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main f4fb0141961f 2025-11-10",
+   "evidence_locator": "evidence header (REPOSITORY EVIDENCE s2:db7d40fb0d0fb7fe4d99bee0ca8814e3d6452894)",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tagged release is visible; main is pinned at a short hash only, and the full hash is not given."
+  },
+  "stars": {
+   "value": 1,
+   "not_reported": false,
+   "evidence_quote": "stars: 1",
+   "evidence_locator": "evidence header (REPOSITORY EVIDENCE s2:db7d40fb0d0fb7fe4d99bee0ca8814e3d6452894)",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "The star count comes from the evidence bundle header, not from a gh api call; the retrieval date is not stated (ref date is 2025-11-10)."
+  }
+ },
+ "cells_unresolved": [
+  "A3",
+  "F3",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_no_line": 3,
+  "absence_high_confidence": 2,
+  "locator_shape_unrecognised": 2
+ },
+ "history": {
+  "A3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "A",
+   "value": "hand_written",
+   "flags": "quote_not_in_bundle",
+   "reason": "pass A left it unresolved"
+  },
+  "C1": {
+   "superseded_pass": "A",
+   "value": "fixed_pipeline|plan_execute",
+   "flags": "quote_not_in_bundle",
+   "reason": "pass A left it unresolved"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M6": {
+   "superseded_pass": "A",
+   "value": "main @ db7d40fb0d0fb7fe4d99bee0ca8814e3d6452894 (2025-11-10)",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  },
+  "M7": {
+   "superseded_pass": "A",
+   "value": "1",
+   "flags": "missing_quote;locator_shape_unrecognised",
+   "reason": "pass A left it unresolved"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill",
+ "coded_at": "2026-09-24T14:57:45+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 103057,
+ "doc_chars": 11881,
+ "call_id": "B-spagents-00184",
+ "tokens_in": 24849,
+ "tokens_out": 952,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.118436"
+}

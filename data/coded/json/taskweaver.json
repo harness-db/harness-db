@@ -5,30 +5,23 @@
  "repo_url": "https://github.com/microsoft/taskweaver",
  "stratum": "H",
  "weight": "1.0",
- "schema_version": "0.2.0",
+ "schema_version": "1.0.0",
  "bundle": {
-  "chars": 109932,
+  "chars": 109955,
   "truncated": true,
   "parts": [
    {
     "kind": "repo",
     "record_id": "arxiv:2311.17541",
     "chars_available": 59135,
-    "chars_used": 43722,
+    "chars_used": 43799,
     "truncated": true
    },
    {
     "kind": "paper",
     "record_id": "arxiv:2311.17541",
     "chars_available": 71588,
-    "chars_used": 32792,
-    "truncated": true
-   },
-   {
-    "kind": "paper",
-    "record_id": "arxiv:2606.01199",
-    "chars_available": 34074,
-    "chars_used": 32792,
+    "chars_used": 65699,
     "truncated": true
    }
   ],
@@ -38,24 +31,24 @@
   "system_prompt_style": {
    "value": "dynamically_composed",
    "not_reported": false,
-   "evidence_quote": "The Code Generator (CG) prompt delineates its profile and competencies, providing comprehensive definitions of all the relevant plugins.",
-   "evidence_locator": "paper Sec. 3",
+   "evidence_quote": "The retrieved experiences are integrated into the prompts used by the Planning and Code Generation (CG) components",
+   "evidence_locator": "paper Sec. 5.4",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Prompt assembled from role profile, selected plugins and examples; dynamic plugin selection per request (paper Sec. 4.6). Prompt-building code not in bundle."
+   "note": "Prompt includes plugin schemas (dynamically selected), examples and experiences; builder code not in bundle."
   },
   "env_context_strategy": {
-   "value": "none",
+   "value": "agent_driven_navigation",
    "not_reported": false,
-   "evidence_quote": "The initial step involves the Planner taking the user query, Code Interpreter (CI) description, and, if provided, planning examples to generate a plan.",
-   "evidence_locator": "paper Sec. 3",
+   "evidence_quote": "TaskWeaver is unaware of the data schema stored in the database prior to reading it. To generate the anomaly detection code, TaskWeaver must first inspect the data schema",
+   "evidence_locator": "paper Sec. 2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Data-analytics domain, no repository context; the model explores data by generating code. Closest value."
+   "note": "Environment explored via generated code; document_retriever RAG plugin is opt-in."
   },
   "context_compaction": {
    "value": [
@@ -64,37 +57,39 @@
    "not_reported": false,
    "evidence_quote": "TRUNCATE_CHAR_LENGTH = 1500",
    "evidence_locator": "taskweaver/code_interpreter/code_executor.py:14@04fc78cdf397",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "stdout cut to 1500 chars; memory.py also removes temporal parts of earlier rounds."
+   "note": "stdout truncated to 1500 chars; memory.py also removes temporal parts of older posts."
   },
   "observation_format": {
    "value": [
     "raw_text"
    ],
    "not_reported": false,
-   "evidence_quote": "The execution of the generated python code above has",
-   "evidence_locator": "taskweaver/code_interpreter/code_executor.py:173@04fc78cdf397",
+   "evidence_quote": "The result of above Python code after execution is:",
+   "evidence_locator": "taskweaver/code_interpreter/code_executor.py@04fc78cdf397",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Line number not visible in bundle excerpt."
   },
   "tool_call_format": {
    "value": [
-    "code_as_action",
-    "native_function_calling"
+    "code_as_action"
    ],
    "not_reported": false,
-   "evidence_quote": "TaskWeaver also supports a dedicated plugin-only mode, leveraging the function calling capability of LLMs, where only the plugin functions can be called",
-   "evidence_locator": "paper Sec. 4.2",
-   "confidence": "medium",
+   "evidence_quote": "It converts user requests into executable code and treats user-defined plugins as callable functions.",
+   "evidence_locator": "paper Abstract",
+   "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default is code-as-action (Python snippet executed); plugin-only mode uses function calling."
+   "note": "Plugin-only mode uses native function calling (paper Sec. 4.2); parser code not in bundle."
   },
   "tool_count": {
    "value": null,
@@ -105,20 +100,18 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Plugin registry and project plugin list not in bundle; actions are code with user-defined plugins."
+   "note": "Plugin registry/default project plugin list not in bundle."
   },
   "edit_primitive": {
-   "value": [
-    "none"
-   ],
-   "not_reported": false,
-   "evidence_quote": "self.roles = self._get_list(\"roles\", [\"planner\", \"code_interpreter\"])",
-   "evidence_locator": "taskweaver/session/session.py:28@04fc78cdf397",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "No file edit tool; files modified only via generated Python code."
+   "resolved": false,
+   "note": "No edit tool registry in bundle; edits via generated Python code."
   },
   "tool_schema_source": {
    "value": [
@@ -141,10 +134,11 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Dependency files not in bundle; no grep possible."
+   "note": "No dependency file or grep in bundle."
   },
   "loop_primitives": {
    "value": [
+    "generate_test_repair",
     "plan_execute",
     "react"
    ],
@@ -154,39 +148,43 @@
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Code regeneration on execution failure up to three times (paper Sec. 5.2)."
   },
   "planning_granularity": {
-   "value": "explicit_plan_object",
+   "value": "hierarchical",
    "not_reported": false,
-   "evidence_quote": "post.attachment_list = [x for x in post.attachment_list if x.type == AttachmentType.plan]",
-   "evidence_locator": "taskweaver/memory/memory.py:73@04fc78cdf397",
+   "evidence_quote": "TaskWeaver incorporates a two-layer planning process during the handling of user requests.",
+   "evidence_locator": "paper Sec. 3",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Plan stored as typed attachment in posts."
+   "note": "Planner plan stored as plan attachment; delegated to CodeInterpreter."
   },
   "multi_agent_topology": {
    "value": "orchestrator_workers",
    "not_reported": false,
-   "evidence_quote": "self.planner = self.session_injector.create_object(Planner, {\"workers\": self.worker_instances})",
-   "evidence_locator": "taskweaver/session/session.py:106@04fc78cdf397",
+   "evidence_quote": "self.roles = self._get_list(\"roles\", [\"planner\", \"code_interpreter\"])",
+   "evidence_locator": "taskweaver/session/session.py:28@04fc78cdf397",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Planner orchestrates worker roles."
   },
   "delegation_mechanism": {
    "value": "role_handoff",
    "not_reported": false,
    "evidence_quote": "elif recipient in self.worker_instances.keys():",
-   "evidence_locator": "taskweaver/session/session.py:176@04fc78cdf397",
-   "confidence": "high",
+   "evidence_locator": "taskweaver/session/session.py@04fc78cdf397",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Planner sends posts to worker roles within the shared round/memory."
+   "note": "Posts routed between roles within the same round memory."
   },
   "human_in_loop": {
    "value": null,
@@ -197,18 +195,18 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Planner can ask the user in conversation, but no approval/confirm config visible in bundle."
+   "note": "Planner may ask user for input, but no approval/confirmation config in bundle."
   },
   "short_term_state": {
    "value": "structured_task_state",
    "not_reported": false,
-   "evidence_quote": "chat_round.write_board(reply_post.send_from, reply_post.get_attachment(AttachmentType.board)[0])",
-   "evidence_locator": "taskweaver/session/session.py:187@04fc78cdf397",
+   "evidence_quote": "the Memory also stores useful information for each role, such as the step-wise plans of the Planner",
+   "evidence_locator": "paper Sec. 3",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Rounds/posts with typed attachments, board, and stateful kernel."
+   "note": "Rounds/posts with typed attachments and board."
   },
   "long_term_memory": {
    "value": [
@@ -221,42 +219,42 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Experience saved to YAML for reuse across sessions; closest value."
+   "note": "Experience pool (paper Sec. 5.4), stored as YAML."
   },
   "state_persistence": {
-   "value": "checkpoint",
-   "not_reported": false,
-   "evidence_quote": "\"\"\"Load the memory from a yaml file.\"\"\"",
-   "evidence_locator": "taskweaver/memory/memory.py:79@04fc78cdf397",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true,
-   "note": "Memory can be reloaded from YAML; kernel state not restored."
+   "resolved": false,
+   "note": "Memory.from_yaml exists but no resume path in bundle."
   },
   "self_verification": {
    "value": [
     "linters_typecheck"
    ],
    "not_reported": false,
-   "evidence_quote": "The TaskWeaver approach involves a process of code verification (before code execution) to ensure that the generated code conforms to pre-defined rules",
-   "evidence_locator": "paper Sec. 4.2",
+   "evidence_quote": "the CG parses the code into an Abstract Syntax Tree (AST) and examines it line by line for any violations.",
+   "evidence_locator": "paper Sec. 5.2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Rule-based code verification; closest value."
+   "note": "Closest value: AST rule verification."
   },
   "retry_policy": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "self.max_internal_chat_round_num = self._get_int(\"max_internal_chat_round_num\", 10)",
-   "evidence_locator": "taskweaver/session/session.py:22@04fc78cdf397",
+   "evidence_quote": "TaskWeaver permits the code to regenerate up to a maximum of three times.",
+   "evidence_locator": "paper Sec. 5.2",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Code regeneration on failure is step-level (paper Sec. 4.5)."
+   "note": "Step-level code regeneration only (not task-level)."
   },
   "rollback": {
    "value": null,
@@ -275,7 +273,7 @@
    ],
    "not_reported": false,
    "evidence_quote": "self.max_internal_chat_round_num = self._get_int(\"max_internal_chat_round_num\", 10)",
-   "evidence_locator": "taskweaver/session/session.py:22@04fc78cdf397",
+   "evidence_locator": "taskweaver/session/session.py:23@04fc78cdf397",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
@@ -313,17 +311,18 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Local process mode reachable."
+   "note": "Local Jupyter process mode alternative."
   },
   "filesystem_access": {
-   "value": "scoped",
+   "value": "full",
    "not_reported": false,
    "evidence_quote": "self.execution_cwd = os.path.join(self.workspace, \"cwd\")",
    "evidence_locator": "taskweaver/session/session.py:76@04fc78cdf397",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Within container; cwd is session dir, no allowlist seen."
   },
   "network_policy": {
    "value": null,
@@ -333,12 +332,13 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Container config not in bundle."
   },
   "permission_model": {
-   "value": "static_allowlist",
+   "value": "policy_engine",
    "not_reported": false,
-   "evidence_quote": "users can ensure that the code does not import any forbidden packages or invoke any unsafe functions.",
+   "evidence_quote": "This is achieved through the use of configurable rules that can be customized to suit different scenarios.",
    "evidence_locator": "paper Sec. 4.2",
    "confidence": "low",
    "quote_verbatim": true,
@@ -348,12 +348,13 @@
   "tracing": {
    "value": "opentelemetry",
    "not_reported": false,
-   "evidence_quote": "with get_tracer().start_as_current_span(\"run_code\"):",
-   "evidence_locator": "taskweaver/code_interpreter/code_executor.py:83@04fc78cdf397",
+   "evidence_quote": "from taskweaver.module.tracing import Tracing, get_tracer, tracing_decorator",
+   "evidence_locator": "taskweaver/code_interpreter/code_executor.py:10@04fc78cdf397",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Span API; prompt logs JSON per post."
   },
   "replayability": {
    "value": null,
@@ -373,14 +374,15 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Paper mentions Eval-Cases in TaskWeaver; runner not in bundle."
   },
   "guardrails": {
    "value": [
     "action_policies"
    ],
    "not_reported": false,
-   "evidence_quote": "The TaskWeaver approach involves a process of code verification (before code execution) to ensure that the generated code conforms to pre-defined rules and does not violate any safety requirements.",
+   "evidence_quote": "users can ensure that the code does not import any forbidden packages or invoke any unsafe functions.",
    "evidence_locator": "paper Sec. 4.2",
    "confidence": "low",
    "quote_verbatim": true,
@@ -403,7 +405,7 @@
   "open_source": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)",
+   "evidence_quote": "License: MIT",
    "evidence_locator": "README.md",
    "confidence": "medium",
    "quote_verbatim": true,
@@ -424,11 +426,13 @@
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "This is REPOSITORY EVIDENCE for the record above, at the pinned reference (protocol 4.5).",
-   "evidence_locator": "README.md",
+   "evidence_quote": "tag:v0.0.2-alpha 04fc78cdf397 2024-05-13",
+   "evidence_locator": "evidence header",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
    "resolved": true
   },
   "first_release_date": {
@@ -439,12 +443,13 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "README comment says released on GitHub 2023-11-30, but no tag data."
   },
   "pinned_version": {
    "value": "v0.0.2-alpha @ 04fc78cdf397 (2024-05-13)",
    "not_reported": false,
-   "evidence_quote": "ref: tag:v0.0.2-alpha 04fc78cdf397 2024-05-13",
+   "evidence_quote": "tag:v0.0.2-alpha 04fc78cdf397 2024-05-13",
    "evidence_locator": "evidence header",
    "confidence": "high",
    "quote_verbatim": true,
@@ -470,8 +475,10 @@
  },
  "cells_unresolved": [
   "B2",
+  "B3",
   "B5",
   "C5",
+  "D3",
   "E3",
   "F3",
   "G3",
@@ -480,10 +487,17 @@
   "M5"
  ],
  "flag_counts": {
-  "locator_shape_unrecognised": 2
+  "locator_no_line": 2,
+  "locator_shape_unrecognised": 3
  },
  "history": {
   "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B3": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -496,6 +510,12 @@
    "reason": "pass B did not resolve it either"
   },
   "C5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -540,16 +560,16 @@
  },
  "pass": "B",
  "coder": "llm-prefill",
- "coded_at": "2026-09-23T18:34:33+00:00",
+ "coded_at": "2026-09-24T14:51:45+00:00",
  "model": "claude-opus-5-5",
  "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
- "bundle_chars": 109932,
- "doc_chars": 10945,
- "call_id": "B-taskweaver-00079",
- "tokens_in": 23666,
- "tokens_out": 814,
+ "bundle_chars": 109955,
+ "doc_chars": 11517,
+ "call_id": "B-taskweaver-00019",
+ "tokens_in": 24232,
+ "tokens_out": 907,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.110944"
+ "cost_usd": "0.115068"
 }

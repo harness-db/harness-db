@@ -1,0 +1,601 @@
+{
+ "system_id": "pfagent",
+ "name": "PFAgent",
+ "version": "",
+ "repo_url": "https://github.com/shebuxin/pfagent",
+ "stratum": "H",
+ "weight": "1.0",
+ "schema_version": "1.0.0",
+ "bundle": {
+  "chars": 86757,
+  "truncated": true,
+  "parts": [
+   {
+    "kind": "repo",
+    "record_id": "s2_snowball:dcc2ed2edc872d0ad2528bdcd2475315fa2bfb36",
+    "chars_available": 88734,
+    "chars_used": 43766,
+    "truncated": true
+   },
+   {
+    "kind": "paper",
+    "record_id": "s2_snowball:dcc2ed2edc872d0ad2528bdcd2475315fa2bfb36",
+    "chars_available": 42497,
+    "chars_used": 42497,
+    "truncated": false
+   }
+  ],
+  "missing": []
+ },
+ "coding": {
+  "system_prompt_style": {
+   "value": "dynamically_composed",
+   "not_reported": false,
+   "evidence_quote": "This stage assembles the context that will form the system prompt for the LLM. Four sources of knowledge are combined.",
+   "evidence_locator": "paper Sec. II.C.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Paper describes system prompt built from manual retrieval, code examples, case inventory and adaptive rules; code for load_system_prompt not in bundle."
+  },
+  "env_context_strategy": {
+   "value": "mixed",
+   "not_reported": false,
+   "evidence_quote": "The retrieval stage augments the prompt with domain knowledge from a Facebook AI Similarity Search (FAISS)-indexed ANDES manual, curated code examples, a live case-index inventory, and adaptive rules.",
+   "evidence_locator": "paper Sec. II.B",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Embedding RAG over ANDES manual plus injected runtime file context/case inventory (ui_chat_loop.build_contextual_user_input). No agent navigation tools. Closest value mixed (embedding_rag + injected context); Base OpenAI mode has no retrieval."
+  },
+  "context_compaction": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Paper mentions 'the conversation compaction summary' (Sec. V.D.3) but the chatbot/history code was truncated from the bundle; mechanism not locatable."
+  },
+  "observation_format": {
+   "value": [
+    "raw_text"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If execution still produces an error, the new error output replaces the old one in the fix prompt, and the repair model is called again.",
+   "evidence_locator": "paper Sec. III.B.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Execution output/errors fed back as text; plots shown to user only."
+  },
+  "tool_call_format": {
+   "value": [
+    "code_as_action"
+   ],
+   "not_reported": false,
+   "evidence_quote": "return re.findall(r\"```python\\s*\\n(.*?)```\", response or \"\", re.DOTALL)",
+   "evidence_locator": "verification/runner.py:89@5ed7a0cf2534",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Model emits a fenced Python block which is extracted and executed."
+  },
+  "tool_count": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tool schema/registry in the bundle; the model outputs code blocks rather than function calls. Chatbot code truncated."
+  },
+  "edit_primitive": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No file-editing tool registry visible; model returns whole scripts. Tool registry not in bundle."
+  },
+  "tool_schema_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tool schema source in the bundle."
+  },
+  "protocol_standardization": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Dependency files and full source not in bundle; grep not possible."
+  },
+  "loop_primitives": {
+   "value": [
+    "fixed_pipeline",
+    "generate_test_repair"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If either check fails, the error message is fed back to the LLM as a compilation-error signal, and the LLM is asked to regenerate. This retry loop runs up to a configurable number of attempts.",
+   "evidence_locator": "paper Sec. II.C.3",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Four-stage pipeline (intent parsing, retrieval, execution, reporting) with compile-check regeneration (max_compilation_retries=2 in runner.py) and user-triggered AI fix loop."
+  },
+  "planning_granularity": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "The user interface passes the request and conversational context to the intent parser, which produces a parsed objective to the knowledge-retrieval stage.",
+   "evidence_locator": "paper Sec. II.B",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Parsed objective is intent extraction, not a plan; no planning step described."
+  },
+  "multi_agent_topology": {
+   "value": "single",
+   "not_reported": false,
+   "evidence_quote": "The assembled prompt is sent to a dedicated repair model, which is a reasoning model separate from the main chat model.",
+   "evidence_locator": "paper Sec. III.B.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Single chat agent plus separate repair model call; treated as single."
+  },
+  "delegation_mechanism": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "The assembled prompt is sent to a dedicated repair model, which is a reasoning model separate from the main chat model.",
+   "evidence_locator": "paper Sec. III.B.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Repair model is a model call, not an agent spawn."
+  },
+  "human_in_loop": {
+   "value": [
+    "on_permission"
+   ],
+   "not_reported": false,
+   "evidence_quote": "the user interface surfaces the error output together with a “Fix Error with AI” action. Clicking this action triggers a repair request",
+   "evidence_locator": "paper Sec. III.B",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Closest value: human triggers repair and may edit/rerun code; feedback panel for self-evolution."
+  },
+  "short_term_state": {
+   "value": "structured_task_state",
+   "not_reported": false,
+   "evidence_quote": "if 'pending_error_fix' not in st.session_state:",
+   "evidence_locator": "text-to-sim/src/session.py:47@5ed7a0cf2534",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Session state holds active case, code outputs, pending fixes beyond messages; active_case continuity injected in ui_chat_loop.py."
+  },
+  "long_term_memory": {
+   "value": [
+    "file_notes"
+   ],
+   "not_reported": false,
+   "evidence_quote": "The merged profile is saved and loaded by the knowledge-retrieval stage at the start of every new session.",
+   "evidence_locator": "paper Sec. III.A.4",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Evolution profile JSON persisted across sessions; paper-only."
+  },
+  "state_persistence": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "persistent_chat_history flag exists in session.py but load path truncated."
+  },
+  "self_verification": {
+   "value": [
+    "linters_typecheck"
+   ],
+   "not_reported": false,
+   "evidence_quote": "An Abstract Syntax Tree (AST)-level syntax check catches malformed Python code. A pattern-based case validator ensures that built-in and uploaded cases are loaded correctly",
+   "evidence_locator": "paper Sec. II.C.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "code_compilation_check=True in runner.py; repair loop local validation executes code (opt-in)."
+  },
+  "retry_policy": {
+   "value": "none",
+   "not_reported": false,
+   "evidence_quote": "code_compilation_check=True,\n                max_compilation_retries=2,",
+   "evidence_locator": "verification/runner.py:130-131@5ed7a0cf2534",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Compile retries are step-level regeneration; AI fix loop is user-triggered with configurable retry limit."
+  },
+  "rollback": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "code_reset_counters exists in session.py but its semantics are truncated."
+  },
+  "termination_condition": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Chat turn loop code truncated; single response per turn implied."
+  },
+  "cost_controls": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "LLM config code not in bundle."
+  },
+  "timeouts": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Executor code not in bundle."
+  },
+  "execution_isolation": {
+   "value": "subprocess",
+   "not_reported": false,
+   "evidence_quote": "Valid code is executed in an isolated environment.",
+   "evidence_locator": "paper Sec. II.C.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Paper says isolated environment without mechanism; runner imports subprocess. Closest guess subprocess."
+  },
+  "filesystem_access": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Executor not in bundle."
+  },
+  "network_policy": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "Executor not in bundle."
+  },
+  "permission_model": {
+   "value": "static_allowlist",
+   "not_reported": false,
+   "evidence_quote": "A pattern-based case validator ensures that built-in and uploaded cases are loaded correctly and that device indices are resolved correctly.",
+   "evidence_locator": "paper Sec. II.C.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "Pattern validator blocks execution; closest value."
+  },
+  "tracing": {
+   "value": "structured_traces",
+   "not_reported": false,
+   "evidence_quote": "Each chat turn, code execution event, and user-initiated feedback action is written to a per-session JSON log and appended to a global event stream.",
+   "evidence_locator": "paper Sec. III.A.2",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "replayability": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
+  },
+  "eval_hooks": {
+   "value": "built_in",
+   "not_reported": false,
+   "evidence_quote": "python verification/runner.py --scenario-count 100",
+   "evidence_locator": "README.md@5ed7a0cf2534",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true
+  },
+  "guardrails": {
+   "value": [
+    "action_policies"
+   ],
+   "not_reported": false,
+   "evidence_quote": "If either check fails, the error message is fed back to the LLM as a compilation-error signal, and the LLM is asked to regenerate.",
+   "evidence_locator": "paper Sec. II.C.3",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true
+  },
+  "target_domain": {
+   "value": [
+    "other"
+   ],
+   "not_reported": false,
+   "evidence_quote": "PFAGENT is a research-and-product repository for building an agent that turns natural-language requests into executable ANDES power-flow studies.",
+   "evidence_locator": "README.md@5ed7a0cf2534",
+   "confidence": "high",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "Power-system simulation domain."
+  },
+  "open_source": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "LICENSE file not in bundle; paper claims open-source release."
+  },
+  "model_agnostic": {
+   "value": "no",
+   "not_reported": false,
+   "evidence_quote": "Any chat-completion model your key can call. Defaults to `gpt-4o-mini`.",
+   "evidence_locator": "README.md@5ed7a0cf2534",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "OpenAI only."
+  },
+  "primary_artifact": {
+   "value": "repo",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 5ed7a0cf2534 2026-04-12",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true
+  },
+  "first_release_date": {
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
+   "confidence": "low",
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false,
+   "note": "No tag/first commit data; paper v1 arXiv:2604.10846 dated 12 Apr 2026."
+  },
+  "pinned_version": {
+   "value": "main @ 5ed7a0cf2534 (2026-04-12)",
+   "not_reported": false,
+   "evidence_quote": "ref: commit:main 5ed7a0cf2534 2026-04-12",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "No tag; short hash only."
+  },
+  "stars": {
+   "value": 0,
+   "not_reported": false,
+   "evidence_quote": "stars: 0",
+   "evidence_locator": "evidence header",
+   "confidence": "medium",
+   "quote_verbatim": true,
+   "flags": [
+    "locator_shape_unrecognised"
+   ],
+   "resolved": true,
+   "note": "Date of star count not stated."
+  }
+ },
+ "cells_unresolved": [
+  "A3",
+  "B2",
+  "B3",
+  "B4",
+  "B5",
+  "D3",
+  "E3",
+  "F1",
+  "F2",
+  "F3",
+  "G2",
+  "G3",
+  "H2",
+  "M2",
+  "M5"
+ ],
+ "flag_counts": {
+  "locator_no_line": 3,
+  "locator_shape_unrecognised": 3
+ },
+ "history": {
+  "A3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B4": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "D3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "E3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "F3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "H2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "M5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  }
+ },
+ "pass": "B",
+ "coder": "llm-prefill-2",
+ "coded_at": "2026-09-24T15:01:13+00:00",
+ "model": "claude-opus-5-5",
+ "prompt_version": "code-v2-2026-09-23",
+ "effort": "low",
+ "bundle_chars": 86757,
+ "doc_chars": 12721,
+ "call_id": "B2-pfagent-00031",
+ "tokens_in": 25071,
+ "tokens_out": 1018,
+ "cache_read": 0,
+ "cache_write": 0,
+ "cost_usd": "0.120644"
+}

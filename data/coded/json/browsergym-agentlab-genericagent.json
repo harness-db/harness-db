@@ -5,38 +5,31 @@
  "repo_url": "https://github.com/servicenow/agentlab",
  "stratum": "H",
  "weight": "1.0",
- "schema_version": "0.2.0",
+ "schema_version": "1.0.0",
  "bundle": {
-  "chars": 109908,
+  "chars": 109887,
   "truncated": true,
   "parts": [
    {
     "kind": "repo",
     "record_id": "arxiv:2403.07718",
     "chars_available": 66960,
-    "chars_used": 43602,
+    "chars_used": 43691,
     "truncated": true
    },
    {
     "kind": "paper",
     "record_id": "arxiv:2403.07718",
     "chars_available": 47749,
-    "chars_used": 21801,
+    "chars_used": 35392,
     "truncated": true
    },
    {
     "kind": "paper",
     "record_id": "github:ServiceNow/AgentLab",
     "chars_available": 30145,
-    "chars_used": 21801,
-    "truncated": true
-   },
-   {
-    "kind": "paper",
-    "record_id": "arxiv:2504.09723",
-    "chars_available": 24042,
-    "chars_used": 21801,
-    "truncated": true
+    "chars_used": 30145,
+    "truncated": false
    }
   ],
   "missing": []
@@ -51,59 +44,60 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "GenericPromptFlags toggle prompt sections (dynamic_prompting); prompt assembly file itself not in evidence."
+   "note": "GenericPromptFlags toggle prompt sections; prompt builder file (generic_agent_prompt.py) not in bundle."
   },
   "env_context_strategy": {
-   "value": "agent_driven_navigation",
+   "value": "file_tree_summary",
    "not_reported": false,
    "evidence_quote": "use_ax_tree=True,",
    "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:17@88959006c4ec",
-   "confidence": "low",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Web agent: current page AXTree injected each step; agent navigates via browser actions. Closest value; repo-context values do not fit web domain."
+   "note": "Closest value: the page AXTree is injected each step as the environment context (not a file tree). HTML optional via use_html."
   },
   "context_compaction": {
    "value": [
-    "truncate_oldest"
+    "tool_output_pruning"
    ],
    "not_reported": false,
-   "evidence_quote": "max_prompt_tokens=40_000,",
-   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:47@88959006c4ec",
-   "confidence": "low",
+   "evidence_quote": "When the prompt is too large (Figure 4), we progressively truncate the HTML and AXTree from the end until it fits the maximum allowed number of tokens.",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Prompt token cap implies shrinking; exact mechanism (history vs observation pruning) not in evidence."
+   "note": "max_prompt_tokens=40_000 in tmlr_config.py:48."
   },
   "observation_format": {
    "value": [
     "a11y_tree",
+    "raw_text",
     "screenshots",
     "set_of_marks"
    ],
    "not_reported": false,
    "evidence_quote": "flags.obs.use_screenshot = True\n    flags.obs.use_som = True",
    "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:72-73@88959006c4ec",
-   "confidence": "high",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default BASE_FLAGS: AXTree only; screenshots and SoM via vision/som configs; pruned HTML also reachable."
+   "note": "Default a11y_tree (use_ax_tree=True); HTML text, screenshots and SoM reachable via flags."
   },
   "tool_call_format": {
    "value": [
     "code_as_action"
    ],
    "not_reported": false,
-   "evidence_quote": "action_set=\"bid\",",
-   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:35@88959006c4ec",
+   "evidence_quote": "the action space is customizable and in-cludes Python code, which can be restricted to specific set of pre-defined high-level primitives",
+   "evidence_locator": "paper Sec. 4.1",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Actions are BrowserGym function-call strings like click(bid=...) parsed from text; closest value."
+   "note": "Model emits function-call strings like click(bid) parsed as Python; tool_use_agent (native calling) is a different agent."
   },
   "tool_count": {
    "value": null,
@@ -114,7 +108,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "BrowserGym bid action set definition not in evidence."
+   "note": "Action set defined in BrowserGym (Table 10), not in bundle."
   },
   "edit_primitive": {
    "value": [
@@ -127,19 +121,20 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Web agent; no file-editing tool."
+   "note": "Web agent; no file-editing primitive in action set."
   },
   "tool_schema_source": {
    "value": [
     "hand_written"
    ],
    "not_reported": false,
-   "evidence_quote": "action_space_description=self.action_set.describe(",
-   "evidence_locator": "src/agentlab/agents/visualwebarena/agent.py:121@88959006c4ec",
+   "evidence_quote": "long_description=False,\n        individual_examples=False,",
+   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:36-37@88959006c4ec",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true
+   "resolved": true,
+   "note": "Action descriptions come from BrowserGym HighLevelActionSet.describe; source not in bundle."
   },
   "protocol_standardization": {
    "value": null,
@@ -150,20 +145,19 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "No dependency file or grep in evidence."
+   "note": "No grep/dependency file in bundle."
   },
   "loop_primitives": {
    "value": [
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "def get_action(self, obs: Any) -> tuple[str, dict]:",
-   "evidence_locator": "src/agentlab/agents/visualwebarena/agent.py:185@88959006c4ec",
+   "evidence_quote": "Once parsed, the action is executed via BrowserGym, which moves to the next step.",
+   "evidence_locator": "paper Sec. 5.1",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
-   "resolved": true,
-   "note": "Per-step obs->action gym loop."
+   "resolved": true
   },
   "planning_granularity": {
    "value": "implicit",
@@ -174,13 +168,13 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "use_plan flag reachable (plan section); default off, thinking on."
+   "note": "use_plan flag reachable; default off, CoT thinking on."
   },
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "return GenericAgentArgs(",
-   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:54@88959006c4ec",
+   "evidence_quote": "return GenericAgentArgs(\n        chat_model_args=CHAT_MODEL_ARGS_DICT[llm_config],\n        flags=BASE_FLAGS,\n    )",
+   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:54-57@88959006c4ec",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
@@ -189,34 +183,36 @@
   "delegation_mechanism": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "return GenericAgentArgs(",
-   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:54@88959006c4ec",
+   "evidence_quote": "return GenericAgentArgs(\n        chat_model_args=CHAT_MODEL_ARGS_DICT[llm_config],\n        flags=BASE_FLAGS,\n    )",
+   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:54-57@88959006c4ec",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
   },
   "human_in_loop": {
-   "value": null,
-   "not_reported": true,
-   "evidence_quote": "",
-   "evidence_locator": "",
-   "confidence": "low",
-   "quote_verbatim": false,
-   "flags": [],
-   "resolved": false,
-   "note": "enable_chat flag exists but gating semantics not in evidence."
-  },
-  "short_term_state": {
-   "value": "scratchpad",
+   "value": [
+    "none"
+   ],
    "not_reported": false,
-   "evidence_quote": "use_memory=False,",
-   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:42@88959006c4ec",
+   "evidence_quote": "wait_for_user_message: bool = False",
+   "evidence_locator": "src/agentlab/experiments/loop.py:46@88959006c4ec",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Default conversation/history; memory flag reachable."
+   "note": "Separate hitl_agent exists in file tree; enable_chat=False default."
+  },
+  "short_term_state": {
+   "value": "conversation_only",
+   "not_reported": false,
+   "evidence_quote": "use_action_history=True,\n        use_think_history=True,",
+   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:22-23@88959006c4ec",
+   "confidence": "low",
+   "quote_verbatim": true,
+   "flags": [],
+   "resolved": true,
+   "note": "use_memory flag exists (default False)."
   },
   "long_term_memory": {
    "value": null,
@@ -239,33 +235,31 @@
     "locator_no_line"
    ],
    "resolved": true,
-   "note": "Relaunches incomplete tasks from scratch."
+   "note": "Relaunch reruns incomplete tasks from scratch."
   },
   "self_verification": {
    "value": [
-    "self_critique"
+    "none"
    ],
    "not_reported": false,
    "evidence_quote": "use_criticise=False,",
    "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:40@88959006c4ec",
-   "confidence": "low",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Off by default; reachable via flag."
+   "note": "use_criticise flag reachable (self_critique) but schema forbids mixing; default off."
   },
   "retry_policy": {
    "value": "none",
    "not_reported": false,
-   "evidence_quote": "study.find_incomplete(include_errors=True)",
-   "evidence_locator": "README.md@88959006c4ec",
-   "confidence": "low",
+   "evidence_quote": "we have a parsing loop that can re-prompt the agent up to 4 times to make it aware of a parsing mistake.",
+   "evidence_locator": "paper Sec. 5.1",
+   "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Parse retries via llm_utils.retry are step-level."
+   "note": "Step-level parse retry only."
   },
   "rollback": {
    "value": null,
@@ -279,16 +273,17 @@
   },
   "termination_condition": {
    "value": [
-    "max_steps"
+    "max_steps",
+    "model_declared"
    ],
    "not_reported": false,
    "evidence_quote": "max_steps: Optional[int] = None",
-   "evidence_locator": "src/agentlab/experiments/loop.py:42@88959006c4ec",
+   "evidence_locator": "src/agentlab/experiments/loop.py:43@88959006c4ec",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Env termination also possible; model-declared stop via send_msg not shown."
+   "note": "Termination also via env task done flag."
   },
   "cost_controls": {
    "value": [
@@ -296,8 +291,8 @@
    ],
    "not_reported": false,
    "evidence_quote": "max_prompt_tokens=40_000,",
-   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:47@88959006c4ec",
-   "confidence": "low",
+   "evidence_locator": "src/agentlab/agents/generic_agent/tmlr_config.py:48@88959006c4ec",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true
@@ -307,24 +302,26 @@
     "per_run"
    ],
    "not_reported": false,
-   "evidence_quote": "we've implemented a system to automatically terminate jobs\nexceeding a specified timeout",
+   "evidence_quote": "we've implemented a system to automatically terminate jobs\nexceeding a specified timeout.",
    "evidence_locator": "README.md@88959006c4ec",
-   "confidence": "low",
+   "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
     "locator_no_line"
    ],
-   "resolved": true
+   "resolved": true,
+   "note": "Ray backend only."
   },
   "execution_isolation": {
-   "value": "subprocess",
-   "not_reported": false,
-   "evidence_quote": "It relies on Chromium and uses the Chrome",
-   "evidence_locator": "paper Sec. 4",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "Playwright browser on host; no isolation config in bundle."
   },
   "filesystem_access": {
    "value": null,
@@ -337,16 +334,14 @@
    "resolved": false
   },
   "network_policy": {
-   "value": "open",
-   "not_reported": false,
-   "evidence_quote": "These rely on the agent navigating the open web.",
-   "evidence_locator": "README.md@88959006c4ec",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
-   "resolved": true
+   "quote_verbatim": false,
+   "flags": [],
+   "resolved": false
   },
   "permission_model": {
    "value": null,
@@ -362,7 +357,7 @@
    "value": "structured_traces",
    "not_reported": false,
    "evidence_quote": "Collects information about step that will be saved and reloaded.",
-   "evidence_locator": "src/agentlab/experiments/loop.py:163@88959006c4ec",
+   "evidence_locator": "src/agentlab/experiments/loop.py:161@88959006c4ec",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [],
@@ -371,7 +366,7 @@
   "replayability": {
    "value": "partial",
    "not_reported": false,
-   "evidence_quote": "it will try to re-run\nthe same actions on the same task seeds",
+   "evidence_quote": "You can run this agent](src/agentlab/agents/generic_agent/reproducibility_agent.py) on an existing study and it will try to re-run\n  the same actions on the same task seeds.",
    "evidence_locator": "README.md@88959006c4ec",
    "confidence": "high",
    "quote_verbatim": true,
@@ -400,15 +395,14 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false,
-   "note": "be_cautious is prompt-only."
+   "resolved": false
   },
   "target_domain": {
    "value": [
     "web"
    ],
    "not_reported": false,
-   "evidence_quote": "accelerate the field of web agent research",
+   "evidence_quote": "accelerate the field of web agent research.",
    "evidence_locator": "README.md@88959006c4ec",
    "confidence": "high",
    "quote_verbatim": true,
@@ -420,7 +414,7 @@
   "open_source": {
    "value": "yes",
    "not_reported": false,
-   "evidence_quote": "PyPI - License",
+   "evidence_quote": "pip install agentlab",
    "evidence_locator": "README.md@88959006c4ec",
    "confidence": "low",
    "quote_verbatim": true,
@@ -428,7 +422,7 @@
     "locator_no_line"
    ],
    "resolved": true,
-   "note": "LICENSE file not in evidence; badge links Apache-2.0."
+   "note": "LICENSE file present but not shown; badge suggests Apache-2.0."
   },
   "model_agnostic": {
    "value": "yes",
@@ -445,15 +439,13 @@
   "primary_artifact": {
    "value": "repo",
    "not_reported": false,
-   "evidence_quote": "ref: tag:docs/v0.4.2 88959006c4ec192e458eb91a38a731b3a080fa5b 2026-01-20",
-   "evidence_locator": "README.md@88959006c4ec",
+   "evidence_quote": "5Code: https://github.com/ServiceNow/AgentLab.",
+   "evidence_locator": "paper Sec. 5",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [
-    "locator_no_line"
-   ],
+   "flags": [],
    "resolved": true,
-   "note": "Repo postdates WorkArena paper."
+   "note": "Pinned repo postdates paper (BrowserGym v0.3.5 era)."
   },
   "first_release_date": {
    "value": null,
@@ -466,14 +458,14 @@
    "resolved": false
   },
   "pinned_version": {
-   "value": "docs/v0.4.2 @ 88959006c4ec192e458eb91a38a731b3a080fa5b (2026-01-20)",
+   "value": "tag:docs/v0.4.2 @ 88959006c4ec192e458eb91a38a731b3a080fa5b (2026-01-20)",
    "not_reported": false,
    "evidence_quote": "ref: tag:docs/v0.4.2 88959006c4ec192e458eb91a38a731b3a080fa5b 2026-01-20",
-   "evidence_locator": "README.md@88959006c4ec",
+   "evidence_locator": "github:ServiceNow/AgentLab header",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
-    "locator_no_line"
+    "locator_shape_unrecognised"
    ],
    "resolved": true
   },
@@ -481,29 +473,31 @@
    "value": 635,
    "not_reported": false,
    "evidence_quote": "stars: 635",
-   "evidence_locator": "README.md@88959006c4ec",
+   "evidence_locator": "repository evidence header",
    "confidence": "medium",
    "quote_verbatim": true,
    "flags": [
-    "locator_no_line"
+    "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "From evidence header; date not stated."
+   "note": "Date of star count not stated."
   }
  },
  "cells_unresolved": [
   "B2",
   "B5",
-  "C5",
   "D2",
   "E3",
+  "G1",
   "G2",
+  "G3",
   "G4",
   "H4",
   "M5"
  ],
  "flag_counts": {
-  "locator_no_line": 12
+  "locator_no_line": 7,
+  "locator_shape_unrecognised": 2
  },
  "history": {
   "B2": {
@@ -513,12 +507,6 @@
    "reason": "pass B did not resolve it either"
   },
   "B5": {
-   "superseded_pass": "B",
-   "value": "",
-   "flags": "",
-   "reason": "pass B did not resolve it either"
-  },
-  "C5": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -536,7 +524,19 @@
    "flags": "",
    "reason": "pass B did not resolve it either"
   },
+  "G1": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
   "G2": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "G3": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -563,16 +563,16 @@
  },
  "pass": "B",
  "coder": "llm-prefill",
- "coded_at": "2026-09-23T18:32:07+00:00",
+ "coded_at": "2026-09-24T14:51:28+00:00",
  "model": "claude-opus-5-5",
  "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
- "bundle_chars": 109908,
- "doc_chars": 12576,
- "call_id": "B-browsergym-agentlab-genericagent-00034",
- "tokens_in": 24222,
- "tokens_out": 744,
+ "bundle_chars": 109887,
+ "doc_chars": 12740,
+ "call_id": "B-browsergym-agentlab-genericagent-00009",
+ "tokens_in": 24496,
+ "tokens_out": 863,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.111768"
+ "cost_usd": "0.115244"
 }

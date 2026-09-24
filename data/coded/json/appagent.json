@@ -5,9 +5,9 @@
  "repo_url": "https://github.com/tencentqqgylab/appagent",
  "stratum": "H",
  "weight": "1.0",
- "schema_version": "0.2.0",
+ "schema_version": "1.0.0",
  "bundle": {
-  "chars": 85998,
+  "chars": 45327,
   "truncated": false,
   "parts": [
    {
@@ -23,13 +23,6 @@
     "chars_available": 33092,
     "chars_used": 33092,
     "truncated": false
-   },
-   {
-    "kind": "paper",
-    "record_id": "arxiv:2503.02268",
-    "chars_available": 40548,
-    "chars_used": 40548,
-    "truncated": false
    }
   ],
   "missing": []
@@ -44,7 +37,7 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Only README, file tree and paper are available; scripts/prompts.py exists but its contents are not in the evidence. Coded from the paper's prose describing per-step prompts that include a generated document."
+   "note": "Only file names (scripts/prompts.py) visible; the prompt code itself is not in the evidence. Coded from paper prose."
   },
   "env_context_strategy": {
    "value": "mixed",
@@ -55,7 +48,7 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "Two things feed the model. First, UI elements parsed from the XML are injected as numeric labels on the screenshot. Second, the exploration-phase document base is injected. Both combine with agent-driven actions."
+   "note": "Screen state and XML are injected every step, together with the document base generated during exploration. The agent can also navigate the app with actions."
   },
   "context_compaction": {
    "value": null,
@@ -66,7 +59,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Paper Sec. 3.3 says a per-step summary is carried forward, but the code is not in the bundle. The history-handling code in scripts/task_executor.py was not provided."
+   "note": "The paper says the agent summarizes history into the next prompt. Code for the history handling (task_executor.py) is not included in the evidence."
   },
   "observation_format": {
    "value": [
@@ -79,20 +72,20 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The README also mentions an optional grid overlay."
+   "note": "Changelog lists an optional grid overlay. XML is used to build the labels."
   },
   "tool_call_format": {
    "value": [
     "code_as_action"
    ],
    "not_reported": false,
-   "evidence_quote": "Action: swipe(23, \"right\", \"medium\")",
+   "evidence_quote": "Action: tap(17)",
    "evidence_locator": "paper Fig. 1",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The model emits function-call-like text such as tap(5), which is parsed from the text. Closest value is code_as_action; this is a mismatch because the text is parsed, not executed as code. The parser in scripts/model.py was not provided."
+   "note": "The model writes function-call text (tap(5)) that is parsed out of its response. Closest value is code_as_action. The parser is not in the evidence."
   },
   "tool_count": {
    "value": 6,
@@ -103,7 +96,7 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The paper lists six actions: tap, long_press, swipe, text, back, exit. The optional grid tool is excluded from the count. These are text actions, not schema tools."
+   "note": "The paper lists tap, long_press, swipe, text, back and exit, which is 6 functions despite the text saying four. The optional grid action is not counted."
   },
   "edit_primitive": {
    "value": [
@@ -116,7 +109,7 @@
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The action space is GUI-only and has no file editing."
+   "note": "GUI action space only; there is no file-editing tool."
   },
   "tool_schema_source": {
    "value": [
@@ -139,20 +132,20 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "The source files and requirements.txt contents are not in the bundle, so no grep was possible."
+   "note": "Source and dependency contents are not included in the evidence (only requirements.txt filename)."
   },
   "loop_primitives": {
    "value": [
     "react"
    ],
    "not_reported": false,
-   "evidence_quote": "In each step, the agent is first tasked with providing its observations of the current UI, followed by articulating its thought process",
+   "evidence_quote": "the agent is first tasked with providing its observations of the current UI, followed by articulating its thought process concerning the task and current observations. Subsequently, the agent proceeds to execute actions",
    "evidence_locator": "paper Sec. 3.3",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The exploration phase (learn.py) is a separate mode with reflection on each action."
+   "note": "The exploration phase (learn.py) adds reflection and document generation."
   },
   "planning_granularity": {
    "value": "implicit",
@@ -167,7 +160,7 @@
   "multi_agent_topology": {
    "value": "single",
    "not_reported": false,
-   "evidence_quote": "The agent adheres to a step-by-step approach when given a task",
+   "evidence_quote": "the agent proceeds to execute actions by invoking available functions",
    "evidence_locator": "paper Sec. 3.3",
    "confidence": "low",
    "quote_verbatim": true,
@@ -175,14 +168,15 @@
    "resolved": true
   },
   "delegation_mechanism": {
-   "value": "none",
-   "not_reported": false,
-   "evidence_quote": "The agent adheres to a step-by-step approach when given a task",
-   "evidence_locator": "paper Sec. 3.3",
+   "value": null,
+   "not_reported": true,
+   "evidence_quote": "",
+   "evidence_locator": "",
    "confidence": "low",
-   "quote_verbatim": true,
+   "quote_verbatim": false,
    "flags": [],
-   "resolved": true
+   "resolved": false,
+   "note": "The run loop code is not in the evidence."
   },
   "human_in_loop": {
    "value": null,
@@ -193,12 +187,12 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Human demonstration is a learning mode, not a gate on the agent's actions. The run loop code was not provided."
+   "note": "Human demonstration mode exists, but it is a learning input and not HITL gating. The run loop code is not in the evidence."
   },
   "short_term_state": {
    "value": "scratchpad",
    "not_reported": false,
-   "evidence_quote": "After each action, the agent summarizes the interaction history and the actions taken during the current step. This information is incorporated into the next prompt",
+   "evidence_quote": "the agent summarizes the interaction history and the actions taken during the current step. This information is incorporated into the next prompt",
    "evidence_locator": "paper Sec. 3.3",
    "confidence": "low",
    "quote_verbatim": true,
@@ -211,11 +205,14 @@
    ],
    "not_reported": false,
    "evidence_quote": "the agent generates documentation for elements interacted during the exploration/demonstration and saves them for use in the deployment phase.",
-   "evidence_locator": "README.md (Step 3)@2c19004",
-   "confidence": "medium",
+   "evidence_locator": "README.md@2c19004",
+   "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
-   "resolved": true
+   "flags": [
+    "locator_no_line"
+   ],
+   "resolved": true,
+   "note": "The per-app UI element documentation base is persisted and reused across runs."
   },
   "state_persistence": {
    "value": null,
@@ -226,7 +223,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "The code was not provided, so there was no place to check for resume support."
+   "note": "Code is not in the evidence."
   },
   "self_verification": {
    "value": [
@@ -234,12 +231,14 @@
    ],
    "not_reported": false,
    "evidence_quote": "AppAgent will reflect on its previous action making sure its action adheres to the given task",
-   "evidence_locator": "README.md (Option 1)@2c19004",
+   "evidence_locator": "README.md@2c19004",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "This applies only in the exploration mode."
+   "note": "Reflection happens in the autonomous exploration mode."
   },
   "retry_policy": {
    "value": null,
@@ -249,7 +248,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Code is not in the evidence."
   },
   "rollback": {
    "value": null,
@@ -260,7 +260,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "Back() is UI navigation, not rollback of changes."
+   "note": "Back() is a GUI navigation action, not rollback. Code is not in the evidence."
   },
   "termination_condition": {
    "value": [
@@ -268,13 +268,13 @@
     "model_declared"
    ],
    "not_reported": false,
-   "evidence_quote": "it can exit the process by taking theExit()action.",
-   "evidence_locator": "paper Sec. 3.3",
+   "evidence_quote": "For the exploration phase, we capped the maximum number of steps at 40. During testing, we limited the maximum number of steps to 10.",
+   "evidence_locator": "paper Sec. 4.1",
    "confidence": "low",
    "quote_verbatim": true,
    "flags": [],
    "resolved": true,
-   "note": "The paper Sec. 4.1 caps steps at 40 for exploration and 10 for testing. Whether the step cap exists in config.yaml could not be verified."
+   "note": "The model declares completion with Exit() (paper Sec. 3.3). A config field for max rounds is likely in config.yaml, but its contents are not shown."
   },
   "cost_controls": {
    "value": null,
@@ -285,7 +285,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "README mentions a request-interval setting, which is rate limiting rather than a spend cap. config.yaml contents are not in the bundle."
+   "note": "The config.yaml contents are not in the evidence. The request interval is only a rate limit."
   },
   "timeouts": {
    "value": null,
@@ -295,18 +295,21 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Code is not in the evidence."
   },
   "execution_isolation": {
-   "value": "subprocess",
+   "value": "remote",
    "not_reported": false,
-   "evidence_quote": "download and install [Android Debug Bridge](https://developer.android.com/tools/adb) (adb) which is a\ncommand-line tool",
-   "evidence_locator": "README.md (Step 1)@2c19004",
+   "evidence_quote": "download and install [Android Debug Bridge](https://developer.android.com/tools/adb) (adb) which is a\ncommand-line tool that lets you communicate with your Android device from the PC.",
+   "evidence_locator": "README.md@2c19004",
    "confidence": "low",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Actions run as host adb commands against a real device or emulator. The quote may not match exactly because it spans a line break."
+   "note": "Actions run on a separate Android device or emulator via adb. Closest value is remote; vm is also plausible for the emulator."
   },
   "filesystem_access": {
    "value": null,
@@ -316,7 +319,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "The action space is GUI-only, so filesystem access is not applicable or reported."
   },
   "network_policy": {
    "value": null,
@@ -326,7 +330,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Code and config contents are not in the evidence."
   },
   "permission_model": {
    "value": null,
@@ -336,7 +341,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Code is not in the evidence."
   },
   "tracing": {
    "value": null,
@@ -347,7 +353,7 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "scripts/step_recorder.py exists in the file tree but its contents were not provided."
+   "note": "Code is not in the evidence."
   },
   "replayability": {
    "value": null,
@@ -357,18 +363,21 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Code is not in the evidence."
   },
   "eval_hooks": {
    "value": "none",
    "not_reported": false,
    "evidence_quote": "Please refer to [evaluation benchmark](https://github.com/mnotgod96/AppAgent/blob/main/assets/testset.md).",
-   "evidence_locator": "README.md (Evaluation)@2c19004",
+   "evidence_locator": "README.md@2c19004",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "The shipped benchmark is a task list (assets/testset.md) with no runner. The file tree has no evaluation script."
+   "note": "The file tree has only a markdown test set and no evaluation runner."
   },
   "guardrails": {
    "value": null,
@@ -378,7 +387,8 @@
    "confidence": "low",
    "quote_verbatim": false,
    "flags": [],
-   "resolved": false
+   "resolved": false,
+   "note": "Code is not in the evidence."
   },
   "target_domain": {
    "value": [
@@ -386,7 +396,7 @@
    ],
    "not_reported": false,
    "evidence_quote": "an LLM-based multimodal agent framework designed to operate smartphone apps.",
-   "evidence_locator": "repo description@2c19004",
+   "evidence_locator": "README.md@2c19004",
    "confidence": "high",
    "quote_verbatim": true,
    "flags": [
@@ -398,22 +408,26 @@
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "The [MIT license](./assets/license.txt).",
-   "evidence_locator": "README.md (License)@2c19004",
+   "evidence_locator": "README.md@2c19004",
    "confidence": "high",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true
   },
   "model_agnostic": {
    "value": "yes",
    "not_reported": false,
    "evidence_quote": "If you want to test AppAgent using your own models, you should write a new model class in `scripts/model.py` accordingly.",
-   "evidence_locator": "README.md (Step 2)@2c19004",
+   "evidence_locator": "README.md@2c19004",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "Only OpenAI and Qwen are shipped; other models require writing code. There is no litellm abstraction."
+   "note": "Ships OpenAI and Qwen options behind a model class abstraction; there is no litellm."
   },
   "primary_artifact": {
    "value": "repo",
@@ -425,19 +439,20 @@
    "flags": [
     "locator_shape_unrecognised"
    ],
-   "resolved": true,
-   "note": "The paper is arXiv 2312.13771."
+   "resolved": true
   },
   "first_release_date": {
    "value": "2023-12-21",
    "not_reported": false,
    "evidence_quote": "__[2023.12.21]__: Open-sourced the git repository",
-   "evidence_locator": "README.md (Changelog)@2c19004",
+   "evidence_locator": "README.md@2c19004",
    "confidence": "medium",
    "quote_verbatim": true,
-   "flags": [],
+   "flags": [
+    "locator_no_line"
+   ],
    "resolved": true,
-   "note": "No tag information was available. The date is the open-sourcing date from the changelog."
+   "note": "Based on the open-source date in the changelog. No tag information was available."
   },
   "pinned_version": {
    "value": "main @ 2c1900422caf6f9e94e96d5dd984b530e5a5fbf8 (2025-03-19)",
@@ -450,7 +465,7 @@
     "locator_shape_unrecognised"
    ],
    "resolved": true,
-   "note": "No release tag is known, so this pins main."
+   "note": "Untagged; pinned to the main commit."
   },
   "stars": {
    "value": null,
@@ -461,12 +476,13 @@
    "quote_verbatim": false,
    "flags": [],
    "resolved": false,
-   "note": "No star count is in the evidence."
+   "note": "The star count is not in the evidence."
   }
  },
  "cells_unresolved": [
   "A3",
   "B5",
+  "C4",
   "C5",
   "D3",
   "E2",
@@ -482,7 +498,7 @@
   "M7"
  ],
  "flag_counts": {
-  "locator_no_line": 1,
+  "locator_no_line": 8,
   "locator_shape_unrecognised": 2
  },
  "history": {
@@ -493,6 +509,12 @@
    "reason": "pass B did not resolve it either"
   },
   "B5": {
+   "superseded_pass": "B",
+   "value": "",
+   "flags": "",
+   "reason": "pass B did not resolve it either"
+  },
+  "C4": {
    "superseded_pass": "B",
    "value": "",
    "flags": "",
@@ -579,16 +601,16 @@
  },
  "pass": "B",
  "coder": "llm-prefill",
- "coded_at": "2026-09-23T19:34:30+00:00",
+ "coded_at": "2026-09-24T14:54:19+00:00",
  "model": "claude-opus-5-5",
  "prompt_version": "code-v2-2026-09-23",
  "effort": "low",
- "bundle_chars": 85998,
- "doc_chars": 12732,
- "call_id": "B-appagent-00123",
- "tokens_in": 25376,
- "tokens_out": 1098,
+ "bundle_chars": 45327,
+ "doc_chars": 12368,
+ "call_id": "B-appagent-00094",
+ "tokens_in": 25599,
+ "tokens_out": 1029,
  "cache_read": 0,
  "cache_write": 0,
- "cost_usd": "0.123464"
+ "cost_usd": "0.122976"
 }
