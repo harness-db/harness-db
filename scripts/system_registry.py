@@ -261,12 +261,30 @@ def group_records(recs: list[dict[str, Any]], cands: dict[str, dict[str, str]] |
                 how[by_repo[k]].add("repo")
             else:
                 by_repo[k] = i
+    # Name-based merging is deliberately weaker than repo-based merging, because it is transitive and
+    # fuzzy name matching chains: no two of "RCI agent", "ACID-Agent", "AD-AGENT", "AI2Agent" match
+    # each other directly (rciagent vs acidagent scores 82, under the 92 bar), but A-B, B-C, C-D links
+    # pooled 129 records and 105 distinct names into one "system" row, which was then coded as if it
+    # were one harness. Two rules stop that:
+    #   1. a name similarity never merges records with different known repositories - protocol 4.4
+    #      already treats a fork or re-implementation as a separate system;
+    #   2. where a repository is missing on either side there is nothing to corroborate the name, so
+    #      the normalised keys must be EQUAL, not merely similar.
+    # The cost is under-merging: one system described under two spellings with no repository on either
+    # side now yields two rows. That is the safe direction to be wrong in - a duplicate row is
+    # detectable later from its repo or DOI, whereas a pooled row destroys the unit of analysis.
     for i in range(n):
         for j in range(i + 1, n):
-            if base[i][0] and base[j][0] and names_match(base[i][0], base[j][0]):
-                uf.union(i, j)
-                how[i].add("name")
-                how[j].add("name")
+            if not (base[i][0] and base[j][0]):
+                continue
+            ri, rj = rkeys[i], rkeys[j]
+            if ri and rj:
+                continue  # both repos known: the repo pass already decided, either way
+            if key_of(base[i][0]) != key_of(base[j][0]):
+                continue
+            uf.union(i, j)
+            how[i].add("name")
+            how[j].add("name")
     groups: dict[int, list[int]] = defaultdict(list)
     for i in range(n):
         groups[uf.find(i)].append(i)
