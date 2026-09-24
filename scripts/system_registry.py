@@ -161,6 +161,22 @@ def repo_key(url: str) -> str:
     return f"{host}/{owner}/{repo}{sub}"
 
 
+def letter_tail_conflict(a: str, b: str) -> bool:
+    """True when two names flatten to the same key only because one ends in a single-letter token.
+
+    `key_of` drops spaces, so "Agent S" and "Agents" both flatten to `agents`. Combined with version
+    stripping that turns "Agent S2" into "Agent S", it merged Simular's Agent S family into AIWaves'
+    "Agents" - two unrelated projects. A trailing one-character token is part of the name (Agent S,
+    Claude Code W), so names that disagree about having one are not the same name. Names that merely
+    disagree about spacing ("Open Hands" against "OpenHands") are unaffected, because neither ends in
+    a single-character token.
+    """
+    ta, tb = norm_name(a).split(), norm_name(b).split()
+    if not ta or not tb:
+        return False
+    return (len(ta[-1]) == 1) != (len(tb[-1]) == 1)
+
+
 def keys_match(ka: str, kb: str, threshold: int = NAME_THRESHOLD) -> bool:
     """Name match on precomputed keys: exact for short keys, else rapidfuzz ratio >= threshold."""
     if not ka or not kb:
@@ -282,6 +298,8 @@ def group_records(recs: list[dict[str, Any]], cands: dict[str, dict[str, str]] |
                 continue  # both repos known: the repo pass already decided, either way
             if key_of(base[i][0]) != key_of(base[j][0]):
                 continue
+            if letter_tail_conflict(base[i][0], base[j][0]):
+                continue  # "Agent S" is not "Agents"; see letter_tail_conflict
             uf.union(i, j)
             how[i].add("name")
             how[j].add("name")
