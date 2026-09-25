@@ -1,2 +1,279 @@
-\section{Design vs outcomes}
-% TODO
+% Section 7 (RQ3). Every number that comes from the corpus-wide ablation harvest is a macro defined in
+% tables/rq3_macros.tex, generated together with the three table fragments input below, so a rerun of
+% the harvest updates this section without editing it. So are the two sensitivity analyses (the layer
+% correlation before the mapping rules, the cross-paper headline without baseline-only keys). Numbers
+% that do not come from that harvest (the other cross-paper contrasts, the coded-set harvest, the
+% own-arm test, the attribution study, the pilot) are literals and are fixed.
+% Macro formats this text assumes (all used in text mode, never inside $...$):
+%   counts            plain numbers, thousands separator where needed (\rqCorpusContrasts -> 867)
+%   *Pct              number only, no percent sign; the text appends \% (\rqSignSharePct -> 91)
+%   \rqSVPooled, \rqSVDiscounted, \rqCoverageRho, \rqCoverageP   signed or plain decimal, text-safe
+%   \rqPreRuleRho, \rqPreRuleP, \rqXPOtherEffect, \rqXPOtherP     likewise
+%   \rqSVCIz, \rqSVPI, \rqXPOtherCI  interval including its brackets, text-safe ([$+0.107$, $+0.187$])
+%   \rqZeroDimList, \rqPIExcludesZeroDims   \texttt names joined with commas and "and"
+%   \rqZeroLayerList  layer letters joined with "and"; the word "empty" if the set is empty
+%                     (the sentence reads "the set of layers with no ablated dimension is \rqZeroLayerList")
+%   \rqHarvestTierCoverage   a noun phrase (e.g. "28\% of the top-signal tier and none of the second")
+%   \rqHarvestDate    a date
+%   \rqSignSharePct   share of the \rqSignDenom contrasts on POOLED dimensions (coded-set plus
+%                     corpus-wide) that favour the component
+
+\section{Design choices versus outcomes}\label{sec:outcomes}
+
+Research question~3 asks which harness design choices are associated with better task outcomes.
+Three designs can address it, and they differ in what each can identify
+(Figure~\ref{fig:rq3-triangulation}). A cross-paper association compares coded systems inside a shared
+benchmark, split and base model; measurement error on the design variable attenuates it towards zero,
+while the choice of reference systems can inflate it. A within-study meta-analysis pools the ablations
+authors publish about their own components; selective reporting inflates it, so its estimates are
+\emph{upper bounds}. Only a registered, compute-matched ablation identifies a component's effect at
+equal compute. Table~\ref{tab:rq3-bounds} sets the three side by side with the direction of each
+bound. \citet{guo2026qa2task} run the closest prior
+analysis; they compare harnesses by identity, where we compare them by coded dimension.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{rq3_triangulation}
+  \caption{The three RQ3 designs, placed by what each can identify. Cross-paper association within comparable keys (36 keys) can show only co-occurrence; scaffold drift biases it towards zero and baseline selection away from it, so the $+0.88$ within-key sd for multi-agent topology is a lower bound only against drift (Section~\ref{subsec:comparability}). The within-study meta-analysis of authors' own ablations identifies a component effect but is inflated by unreported nulls, so its pooled effects are upper bounds; the corpus-wide row pools \rqTotalContrasts{} contrasts from \rqTotalPapers{} papers under the same design. Only the registered compute-matched ablation identifies the effect at equal compute; its pilot failed the pre-registered band, so the one design that could settle RQ3 has not yet produced an estimate.}
+  \label{fig:rq3-triangulation}
+\end{figure}
+
+\input{tables/rq3_designs}
+
+\subsection{Fewer than one coded system in twenty can be compared to a peer}\label{subsec:comparability}
+
+The cross-paper design is nearly empty. Of the 1,256 coded systems the outcome analysis read, 646
+report a benchmark score, but only 53 (4.2\%) share a canonical benchmark, split and base model with
+another coded system, across 36 comparable keys. The registered mixed-effects regression was therefore
+not fitted (amendment~11): its 38 design dimensions against 36 key clusters leave the coefficients
+without support, and we report the non-fit rather than substitute an unregistered model.
+
+Two of five pre-specified contrasts clear both of their tests, and neither is free of selection.
+Multi-agent topology is associated with $+0.88$ within-key standard deviations, 95\% bootstrap CI
+$[+0.38, +1.31]$ over keys, on 18 keys and 38 systems, within-key permutation $p=0.0013$. It is an
+association, not an effect, and two biases act on it in opposite directions. Scores do not name the
+harness commit that produced them, while we code a pinned commit; that scaffold drift is measurement
+error on the design variable and attenuates the estimate. Selection
+pushes the other way: in \rqXPBaselineKeys{} of the 18 keys every reference system is a recurring
+baseline harness, and on the other \rqXPOtherKeys{} keys the association is \rqXPOtherEffect{}
+\rqXPOtherCI{} (permutation $p$ of \rqXPOtherP), so it is a lower bound only against drift, and its
+detection rests on the baseline keys.
+
+The other contrasts are reported with what they could have detected. \texttt{explicit\_plan} is a null,
+$+0.36$ $[-0.30, +0.97]$, with a minimum detectable effect (MDE) of 1.05 within-key standard
+deviations. \texttt{executable\_verification}, on 3 keys, has a bootstrap interval that excludes zero,
+$-0.73$ $[-1.41, -0.26]$, but an exact permutation test that does not ($p=0.306$; MDE 1.87), so it is
+read as a null. \texttt{any\_retry} varies inside only 2 keys, whose sign-symmetric label assignments
+floor its two-sided $p$ at 0.500, so it is not estimable. \texttt{any\_compaction} clears both tests at
+its design floor ($p=0.042$), but all 4 of its keys use a recurring baseline as reference, so it is
+reported as confounded.
+
+\emph{Takeaway.} The cross-paper literature supports one association, detected only with the keys
+that compare against baselines, and cannot identify design effects, a measured property of how the
+field reports results.
+
+\subsection{Authors' own ablations barely separate design dimensions}\label{subsec:ablations}
+
+The within-study design pools authors' published ablations of their own systems. Each contrast is one
+codebase at one commit with one base model, differing in one component, and its effect is the relative
+change $(\text{with}-\text{without})/\text{with}$ in the paper's own metric. Beyond the
+\rqCodedContrasts{} coded-set contrasts from \rqCodedPapers{} papers, the extraction stage read the
+full text of \rqCorpusPapersExtracted{} included papers, in order of a prefilter score for ablation
+content, and added \rqCorpusContrasts{} pool-eligible contrasts from \rqCorpusPapersWithContrast{}
+papers. \rqPoolableDims{} dimensions now reach the three papers needed to pool, against 8 on the
+coded set alone.
+
+Rows enter the pool only under fixed rules. A row is kept if its two scores appear together and
+verbatim, share a scale and metric, vary the harness rather than the model, and map to a design
+dimension above a confidence floor. Seven mapping rules then correct attributions the text
+contradicts: a removed sandbox that takes code-execution feedback with it is self-verification, not
+isolation, and a row whose scores run together, report a delta, or carry a label that contradicts its
+direction is dropped. Every firing is logged in the replication package.
+
+\input{tables/rq3_pooled}
+
+Table~\ref{tab:ablations} gives the pooled result, and its central fact is convergence. Most
+dimensions show a positive relative gain of similar size, with overlapping intervals. Context
+compaction is the one well-populated exception: its gain is lower and nearly homogeneous, and its $z$
+interval lies wholly below those of the six best-populated dimensions. The bias signature
+repeats as well: \rqSignSharePct\% of the \rqSignDenom{} contrasts on pooled dimensions favour the
+authors' component, heterogeneity is high in most rows, and \rqPIIncludesZeroCount{} of the
+\rqPoolableDims{} prediction intervals include zero.
+
+Gains of one size from components this different would be a coincidence; one reporting filter applied
+to every component would not. An ablation is written up to show that a component helps, so what
+reaches print reflects the threshold for a presentable gain more than the mechanism removed.
+Misassigned dimension labels would also pull the rows together, so convergence shows how
+little these ablations separate the dimensions, not which mechanism produced it.
+
+The pre-stated discount rule fails to discriminate at this scale. The rule
+shrinks each pooled effect by the larger of its own trim-and-fill and one-null-per-contrast shrinkage
+\citep{duval2000trimfill,copas2000funnel}, and admits a dimension whose discounted confidence-interval
+lower bound still clears 2\% relative. Of \rqPoolableDims{} dimensions, \rqDiscountSurviveZ{} pass, and
+\rqDiscountSurviveHK{} pass with a Hartung--Knapp interval in place of the $z$ interval. The cause is
+structural. For positive effects the discounts sit near one half (median \rqMedianDiscountPct\%), so
+the rule reduces to asking whether an interval clears zero, and more contrasts make that easier
+whatever produced the effect. On the coded set, with 3 to 14 papers per dimension, the same rule
+admitted two dimensions; its selectivity there was a property of small samples.
+
+The prediction-interval criterion \citep{higgins2009predictioninterval} is the secondary we can defend,
+and it admits only \rqPIExcludesZeroDims{}, whose lower end Table~\ref{tab:ablations} gives. A
+prediction interval clears zero only where between-paper heterogeneity is small, so the criterion asks
+whether the next published ablation would also favour the component. It remains an upper-bound
+criterion, because the next published ablation passes through the same reporting filter.
+
+Self-verification's estimate is stable and no longer distinguished. On the coded set it pooled to at
+most $+0.139$ on 14 papers ($+0.069$ after the discount); corpus-wide it pools to \rqSVPooled, 95\% CI
+\rqSVCIz, on \rqSVPapers{} papers, discounted to \rqSVDiscounted, with a prediction interval of
+\rqSVPI{} that includes zero. A filtered literature produces that stability as readily as a real
+effect does. The defensible sentence is that self-verification is worth at most about
+\rqSVDiscounted{} relative in published ablations, and a sentence of the same form can be written for
+most of the table.
+
+Every estimate in Table~\ref{tab:ablations} is an upper bound. The within-study design absorbs four of
+the five benchmark caveats we document, because both arms share one codebase, commit and team; what
+survives is self-reporting, concentrated: every contrast is an author reporting on a component they
+built. As of
+\rqHarvestDate{} the corpus-wide harvest has reached \rqHarvestTierCoverage.
+
+\emph{Takeaway.} Authors' own ablations bound most components from above and rank almost none:
+whatever is ablated appears to help by about the same amount, which fits selective reporting better
+than equal real effects.
+
+\subsection{Publication bias, measured on the sign distribution}\label{subsec:bias}
+
+Selective reporting is measured here rather than assumed, and the measurement is the sign distribution.
+Of the \rqSignDenom{} coded-set and corpus-wide contrasts on pooled dimensions, \rqSignSharePct\% favour
+the authors' own component. The share does not rest on
+our orientation of the metrics: \rqPolarityAssumedN{} contrasts take higher-is-better by assumption
+because their metric names no direction, yet \rqPolarityStatedFavourPct\% of the
+\rqPolarityStatedN{} with a stated direction favour the component (\rqPolarityAssumedFavourPct\% of the
+rest). No rule reads an effect's sign, but the rule that drops a row whose label contradicts
+its direction removed \rqDCLDropped{} rows (\rqDCLAgainst{} unfavourable as extracted); kept, they
+would give \rqSignShareWithDCLPct\%. A component that helped only sometimes would produce more
+dissent than that, and this distribution is the empirical warrant for reading
+Table~\ref{tab:ablations} as upper bounds.
+
+The within-paper baseline tables corroborate the mechanism; they are not a second measurement of it.
+Over all 75 blocks containing the authors' own arm, from 37 papers, the own arm's advantage over chance
+is not established (paper-clustered $p=0.21$). It survives only in tables of five or more arms, 14 of
+17 against 6.95 expected ($p=4.4\times10^{-4}$), and those tables hold 70 of the 89 own-ablation arms:
+large arm tables in this literature are largely the paper's own ablation tables.
+
+Egger's test \citep{egger1997bias} is reported and not leaned on, because its input is partly our own
+construction. Papers publish no standard errors, so a contrast's variance is reconstructed binomially
+from its two arm scores where the metric is a proportion, and set by an assumed 10\% relative standard
+error for the other \rqVarAssumedN{} contrasts on pooled dimensions. Under the binomial reconstruction,
+at a given with-component score, the variance of the relative effect falls as the effect grows.
+Random-effects weights \citep{dersimonian1986meta} therefore favour the largest effects, pushing pooled
+estimates upward, in the direction the upper bound already declares. The same dependence tilts the
+funnel against the asymmetry that small-study bias produces, so the artefact biases Egger's test
+towards non-detection.
+
+\emph{Takeaway.} Author selection of what to publish is present at the magnitude the sign distribution
+measures, and it acts on which contrasts reach print.
+
+\subsection{Where the field ablates}\label{subsec:coverage}
+
+Ablation density falls as a layer's silence rises. Table~\ref{tab:coverage} sets the harvested contrasts
+against each layer's weighted \texttt{not\_reported} rate from the landscape analysis. Across the eight
+substantive layers, the rank correlation between
+silence and ablation density is Spearman's $\rho$ of \rqCoverageRho, exact one-sided permutation $p$ of
+\rqCoverageP. On the coded set, layers F, G and H (budget and termination, sandbox and environment,
+observability and governance) carried no ablation at all. The corpus-wide harvest reaches some of their
+dimensions through a handful of papers each, among them guardrails (H4), one of the two dimensions whose
+prediction interval excludes zero, but \rqZeroDimCount{} dimensions still carry no published ablation
+(\rqZeroDimList), and the set of layers with no ablated dimension is \rqZeroLayerList{}.
+
+The mapping rules produce that empty layer but not the gradient. The harvest first attributed
+\rqPreRuleGContrasts{} contrasts to the sandbox layer; the rules reassigned \rqPreRuleGRemapped{}
+removals of code-execution feedback or tool access to the dimensions they take away and dropped
+\rqPreRuleGDropped{} as unreadable or unattributable, and with all seven rules undone $\rho$ is
+\rqPreRuleRho{} (exact $p$ of \rqPreRuleP), steeper than with them.
+
+\input{tables/rq3_coverage}
+
+This is an absence of evidence and is read as one: no paper in the harvest published a number for
+removing these components, which says nothing about whether they matter. The layers that govern safe
+deployment are the layers the literature has measured least.
+
+\emph{Takeaway.} The field ablates the layers that describe what a harness does and seldom the layers
+that bound it.
+
+\subsection{Papers compare their system against its own configurations}\label{subsec:attribution}
+
+The within-paper baseline table should have been RQ3's strongest design, and it fails for a reason
+that is itself a finding. A block, one paper by benchmark by split by metric by model, holds
+team, protocol and base model fixed. Yet 784 of the 819 comparator arms in the 324 estimable blocks
+(95.7\%) cannot be tied to any system in the 6,504-system census, and the only 7 blocks with two or
+more attributed comparators come from one paper, so no contrast in this design is replicated across
+papers.
+
+Name recall is not the explanation. A vetted alias table,
+accepting a mapping only when the candidate's name is corroborated in that paper's own full text,
+raised attributed comparator arms from 28 to 35 and left the number of blocks spanning more than one
+paper unchanged. Of the 172 comparator labels the first reading judged to name a harness, 149 were
+the reporting paper's own system under an abbreviation, such as \texttt{OH CodeActAgent v1.5} in the
+OpenHands paper \citep{wang2024openhands}.
+
+\emph{Takeaway.} Harness-to-harness comparison in this literature is largely not attempted; baseline
+tables hold the paper's own configurations and bare model names, a gap that
+\citet{samemodel2026harness} and \citet{scaffoldeffect2026} document from the model's side.
+
+\subsection{Our own controlled ablation: registered, piloted, not yet run}\label{subsec:tier3}
+
+Both published designs are author-reported, so before collecting any data we registered a controlled
+ablation of our own, filed as a protocol amendment pending acceptance (Figure~\ref{fig:tier3-design}).
+It targets self-verification, chosen when the coded-set harvest singled it out. A verification step
+issues extra model calls, so every published contrast asks whether verifying helps, confounded with
+compute, and never whether verifying and repairing beats unguided retrying at equal compute. Arm~C
+therefore receives exactly the calls arm~B used, matched per instance rather than on average. No paper
+among the 42 coded-set papers that publish a component ablation runs such a control, a distinction
+that work on feedback compute makes salient \citep{efc2026scaling}.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{tier3_design}
+  \caption{The registered compute-matched ablation, drawn for one instance. Arm~A makes a single call. Arm~B attempts, runs checks it wrote itself and repairs until they pass or $k$ calls are spent, recording the calls it used, $c_i$. Arm~C then receives exactly $c_i$ independent, unguided attempts on the same instance. The primary contrast, $B - C$ paired by instance, separates what verification does with its calls from how many calls it spends, which is the confound in every published self-verification ablation. Inset: the arm-A pilot against the pre-registered 25--70\% band. One of nine suite--model cells lies inside the band on its point estimate and none on its 95\% interval, so under the pre-registered rule no arm comparison is published.}
+  \label{fig:tier3-design}
+\end{figure}
+
+The pilot failed its pre-registered band, so no arm comparison is published. The suite was to be chosen
+on a disjoint pilot pool by arm-A accuracy in the 25--70\% band, read on the mean fraction of hidden
+checks passed, and eight of the nine suite--model cells sit above the ceiling
+(Figure~\ref{fig:tier3-design}, inset). The one inside, the Instruct presentation of BigCodeBench-Hard
+with the smaller of the two generators, fails twice over: its interval
+crosses the ceiling and cannot be resolved on a 23-instance pilot pool, and its confirmatory pool falls
+far short of the 93 instances the analysis plan requires (Table~\ref{tab:rq3-bounds}). The full
+Instruct split, which has the instances, sits entirely above the ceiling. Four of the nine cells are in
+band on the binary secondary measure; we did not substitute it for the registered one.
+
+One single-arm, descriptive pilot measurement is reportable. Across 56 arm-B diagnostic runs, a harness
+that writes, runs and repairs against its own checks accepted its first attempt 50 times, at a mean of
+1.16 calls, and three of those 50 scored 0.00 against the hidden tests. Model-written verification
+mostly does not fire, and when it passes it can be blind to total failure, which bears on the mechanism
+the published contrasts credit without contradicting their upper bound.
+
+Where arm~B declines to spend its budget, arm~C is matched to a single call, and on those instances the
+paired contrast carries no information about verification. A revision of the design, filed as a dated
+amendment, removes that option: arm~B runs four verify-and-repair rounds whether or not its own checks
+pass, and the estimand is conditioned on the stratum in which the treatment fires, defined by arm~A
+rather than by arm~B's own outcome so that the conditioning cannot bias the contrast against~B. Its
+pilot, on arms A and~B with the smaller generator, shows the redefinition works: the forced rounds
+changed the submitted code in 17 of 48 runs, while the original arm accepted its first attempt in 41 of
+48, three of them scoring 0.00 on the hidden tests.
+
+The revision also exposed a defect that leaves the verdict unchanged. Pilot and confirmatory pools had
+been separated by suite name rather than by task, so 12 of the in-band cell's 34 confirmatory tasks had
+already been piloted under another presentation. Separated by task, 22 clean instances remain against
+the 93 required; assuming the two arms' instance means correlate at 0.7, the smallest effect 22
+instances can detect is 0.149 on the continuous score, over twice the registered 7 points. The design is
+sound and still unrunnable on the suites available.
+% TIER3V2-HOOK (filled 2026-09-25 from the amendment 12a pilot)
+
+\emph{Takeaway.} The compute-matched question that would turn Section~\ref{subsec:ablations}'s upper
+bounds into an unconfounded estimate is registered and unanswered.
+
+% TODO: the protocol amendment for the compute-matched ablation is filed but not yet accepted at the
+% registry. When it is, give it its number and date in the first paragraph of this subsection, in the
+% amendments table of the supplement, and in the PRISMA checklist.

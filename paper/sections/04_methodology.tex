@@ -1,2 +1,377 @@
-\section{Methodology}
-% TODO
+\section{Methods}\label{sec:methods}
+
+Two named frameworks make auditable, at census scale, which records became systems and what each coded
+cell rests on. \emph{Two-Tier Escalation Screening} draws second readings from an escalation rule, not a
+fixed fraction. \emph{Evidence-Anchored Coding} backs each cell with a mechanically checked verbatim quote
+and assigns it one state under the \emph{Three-State Cell Contract}. The subsections follow the pipeline
+of Figure~\ref{fig:pipeline}. Reporting follows PRISMA 2020 \citep{page2021prisma,page2021prismaexplanation}, PRISMA-P
+\citep{shamseer2015prismap}, PRISMA-S \citep{rethlefsen2021prismas} and RAISE
+\citep{thomas2025raise,flemyng2025aiposition}.
+
+\subsection{Registration and deviations}\label{subsec:registration}
+
+The protocol was registered at \texttt{osf.io/ab2wn} (OSF Generalized Systematic Review Registration v6) on
+2026-09-16 at 18:12 UTC, before the first search ran. It is embargoed until 2026-10-31, released early
+on posting of this preprint, with its DOI minted at release. The eleven accepted amendments are logged in
+Supplement~S2. Ten were filed before the stage they change began, each resting on a measurement taken
+first. A twelfth, registering the controlled ablation of Section~\ref{sec:outcomes}, and a dated revision
+of it that forces the verify-and-repair rounds and separates pilot from confirmatory instances by task,
+are filed and pending acceptance.
+
+Amendment~4, the deviation to weigh most heavily, replaced registered dual human screening. One author
+cannot dual-screen 27,747 records, and amendment~3's compromise, author adjudication of model conflicts,
+still left more than a thousand records for a human. Every screening decision is therefore a model
+decision, checked by recall, agreement and an independent pipeline (\S\ref{subsec:selection}), none of
+which measures correctness.
+
+Amendment~9, the one amendment taken mid-stage, is defended by its order. Manual rule~2 sent a coder who
+could not point at evidence to \texttt{not\_reported}; rule~5 sent a recorded absence to a value such as
+\texttt{none}. A coder who searched and found nothing satisfied both, a split behind 19 of the 30
+dimensions the first reliability measurement put below 0.6. The rule was first rewritten as the ordered
+test of Table~\ref{tab:absence-rule}, then validated on the 217-system double-coded sample (agreement
+0.597 to 0.872, Table~\ref{tab:reliability}, with a stacked kappa, inflated by construction; the
+per-dimension gains are in Supplement~S2), and only then applied to the whole coded set.
+
+\subsection{Eligibility and search}\label{subsec:eligibility}\label{subsec:sources}
+
+A record was included only if all four registered criteria of Table~\ref{tab:eligibility} held, and each
+excluded record carries exactly one primary code. The unit of analysis is the system, one named harness
+(Section~\ref{sec:background}) at its pinned version, so PRISMA's ``studies included'' counts systems and records are counted separately.
+
+\begin{table}[t]
+  \footnotesize
+  \caption{Registered eligibility criteria. A record is included only if criteria (a)--(d) all hold; a
+  record that fails one carries the listed primary exclusion code.}
+  \label{tab:eligibility}
+  \begin{tabular}{@{}p{0.15\linewidth} p{0.53\linewidth} p{0.26\linewidth}@{}}
+    \toprule
+    Criterion & Rule & Code if failed \\
+    \midrule
+    (a) Harness & Wraps a language model in a loop with tools or an environment: more than one model call
+      per task, and model output selects operations executed outside the model whose results are fed back
+      & \texttt{out\_of\_scope}: no loop, no executed actions, component only, framework without a default
+      agent, benchmark without a looping reference agent, training only, embodied robotics \\
+    (b) Codability & At least 19 of the 38 dimensions assignable a value with evidence from paper,
+      repository or official documentation, at least one in each of layers A, B and C; recorded at
+      screening, enforced at coding (amendment~5) & \texttt{no\_harness\_description} \\
+    (c) Release window & First public release between 2022-10-01 and 2026-08-31 inclusive &
+      \texttt{out\_of\_scope} (date) \\
+    (d) Language & Paper, README or official documentation available in English & \texttt{other}
+      (language) \\
+    \midrule
+    Duplicate & Same system and major version already included; the record is linked, not coded &
+      \texttt{duplicate\_system} \\
+    Retrieval & No full text, repository or documentation could be obtained & \texttt{not\_retrievable} \\
+    \midrule
+    Unit & One named harness at its pinned version, the latest tagged release on or before 2026-08-31; a
+      framework enters through its shipped default agent, a benchmark through its reference agent & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Eight sources were searched on 2026-09-16 with a harness-vocabulary block combined with a language-model
+block (amendments 1 and 2): arXiv, OpenAlex, Semantic Scholar, OpenReview, the ACL Anthology, GitHub
+repositories above 500 stars, grey literature, and citation searching with survey bibliographies and
+curated lists. The search was frozen the same day at 20:59 UTC; strings, per-source translations and hit
+counts are in the replication package, and Figure~\ref{fig:prisma} gives each stage count, including the
+1,350 of 8,435 assessed reports excluded at full text: 1,028 out of scope, 156 with no harness
+description, 82 duplicate systems, 76 not retrievable and 8 under \texttt{other}. Known-item recall on the
+registered 48-item list was 39 of 48 (81\%) from the searches alone and 46 of 48 (96\%) with snowballing
+and the curated lists, against a registered threshold of 90\%. The independent search arm of
+amendment~7, PRISMA's ``other methods'', found 103 includes absent from our candidates; the same
+full-text procedure yielded 37 included papers, reported separately and not coded in v1. Of the 102
+absent from our whole harvest, 66 were vocabulary misses, application frameworks whose abstracts use no
+harness vocabulary.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{prisma_flow}
+  \caption{PRISMA 2020 flow of records. Left: identification via databases and registers. Right: the
+  supplementary independent arm of amendment~7. The ``included systems'' box (6,504) is the sampling frame
+  of \S\ref{subsec:grouping}, regenerated after the grouping repair of amendment~10.}
+  \label{fig:prisma}
+\end{figure}
+
+\subsection{Two-Tier Escalation Screening}\label{subsec:selection}
+
+Two-Tier Escalation Screening (Figure~\ref{fig:screening-framework}) spends second readings where a
+first reading is least trustworthy, because a single model reading cannot report its own error. It has
+four modules.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{screening_framework}
+  \caption{Two-Tier Escalation Screening. At title and abstract, two independent votes, a rule-based triage
+  and a third-vote tiebreak; unsettled records are forwarded. At full text, a tier-1 reading of the
+  evidence bundle, an escalation rule that sends exclusions, low-confidence decisions and an audit sample to
+  a tier-2 decisive reading.}
+  \label{fig:screening-framework}
+\end{figure}
+
+\emph{Tier-1 reading.} Given a record, the first reading applies the protocol's decision procedure and
+returns a decision, a reason and the deciding step. At title and abstract every candidate receives two
+independent first-reading votes, include, exclude or unsure. At full text the reading must
+quote the evidence bundle verbatim for every step of the twelve-step procedure it reaches, so each
+decision is checkable against its source.
+
+\emph{Escalation rule.} At full text, every tier-1 exclude, every low-confidence tier-1 decision and a
+hash-selected 10\% of the remaining tier-1 includes are escalated; records first read at tier~2 receive a
+hash-selected 20\% tier-1 reading. Escalating exclusions targets the error a review cannot recover later.
+
+\emph{Tier-2 decisive reading.} The escalation stage re-reads an escalated record independently, and its
+decision is the decision of record, so no tier-1 exclusion stands without a second reading.
+
+\emph{Third-vote tiebreak.} At title and abstract, a rule-based triage settles hard-rule cases and records
+on which the two votes agree. The 13,483 it cannot settle receive a third vote that sees both priors and
+may answer only include or exclude. Records three votes leave unsettled are forwarded, never excluded.
+
+The price of concentrating second readings where errors cost most is uneven coverage:
+2,073 of 7,085 includes (29.3\%) and 1,002 of 1,350 excludes (74.2\%) were read twice. On those 3,075
+records Cohen's kappa \citep{cohen1960kappa} is 0.473, an estimate for a sample enriched in disputed
+scope-boundary records, not for a random record. Two checks in Table~\ref{tab:screening-checks} stand in
+for human verification: recall of 27 of 27 on a reference set drawn from our must-cite list and three
+prior catalogues \citep{rombaut2026insidescaffold,barbaste2026anatomy,meng2026harnesssurvey}, and the
+independent pipeline's agreement of 0.843 (kappa 0.664). Neither estimates accuracy on obscure systems.
+
+\begin{table}[t]
+  \footnotesize
+  \caption{Checks on Two-Tier Escalation Screening. Agreement figures compare two model readings and measure
+  consistency; only the external checks bear on accuracy. Interval: 95\%, Wilson
+  \citep{wilson1927interval} for recall.}
+  \label{tab:screening-checks}
+  \begin{tabular}{@{}l l r r l r@{}}
+    \toprule
+    Stage & Check & $n$ & Estimate $\uparrow$ & 95\% interval & $\kappa$ $\uparrow$ \\
+    \midrule
+    Title/abstract & Two-vote agreement, three classes & 27,747 & 0.716 & --- & 0.564 \\
+                   & Two-vote agreement, exclude vs.\ forward & 27,747 & 0.821 & --- & 0.616 \\
+    \midrule
+    Full text & Two-reading agreement & 3,075 & 0.737 & [0.721, 0.752] & 0.473 \\
+              & Tier-1 includes confirmed at second reading & 2,073 & 0.677 & --- & --- \\
+              & Quotes found verbatim in the text shown & 60,881 & 0.960 & --- & --- \\
+    \midrule
+    External & Reference-set recall, search to coding frame & 27 & 1.000 & [0.875, 1.000] & --- \\
+             & Negative reference set excluded as intended & 13 & 1.000 & --- & --- \\
+             & Agreement with an independent pipeline & 434 & 0.843 & --- & 0.664 \\
+             & Independent pipeline's includes in our pool & 411 & 0.749 & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{System grouping}\label{subsec:grouping}
+
+Coding records would count a well-documented harness many times, so includes were grouped into systems
+by repository, then by name similarity, then by the registered versioning rule. Amendment~10 repaired two
+defects: transitive fuzzy matching, chaining pairs each just above threshold, pooled 129 records carrying
+105 distinct names into one row, and normalization collapsed ``Agent S'' and ``Agents'' into one key. A
+name similarity now never merges records with different known repositories, and without a repository
+the normalized names must be equal. The repaired grouping yields the 6,504-system frame of
+Figure~\ref{fig:prisma}, with reference-set recall unchanged at 27 of 27, at the accepted cost of
+under-merging: a project spread over several repositories can yield more than one row.
+
+\subsection{Evidence-Anchored Coding}\label{subsec:coding}
+
+Evidence-Anchored Coding (Figure~\ref{fig:coding-framework}) makes every cell re-checkable against the
+text it was read from, on the 38 dimensions of schema v1.0.0, which no coding step changed. It has five
+modules and a release gate.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{coding_framework}
+  \caption{Evidence-Anchored Coding. An evidence bundle is read in full (Stage~1); every quote is verified
+  verbatim against the text shown; unverified or unsettled cells are re-read from targeted windows
+  (Stage~2); each cell is assigned one state of the Three-State Cell Contract; systems with at least 19 of
+  38 dimensions settled enter the release.}
+  \label{fig:coding-framework}
+\end{figure}
+
+\emph{Evidence bundle.} Given a system, we first assemble its paper, its repository at the pinned version
+and its official documentation, so the bundle holds the configuration surfaces where features are
+declared. A paper alone understates what a harness does: in the full-text pilot, paper-only evidence excluded 11 of
+15 reference systems (amendment~5).
+
+\emph{Stage~1: full reading.} The coder then reads the whole bundle once and returns all 38 cells, each with
+a value, a verbatim quote, a locator, a confidence and the coder identifier. The coding manual's rules are
+assembled into the coder's instructions for every system, so an amendment reaches coder and validator
+together. Repository locators name file and commit without a line, because the bundle carries no line
+numbers and demanding them would invite fabricated ones (amendment~8).
+
+\emph{Verbatim verification.} Every quote is compared character for character, after whitespace and
+punctuation normalization, with the exact text the coder was sent. A paraphrase, or a cell that breaks its
+dimension's shape or a manual rule, is flagged and never repaired into a plausible value, so no cell's
+evidence rests on the coder's say-so.
+
+\emph{Stage~2: targeted repair.} Only cells that Stage~1 left unresolved, invalid or unverified are re-read,
+from keyword windows around the dimension's key terms. A settled Stage-2 cell supersedes its Stage-1
+attempt, which is kept. This recovers what a long single reading misses without re-coding what is
+already verified.
+
+\emph{Three-State Cell Contract.} Finally, the ordered rule of Table~\ref{tab:absence-rule} puts every
+cell in one of the three states of \S\ref{subsec:cellstates}. The under-reporting result (RQ4) is a count
+of silence: coding silence as absence would turn an undocumented feature into a missing one, and pooling
+our failures with silence would inflate the silence rate with our own errors. Of the 47,728 released
+cells, 163 (0.3\%) are \texttt{unresolved}, and they are excluded from every under-reporting rate.
+
+\begin{table}[t]
+  \footnotesize
+  \caption{The ordered ``absence is not silence'' rule of the Three-State Cell Contract. Steps are applied in
+  order and the first that holds decides the cell. Prose that does not mention a feature is never evidence
+  that it is absent.}
+  \label{tab:absence-rule}
+  \begin{tabular}{@{}l p{0.40\linewidth} p{0.30\linewidth} l@{}}
+    \toprule
+    Step & Condition on the evidence bundle & Coded as & State \\
+    \midrule
+    1 & A verbatim passage states the feature's value & That value, with quote and locator & value \\
+    2 & The place where the feature would be declared (config schema, CLI flags, tool registry, run loop,
+        documented feature list) is present, and the feature is not in it & The absence value
+        (\texttt{none}, \texttt{open}, \ldots), citing that place; confidence at most medium & value \\
+    3 & No such place is in the bundle (no config surface, truncated repository, paper only) &
+        \texttt{not\_reported}, naming the missing place & \texttt{not\_reported} \\
+    4 & The cell cannot be settled, or breaks its dimension's shape or a manual rule &
+        Flagged, never repaired & \texttt{unresolved} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\emph{Release gate.} A system enters the release when at least 19 of its 38 dimensions are settled.
+Demanding all 38 would have admitted 77 of the 1,116 systems coded when this was last measured; the
+gate buys coverage at the price of partial rows, which the contract marks cell by cell. Of the 1,257
+systems coded, 1,256 form the released dataset; the other one's identifier is a reserved device name on
+the build platform, so its file cannot be written.
+
+\subsection{Reliability gate}\label{subsec:reliability}
+
+The schema was frozen only after a registered gate: per-dimension Cohen's kappa of at least 0.6. A
+deterministic 20\% sample of the coded set was coded a second time, independently, through Stage~1 and
+Stage~2, so the comparison measures the whole procedure; the two codings were never merged. The draw
+names 245 systems; 247 were double-coded, and reliability is computed on all 247 rather than trimmed to
+the draw. In Table~\ref{tab:reliability}, 37 of 38 dimensions clear the floor on the point estimate. A
+cluster bootstrap over systems leaves four dimensions whose interval includes 0.6, and only
+\texttt{loop\_primitives} sits below it; it is kept and flagged, not redefined
+(\S\ref{subsec:multivalued}). Gwet's AC1 \citep{gwet2008ac1} is
+reported beside kappa because kappa is depressed when one value dominates
+\citep{feinstein1990paradoxes,byrt1993kappa}, as it does wherever \texttt{not\_reported} is modal. No
+kappa on the 247 is stacked over all 38 dimensions' cells, because a chance baseline spanning 38 value spaces
+inflates it by construction. The 217 systems of the
+amendment-9 validation and the 247 here are different samples, not a corrected figure. Both readings are
+model readings under the same instructions, so these figures measure reproducibility, not correctness or
+agreement with a human coder.
+
+\begin{table}[t]
+  \footnotesize
+  \caption{Reliability gate. Top: the double-coded sample, with 95\% percentile cluster-bootstrap
+  intervals over systems (2,000 draws). Middle: the four dimensions whose kappa interval includes the
+  registered floor of 0.6. Bottom: amendment-9 validation on the earlier 217-system sample, Stage~1 only,
+  before and after the rewrite. Both readings are model readings: every row measures reproducibility.}
+  \label{tab:reliability}
+  \begin{tabular}{@{}l r r@{}}
+    \toprule
+    Quantity & Estimate & 95\% interval \\
+    \midrule
+    Double-coded systems / cell pairs & 247 / 9,386 & --- \\
+    Observed agreement $\uparrow$ & 0.870 & [0.859, 0.881] \\
+    Mean per-dimension $\kappa$ $\uparrow$ & 0.784 & [0.765, 0.800] \\
+    Mean per-dimension AC1 $\uparrow$ & 0.855 & [0.842, 0.867] \\
+    Dimensions with $\kappa \geq 0.6$, point estimate & 37 of 38 & --- \\
+    \midrule
+    $\kappa$, \texttt{loop\_primitives} & 0.590 & [0.523, 0.657] \\
+    $\kappa$, \texttt{edit\_primitive} & 0.628 & [0.537, 0.711] \\
+    $\kappa$, \texttt{network\_policy} & 0.668 & [0.527, 0.793] \\
+    $\kappa$, \texttt{retry\_policy} & 0.675 & [0.587, 0.765] \\
+    \midrule
+    Amendment 9, pooled agreement (before $\to$ after) & 0.597 $\to$ 0.872 & --- \\
+    Amendment 9, stacked $\kappa$ (before $\to$ after) & 0.564 $\to$ 0.832 & --- \\
+    Amendment 9, stacked AC1 (before $\to$ after) & 0.596 $\to$ 0.872 & --- \\
+    Amendment 9, \texttt{not\_reported} share of cells (before $\to$ after) & 0.269 $\to$ 0.483 & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Outcome data.} Collected in the same reading as the design cells, every reported benchmark
+score is released with its benchmark, split, metric, base model and the passage it was read from, and
+no score enters without that passage.
+Within-study ablation contrasts are classified from the same extraction, and every dropped candidate row
+is published with its reason, so the recall of the harvest in Section~\ref{sec:outcomes} can be audited.
+
+\subsection{Synthesis}\label{subsec:synthesis}
+
+The coded set is a stratified sample of the 6,504-system frame, drawn with a fixed seed (amendment~6;
+definitions in Supplement~S4): a census of stratum H, the visible systems (984, weight 1); 150 of the 683
+peer-reviewed systems with code in P (weight 4.5533); and 100 of the 4,837 others in O (weight 48.37).
+Field-level claims are weighted, with design standard errors taking the system as the sampling unit,
+over the 1,233 released systems of the
+1,234 drawn, because the weights are the draw's inverse inclusion probabilities. The other 23 released
+systems, several of them benchmark reference agents the recall check required, were coded outside the
+draw and carry weight 0. Coded-set claims are unweighted over all 1,256, and every proportion says which
+it is.
+
+Supplement~S6 tabulates the estimator behind each synthesis question with the test that could
+overturn it: weighted proportions with design standard errors, or unweighted ones with Wilson
+intervals; Miller--Madow entropy; bias-corrected Cram\'er's V; Gower-distance clustering;
+within-key standardized contrasts with permutation tests; random-effects pooling of ablations with
+$I^2$ \citep{higgins2002heterogeneity} and prediction intervals; and sign, own-arm and funnel tests of
+reporting bias, with Benjamini--Hochberg control within each test family. Two choices need a reason.
+Diversity over time is unweighted, one system one vote, because a weighted entropy would rest on a
+handful of stratum-O systems per dimension-year cell. Design families had to pass the three bars of
+Table~\ref{tab:landscape_bars}, stated before clustering, with stability measured over 200 subsamples at
+80\% and a silhouette null that preserves each dimension's marginals and missingness and passes through
+the same eligibility filter and maximization over $k$ as the data. A partition failing any bar is
+reported as evidence against families.
+
+\paragraph{Reporting bias and certainty.}\label{subsec:reportingbias}
+Risk of bias in the sources is assessed against five cross-cutting caveats: benchmark versioning,
+contamination, self-reporting, harness--model entanglement and scaffold drift. No GRADE-style rating is
+applied, because the outcome evidence is author-reported scores on heterogeneous benchmarks rather than
+comparative trials. Certainty is reported per estimate instead, as a bound direction, a discount, a
+prediction interval beside the confidence interval, and, for every null, the minimum detectable effect.
+The registered mixed-effects regression was not fitted because the comparable data cannot identify it
+(amendment~11).
+
+\subsection{Implementation and disclosure}\label{subsec:llmdisclosure}
+
+Model instances applying the registered protocol made every screening, coding and label-classification
+decision (Table~\ref{tab:implementation}), and no human verified any coded cell or screening decision
+(amendment~4). The author wrote the protocol, definition, coding manual, schema and every analysis, made
+every amendment decision, and is responsible for the claims; the models supplied the readings. Coding
+ran with tools disabled, one system per call, and schema validation on every cell. Two
+offensive-security systems, \texttt{cai} and \texttt{pentagi}, halted the primary model's safety
+classifier mid-response on repeated attempts and were read by Claude Sonnet 5, which leaves more cells
+unresolved on identical bundles; the first stage of fifteen further systems, most of them security
+agents, was read by Claude Opus 5 (Table~ef{tab:implementation}); every row records its model. At screening, batches containing such
+systems were re-read one document per call, which cleared every refusal. Mechanical checks replace human
+verification: verbatim quote matching, schema validation, a public per-record audit page, reference-set
+recall, second readings and the independent cross-check.
+
+\begin{table}[t]
+  \footnotesize
+  \caption{Models and instruction versions by stage. Volume is records unless the row names its unit;
+  full-text rows count decisions of record. Every decision listed was made by a model; none was verified
+  by a human.}
+  \label{tab:implementation}
+  \begin{tabular}{@{}p{0.25\linewidth} p{0.33\linewidth} l r@{}}
+    \toprule
+    Stage & Model & Instruction version & Volume \\
+    \midrule
+    Title/abstract, first vote & Claude Opus 5 & \texttt{ta-v1-2026-09-17} & 21,480 \\
+     & Claude Sonnet 5 & \texttt{ta-v1-2026-09-17} & 6,267 \\
+    Title/abstract, second vote & The other model & \texttt{ta-v1-2026-09-17} & 27,747 \\
+    Title/abstract, third vote & Claude Opus 5, Claude Sonnet 5 & \texttt{ta-v2-tiebreak-2026-09-17} &
+      13,483 \\
+    \midrule
+    Full text, tier 1 & Claude Sonnet 5 & \texttt{ft-v2-2026-09-18} & 4,164 \\
+    Full text, tier 2 & Claude Opus 5 (4,126); Claude Opus 4.8, seven batches (56); Claude Sonnet 5 (16)
+      & \texttt{ft-v2-2026-09-18} & 4,198 \\
+    Full text, not retrievable & No model call & --- & 73 \\
+    \midrule
+    Coding, Stages 1 and 2 & Claude Opus 5.5 (Stage~1 of 15 systems: Claude Opus 5; of two: Claude
+      Sonnet 5) & \texttt{code-v2-2026-09-23} & 1,257 systems \\
+    Ablation labels, coded set & Claude Opus 5.5, confidence floor 0.5 & --- & 1,008 labels \\
+    Ablation rows, corpus-wide & Claude Sonnet 5 & \texttt{corpus-ablation-v1-2026-09-25} &
+      \rqCorpusPapersExtracted{} papers \\
+    Comparator aliases & Claude Opus 5.5 & \texttt{alias-v1-2026-09-24} & 555 pairs \\
+    Controlled-ablation pilots & Claude Sonnet 5, Claude Haiku 4.5 (generators) & \texttt{tier3-v1},
+      \texttt{tier3-v2-12a} & 654 runs \\
+    \bottomrule
+  \end{tabular}
+\end{table}

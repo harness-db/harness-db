@@ -1,6 +1,6 @@
 # Coding reliability (Phase 4 result)
 
-Two independent codings of the same 217 systems — the deterministic 20% sample of the 1,116-system
+Two independent codings of the same 247 systems — the deterministic 20% sample of the 1,256-system
 coded set (`data/coded/double_sample.json`, seed `code-2026-09-20`) — each put through pass A and the
 pass-B repair, so the two sides are procedurally identical. Both are model readings under prompt
 `code-v2-2026-09-23`; what they measure is the reproducibility of the coding procedure, not its
@@ -13,14 +13,26 @@ Per-dimension figures: `data/coded/reliability_final.json`. Regenerate with
 
 ## Headline
 
+> **Recomputed 2026-09-24.** The figures below were previously recorded from an earlier run on a
+> 217-system double-coded sample and were carried forward in this file after the sample grew. They have
+> been recomputed from the released codings with the command above; the corrected figures are lower than
+> those previously recorded. The per-dimension table in `data/coded/reliability_final.json` was already
+> current and reproduces exactly. Reported here is the **unweighted mean of the 38 per-dimension
+> kappas**. A single kappa computed by stacking all cells into one table is deliberately not reported:
+> it yields 0.869 with dimension-qualified values and 0.830 without, and both are inflated by
+> construction, because the chance-agreement baseline is then computed across all 38 dimensions' value
+> spaces at once. The registered primary measure is per-dimension kappa, so the per-dimension table is
+> the result and any single number is only its summary.
+
 | | value |
 |---|---|
-| cells compared | 8,246 |
-| observed agreement | 0.879 |
-| Cohen's kappa (registered primary measure) | **0.842** |
-| Gwet's AC1 | 0.879 |
-| dimensions at or above the 0.6 freeze threshold | **37 of 38** |
-| `not_reported` share of cells | 48.2% |
+| systems double-coded | 247 |
+| cells compared | 9,386 |
+| observed agreement | 0.870 |
+| Cohen's kappa, mean of the 38 per-dimension values (registered primary measure) | **0.784** |
+| Gwet's AC1, same mean | 0.855 |
+| dimensions at or above the 0.6 freeze threshold | **37 of 38** on the point estimate; four dimensions' 95% cluster-bootstrap intervals include 0.6 (`loop_primitives` [0.523, 0.657], `edit_primitive` [0.537, 0.711], `network_policy` [0.527, 0.793], `retry_policy` [0.587, 0.765]) |
+| `not_reported` share of released cells | 48.9% |
 
 ## Why the first table said the opposite
 
@@ -59,11 +71,11 @@ figures are reported rather than smoothed:
 
 | measure | value |
 |---|---|
-| observed agreement | 0.631 |
-| Cohen's kappa (exact set match) | **0.586** |
-| Gwet's AC1 | 0.624 |
-| per-value kappa (7 values, present/absent each) | 0.738 |
-| per-value agreement | 0.930 |
+| observed agreement | 0.636 |
+| Cohen's kappa (exact set match) | **0.590** |
+| Gwet's AC1 | 0.628 |
+| per-value kappa (7 values, present/absent each) | 0.731 |
+| per-value agreement | 0.928 |
 
 It is multi-valued, and exact-set matching scores two readings as a total mismatch whenever one lists
 an extra primitive: `react` against `fixed_pipeline|react`, `generate_test_repair` against
@@ -72,8 +84,8 @@ decisions. Three of the four measures clear the threshold and only the harshest 
 value set is not the problem and there is nothing to redefine; the dimension is flagged as the
 weakest in the set and any claim resting on it should say so.
 
-**Per-value kappa is a diagnostic, not a replacement.** It does not uniformly flatter: `retry_policy`
-scores 0.671 on exact sets and 0.491 per value, and `edit_primitive` 0.648 against 0.589, because
+**Per-value kappa is a diagnostic, not a replacement.** It does not uniformly flatter: `edit_primitive`
+scores 0.628 on exact sets and 0.580 per value, because
 averaging over values reintroduces the prevalence problem for values that are rarely used. The
 registered exact-set kappa stays the primary measure and every figure is published beside it.
 
@@ -84,8 +96,8 @@ registered exact-set kappa stays the primary measure and every figure is publish
    mid-response on both — no parseable answer, across repeated attempts, with one system per call and
    so no batch to split. Both were coded with Sonnet instead, which the `model` column records on
    every row. Sonnet leaves more cells unresolved than Opus on identical bundles, so these two
-   systems carry slightly thinner coding than the other 1,114 (0.2% of the coded set).
-2. **Cells nobody could settle are marked, not guessed.** 1.0% of released cells are `unresolved`:
-   the coder claims no value and no evidence. They are deliberately distinct from the 24% that are
+   systems carry slightly thinner coding than the rest of the coded set (0.2% of 1,257 coded). Correction 2026-09-25: `data/coded/cells.csv` records Stage 1 of these two by `claude-sonnet-5` and Stage 1 of 15 further systems, most of them security agents, by `claude-opus-5` (570 Stage-1 and 35 Stage-2 cell rows); all other rows were read by `claude-opus-5-5` (Claude Opus 5.5).
+2. **Cells nobody could settle are marked, not guessed.** 0.3% (163 of 47,728) of released cells are `unresolved`:
+   the coder claims no value and no evidence. They are deliberately distinct from the 48.9% that are
    `not_reported`, which assert that the sources were read and are silent — merging the two would
    inflate the headline result.

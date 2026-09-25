@@ -1,2 +1,82 @@
-\section{Open problems}
-% TODO
+\section{The reporting deficit and what would close it}
+\label{sec:open}
+
+Two things follow from the measurements above: a change the field can make now at no research cost, and
+three questions that need experiments nobody has run.
+
+\subsection{A reporting checklist, taken from where the silence is}
+\label{subsec:checklist}
+\label{subsec:record}
+
+The silence is concentrated enough to be addressed by a list. The twelve dimensions with the highest
+weighted \texttt{not\_reported} rate all sit above 76\%, and all twelve describe how a harness is bounded
+rather than what it can do. Each becomes a minimum statement: Table~\ref{tab:checklist} gives the five
+most silent, and Supplement~S6 all twelve, adding protocol standardization, timeouts, permission model,
+cost controls, context compaction, tool count, and human-in-the-loop. Each item is
+one sentence or one configuration line, needs no experiment, and can be checked against the released
+artifact, which is what separates a reporting item from a recommendation.
+
+A negative answer satisfies an item as fully as a positive one, which makes the list cheap to adopt.
+``The agent runs in the host shell with no isolation and no network restriction'' answers two rows, and
+our scheme codes it as a value rather than as silence. Without such a sentence, neither a reader nor our
+coder can tell an unbounded system from an undocumented one. A general call to state the harness exists
+\citep{zhang2026harnessreporting}. The audit adds which items go unstated and how often, weighted to the
+census, and the list is short because the measurement made it short.
+
+The same gap sits one level up: no board in our harvest of 4,887 leaderboard entries records which
+harness commit produced a score. Answering the twelve items would not make harnesses comparable. It
+would let a reader see how a system is bounded, and give a design analysis dimensions stated often
+enough to use.
+
+\begin{table}[t]
+\caption{The five items of the reporting checklist with the highest weighted silence rate; all twelve
+are in Supplement~S6. \emph{Silent} is the weighted census share of systems whose sources say nothing
+about the dimension (design standard errors in Table~\ref{tab:landscape_layers}). The rates measure
+documents, not systems.}
+\label{tab:checklist}
+\footnotesize
+\begin{tabular}{llrp{0.50\linewidth}}
+\toprule
+Layer & Dimension & Silent & Minimum a paper or repository should state \\
+\midrule
+G & \texttt{network\_policy} & 93.3\% & Whether the agent can reach the network during a run, and if so what is reachable: open egress, an allowlist, or nothing. \\
+H & \texttt{replayability} & 90.6\% & Whether a finished run can be replayed from stored artifacts, and whether fully, from inputs only, or not at all. \\
+G & \texttt{filesystem\_access} & 87.5\% & The writable scope: the whole host, one working directory, a copy-on-write overlay, or read-only. \\
+E & \texttt{rollback} & 86.4\% & What happens to partial edits when a step fails: snapshot restore, version-control revert, or nothing. \\
+D & \texttt{state\_persistence} & 86.2\% & Whether a run can be resumed after interruption, and from what: full state, a checkpoint, or nothing. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Three open questions}
+\label{subsec:openq}
+
+\textbf{Does self-verification help at equal compute?} The pooled ablation effect is an upper bound,
+\rqSVPooled{} relative before its bias discount and at most about \rqSVDiscounted{} after it on the
+interim corpus-wide harvest, and its prediction interval, \rqSVPI, includes zero. It is also no longer
+distinguished: most poolable dimensions show a gain of similar size, so published ablations cannot say
+whether verification matters more than any other component. Verification issues extra model calls,
+and none of the 42 coded-set papers that ablate a component runs a compute-matched control, so the
+ablations cannot separate design from compute. A three-arm
+study would: one attempt; verify-and-repair up to $k$ calls; and the same calls, per instance, spent on
+unguided retries. We froze that design on 2026-09-24 and filed it, with a dated revision, as protocol
+amendments pending acceptance at OSF; only pilot data exist, and no available suite supplies the 93
+in-band instances it needs.
+
+\textbf{Do the components that bound an agent matter?} Almost nobody has published a number. On the
+coded-set harvest, none of the eleven dimensions of layers F, G, and H carried a usable ablation contrast
+across the 42 papers that ablate anything. The corpus-wide harvest first attributed contrasts from a
+handful of papers to some of them, but every G-layer attribution proved mis-mapped on reading
+(removing code-execution feedback or tool access, not a sandbox or a permission policy); under the
+fixed mapping rules of Section~\ref{sec:outcomes}, \rqZeroDimCount{} of the
+\rqAblatableDimCount{} ablatable dimensions carry none (\rqZeroDimList). That is an absence of evidence about the literature, not evidence that the components are
+harmless to remove. The closing study is small: one harness, one task suite, and a bound varied one level
+at a time. Its tasks should include ones the bound exists to block, so that the bound's cost and the
+failure it prevents appear in one table.
+
+\textbf{Do design families exist in a better-reported corpus?} Ours does not contain them: the best
+eligible clustering reached a mean silhouette of 0.120 against a pre-stated floor of 0.25. That result
+covers only the half of the corpus reporting enough to be clustered, and \S\ref{subsec:construct} gives a
+second explanation our cells cannot rule out. The identical procedure, run on a corpus that answers
+the twelve-item checklist as a condition of inclusion and coded with a loop-driver axis, would separate
+the two.

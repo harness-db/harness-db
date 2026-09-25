@@ -1,2 +1,292 @@
-\section{Full table}
-% TODO
+\section{Release description, extract and reliability tables}
+\label{app:systems}
+
+The coded dataset is released in full rather than reproduced here: 1,256 systems $\times$
+38 dimensions is 47,728 cells, and a printed table of them would be unreadable and
+uncheckable. This supplement describes what is released, gives the counts that let a reader check the
+release against the paper, shows a short extract, and reports per-dimension reliability. Code is
+released under the MIT license and data and documentation under CC BY 4.0
+(\texttt{LICENSE-CODE}, \texttt{LICENSE-DATA}).
+
+\subsection{What is released}
+\label{subsec:release-files}
+
+\begin{itemize}
+\item \texttt{schema/dimensions.json} --- the coding frame: 9 layers, 38 dimensions,
+  permitted values, and the crosswalk to the prior taxonomies. \texttt{schema/harness\_db.schema.json}
+  is the JSON Schema generated from it, and is what the validator enforces.
+\item \texttt{data/systems.json} --- one object per system: \texttt{id}, \texttt{name},
+  \texttt{version\_label}, \texttt{aliases}, \texttt{urls}, the \texttt{papers} it was coded from,
+  \texttt{coded\_at}, \texttt{notes}, and a \texttt{coding} object holding one cell per dimension.
+  A cell carries \texttt{value}, \texttt{evidence}, \texttt{confidence}, \texttt{not\_reported},
+  \texttt{unresolved}, \texttt{coder}, and \texttt{note}.
+\item \texttt{data/coded/cells.csv} --- the per-cell audit table, one row per coding pass per cell,
+  with 31 columns. Beside the value it carries the evidence (\texttt{evidence\_quote}, the
+  quote itself, and \texttt{evidence\_locator}, the place it was taken from), the verbatim check
+  (\texttt{quote\_verbatim}, whether that quote was found character-for-character in the evidence
+  the coder was given), the validation flags (\texttt{flags}), and \texttt{confidence},
+  \texttt{note}, \texttt{resolved}, \texttt{pass}, \texttt{stratum}, and \texttt{weight}. It also
+  carries the provenance of the reading: \texttt{coder}, \texttt{model},
+  \texttt{prompt\_version}, \texttt{effort}, \texttt{bundle\_chars}, \texttt{doc\_chars},
+  \texttt{call\_id}, token counts, and \texttt{cost\_usd}.
+  \texttt{data/coded/cells\_pass2.csv} is the same table for the second, independent coding of the
+  double-coded sample.
+\item \texttt{data/coding\_frame.csv} and \texttt{data/coding\_frame.json} --- the sampling frame:
+  every system in the census with its stratum, whether it was coded, its design weight, and its
+  codability flag. The registered design is stratum H (984 systems, census-complete) at
+  weight 1; stratum P (683 systems) sampled at 150 with weight 4.5533; stratum O
+  (4,837 systems) sampled at 100 with weight 48.37, under seed
+  \texttt{strata-2026-09-20}. Joining the released file to the frame, the coded set carries 983 systems
+  from H, 157 from P, and 116 from O.
+\item \texttt{data/papers.csv}, \texttt{data/results.csv}, \texttt{data/prisma\_counts.json},
+  \texttt{data/raw/}, \texttt{data/screening/} --- the bibliographic records with their inclusion
+  decision and exclusion code, the extracted scores per system, model, benchmark, and split, the
+  flow counts, the harvested candidates per source, and the screening votes.
+\item \texttt{data/analysis/} --- every analysis output the paper draws on, and
+  \texttt{data/examples/} the two worked examples of the coding manual (S1).
+\item \texttt{data/coded/v1\_rule5\_ambiguous/} --- the complete superseded coding under the
+  pre-amendment-9 absence rule, with its own README marking it as superseded and stating why it is
+  kept. Its cells encode a different rule for absence and must not be merged with the released
+  coding; it is published because it is the evidence for the rule change.
+\end{itemize}
+
+Table~\ref{tab:strata} gives the registered strata of the sampling frame that \S4.7 summarizes.
+
+\begin{table}[htbp]
+  \small
+  \caption{Strata of the coded set. Weights are the draw's inverse inclusion probabilities. Of the 1,234
+  drawn systems, 1,233 are released; 23 further released systems were coded outside the draw and carry
+  weight 0, giving 1,256.}
+  \label{tab:strata}
+  \begin{tabular}{@{}l p{0.46\linewidth} r r r@{}}
+    \toprule
+    Stratum & Definition & Frame & Drawn & Weight \\
+    \midrule
+    H & Repository above 500 stars at freeze, cataloged by a prior harness survey, or a vendor or
+        major-lab product & 984 & 984 & 1 \\
+    P & Not in H; peer-reviewed paper with a public implementation & 683 & 150 & 4.5533 \\
+    O & Remainder & 4,837 & 100 & 48.37 \\
+    \midrule
+    Total & & 6,504 & 1,234 & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A cell is in exactly one of three states, and the three are never pooled. A valued cell carries a
+value and the evidence for it. A \texttt{not\_reported} cell records that the sources were read and
+are silent on that dimension, which is a claim about the documentation and not about the system. An
+\texttt{unresolved} cell records that the coder could not settle it and makes no claim either way,
+and such cells are excluded from every under-reporting rate.
+Of the 47,728 released cells, 24,228 (50.8\%) carry a value, 23,337 (48.9\%) are
+\texttt{not\_reported}, and 163 (0.3\%) are \texttt{unresolved}.
+Every one of the 24,228 valued cells carries a quote that the verbatim check found in the evidence
+bundle after whitespace and punctuation normalisation; this holds by construction, because the release
+gate demotes a valued cell whose quote fails the check to \texttt{unresolved}, and those cells are among
+the 163. Counted on the final row of each released cell in the audit table, the commonest validation
+flags are \texttt{locator\_no\_line} (7,350 cells), \texttt{locator\_shape\_unrecognised} (2,305 cells),
+\texttt{absence\_high\_confidence} (42 cells), and \texttt{quote\_not\_in\_bundle} (12 cells);
+\texttt{locator\_no\_line} records the locator relaxation of amendment~8 and
+\texttt{locator\_shape\_unrecognised} a locator matching neither the repository nor the paper form.
+
+\subsection{Counts for checking the release}
+\label{subsec:release-counts}
+
+Table~\ref{tab:release-counts} gives the counts a reader needs to check the release against the
+paper, each with the file it comes from. The cell-state counts are produced by a script over
+\texttt{data/systems.json}; they reproduce the 48.9\% silence rate the paper reports.
+The census of systems was redrawn under amendment~10 after the flow counts were first frozen, and
+\texttt{data/prisma\_counts.json} was then regenerated against the repaired grouping, so the flow and the
+sampling frame now carry the same 6,504 identifiers. The superseded file, which records 6,172 from before
+the repair, is published as \texttt{data/prisma\_counts\_pre\_regroup.json} because it is the evidence
+for the amendment. The methods of the main paper (\S4) report the repair and the three counts it produced.
+
+\begin{table}[htbp]
+\caption{Counts for checking the released dataset. Flow counts are the frozen PRISMA numbers;
+cell counts are computed from the released coded file.}
+\label{tab:release-counts}
+\footnotesize
+\begin{tabular}{@{}p{0.42\linewidth} r p{0.34\linewidth}@{}}
+\toprule
+quantity & value & source file \tabularnewline
+\midrule
+records identified, all sources & 50,724 & \texttt{data/prisma\_counts.json} \\
+duplicate records removed & 22,977 & \texttt{data/prisma\_counts.json} \\
+records screened at title and abstract & 27,747 & \texttt{data/prisma\_counts.json} \\
+reports sought for retrieval & 9,967 & \texttt{data/prisma\_counts.json} \\
+reports assessed at full text & 8,435 & \texttt{data/prisma\_counts.json} \\
+reports excluded at full text & 1,350 & \texttt{data/prisma\_counts.json} \\
+papers included & 7,085 & \texttt{data/prisma\_counts.json} \\
+systems included after grouping & 6,504 & \texttt{data/prisma\_counts.json} \\
+systems in the sampling frame & 6,504 & \texttt{data/coding\_frame.json} \\
+systems in the released coded set & 1,256 & \texttt{data/systems.json} \\
+cells in the released coded set & 47,728 & \texttt{data/systems.json} \\
+cells carrying a value & 24,228 (50.8\%) & \texttt{data/systems.json} \\
+cells \texttt{not\_reported} & 23,337 (48.9\%) & \texttt{data/systems.json} \\
+cells \texttt{unresolved} & 163 (0.3\%) & \texttt{data/systems.json} \\
+double-coded systems & 247 & \texttt{data/coded/reliability\_final.json} \\
+cells compared in the double coding & 9,386 & \texttt{data/coded/reliability\_final.json} \\
+mean Cohen's kappa over dimensions & 0.784 & \texttt{data/coded/reliability\_final.json} \\
+dimensions at or above $\kappa = 0.6$ & 37 of 38 & \texttt{data/coded/reliability\_final.json} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{An extract, not the table}
+\label{subsec:release-extract}
+
+Table~\ref{tab:systems-extract} is an extract of 12 systems on four of the 38
+dimensions, selected mechanically: the four systems with the most GitHub stars recorded in
+\texttt{data/coding\_frame.csv} in each of the three strata, ties broken by identifier. It is an
+illustration of the cell format and of how often the sources are silent, not a sample anyone should
+analyze; the full table is \texttt{data/systems.json}, and the weighted estimates that describe the
+census are in the main paper, \S6.
+
+\begin{table}[htbp]
+\caption{Extract of 12 of the 1,256 coded systems, four per stratum, on four
+dimensions: C3 \texttt{multi\_agent\_topology}, D1 \texttt{short\_term\_state}, G1
+\texttt{execution\_isolation}, and G3 \texttt{network\_policy}, with the identifiers of
+the coding sheet (S1). \emph{n/r} is \texttt{not\_reported}: the sources were read and are
+silent, which is a statement about the documentation and not about the system. The system column is
+the key in \texttt{data/systems.json}.}
+\label{tab:systems-extract}
+\footnotesize
+\begin{tabular}{@{}l c p{0.20\linewidth} p{0.19\linewidth} p{0.11\linewidth} p{0.08\linewidth}@{}}
+\toprule
+system & stratum & C3 topology & D1 short-term state & G1 isolation & G3 network \tabularnewline
+\midrule
+\texttt{autodriver} & H & \raggedright \texttt{pipeline} & \raggedright \emph{n/r} & \raggedright \texttt{container} & \raggedright \emph{n/r} \tabularnewline
+\texttt{hermes-agent} & H & \raggedright \emph{n/r} & \raggedright \emph{n/r} & \raggedright \texttt{subprocess} & \raggedright \emph{n/r} \tabularnewline
+\texttt{claude-code} & H & \raggedright \texttt{single} & \raggedright \emph{n/r} & \raggedright \texttt{subprocess} & \raggedright \emph{n/r} \tabularnewline
+\texttt{colpackagent} & H & \raggedright \texttt{single} & \raggedright \texttt{structured\_task\_state} & \raggedright \emph{n/r} & \raggedright \emph{n/r} \tabularnewline
+\texttt{autoscraper} & P & \raggedright \texttt{single} & \raggedright \texttt{conversation\_only} & \raggedright \texttt{none} & \raggedright \emph{n/r} \tabularnewline
+\texttt{adaptive-rag} & P & \raggedright \texttt{single} & \raggedright \texttt{conversation\_only} & \raggedright \emph{n/r} & \raggedright \emph{n/r} \tabularnewline
+\texttt{mac-sql} & P & \raggedright \texttt{pipeline} & \raggedright \emph{n/r} & \raggedright \emph{n/r} & \raggedright \emph{n/r} \tabularnewline
+\texttt{anytool} & P & \raggedright \texttt{hierarchical} & \raggedright \emph{unresolved} & \raggedright \texttt{remote} & \raggedright \emph{n/r} \tabularnewline
+\texttt{taskgen} & O & \raggedright \texttt{single} & \raggedright \texttt{structured\_task\_state} & \raggedright \texttt{none} & \raggedright \emph{n/r} \tabularnewline
+\texttt{waragent} & O & \raggedright \texttt{peer} & \raggedright \texttt{structured\_task\_state} & \raggedright \texttt{none} & \raggedright \emph{n/r} \tabularnewline
+\texttt{code-world-model} & O & \raggedright \texttt{single} & \raggedright \emph{n/r} & \raggedright \emph{n/r} & \raggedright \emph{n/r} \tabularnewline
+\texttt{curie} & O & \raggedright \texttt{orchestrator\_workers} & \raggedright \texttt{structured\_task\_state} & \raggedright \texttt{container} & \raggedright \emph{n/r} \tabularnewline
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Per-dimension reliability}
+\label{subsec:release-reliability}
+
+Tables~\ref{tab:reliability-AE} and~\ref{tab:reliability-FM} give every dimension's figures from
+\texttt{data/coded/reliability\_final.json}: observed agreement, Cohen's kappa on exact value-set
+matching (the registered primary measure) with its 95\% interval, Gwet's AC1, per-value kappa, and
+the file's own \texttt{reading} column, which classifies why a dimension scores as it does. Both
+readings are model readings of the same evidence under the same prompt, so what these figures
+measure is the reproducibility of the coding procedure. They are not a measure of correctness and
+they imply nothing about agreement with a human coder; correctness is addressed separately, in
+the methods of the main paper (\S4).
+
+Every dimension is compared on all 247 double-coded systems, 9,386 cells in total.
+Averaged over the 38 dimensions, one dimension one vote, observed agreement is 0.870
+[0.859, 0.881], Cohen's kappa 0.784 [0.765, 0.800], and Gwet's AC1 0.855 [0.842, 0.867]. These are
+macro means. A kappa computed by
+stacking every cell into one table is not reported: pooling dimensions with different value sets and
+different prevalences inflates it by construction.
+
+Every interval here is a 95\% percentile cluster bootstrap over the 247 double-coded systems: 2,000
+draws at a fixed seed, each resampling systems with replacement and recomputing all 38 kappas, all
+38 AC1 values, and the three macro means. The system is the resampling unit because one system's 38
+cells are one reading of one evidence bundle, so a cell-level interval would treat 9,386 dependent
+decisions as independent and come out several times too narrow. The per-dimension bootstrap standard
+error on kappa runs from 0.015 (\texttt{stars}) to 0.068 (\texttt{network\_policy}); on the macro
+mean it is 0.009.
+
+The registered freeze condition is a floor of $\kappa = 0.6$ applied to the point estimate, and on
+the point estimates 37 of the 38 dimensions clear it. The intervals say how much of that the data
+settles: four dimensions' 95\% intervals include 0.6 --- \texttt{loop\_primitives} 0.590
+[0.523, 0.657], \texttt{edit\_primitive} 0.628 [0.537, 0.711], \texttt{network\_policy} 0.668
+[0.527, 0.793], and \texttt{retry\_policy} 0.675 [0.587, 0.765]. One of the four is below the floor
+on its point estimate and three are above it, and for none of the four does the interval resolve
+which side it belongs on. On these four the bootstrap standard error is between 3.4 and 6.8 points,
+so a floor applied to a point estimate cannot separate 0.590 from 0.628. The remaining 34 dimensions
+clear the floor with their whole interval, and so does the macro mean.
+
+\texttt{loop\_primitives} is the one dimension below the floor on the point estimate, at
+$\kappa = 0.590$ [0.523, 0.657] against AC1 0.628 and per-value kappa
+0.731 on per-value agreement 0.928. It is multi-valued, and exact-set matching scores two
+readings as a total mismatch whenever one lists an extra primitive, so three of its four measures
+clear the threshold and the harshest does not. It is kept, unredefined, and flagged: any claim
+resting on it says so. Per-value kappa is a diagnostic for the 15 multi-valued dimensions, not a
+replacement, and it does not uniformly flatter even there --- \texttt{edit\_primitive}, also
+multi-valued, scores 0.628 on exact sets and 0.580 per value.
+
+\begin{table}[htbp]
+\caption{Per-dimension reproducibility of the coding procedure, layers A to E, from \texttt{data/coded/reliability\_final.json} on the 247 double-coded systems that file records. Both readings are model readings: these figures measure reproducibility, not correctness. $\kappa$ is the registered primary measure and is exact-set matching for multi-valued dimensions. The interval is a 95\% percentile cluster bootstrap over the 247 systems, 2,000 draws at a fixed seed; a dimension whose interval contains the registered floor of 0.6 is one the data does not place on either side of it.}
+\label{tab:reliability-AE}
+\footnotesize
+\begin{tabular}{@{}l l r r c r r p{0.17\linewidth}@{}}
+\toprule
+ID & key & agr. & $\kappa$ & 95\% CI on $\kappa$ & AC1 & per-value $\kappa$ & reading \\
+\midrule
+\texttt{A1} & \texttt{system\_prompt\_style} & 0.854 & 0.793 & [0.732, 0.853] & 0.823 & 0.808 & \raggedright reliable \tabularnewline
+\texttt{A2} & \texttt{env\_context\_strategy} & 0.806 & 0.737 & [0.665, 0.801] & 0.778 & 0.694 & \raggedright reliable \tabularnewline
+\texttt{A3} & \texttt{context\_compaction} & 0.895 & 0.805 & [0.733, 0.872] & 0.890 & 0.832 & \raggedright reliable \tabularnewline
+\texttt{A4} & \texttt{observation\_format} & 0.802 & 0.691 & [0.614, 0.764] & 0.791 & 0.765 & \raggedright reliable \tabularnewline
+\texttt{B1} & \texttt{tool\_call\_format} & 0.830 & 0.763 & [0.700, 0.824] & 0.821 & 0.735 & \raggedright reliable \tabularnewline
+\texttt{B2} & \texttt{tool\_count} & 0.939 & 0.817 & [0.722, 0.897] & 0.938 & 0.648 & \raggedright reliable \tabularnewline
+\texttt{B3} & \texttt{edit\_primitive} & 0.793 & 0.628 & [0.537, 0.711] & 0.782 & 0.580 & \raggedright reliable \tabularnewline
+\texttt{B4} & \texttt{tool\_schema\_source} & 0.818 & 0.717 & [0.638, 0.788] & 0.799 & 0.568 & \raggedright reliable \tabularnewline
+\texttt{B5} & \texttt{protocol\_standardization} & 0.939 & 0.899 & [0.847, 0.946] & 0.932 & 0.896 & \raggedright reliable \tabularnewline
+\texttt{C1} & \texttt{loop\_primitives} & 0.636 & 0.590 & [0.523, 0.657] & 0.628 & 0.731 & \raggedright multi-valued: exact-set kappa 0.590 is harsh; per-value kappa 0.731 over 7 values \tabularnewline
+\texttt{C2} & \texttt{planning\_granularity} & 0.830 & 0.766 & [0.702, 0.828] & 0.792 & 0.747 & \raggedright reliable \tabularnewline
+\texttt{C3} & \texttt{multi\_agent\_topology} & 0.899 & 0.856 & [0.797, 0.906] & 0.885 & 0.893 & \raggedright reliable \tabularnewline
+\texttt{C4} & \texttt{delegation\_mechanism} & 0.834 & 0.784 & [0.724, 0.843] & 0.795 & 0.804 & \raggedright reliable \tabularnewline
+\texttt{C5} & \texttt{human\_in\_loop} & 0.846 & 0.729 & [0.651, 0.800] & 0.837 & 0.803 & \raggedright reliable \tabularnewline
+\texttt{D1} & \texttt{short\_term\_state} & 0.830 & 0.735 & [0.660, 0.807] & 0.784 & 0.652 & \raggedright reliable \tabularnewline
+\texttt{D2} & \texttt{long\_term\_memory} & 0.822 & 0.745 & [0.672, 0.807] & 0.813 & 0.796 & \raggedright reliable \tabularnewline
+\texttt{D3} & \texttt{state\_persistence} & 0.911 & 0.820 & [0.747, 0.883] & 0.893 & 0.765 & \raggedright reliable \tabularnewline
+\texttt{E1} & \texttt{self\_verification} & 0.818 & 0.738 & [0.670, 0.807] & 0.808 & 0.781 & \raggedright reliable \tabularnewline
+\texttt{E2} & \texttt{retry\_policy} & 0.838 & 0.675 & [0.587, 0.765] & 0.815 & 0.495 & \raggedright reliable \tabularnewline
+\texttt{E3} & \texttt{rollback} & 0.939 & 0.805 & [0.700, 0.895] & 0.932 & 0.825 & \raggedright reliable \tabularnewline
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Per-dimension reproducibility of the coding procedure, layers F to M, from \texttt{data/coded/reliability\_final.json} on the 247 double-coded systems that file records. Both readings are model readings: these figures measure reproducibility, not correctness. $\kappa$ is the registered primary measure and is exact-set matching for multi-valued dimensions. The interval is a 95\% percentile cluster bootstrap over the 247 systems, 2,000 draws at a fixed seed; a dimension whose interval contains the registered floor of 0.6 is one the data does not place on either side of it.}
+\label{tab:reliability-FM}
+\footnotesize
+\begin{tabular}{@{}l l r r c r r p{0.17\linewidth}@{}}
+\toprule
+ID & key & agr. & $\kappa$ & 95\% CI on $\kappa$ & AC1 & per-value $\kappa$ & reading \\
+\midrule
+\texttt{F1} & \texttt{termination\_condition} & 0.883 & 0.848 & [0.794, 0.896] & 0.879 & 0.860 & \raggedright reliable \tabularnewline
+\texttt{F2} & \texttt{cost\_controls} & 0.862 & 0.744 & [0.664, 0.817] & 0.852 & 0.798 & \raggedright reliable \tabularnewline
+\texttt{F3} & \texttt{timeouts} & 0.931 & 0.837 & [0.762, 0.904] & 0.923 & 0.774 & \raggedright reliable \tabularnewline
+\texttt{G1} & \texttt{execution\_isolation} & 0.866 & 0.813 & [0.750, 0.873] & 0.844 & 0.842 & \raggedright reliable \tabularnewline
+\texttt{G2} & \texttt{filesystem\_access} & 0.919 & 0.833 & [0.758, 0.899] & 0.908 & 0.865 & \raggedright reliable \tabularnewline
+\texttt{G3} & \texttt{network\_policy} & 0.915 & 0.668 & [0.527, 0.793] & 0.907 & 0.716 & \raggedright reliable \tabularnewline
+\texttt{G4} & \texttt{permission\_model} & 0.919 & 0.841 & [0.767, 0.904] & 0.907 & 0.817 & \raggedright reliable \tabularnewline
+\texttt{H1} & \texttt{tracing} & 0.866 & 0.802 & [0.734, 0.860] & 0.828 & 0.827 & \raggedright reliable \tabularnewline
+\texttt{H2} & \texttt{replayability} & 0.951 & 0.831 & [0.730, 0.915] & 0.943 & 0.736 & \raggedright reliable \tabularnewline
+\texttt{H3} & \texttt{eval\_hooks} & 0.883 & 0.792 & [0.717, 0.863] & 0.836 & 0.726 & \raggedright reliable \tabularnewline
+\texttt{H4} & \texttt{guardrails} & 0.891 & 0.790 & [0.718, 0.861] & 0.883 & 0.731 & \raggedright reliable \tabularnewline
+\texttt{M1} & \texttt{target\_domain} & 0.761 & 0.735 & [0.674, 0.794] & 0.755 & 0.865 & \raggedright reliable \tabularnewline
+\texttt{M2} & \texttt{open\_source} & 0.899 & 0.820 & [0.751, 0.884] & 0.875 & 0.751 & \raggedright reliable \tabularnewline
+\texttt{M3} & \texttt{model\_agnostic} & 0.919 & 0.799 & [0.706, 0.876] & 0.899 & 0.824 & \raggedright reliable \tabularnewline
+\texttt{M4} & \texttt{primary\_artifact} & 0.935 & 0.843 & [0.765, 0.914] & 0.918 & 0.851 & \raggedright reliable \tabularnewline
+\texttt{M5} & \texttt{first\_release\_date} & 0.907 & 0.841 & [0.779, 0.898] & 0.906 & 0.742 & \raggedright reliable \tabularnewline
+\texttt{M6} & \texttt{pinned\_version} & 0.899 & 0.896 & [0.858, 0.934] & 0.898 & 0.846 & \raggedright reliable \tabularnewline
+\texttt{M7} & \texttt{stars} & 0.976 & 0.964 & [0.932, 0.989] & 0.976 & 0.931 & \raggedright reliable \tabularnewline
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% TODO: unreconciled counts across repo files, all flagged rather than silently picked.
+%  (1) data/coding_frame.json records coded_total 1,234 (H 984, P 150, O 100); data/systems.json
+%      carries 1,256 systems, which join to H 983 / P 157 / O 116 in data/coding_frame.csv.
+%  (2) amendment 10 in docs/protocol_prisma_p.md states the corrected census as 6,501;
+%      data/coding_frame.json and docs/headline_findings.md give 6,504.
+%  (3) docs/coding_reliability.md still reports the earlier 217-system run (pooled kappa 0.842)
+%      and an unresolved share of 1.0%. This supplement uses data/coded/reliability_final.json
+%      (247 systems, macro mean kappa 0.784) and the release itself (unresolved 163/47,728 =
+%      0.3%). Section 4 must not contradict these.
+% NOTE 2026-09-25 (v2): this file is Supplement S4, compiled standalone in supplement.tex; pointers
+% into the main paper are prose ("main paper, \S4"), not \ref, because they cannot resolve there.

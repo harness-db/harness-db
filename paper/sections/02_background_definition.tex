@@ -1,2 +1,98 @@
-\section{Background definition}
-% TODO
+\section{Background and definition}
+\label{sec:background}
+
+\subsection{What a harness is}
+\label{subsec:definition}
+
+An agent harness is the software layer between a language model and a task environment that
+repeatedly assembles the model's input, executes the model's chosen actions, and decides whether to
+continue. Let $M$ be a model, a map from input to output tokens together with its decoding
+configuration, and let $E$ be a task environment: a state space, executable operations with observable
+results, and a task specification. $M$ cannot act on $E$ and $E$ cannot read $M$; the harness $H$
+connects them by implementing eight functions. It (i) assembles input, (ii) exposes and executes
+actions, (iii) decides continuation and termination, (iv) holds state beyond one model call,
+(v) verifies and repairs, (vi) enforces budgets and permissions, (vii) isolates execution, and
+(viii) records and governs what happened. An agent is the run-time triple $(M, H, E)$, which makes the
+harness effect well posed: hold $M$ and $E$ fixed and vary $H$.
+
+Clauses (i) to (iii) are necessary; without them a layer is a prompt, a tool server, or a pipeline.
+Clauses (iv) to (viii) may be trivial, and a trivial value is still a value: a harness that runs the
+model in the host process is coded \texttt{none} on execution isolation, not \texttt{not\_reported}.
+The minimal harness formats the transcript, executes one parsed action, and stops on a finish action
+or a step cap; ReAct \citep{yao2023react} is exactly that, and is the earliest system in the corpus.
+The unit of analysis is the system, not the paper: coding papers would count a popular harness once
+per publication and a harness with no paper not at all.
+
+One test decides every boundary case: whether changing the thing in question, with everything else
+fixed, would change what the model sees, what it can do, or when it stops. Table~\ref{tab:boundary} applies
+it where the definition is most often probed. The pattern is that a part is not a system, while the
+loop a framework or benchmark ships is one.
+
+\begin{table}[t]
+  \caption{Boundary cases and how the definition decides them.}
+  \label{tab:boundary}
+  \footnotesize
+  \begin{tabular}{@{}p{0.40\linewidth}p{0.29\linewidth}p{0.25\linewidth}@{}}
+    \toprule
+    Case & Decision & Reason \\
+    \midrule
+    Weights, decoding settings, trained call syntax & Model, not harness & Fixed inside a forward
+    pass \\
+    Tool schemas, output parser, re-prompts & Harness & Change what the model sees \\
+    Reasoning model that stops thinking itself & Harness still owns (iii) & Harness decides on
+    another call \\
+    \midrule
+    Prompt; chain-of-thought with self-consistency & Not a system & No action on an environment \\
+    ReAct \citep{yao2023react} & System & Parse, execute, append, repeat \\
+    SWE-agent with GPT-4 on SWE-bench Lite & An agent; SWE-agent is the system
+    \citep{yang2024sweagent} & An agent is $(M, H, E)$ \\
+    \midrule
+    Framework library, e.g.\ LangGraph \citep{langgraph} & Coded via its default agent &
+    A kit, not a loop \\
+    Container the harness launches \citep{wang2024openhands} & Part of the harness & The harness
+    configures it \\
+    Sandbox product, protocol server, vector store, tracer & Not a system & One clause, not the
+    loop \\
+    \midrule
+    Non-looping benchmark baseline \citep{jimenez2024swebench} & Not a system & It is $E$ \\
+    Looping benchmark baseline \citep{zhou2023webarena} & System & Loops a model over $E$ \\
+    Tool-use fine-tuning \citep{schick2023toolformer} & Out of scope unless it adds a loop &
+    Changes $M$, not $H$ \\
+    Closed vendor product \citep{claudecode} & System if codable from documents & Defined by
+    behavior \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{The nine layers}
+\label{subsec:layers}
+
+The eight clauses map onto coding layers A to H, plus a metadata layer M, for 38 dimensions.
+Context assembly (A, four dimensions) governs what the model sees at each step, and tool interface
+(B, five) what it may do and in what syntax. Control loop (C, five) governs what happens after a
+step, including topology, delegation, and human checkpoints. Memory and state (D, three) covers what
+persists within and across runs, verification and repair (E, three) whether an oracle checks the work,
+and budget and termination (F, three) step, cost, and time bounds. Sandbox and environment (G, four)
+covers isolation, filesystem, network, and permissions; observability and governance (H, four) covers
+tracing, replay, evaluation hooks, and guardrails. Layer M (seven) describes the system record, such
+as domain, openness, and primary artifact, and is excluded wherever a claim is about design. Three
+placements are deliberate. Termination sits in F rather than C so that termination and budget are
+counted together. Filesystem access and network policy sit apart from isolation because released
+systems configure them independently. Observability and governance share H because in this corpus
+they are reported together or not at all.
+
+\subsection{The Three-State Cell Contract}
+\label{subsec:cellstates}
+
+The paper's measurement vocabulary is the Three-State Cell Contract. A cell is one system against one
+dimension and holds exactly one state. A \emph{value} is backed by a verbatim quote and a re-openable
+locator, and includes an absence found where the feature would be declared (50.8\% of the 47,728
+cells). \texttt{not\_reported} means the sources were read and are silent (48.9\%), and
+\texttt{unresolved} means the cell could not be settled (0.3\%). Silence is data about documents,
+never absence in a system: the sources are silent on network policy for an estimated 93.3\% of
+systems, which does not mean that 93.3\% of systems lack one. An \texttt{unresolved} cell is an
+admission about our coding, excluded from every denominator and never pooled with
+\texttt{not\_reported}, because pooling would inflate the silence rate by exactly what we failed to
+code. Every share is labeled weighted, describing the frame, or unweighted, describing the coded set,
+and carries its denominator. Section~\ref{sec:methods} gives the coding rule that enforces the
+contract.

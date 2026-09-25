@@ -1,2 +1,295 @@
-\section{Landscape}
-% TODO
+\section{The landscape of harness design}
+\label{sec:landscape}
+
+Five descriptive findings follow. All five rest on 1,256 systems coded on 38 dimensions, 47,728 cells, weighted to a 6,504-system
+frame (Section~\ref{sec:methods}). Field claims use weighted estimates with stratified design standard
+errors; claims about what was coded, including clustering and association, are unweighted.
+
+\subsection{The coded set is not the field}
+\label{subsec:weighting}
+
+Weighting inverts the modal release artifact: whether a system's canonical release
+(\texttt{primary\_artifact}) is a repository, a paper, or a technical report. In the coded set, 867 of
+1,252 systems (69.2\%) are repository-primary. Weighted to the frame, repository-primary falls to 33.3\%
+and paper-primary rises to 66.0\% $\pm$ 3.0. The mechanism is the stratum design: repository-primary
+systems are 746 of 979 in stratum H (76.2\%), which admits systems partly by repository stars, 93 of 157
+in P (59.2\%), and 28 of 116 in O (24.1\%). Table~\ref{tab:landscape_flips} places this among seven
+dimensions whose modal value changes under weighting. Supplement~S6 shows every value of every
+dimension; the distortion is largest for \texttt{primary\_artifact}.
+
+\begin{table}[tbp]
+\caption{Dimensions whose modal value changes when the coded set ($n$ reporting systems, unweighted) is
+weighted to the frame (estimate $\pm$ one design standard error). Last column: field share of the
+coded-set mode, over one standard error below the new mode in the upper block, within one (a tie) in the
+lower. Multi-valued shares need not sum to 100\%.}
+\label{tab:landscape_flips}
+\footnotesize
+\begin{tabular}{lrlrlrr}
+\toprule
+ & & \multicolumn{2}{c}{Coded set} & \multicolumn{2}{c}{Field} & Old mode, \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+Dimension & $n$ & Mode & \% & Mode & \% $\pm$ SE & field \% \\
+\midrule
+\texttt{primary\_artifact}     & 1252 & \texttt{repo}                      & 69.2 & \texttt{paper}           & 66.0 $\pm$ 3.0 & 33.3 \\
+\texttt{delegation\_mechanism} &  852 & \texttt{none}                      & 34.2 & \texttt{role\_handoff}   & 50.4 $\pm$ 4.5 & 22.2 \\
+\texttt{system\_prompt\_style} &  785 & \texttt{dynamically\_composed}     & 46.1 & \texttt{templated}       & 49.3 $\pm$ 4.5 & 32.8 \\
+\texttt{retry\_policy}         &  436 & \texttt{none}                      & 43.6 & \texttt{fixed\_n}        & 45.5 $\pm$ 5.6 & 29.0 \\
+\midrule
+\texttt{tool\_call\_format}    &  609 & \texttt{native\_function\_calling} & 47.8 & \texttt{json\_in\_text}  & 35.8 $\pm$ 5.4 & 32.2 \\
+\texttt{self\_verification}    &  644 & \texttt{llm\_judge}                & 49.2 & \texttt{test\_execution} & 42.1 $\pm$ 4.7 & 40.5 \\
+\texttt{permission\_model}     &  385 & \texttt{static\_allowlist}         & 32.7 & \texttt{none}            & 32.0 $\pm$ 9.4 & 28.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Neither silence nor sampling noise explains the inversion away. \texttt{primary\_artifact} is the
+best-documented dimension, with three \texttt{not\_reported} cells, one \texttt{unresolved}, and a
+weighted \texttt{not\_reported} rate of 0.05\%, and a design standard error of 3.0 points cannot span
+69.2\% to 33.3\%. The same test sorts the other six flips: three are clear reversals, and three are ties
+within one standard error. The \texttt{stars} popularity bin also changes mode, but it measures
+visibility rather than design and is not counted.
+
+The price of the design is precision where the weights are largest: one coded system in stratum O
+stands for 48.37 in the frame. Of the 487 systems that document protocol standardization, 400 name MCP
+(82.1\%), but the weighted estimate of 68.4\% carries a design standard error of 12.2 points, too wide
+to support a claim about MCP adoption in either direction. The weighting corrects for sampling within
+the frame, not for systems the search missed.
+
+Prior harness surveys characterize the systems visible enough to study
+\citep{li2026harnessengineering,meng2026harnesssurvey,guo2026qa2task,rombaut2026insidescaffold,barbaste2026anatomy,zhong2026responsibilities,harnesscategorical2026}.
+That choice suits a source-code study of eleven systems \citep{barbaste2026anatomy}. Carried over to a
+claim about the field, it changes the modal value of seven of 38 dimensions, one of which is the
+release artifact itself.
+
+\subsection{Systems document what they do, not how they are bounded}
+\label{subsec:underreporting}
+
+Silence concentrates in the layers that bound a harness, not in the layers that drive it
+(Table~\ref{tab:landscape_layers}). The weighted rate climbs from 24.9\% $\pm$ 1.2 for the control loop
+to 81.6\% $\pm$ 1.8 for sandbox and environment; with standard errors of at most 2.3 points, the
+ordering of the extremes is not a sampling accident. All five of the least-documented dimensions
+describe what an operator needs to know before deploying an agent.
+
+\begin{table}[tbp]
+\caption{Share of cells whose sources are silent (\texttt{not\_reported}), by layer (ordered by field
+rate) and for the five least-documented dimensions. The base excludes \texttt{unresolved} cells and
+counts cells for a layer, systems for a dimension. Coded set: unweighted; field: weighted estimate $\pm$
+one design standard error.}
+\label{tab:landscape_layers}
+\footnotesize
+\begin{tabular}{llrrrr}
+\toprule
+ & & Dims & Base & Coded set (\%) & Field (\% $\pm$ SE) \\
+\midrule
+C & Control loop                 & 5 & 6250 & 27.1 & 24.9 $\pm$ 1.2 \\
+M & Meta                         & 7 & 8782 & 27.4 & 34.6 $\pm$ 1.3 \\
+A & Context assembly             & 4 & 5005 & 44.4 & 40.2 $\pm$ 2.0 \\
+E & Verification and repair      & 3 & 3761 & 65.0 & 60.9 $\pm$ 2.3 \\
+D & Memory and state             & 3 & 3751 & 52.7 & 63.3 $\pm$ 2.1 \\
+F & Budget and termination       & 3 & 3758 & 61.5 & 65.1 $\pm$ 2.0 \\
+B & Tool interface               & 5 & 6234 & 63.4 & 71.4 $\pm$ 2.0 \\
+H & Observability and governance & 4 & 5014 & 59.7 & 72.8 $\pm$ 2.0 \\
+G & Sandbox and environment      & 4 & 5010 & 66.6 & 81.6 $\pm$ 1.8 \\
+\midrule
+G & \texttt{network\_policy}     & 1 & 1253 & 84.8 & 93.3 $\pm$ 1.5 \\
+H & \texttt{replayability}       & 1 & 1256 & 85.1 & 90.6 $\pm$ 2.0 \\
+G & \texttt{filesystem\_access}  & 1 & 1254 & 71.0 & 87.5 $\pm$ 2.0 \\
+E & \texttt{rollback}            & 1 & 1254 & 81.1 & 86.4 $\pm$ 2.4 \\
+D & \texttt{state\_persistence}  & 1 & 1254 & 68.9 & 86.2 $\pm$ 2.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Weighting sharpens the asymmetry rather than creating it: the field is more silent than the coded set
+on layers B, D, F, G, H, and M, and less on A, C, and E. Per dimension (all 38 in Supplement~S6), it
+raises silence most for \texttt{open\_source}, \texttt{protocol\_standardization}, and
+\texttt{execution\_isolation}, and lowers it for most control-loop dimensions; \texttt{open\_source}
+goes from 478 of 1,254 coded systems (38.1\%) to a weighted 69.7\% $\pm$ 3.0. A review that codes only
+visible systems understates the silence on what bounds an agent. Every one of these rates measures documents:
+\texttt{not\_reported} means the admitted sources were read and are silent, not that a system has no network policy,
+no sandbox, or no rollback; a harness may isolate execution well and never say so.
+
+The diagnostic that could have reversed this result nearly did. Before amendment~9
+(Section~\ref{sec:methods}), a search that found nothing was an absence value under one rule and
+\texttt{not\_reported} under another, an ambiguity behind 19 of the dimensions that failed the
+reliability threshold. On the 217-system validation sample the rewrite moved the \texttt{not\_reported}
+share from 26.9\% to 48.3\%; the corrected corpus-wide rate is 48.9\% of all 47,728 cells. The
+pre-amendment figure was the flattering one, reading prose that never mentioned rollback as evidence that
+rollback was absent; the superseded coding is released so the change can be audited.
+
+Two caveats survive. A sandbox documented only in a source the protocol does not admit, such as a blog
+post, counts as silent. A layer's rate averages three to seven dimensions, so specific claims should rest
+on dimension rows. The published record describes what a harness does far better than what bounds it,
+and any secondary analysis of this literature inherits that asymmetry.
+
+\subsection{Coded-set design diversity rose on six dimensions and fell on three}
+\label{subsec:convergence}
+
+In the coded set, diversity rose on six dimensions, fell on three, and was stable on 25. For the 34 dimensions with two or more usable
+years, we compared the Miller--Madow corrected Shannon entropy \citep{paninski2003entropy} of the first
+and last usable year, bootstrapping the change and suppressing cells under 20 reporting systems. Ten
+intervals exclude zero, against 1.7 expected under the global null. Nine survive a Benjamini--Hochberg
+correction across the 34 tests at $q < 0.05$: six diversifications and three convergences
+(Table~\ref{tab:landscape_entropy}), all unweighted coded-set estimates, not estimates for the field.
+
+\begin{table}[tbp]
+\caption{The 10 of 34 tested dimensions whose bootstrap interval on the entropy change excludes zero.
+$\Delta H$: change in Miller--Madow corrected entropy (nats), first to last usable year. $q$:
+Benjamini--Hochberg adjusted bootstrap $p$ across the 34 tests. \texttt{loop\_primitives}' lower bound
+has four decimals because it rounds to zero at two. Unweighted coded-set estimates.}
+\label{tab:landscape_entropy}
+\footnotesize
+\begin{tabular}{llrlrl}
+\toprule
+Dimension & Years & $\Delta H$ (nats) & 95\% CI & $q$ $\downarrow$ & Survives BH \\
+\midrule
+\multicolumn{6}{l}{\emph{Falls (convergence)}} \\
+\texttt{env\_context\_strategy}   & 2023--2026 & $-0.52$ & [$-0.64$, $-0.27$]  & 0.023 & yes \\
+\texttt{short\_term\_state}       & 2023--2026 & $-0.27$ & [$-0.42$, $-0.06$]  & 0.029 & yes \\
+\texttt{state\_persistence}       & 2024--2026 & $-0.27$ & [$-0.40$, $-0.10$]  & 0.027 & yes \\
+\midrule
+\multicolumn{6}{l}{\emph{Rises (diversification)}} \\
+\texttt{termination\_condition}   & 2023--2026 & $+0.76$ & [$+0.48$, $+1.21$]  & 0.023 & yes \\
+\texttt{human\_in\_loop}          & 2024--2026 & $+0.69$ & [$+0.45$, $+1.03$]  & 0.023 & yes \\
+\texttt{edit\_primitive}          & 2023--2026 & $+0.60$ & [$+0.18$, $+1.22$]  & 0.027 & yes \\
+\texttt{tool\_schema\_source}     & 2023--2026 & $+0.42$ & [$+0.10$, $+0.86$]  & 0.029 & yes \\
+\texttt{cost\_controls}           & 2024--2026 & $+0.27$ & [$+0.09$, $+0.52$]  & 0.045 & yes \\
+\texttt{rollback}                 & 2024--2026 & $+0.20$ & [$+0.04$, $+0.46$]  & 0.042 & yes \\
+\texttt{loop\_primitives}         & 2023--2026 & $+0.14$ & [$+0.0012$, $+0.66$] & 0.177 & no \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The fastest diversifiers govern when a harness stops and who may interrupt it.
+\texttt{termination\_condition} gains the most entropy, its observed value count rising from 9 to 32,
+followed by \texttt{human\_in\_loop} and \texttt{edit\_primitive} (trajectories in Supplement~S6).
+\texttt{loop\_primitives} excludes zero but fails the correction; its lower bound is the closest to zero
+of the ten, well within the 1.7 chance exclusions of 34 tests, so it is not counted as a diversifier.
+
+The confound that could have produced these trends threatens the falls, not the rises. The series are
+annual cohorts, not a panel: no system is observed twice, cohorts grow from 68 systems in 2023 to 386 in
+2026, and entropy is conditioned on reporting. A dimension can lose entropy because its later reporters
+are a narrower slice of a wider field; rising entropy cannot be manufactured that way. The stratum mix
+cuts both ways: stratum H is 65.2\% to 83.8\% of each cohort, a shift unweighted entropy cannot absorb.
+
+Of the three falls, one clears the confound. \texttt{state\_persistence} lost entropy over a constant
+three values while reporting improved, from 42 of the 198 systems in 2024 to 141 of the 386 in 2026,
+settling on \texttt{full\_resume} (a weighted 56.1\% of reporting systems).
+\texttt{short\_term\_state} also fell, but its reporting share did not rise (46 of 68 systems in 2023,
+252 of 386 in 2026), so it is weaker evidence. \texttt{env\_context\_strategy} carries the largest fall,
+yet its reporters went from 258 of 349 in 2025 to 242 of 386 in 2026; the fall coincides with worse
+reporting, and we do not read it as convergence.
+
+The design space is widening on the dimensions that control termination, human intervention, and
+editing, and the one convergence the coded set supports is in how run state is persisted.
+
+\subsection{There are no clean design families, and that is a result}
+\label{subsec:families}
+
+The corpus does not fall into clean design families. We clustered the 583 systems that report at least
+half of their dimensions (673 fell below) on a Gower distance \citep{gower1971similarity} over 37
+dimensions, excluding the free-text \texttt{pinned\_version}; each distance averages over the dimensions
+both systems report, so silence contributes nothing. An average-linkage tree was cut at every $k$ from 2
+to 15, excluding cuts whose largest cluster held more than 90\% of the set. Table~\ref{tab:landscape_bars}
+scores the best eligible cut, $k = 8$, against three bars fixed in advance. Verdict: negative.
+
+\begin{table}[tbp]
+\caption{The best eligible partition ($k = 8$, average linkage, 583 systems) against the three bars
+stated before clustering. The null permutes each dimension within its observed cells and passes through
+the same eligibility filter and maximization over $k$ as the data (500 draws, 495 with an eligible $k$).}
+\label{tab:landscape_bars}
+\footnotesize
+\begin{tabular}{llll}
+\toprule
+Bar & Floor & Observed & Verdict \\
+\midrule
+Mean silhouette $\uparrow$ & $\geq 0.25$ & 0.120 & fail \\
+Mean bootstrap Jaccard stability $\uparrow$ (200 resamples) & $\geq 0.60$ & 0.540 & fail \\
+Silhouette above the selection-adjusted null $\uparrow$ & $> 0.006$ (95th pct.) & 0.120 ($p = 0.002$) & pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=\linewidth]{family_dendrogram}
+\caption{Left: average-linkage dendrogram over the Gower distance, 583 systems, unweighted (cophenetic
+correlation 0.571). Right: mean silhouette against $k$ beside the null's 95th percentile. The cut
+$k = 8$ clears the null at 0.120 and misses the floor of 0.25: there is structure, but not enough to call families.}
+\label{fig:landscape_dendrogram}
+\end{figure}
+
+The partition fails the silhouette \citep{rousseeuw1987silhouette} and stability
+\citep{hennig2007stability} bars and passes the null, and the pass is what makes the failure informative
+rather than inconclusive: because the null is maximized over $k$ as the data were, 0.120 is signal at a
+selection-adjusted $p = 0.002$, yet below the 0.25 floor, and Figure~\ref{fig:landscape_dendrogram}
+shows no $k$ that reaches it. No admissible linkage does better: weighted and complete linkage peak
+lower, and single linkage never yields an eligible cut. Ward and centroid linkage were not run, because
+they assume Euclidean coordinates that a Gower distance does not provide.
+
+The alternative explanation, that clusters track documentation completeness rather than design, fails
+for the clusters that carry any description. The three clusters holding at least 5\% of the set have
+mean coded shares spanning 3.6 points. A Kruskal--Wallis test across all eight clusters does reject
+equality ($H = 31.78$, $p = 4.5 \times 10^{-5}$), but it is driven by clusters of four to eight systems,
+one of seven systems at 83.8\% and one of eight at 55.6\%.
+
+Three regions are large enough to describe, and all three are provisional because the partition that
+produced them failed its bars. The largest, 252 systems (43.2\%), is a subagent-spawning orchestrator,
+with \texttt{subagent\_spawn} delegation in 77\% of members against 4\% elsewhere. The second, 212
+systems (36.4\%), is the single-agent loop, with no delegation mechanism in 93\% against 13\%. The
+third, 90 systems (15.4\%), is the pipeline and role-handoff design, with \texttt{role\_handoff} in 76\%
+against 6\%. These are labels for regions of a continuum, not types, and membership is not a property
+of a system.
+
+Taxonomy papers in this area assert families of harness architecture
+\citep{meng2026harnesssurvey,li2026harnessengineering,twodim2026agentpatterns}; on 583 systems, against
+bars fixed before clustering, those families do not separate, and harness design reads as weakly coupled
+choices rather than a few architectures.
+
+\subsection{Design choices are weakly coupled, and shared silence manufactures the opposite impression}
+\label{subsec:associations}
+
+Once silence is removed, coupling between design dimensions is weak almost everywhere. For each pair we
+computed a bias-corrected Cram\'er's V \citep{cramer1946methods,bergsma2013cramersv} on complete pairs,
+the systems for which both dimensions carry a value, tested by permutation with 20,000 draws and
+Benjamini--Hochberg correction \citep{benjamini1995fdr}. Of the 703 pairs, the 37 involving
+\texttt{pinned\_version} are excluded; over the other 666, mean corrected V is 0.167
+(Table~\ref{tab:landscape_assoc}). One pair exceeds 0.6: \texttt{multi\_agent\_topology} $\times$
+\texttt{delegation\_mechanism}, at 0.720 on 841 systems ($q = 0.00026$), close to definitional because a
+single-agent system has nothing to delegate to. The next-strongest, \texttt{protocol\_standardization}
+$\times$ \texttt{rollback}, reaches 0.559 on only 140 systems.
+
+\begin{table}[tbp]
+\caption{Pairwise association under two treatments of silence over the 666 testable pairs, unweighted
+(median 302 complete systems per pair, range 57--1,251). V: bias-corrected Cram\'er's V; significance: a
+20,000-draw permutation test at Benjamini--Hochberg $q < 0.05$. Complete pairs are primary.}
+\label{tab:landscape_assoc}
+\footnotesize
+\begin{tabular}{lrrr}
+\toprule
+Treatment of \texttt{not\_reported} & Mean V & Significant pairs & Significant only here \\
+\midrule
+Excluded (complete pairs)    & 0.167 & 385 & 2 \\
+Counted as a level           & 0.168 & 648 & 265 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Counting silence as a value manufactures structure. Table~\ref{tab:landscape_assoc} shows that treating
+\texttt{not\_reported} as an ordinary level barely moves the mean V but raises the pairs significant at
+BH $q < 0.05$ from 385 to 648 of 666, and 265 pairs are significant only under that treatment. Those 265 detect which
+dimensions get documented together, not which designs co-occur; Supplement~S6 maps the change
+pair by pair. The worst case is \texttt{tracing} $\times$
+\texttt{eval\_hooks}: V is 0.000 on the 483 systems reporting both (permutation $p = 1.0$) and 0.241 at
+$q = 0.00007$ once all 1,251 systems enter with silence counted as a value.
+
+The caveat runs the other way. Complete pairs condition on joint reporting, which is not random, so if
+silence hides a real association the complete-pair V misses it. Two pairs are significant only on
+complete pairs, where counting silence dilutes an association the documented subset shows, and 20 more
+keep their conclusion with a coefficient attenuated by shared silence. Both treatments are therefore
+released in full in the replication package, with complete pairs primary.
+
+With silence removed, harness design dimensions are close to independent apart from one near-definitional
+pair. An analysis that treats \texttt{not\_reported} as a design choice will recover a correlation
+structure made by who writes documentation, and with so little coupling to build on, the negative
+clustering verdict of Section~\ref{subsec:families} is the expected outcome.

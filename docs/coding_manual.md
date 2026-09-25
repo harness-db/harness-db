@@ -6,9 +6,10 @@ it; reliability is reported in `docs/coding_reliability.md`. Changes from here n
 line in `docs/schema_changelog.md` and an OSF registration update.
 
 Schema: `schema/dimensions.json` 1.0.0 (38 dimensions, 9 layers). The freeze condition - a
-double-coded sample with per-dimension kappa >= 0.6 - was met on 217 systems, far more than the 30
+double-coded sample with per-dimension kappa >= 0.6 - was met on 247 systems, far more than the 30
 the plan called for: 37 of 38 dimensions clear it, and `loop_primitives` is kept and flagged rather
-than redefined (0.586 on exact-set match, 0.624 on AC1, 0.738 per value).
+than redefined (0.590 on exact-set match, 0.628 on AC1, 0.731 per value). Figures recomputed
+2026-09-24; see `docs/count_reconciliation.md`.
 
 Two worked examples are coded end to end in `data/examples/` (LLM pre-fill, not
 human-verified - amendment 4 removed human verification):
@@ -65,7 +66,7 @@ are in the JSON files; the manual shows value + primary evidence only.
 
    Why this rule is written so tightly: on the first double-coded sample (217 systems,
    2026-09-23) the two readings agreed on the evidence and disagreed only on this
-   split, which alone pushed 19 of 38 dimensions below the reliability threshold —
+   split, which alone accounted for 19 of the 30 dimensions that the first reliability run put below the threshold —
    `rollback` 0.97 of its disagreements, `replayability` 0.96, `network_policy` 0.94,
    with notes on both sides reading "no replay facility found".
 6. **Closest value + note.** When a value list does not fit, pick the closest value,
@@ -81,6 +82,14 @@ are in the JSON files; the manual shows value + primary evidence only.
 ## Dimensions
 
 ### Layer A: Context assembly
+
+> **Worked examples below are calibration-round codings.** They were written while the manual was being
+> drafted, on the pilot systems, to illustrate each decision rule. The released dataset was coded afterwards
+> under the final protocol, and a released cell can differ from the example here (for instance SWE-agent's
+> `network_policy` is `not_reported` in the release, where this manual's example codes it `open` from the
+> absence of any network option). Where they differ, the release is the record and the example is a
+> candidate for the human-recoding subsample; the manual is not corrected to match the release, and the
+> release is never edited to match the manual.
 
 #### A1 system_prompt_style (single)
 Definition: how the system prompt that opens every model call is produced.
