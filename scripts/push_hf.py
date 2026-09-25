@@ -66,6 +66,18 @@ def main(argv: list[str] | None = None) -> int:
     from huggingface_hub.errors import HfHubHTTPError
 
     api = HfApi(token=tok)
+    who = api.whoami()
+    namespaces = {who.get("name")} | {o.get("name") for o in who.get("orgs", [])}
+    namespace = a.repo.split("/", 1)[0]
+    if namespace not in namespaces:
+        print(
+            f"the token belongs to '{who.get('name')}' with orgs {sorted(namespaces - {who.get('name')})}; "
+            f"it cannot create repos under '{namespace}'. Create that organization on the Hub first "
+            f"(https://huggingface.co/organizations/new) and add this account, or pass --repo "
+            f"{who.get('name')}/{a.repo.split('/', 1)[1]}",
+            file=sys.stderr,
+        )
+        return 4
     api.create_repo(a.repo, repo_type="dataset", private=a.private, exist_ok=True)
     api.upload_folder(
         repo_id=a.repo,
