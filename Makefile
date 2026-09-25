@@ -22,9 +22,16 @@ test:
 # readable message instead of a "No rule to make target" from make itself.
 ANALYSIS_SCRIPTS = \
 	scripts/prisma_diagram.py \
+	scripts/plot_taxonomy.py \
+	scripts/plot_frameworks.py \
 	scripts/analyse_descriptives.py \
 	scripts/analyse_families.py \
-	scripts/analyse_outcomes.py
+	scripts/analyse_outcomes.py \
+	scripts/analyse_ablations.py \
+	scripts/analyse_blocks.py \
+	scripts/analyse_ablation_coverage.py \
+	scripts/make_rq3_tables.py \
+	scripts/build_explorer.py
 
 check-analysis-scripts:
 	@missing=""; \

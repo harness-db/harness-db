@@ -1,9 +1,11 @@
 # Worked examples
 
-These two files are the worked examples referenced by `docs/coding_manual.md` (v0.2).
-They were coded end to end by **LLM pre-fill** (`coder: "llm-prefill"`, Claude, on
-2026-09-16) and are **NOT yet human-verified**. Treat every cell as a proposal to be
-checked by a human coder during the pilot; do not copy them into `data/systems/`.
+These two files are the worked examples referenced by `docs/coding_manual.md`.
+They were coded end to end on 2026-09-16 (`coder: "llm-prefill"`) during manual calibration, before
+the final protocol (amendment 4 and the general-rule-5 rewrite) under which the released dataset was
+coded. They illustrate the decision rules; they are not part of the release, and where a released cell
+differs from an example the release is the record (see the reader's note at the top of the manual's
+per-dimension section).
 
 | file | system | pinned tag | commit | date |
 |---|---|---|---|---|
