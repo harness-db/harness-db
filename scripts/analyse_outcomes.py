@@ -513,6 +513,10 @@ def permutation_test_within_key(
         p_two = float((np.abs(stats_all) >= abs(observed) - tol).mean())
         mode = "exact"
         n_draws = len(stats_all)
+        # The smallest TWO-SIDED p the design admits is the mass at the largest |stat| over all
+        # assignments. When assignments pair by sign this is 2/n, not 1/n: every labelling has a
+        # mirror with the negated statistic, so no labelling can be alone at the extreme.
+        p_floor_two = float((np.abs(stats_all) >= float(np.abs(stats_all).max()) - tol).mean())
     else:
         rng = np.random.default_rng(seed)
         draws = np.empty(int(n_perm), dtype=float)
@@ -522,18 +526,24 @@ def permutation_test_within_key(
         p_two = float((1 + int((np.abs(draws) >= abs(observed) - tol).sum())) / (1 + int(n_perm)))
         mode = "monte-carlo"
         n_draws = int(n_perm)
+        # Not enumerated, so the exact two-sided floor is unknown; 2/n is the sign-symmetric bound
+        # and 1/n the absolute one. Report the conservative (larger) of the two as the floor.
+        p_floor_two = min(1.0, 2.0 / n_assignments)
     return {
         "available": True,
         "mode": mode,
         "observed": observed,
         "p_two_sided": p_two,
         "n_assignments": int(n_assignments),
-        "p_min_attainable": 1.0 / n_assignments,
+        # Two-sided floor: the smallest p_two_sided this design can produce. Exact when enumerated.
+        "p_min_attainable": p_floor_two,
+        "p_min_attainable_one_sided": 1.0 / n_assignments,
+        "floor_mode": "exact" if mode == "exact" else "sign-symmetric bound",
         "n_draws": n_draws,
-        "floor_above_05": bool(1.0 / n_assignments > 0.05),
+        "floor_above_05": bool(p_floor_two > 0.05),
         # Saturated: the observed labelling is the most extreme the design admits, so the p-value is
         # sitting on its own floor and one differently-ordered key would move it.
-        "saturated": bool(mode == "exact" and p_two <= 1.0 / n_assignments + 1e-12),
+        "saturated": bool(mode == "exact" and p_two <= p_floor_two + 1e-12),
     }
 
 

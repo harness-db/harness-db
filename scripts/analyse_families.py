@@ -123,9 +123,15 @@ Everything -- dimension ids, keys, layers, types, ``multi`` flags, allowed value
   also computed for the other admissible linkages (complete, weighted, single) as a sensitivity, so
   the verdict does not hinge on one linkage rule; Ward and centroid are not run because they assume
   Euclidean coordinates, which a Gower distance does not provide. The chosen k is only *declared*
-  as families if it clears three pre-stated bars: (1) silhouette >= ``--min-silhouette``; (2) silhouette above the 95th percentile
-  of the permuted null described above (the gap criterion); (3) mean bootstrap Jaccard stability
-  >= ``--min-stability`` over ``--n-boot`` 80% subsamples. If any bar fails, the script reports a
+  as families if it clears three pre-stated bars: (1) silhouette >= ``--min-silhouette``;
+  (2) silhouette above the 95th percentile of the permuted null described above (the gap
+  criterion), computed on the SELECTED statistic rather than per k: because k is chosen by
+  maximising the observed silhouette over the eligible k, the null must be maximised the same way,
+  so the reference distribution is the distribution over ``--n-null`` draws of each draw's maximum
+  silhouette over the k that draw's own largest-cluster filter leaves eligible. The per-k null
+  percentiles are still reported, as diagnostics, and comparing the observed maximum to the per-k
+  null at the k that produced it is a winner's-curse comparison that this script does not gate on.
+  (3) mean bootstrap Jaccard stability >= ``--min-stability`` over ``--n-boot`` 80% subsamples. If any bar fails, the script reports a
   NEGATIVE RESULT -- "the corpus does not fall into clean design families" -- and labels the
   best-k partition "provisional" everywhere it appears. A forced k is worse than no k.
 
@@ -971,6 +977,14 @@ class KChoice:
     silhouettes: list[float]
     null_p95: list[float]
     null_mean: list[float]
+    null_eligible_p95: list[float]
+    null_eligible_share: list[float]
+    null_max_p95: float
+    null_max_mean: float
+    null_max_draws: int
+    p_selection_adjusted: float
+    beats_null_per_k: bool
+    beats_null_selection_adjusted: bool
     largest_cluster_frac: list[float]
     smallest_cluster_frac: list[float]
     eligible: list[bool]
@@ -1089,8 +1103,8 @@ def choose_k(
     *,
     method: str = "average",
     kmax: int = 12,
-    n_null: int = 20,
-    n_boot: int = 25,
+    n_null: int = 500,
+    n_boot: int = 200,
     boot_frac: float = 0.8,
     min_silhouette: float = 0.25,
     min_stability: float = 0.60,
@@ -1132,16 +1146,43 @@ def choose_k(
     rows = np.array([corpus.ids.index(i) for i in dist.ids]) if len(dist.ids) != len(corpus.ids) else None
     if rows is None:
         rows = np.arange(len(corpus.ids))
-    null = np.full((max(n_null, 0), len(ks)), np.nan)
-    for b in range(max(n_null, 0)):
+    n_null = max(n_null, 0)
+    null = np.full((n_null, len(ks)), np.nan)        # silhouette curve of each null draw
+    null_elig = np.full((n_null, len(ks)), np.nan)   # the same curve, ineligible k masked out
+    null_max = np.full(n_null, np.nan)               # max over eligible k WITHIN each draw
+    for b in range(n_null):
         praw = permute_raw(corpus.raw, dist.dims_used, rng)
         Dn, _ = gower_distance(praw, dist.dims_used, rows)
         if np.isnan(Dn).any():
             Dn = np.where(np.isnan(Dn), np.nanmax(Dn), Dn)
-        null[b] = silhouette_curve(Dn, linkage_matrix(Dn, method=method), ks)
+        curve_n = silhouette_curve_with_sizes(Dn, linkage_matrix(Dn, method=method), ks)
+        null[b] = [s for s, _, _ in curve_n]
+        # The observed statistic is a maximum over ELIGIBLE k, so the null must be passed through
+        # the same filter and the same maximisation. Two corrections, both of which matter here:
+        # (1) eligibility. A null draw whose best silhouette comes from a "one giant cluster plus a
+        #     sliver" cut would otherwise set a bar the observed curve was never allowed to compete
+        #     for, and conversely the observed curve loses its own high-scoring small k to the
+        #     filter while the null keeps them.
+        # (2) selection. Comparing the observed maximum against the per-k null at the k that
+        #     maximised it is a winner's-curse comparison: k was chosen by looking at the data. The
+        #     reference distribution has to be the distribution of the null's own maximum over the
+        #     eligible k, which is what null_max records.
+        null_elig[b] = [s if m <= max_cluster_frac else np.nan for s, m, _ in curve_n]
+        if not np.all(np.isnan(null_elig[b])):
+            null_max[b] = float(np.nanmax(null_elig[b]))
+    nan_k = [float("nan")] * len(ks)
     with np.errstate(invalid="ignore"):
-        null_p95 = list(np.nanpercentile(null, 95, axis=0)) if n_null > 0 else [float("nan")] * len(ks)
-        null_mean = list(np.nanmean(null, axis=0)) if n_null > 0 else [float("nan")] * len(ks)
+        null_p95 = list(np.nanpercentile(null, 95, axis=0)) if n_null > 0 else nan_k
+        null_mean = list(np.nanmean(null, axis=0)) if n_null > 0 else nan_k
+        null_eligible_p95 = [
+            float(np.nanpercentile(col, 95)) if np.any(~np.isnan(col)) else float("nan")
+            for col in null_elig.T
+        ] if n_null > 0 else nan_k
+        null_eligible_share = ([float(np.mean(~np.isnan(col))) for col in null_elig.T]
+                               if n_null > 0 else nan_k)
+    null_max_draws = null_max[~np.isnan(null_max)]
+    null_max_p95 = float(np.percentile(null_max_draws, 95)) if null_max_draws.size else float("nan")
+    null_max_mean = float(np.mean(null_max_draws)) if null_max_draws.size else float("nan")
 
     # Linkage sensitivity: the negative/positive verdict must not hinge on one linkage rule.
     # Ward and centroid are inadmissible on a Gower distance (they assume Euclidean coordinates)
@@ -1176,7 +1217,13 @@ def choose_k(
     )
     mean_stab = float(np.nanmean(list(stab.values()))) if stab else float("nan")
 
-    beats_null = bool(n_null > 0 and not math.isnan(null_p95[best_i]) and best_sil > null_p95[best_i])
+    beats_null_per_k = bool(n_null > 0 and not math.isnan(null_p95[best_i])
+                            and best_sil > null_p95[best_i])
+    # The gate is the selection-adjusted comparison, not the per-k one.
+    p_selection_adjusted = (float((1 + int(np.sum(null_max_draws >= best_sil)))
+                                  / (null_max_draws.size + 1))
+                            if null_max_draws.size else float("nan"))
+    beats_null = bool(n_null > 0 and not math.isnan(null_max_p95) and best_sil > null_max_p95)
     clears_sil = bool(best_sil >= min_silhouette)
     clears_stab = bool(not math.isnan(mean_stab) and mean_stab >= min_stability)
     all_degenerate = bool(all(m > max_cluster_frac for m in largest))
@@ -1192,15 +1239,19 @@ def choose_k(
         reasons.append(f"best mean silhouette {best_sil:.3f} < the pre-stated floor {min_silhouette:.2f}")
     if n_null > 0 and not beats_null:
         reasons.append(
-            f"silhouette {best_sil:.3f} does not exceed the 95th percentile of the "
-            f"marginal-preserving null ({null_p95[best_i]:.3f}), so the structure is explained by "
-            "per-dimension marginals plus the documentation pattern"
+            f"silhouette {best_sil:.3f} does not exceed the 95th percentile of the selected "
+            f"statistic's null, the maximum over eligible k of the marginal-preserving null "
+            f"({null_max_p95:.3f} over {null_max_draws.size} draws, selection-adjusted "
+            f"p = {p_selection_adjusted:.3f}), so the structure is not distinguishable from "
+            "per-dimension marginals plus the documentation pattern once the choice of k is "
+            "accounted for"
         )
     if not clears_stab:
         reasons.append(f"mean bootstrap Jaccard stability {mean_stab:.3f} < {min_stability:.2f}")
     verdict = (
         f"Design families supported: k={best_k}, mean silhouette {best_sil:.3f}, "
-        f"stability {mean_stab:.3f}, above the null 95th percentile {null_p95[best_i]:.3f}."
+        f"stability {mean_stab:.3f}, above the selection-adjusted null 95th percentile "
+        f"{null_max_p95:.3f} (p = {p_selection_adjusted:.3f})."
         if found
         else "NEGATIVE RESULT: the corpus does not fall into clean design families ("
         + "; ".join(reasons)
@@ -1212,6 +1263,14 @@ def choose_k(
         silhouettes=[float(s) for s in sils],
         null_p95=[float(x) for x in null_p95],
         null_mean=[float(x) for x in null_mean],
+        null_eligible_p95=[float(x) for x in null_eligible_p95],
+        null_eligible_share=[float(x) for x in null_eligible_share],
+        null_max_p95=null_max_p95,
+        null_max_mean=null_max_mean,
+        null_max_draws=int(null_max_draws.size),
+        p_selection_adjusted=p_selection_adjusted,
+        beats_null_per_k=beats_null_per_k,
+        beats_null_selection_adjusted=beats_null,
         largest_cluster_frac=[float(m) for m in largest],
         smallest_cluster_frac=[float(m) for m in smallest],
         eligible=list(eligible),
@@ -1841,6 +1900,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "silhouettes": choice.silhouettes,
             "null_p95": choice.null_p95,
             "null_mean": choice.null_mean,
+            "null_eligible_p95": choice.null_eligible_p95,
+            "null_eligible_share_of_draws": choice.null_eligible_share,
+            "null_max_over_eligible_k_p95": choice.null_max_p95,
+            "null_max_over_eligible_k_mean": choice.null_max_mean,
+            "null_max_over_eligible_k_draws": choice.null_max_draws,
+            "p_selection_adjusted": choice.p_selection_adjusted,
+            "beats_null_per_k_at_selected_k": choice.beats_null_per_k,
+            "beats_null_selection_adjusted": choice.beats_null_selection_adjusted,
+            "null_comparison_note": (
+                "the per-k figures are diagnostics; the gate is the selection-adjusted comparison, "
+                "because k was chosen by maximising the observed silhouette over the eligible k. "
+                "The reference distribution is the maximum over eligible k of each null draw's own "
+                "silhouette curve, with the same largest-cluster eligibility filter applied to the "
+                "null as to the observed curve."
+            ),
             "largest_cluster_share_by_k": choice.largest_cluster_frac,
             "smallest_cluster_share_by_k": choice.smallest_cluster_frac,
             "k_eligible": choice.eligible,
@@ -1927,6 +2001,17 @@ def _print_report(summary: dict[str, Any], assoc: pd.DataFrame, top: pd.DataFram
             f"n={c['n_systems']} systems, {c['linkage']} linkage, cophenetic r={c['cophenetic_correlation']:.3f}, "
             f"mean bootstrap Jaccard {c['mean_bootstrap_stability']:.3f}"
         )
+        print(
+            f"selected statistic {c['best_silhouette']:.3f} at k={c['best_k']} against the "
+            f"distribution of the null's MAXIMUM over eligible k: 95th percentile "
+            f"{c['null_max_over_eligible_k_p95']:.3f}, mean "
+            f"{c['null_max_over_eligible_k_mean']:.3f} over "
+            f"{c['null_max_over_eligible_k_draws']} draws, selection-adjusted p = "
+            f"{c['p_selection_adjusted']:.3f} -> "
+            + ("clears" if c["beats_null_selection_adjusted"] else "does NOT clear")
+            + " the null bar (per-k comparison at the selected k: "
+            + ("clears" if c["beats_null_per_k_at_selected_k"] else "does not clear") + ")"
+        )
         conf = c["documentation_confounding"]
         print(
             "documentation confounding: mean coded share per cluster "
@@ -1961,9 +2046,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--frame", default=str(REPO / "data/coding_frame.csv"), help="stratum and weight join")
     p.add_argument("--tables", default=str(REPO / "data/analysis"), help="output directory for CSV/JSON")
     p.add_argument("--figures", default=str(REPO / "paper/figures"), help="output directory for SVG/PDF")
-    p.add_argument("--n-perm", type=int, default=2000, help="permutations per pair per treatment")
-    p.add_argument("--n-null", type=int, default=20, help="marginal-preserving null replicates for the silhouette")
-    p.add_argument("--n-boot", type=int, default=25, help="bootstrap subsamples for cluster stability")
+    p.add_argument("--n-perm", type=int, default=20000,
+                   help="permutations per pair per treatment; the smallest attainable p is "
+                        "1/(n_perm+1), so a low value ties many pairs at the floor and makes the "
+                        "BH ordering inside the rejected set arbitrary")
+    p.add_argument("--n-null", type=int, default=500,
+                   help="marginal-preserving null replicates for the silhouette; a 95th "
+                        "percentile cannot be estimated from a handful of draws")
+    p.add_argument("--n-boot", type=int, default=200,
+                   help="bootstrap subsamples for cluster stability")
     p.add_argument("--boot-frac", type=float, default=0.8)
     p.add_argument("--seed", type=int, default=20260924)
     p.add_argument("--alpha", type=float, default=0.05, help="BH FDR threshold")

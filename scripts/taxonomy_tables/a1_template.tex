@@ -1,0 +1,241 @@
+\section{Coding sheet and coding manual}
+\label{app:coding}
+
+This supplement is the coding frame itself: all 38 dimensions in nine layers, each with its complete
+permitted value set, reproduced from the frozen schema (v1.0.0) in the replication package. The main
+text argues for the frame (\S5) and describes how it was applied (\S4);
+neither argument is restated here. The schema was frozen on 2026-09-23, and no dimension has been added,
+removed, renamed, or re-valued since the initial draft. Every table in this supplement is generated from
+the schema by a script, so it cannot drift from what was coded.
+
+The manuscript preamble loads \texttt{booktabs} and \texttt{graphicx} but not \texttt{longtable}, and a
+section file cannot load a package, so the frame is given as nine per-layer tables
+(Tables~\ref{tab:coding-A}--\ref{tab:coding-M}). A dimension is \emph{single} when one value is recorded
+and \emph{multi} when every applicable value is recorded; 15 of the 38 are multi. Four dimensions
+(\texttt{tool\_count}, \texttt{first\_release\_date}, \texttt{pinned\_version}, \texttt{stars}) carry a
+scalar type instead of a value set. Each layer's table is preceded by the judgment call that layer
+raised, illustrated by the two systems coded end to end in the manual,
+SWE-agent v1.1.0~\citep{yang2024sweagent} and OpenHands v1.16.0~\citep{wang2024openhands}
+(Section~\ref{subsec:coding-examples}).
+
+\subsection{Coding sheet and judgment calls by layer}
+\label{subsec:coding-sheet}
+
+\paragraph{Layer A: context assembly.}\label{subsec:layer-a}
+Layer A governs what the model sees at each step. A3 and A4 are multi-valued because compaction
+mechanisms and observation modalities stack in one system, while a prompt-production strategy and a
+context strategy do not. The judgment call on A1 is where a template stops. Variables rendered once per
+run are \texttt{templated}; conditional sections, runtime-loaded files, or per-step recomposition are
+\texttt{dynamically\_composed}; a paper that says only ``we prompt the model with'' is \texttt{static}
+at low confidence. On A2, \texttt{mixed} is coded only when the default configuration both injects
+context and lets the model navigate. The worked systems split on both dimensions. SWE-agent renders one
+Jinja template per run and prunes tool output only: A1 \texttt{templated}, A3
+\texttt{[tool\_output\_pruning]}. OpenHands composes a static tier from a section registry with a
+dynamic tier from its agent context, and runs a summarizing condenser by default: A1
+\texttt{dynamically\_composed}, A3 \texttt{[summarize, tool\_output\_pruning]}.
+
+%%TABLE_A%%
+
+\paragraph{Layer B: tool interface.}\label{subsec:layer-b}
+Layer B governs how actions are declared to the model and parsed back out of its output. Four of its
+five dimensions are multi-valued, because harnesses ship several parsers, edit commands, and schema
+sources at once; the exception, B2, is an integer and carries no value set. B2 is the layer's hardest
+judgment call, because ``how many tools'' has no natural answer. The rule counts one entry per function
+schema sent with the model call, and counts a built-in shell tool once regardless of what it can run. It
+expands a toolset into its tools and counts built-ins attached to every agent, but excludes tools
+injected by an MCP server or by the environment, and the maximal shipped configuration goes in the note.
+SWE-agent is therefore \texttt{3} at the default against 17 tool definitions shipped across 13 bundles,
+and OpenHands \texttt{5} against 19 once the 14-tool browser toolset is injected where Chromium exists.
+Both counts are defensible and they are not the same measurement, which is why the counting rule rather
+than the count is the taxonomy's content.
+
+%%TABLE_B%%
+
+\paragraph{Layer C: control loop.}\label{subsec:layer-c}
+Layer C governs what happens between model calls: loop shape, plan representation, agent count,
+hand-offs, and the points where a human can intervene. C1 and C5 are multi-valued because a harness can
+run a ReAct loop inside an event stream and can gate at more than one point. The judgment call across the
+whole layer is default versus capability. Decision rule~4 codes the shipped default and records
+reachable alternatives in the note, so OpenHands, which ships a delegate tool but sets
+\texttt{enable\_sub\_agents=False}, is C3 \texttt{single} and C4 \texttt{none}, with
+\texttt{orchestrator\_workers} and \texttt{subagent\_spawn} named as opt-in. C2 draws a related line: a
+structured plan the harness writes and re-reads across steps is \texttt{explicit\_plan\_object}, as in
+OpenHands' task tracker, while a numbered recipe in the prompt is \texttt{implicit}, as in SWE-agent.
+
+%%TABLE_C%%
+
+\paragraph{Layer D: memory and state.}\label{subsec:layer-d}
+Layer D separates what outlives a model call from what outlives a run: working state inside a run (D1),
+information carried between runs (D2), and whether an interrupted run can continue (D3). Only D2 is
+multi-valued, because a harness can keep file notes and a skill library at once. The judgment call sits
+on D3, where a trajectory file is not a checkpoint. Both \texttt{checkpoint} and \texttt{full\_resume}
+require a code path that reads saved state back into a running agent. SWE-agent writes a per-step
+trajectory but offers no path to resume from it, so it is \texttt{none} with the trajectory noted.
+OpenHands reloads a conversation from a state file and an event directory, so it is
+\texttt{full\_resume}. D2 excludes static few-shot demonstrations chosen in configuration, which are
+prompt content rather than memory.
+
+%%TABLE_D%%
+
+\paragraph{Layer E: verification and repair.}\label{subsec:layer-e}
+Layer E records checks the harness enforces, not checks the model could choose to perform. E1 is
+multi-valued because linting, test execution, and a judge model coexist, while a retry policy and a
+rollback mechanism are one choice each. The enforcement boundary is the layer's main judgment call: if
+the model may run tests through a shell but the harness neither runs them nor reads their result,
+\texttt{test\_execution} is not coded. E3 shows the closest-value rule at work. Both worked systems
+expose a model-invocable per-file \texttt{undo\_edit} backed by saved copies, which is not a filesystem
+or container snapshot; both are coded \texttt{snapshot} with the mismatch written into the note and
+listed among the ambiguities in \S5.
+
+%%TABLE_E%%
+
+\paragraph{Layer F: budget and termination.}\label{subsec:layer-f}
+Layer F records what bounds a run. Termination conditions, cost controls, and timeouts each admit a
+set, because bounds accumulate rather than exclude one another. A condition counts only if it stops the
+loop rather than merely logging, and an off-by-default cap counts when a configuration field exists,
+with the default stated in the note. The layer's ambiguity is what \texttt{max\_steps} and
+\texttt{max\_tokens} mean in practice: SWE-agent caps API calls rather than agent steps, and exits on
+context-window overflow rather than on a token budget. F3 is narrower than it looks, because iteration
+caps are not timeouts. SWE-agent is \texttt{[per\_tool, per\_run]}, where the per-run limit counts
+cumulative command execution time and not wall-clock; OpenHands is \texttt{[per\_tool]}, with the
+absence of a run-level timeout evidenced by the search that found none.
+
+%%TABLE_F%%
+
+\paragraph{Layer G: sandbox and environment.}\label{subsec:layer-g}
+Layer G records where actions execute and what they may touch. It is the only layer whose every
+dimension is single-valued: isolation boundary, filesystem scope, egress policy, and authorization model
+are each one configured choice at the default. G2 carries a reference-frame problem that the taxonomy
+resolves by convention rather than by adding values. The value \texttt{full} is coded relative to the
+G1 boundary, so SWE-agent's root access inside a Docker container and OpenHands' documented full access
+to the host filesystem are both \texttt{full}, with the note stating which frame applies. G2 must
+therefore be read together with G1 and never alone. G3 is where the absence rule
+(\S5 and decision rule~5 below) does most of its work. Neither worked system implements an egress policy, so
+each is \texttt{open} at medium confidence, evidenced by the workspace configuration that would declare
+a policy and by the search that found none. In G3, unlike every other dimension, \texttt{none} is not
+the absence value: it means no network access, and the absence of any egress policy is \texttt{open}.
+
+%%TABLE_G%%
+
+\paragraph{Layer H: observability and governance.}\label{subsec:layer-h}
+Layer H records what a run leaves behind and what constrains it, and it keeps observability and
+governance together because in this corpus they are reported together or not at all. Only H4 is
+multi-valued. H1 is coded at the highest level the pinned artifact can reach, even when that level needs
+environment variables, and the note states what runs by default. OpenHands is \texttt{opentelemetry} on
+the strength of an OTLP exporter, although only its structured event log runs unconditionally. H2
+refuses \texttt{deterministic} without an explicit statement, so both worked systems are
+\texttt{partial}. H3 is scoped to the pinned repositories. OpenHands is \texttt{none} although its 2024
+paper described an integrated evaluation framework, because at the coded version that code lives outside
+those repositories; the paper's claim goes in the note.
+
+%%TABLE_H%%
+
+\paragraph{Layer M: meta.}\label{subsec:layer-m}
+Layer M is metadata on the system rather than a clause of the definition, and it exists so that the
+corpus can be stratified, weighted, and ordered in time. Three of its seven dimensions carry no value set
+because they are a date, a string, and an integer. M6 is the dimension the rest of the coding depends on,
+since every evidence string is relative to it. Multi-repository systems are why it is a string rather
+than an enumeration. OpenHands is pinned at both its flagship release and the agent SDK release that the
+flagship pins, because the harness now lives in the second repository while the name belongs to the
+first. M4 is \texttt{repo} whenever the pinned repository diverges from the paper, as in both worked
+systems, with the gap noted.
+
+%%TABLE_M%%
+
+\subsection{Decision rules}
+\label{subsec:coding-rules}
+
+The coding manual in the replication package (v1.0, frozen 2026-09-23) states nine general rules. They
+are summarized here in the order the manual gives them; rule~5 is reproduced in full because the
+under-reporting result depends on it.
+
+\begin{enumerate}
+\item \textbf{Pin first.} Code the system at its pinned version (\texttt{M6}). Where the paper and
+  the repository disagree, code the repository at the pinned commit and record the paper's claim in
+  \texttt{note}. A harness spanning several repositories has each pinned, with evidence paths
+  prefixed by the repository name.
+\item \textbf{Evidence is verbatim.} Either a repository locator or a verbatim paper quote with its
+  section number; no paraphrase. A coder who cannot point at evidence records
+  \texttt{not\_reported: true} and \texttt{value: null}, except where the value being recorded
+  \emph{is} an absence, which rule~5 governs.
+\item \textbf{Confidence.} \texttt{high} for an explicit statement or code on the cited line,
+  \texttt{medium} for an inference from adjacent code, a default, or a figure, \texttt{low} for an
+  inference from prose describing behavior.
+\item \textbf{Default first, capability second.} Code the shipped default configuration of the
+  pinned artifact. For multi-valued dimensions, add every value reachable through shipped
+  configuration without code changes and name the default in \texttt{note}; for single-valued
+  dimensions, code the default and list the alternatives in \texttt{note}. Never record
+  \texttt{none} alongside another value.
+\item \textbf{Absence is not silence.} ``I looked and found nothing'' splits into two codings, and
+  the split decides the under-reporting rate, so it is decided in this order:
+  \begin{enumerate}
+  \item Does the evidence contain \emph{the place where this feature would be declared if it
+    existed}: the config schema or settings model, the CLI flags, the tool or plugin registry,
+    the run loop itself, or a feature list in the documentation?
+  \item \textbf{Yes, and the feature is not there} $\rightarrow$ code the absence value
+    (\texttt{none}, \texttt{open}, and so on). The evidence is that place: the config model,
+    registry, or loop that was opened, plus the search that was run. Confidence is at most
+    \texttt{medium} unless the documentation states the absence outright.
+  \item \textbf{No, the evidence has no such place} (no config surface in the bundle, a truncated
+    repository, or a paper only) $\rightarrow$ \texttt{not\_reported: true}, \texttt{value: null},
+    and \texttt{note} names the place that was missing.
+  \end{enumerate}
+  The absence of a \emph{mention} is never evidence of absence: prose that does not discuss rollback
+  is not evidence that rollback is absent. Equally, \texttt{not\_reported} is never correct once the
+  place where the feature would be declared has been opened. This is the form rule~5 took under
+  protocol amendment~9; the earlier form and the measured effect of the rewrite are reported in
+  \S4.
+\item \textbf{Closest value plus note.} Where a value list does not fit, record the closest value,
+  write the mismatch in \texttt{note}, and add the case to the manual's ambiguity list, which holds
+  26 entries, all listed with their resolutions in \S5. Value lists change only through the schema plus a
+  changelog line.
+\item \textbf{Line numbers are real.} Cite the line read at the pinned commit; ranges are allowed.
+  Amendment~8 relaxed the locator to \texttt{path@commit} where the evidence bundle presents
+  repository excerpts without their original line numbers, and flags every such cell
+  \texttt{locator\_no\_line}.
+\item \textbf{Paper quotes} carry the arXiv identifier and the section.
+\item \textbf{Coder id} records who or what produced the cell.
+\end{enumerate}
+
+The ordered test in rule~5 is what makes \texttt{not\_reported} a measurement claim about the
+sources rather than a claim about the system, and the two states are reported separately throughout:
+a cell is a value, or \texttt{not\_reported} (the sources were read and are silent), or
+\texttt{unresolved} (the coder could not settle it). Counts for all three are in
+Section~\ref{app:systems}. The sources are silent most often on \texttt{replayability} unweighted, at
+85.1\% of its 1,253 coded cells, and on \texttt{network\_policy} weighted to the census, at 93.3\%
+(84.8\% of its 1,250 cells unweighted); the per-dimension rates are released in the replication
+package.
+
+Two boundary rules belong to the frame rather than to any one dimension. A framework is coded only
+through its shipped default agent, at the default configuration, with the file defining that default as
+evidence, so framework rows rest on a stated convention rather than a hidden judgment. A benchmark's
+reference agent is a coded system when the benchmark ships a looping baseline, and the benchmark itself
+never is.
+
+Multi-valued cells need a reliability reading beside the registered one. Exact-set matching scores two
+readings that agree on six of seven primitives as a complete disagreement, so its penalty grows with the
+size of the true set rather than with the size of the error. On the 247-system double-coded sample,
+\texttt{loop\_primitives} scores 0.590 on the registered exact-set Cohen's kappa, 0.628 on Gwet's AC1,
+and 0.731 on per-value kappa, with per-value agreement of 0.928 across its seven values. All four are
+measurements of reproducibility between two model readings, and none measures correctness. The
+dimension is kept and flagged as the weakest rather than redefined.
+
+\subsection{Worked examples}
+\label{subsec:coding-examples}
+
+The manual carries two systems coded end to end on every dimension, released in the replication package
+as its two worked-example files. Both are LLM pre-fill and are not human-verified, which amendment~4
+made the rule for the whole dataset rather than an exception for these two; both carry 38 cells with no
+\texttt{not\_reported}. SWE-agent~\citep{yang2024sweagent} is pinned at \texttt{v1.1.0} (commit
+\texttt{0f3acaf}, 2025-05-22), so its locators are repository-root relative.
+OpenHands~\citep{wang2024openhands} is pinned at \texttt{v1.16.0} (commit \texttt{64c126965},
+2026-08-27), which pins \texttt{software-agent-sdk v1.44.0} (commit \texttt{322dec7d}). At that tag the
+flagship repository is a frontend and the agent loop lives in the SDK, so agent-behavior cells cite the
+SDK and every locator carries its repository name as a prefix. The pair is the reason the manual's
+ambiguity list exists: each of the 26 entries names a case these two systems raised.
+
+Table~\ref{tab:coding-examples} gives eight of the 38 cells from each, chosen to span the layers; it
+shows how the two systems differ on the same frame. The full cells, with evidence string, confidence,
+and note, are in the two released files.
+
+%%TABLE_EXAMPLES%%

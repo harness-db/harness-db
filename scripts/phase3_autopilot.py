@@ -167,8 +167,7 @@ def merge() -> tuple[int, int]:
 def prisma() -> dict[str, object]:
     p = REPO / "data" / "prisma_counts.json"
     counts = json.loads(p.read_text(encoding="utf-8"))
-    queue = read_rows(SCREEN / "fulltext_queue.csv")
-    index = {r["record_id"]: r for r in read_rows(INDEX)}
+    queue = {r["record_id"] for r in read_rows(SCREEN / "fulltext_queue.csv")}
     final = read_rows(FINAL1)
     systems = read_rows(REPO / "data" / "systems_candidates.csv")
     excl: dict[str, int] = {}
@@ -176,7 +175,10 @@ def prisma() -> dict[str, object]:
         if r.get("decision") == "exclude":
             code = r.get("exclusion_code") or "other"
             excl[code] = excl.get(code, 0) + 1
-    not_retrieved = sum(1 for r in queue if index.get(r["record_id"], {}).get("status") != "ok")
+    # "not retrieved" is the queued records that never reached a full-text vote. It is NOT the count of
+    # failed document fetches: 73 records whose paper was unretrievable were assessed from their
+    # repository instead, and fulltext_queue.csv lists one record twice, so it is counted as a set.
+    not_retrieved = len(queue - {r["record_id"] for r in final})
     counts.update({
         "sought_full_text": len(queue),
         "not_retrieved": not_retrieved,

@@ -49,6 +49,9 @@ Passes. ``--pass 1`` (default) writes ``data/screening/fulltext_votes_v2.csv`` (
 in ``fulltext_votes.csv`` stay untouched, for comparison). ``--pass 2`` is the independent second
 reading of Amendment 4: same prompt, different document order and batch composition (different
 seed), input chosen automatically as every pass-1 include plus a hash-based random 10% of pass-1
+NOTE: this selection rule was NOT the one used for the released data. The executed run used the
+two-tier escalation in scripts/phase3_autopilot.py, giving 2,073 of 7,085 includes (29.3%) and
+1,002 of 1,350 excludes (74.2%) read twice. Do not describe the released pass 2 by the rule below.
 excludes that had an LLM reading; output ``data/screening/fulltext_votes_v2_pass2.csv``. Both
 files hold one row per record, JSON fields as JSON strings, and are resumable (records already
 present are skipped).

@@ -1,0 +1,111 @@
+\section{The unified taxonomy}\label{sec:taxonomy}
+
+Harness design decomposes into 38 separately coded choices in nine layers, not into a small number of
+architectures. Figure~\ref{fig:taxonomy-map} draws the structure and Table~\ref{tab:dimensions} lists
+every dimension with the size of its value set. Each dimension is a question a reader can put to any
+system, answer from a pinned artifact, and support with a cited line. The coded corpus fits this premise
+better than a family structure. Hierarchical clustering of the coded systems falls short of both its
+pre-stated floors for silhouette and bootstrap stability (verdict negative), and on pairs where both
+dimensions carry a value the mean corrected Cram\'er's $V$ is 0.166 across 666 pairs
+(\S\ref{sec:landscape}). Weak coupling without families is what a space of loosely related choices
+looks like when it is measured.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{taxonomy_map}
+\caption{The unified taxonomy: 38 dimensions in nine layers, generated from the frozen schema by a
+script in the replication package, so the figure cannot drift from it. Top row: the layers answering the
+three necessary clauses of the definition, whose composition is the step loop
+$\mathbf{A}\rightarrow\mathbf{B}\rightarrow\mathbf{C}\rightarrow\mathbf{A}$. Second row: the layers
+answering clauses~(iv)--(viii), which may be trivial in a given harness; a trivial value is still a
+value (\texttt{none}), never \texttt{not\_reported}. \textbf{M} is detached because it carries metadata
+on the system, not a clause. Each row gives a dimension's id, key and value count: $n$ for a
+single-valued enumeration, $\{n\}$ for a multi-valued one, and the schema type for the four dimensions
+that are not enumerations. The two dashed arrows are the deliberate clause displacements of
+\textbf{F1} (termination condition, clause~(iii)) and \textbf{G4} (permission model, clause~(vi)). No
+mark is carried by color alone.}
+\label{fig:taxonomy-map}
+\end{figure}
+
+%%DIMTABLE%%
+
+Table~\ref{tab:dimensions} shows an instrument built mostly from small closed lists. %%SHAPE%% Every
+cell is therefore checkable against a closed list or a stated counting, dating, or pinning rule, and the table is
+generated from the schema so that it cannot drift from what was coded.
+
+A layer is the set of dimensions that answers one clause of the working definition
+(\S\ref{sec:background}), and eight of the nine follow the clauses in order. Context assembly (A)
+answers input assembly, tool interface (B) action exposure and execution, control loop (C)
+continuation, and memory and state (D) state. Verification and repair (E) answers checking and repair,
+budget and termination (F) bounding, sandbox and environment (G) isolation, and observability and
+governance (H) recording. Two placements depart from that map on purpose. The termination condition
+sits in F so that termination policy and budget are reported together, and the permission model sits in
+G because in practice it is configured alongside isolation. The ninth layer, M, is metadata that
+stratification, weighting, and the time series need. Within a layer, one dimension records one
+decision, made at one identifiable place in the pinned artifact, whose value a second reader can
+recover from the same evidence. Per-dimension reliability is the test of that criterion: a dimension
+that bundles two decisions yields readings that agree on the evidence and disagree on the value.
+
+That criterion is why our cuts differ from prior taxonomies. Guo et al.\ place stopping criteria under
+the control loop and budget control under verification and governance~\citep{guo2026qa2task}; a coder
+cannot apply that split reliably, so we separate C from F, and E from G4 and H4. Li et al.'s context
+layer covers both what the model sees this step and what persists between runs, which we split into A
+and D~\citep{li2026harnessengineering}. Nine of Rombaut's twelve source-code dimensions map onto ours,
+and that work supplied our evidence standard of a pinned commit with a file and
+line~\citep{rombaut2026insidescaffold}. The other three have no dimension of ours to map to;
+\S\ref{sec:related} names them and \S\ref{sec:threats} weighs what their omission costs.
+
+\subsection{Multi-valued dimensions}\label{subsec:multivalued}
+
+Fifteen dimensions hold a set, because on them a harness does several things at once: it stacks
+compaction mechanisms, ships several call parsers, or gates a run at more than one point. A set cell
+records every value reachable through shipped configuration, with the default named in the note. Where a value set contains \texttt{none}, it is a singleton by rule and never appears
+beside another value. The registered reliability measure, exact-set agreement, is harsh on these cells:
+two readings that agree on all but one primitive score as a complete disagreement, so the penalty grows
+with the size of the true set rather than the size of the error. Loop primitives (C1) bears the cost. It
+is the one dimension below the 0.6 freeze threshold on exact-set Cohen's kappa (0.590), and it clears
+the threshold per value (0.731); Supplement~S1 reports all four measures, each of them
+reproducibility between two model readings rather than correctness. We keep C1 and flag it as the
+weakest dimension rather than redefine it, because redefining a dimension after seeing its reliability
+is the post-hoc repair this paper audits others for.
+
+\subsection{The absence rule}\label{subsec:absence}
+
+The taxonomy separates a design decision from a documentation gap, and the absence rule enforces the
+separation. An absence value, such as \texttt{none} or \texttt{open} for network policy, is a value on a
+dimension: a choice the builders made. \texttt{not\_reported} is a property of the documents: the
+sources were read and are silent. The rule codes an absence value only when the evidence contains the
+place where the feature would be declared if it existed and the feature is not there. The qualifying
+places are enumerated: the configuration schema, the command-line flags, the tool or plugin registry,
+the run loop, or a documented feature list. Without such a place the cell is \texttt{not\_reported},
+and prose that never mentions a feature is never evidence that it is absent. A taxonomy that let silence
+imply \texttt{none} would measure documentation while claiming to measure design, and every
+distribution over its values would mix the two with no way to separate them. The rule is what lets the
+under-reporting result speak about the literature rather than the systems; its history as a protocol
+amendment and its measured effect on reliability are in \S\ref{sec:methods}.
+
+\subsection{Boundary cases and known ambiguities}\label{subsec:ambiguities}
+
+Coding two systems end to end, SWE-agent v1.1.0~\citep{yang2024sweagent} and OpenHands
+v1.16.0~\citep{wang2024openhands}, raised 26 ambiguities, and each was resolved by a rule in the
+coding manual rather than by changing a value set. Table~\ref{tab:ambiguities} gives all 26 with their
+resolutions. Ten rows follow one of two patterns: code the shipped default and note the reachable
+alternatives (rows 1 and 13), or record the closest value and write the mismatch in the note (rows 3, 5,
+6, 10, 12, 16, 24, and 25). Row 17 is the one departure from default-first coding: tracing is
+coded at the highest level the artifact can reach, and the note says what runs by default. Publishing
+the list is part of the instrument, because a reader who disagrees with a resolution can recode that
+dimension from the released evidence strings.
+
+%%AMBTABLE%%
+
+\subsection{Schema freeze}\label{subsec:freeze}
+
+The schema is frozen at v1.0.0 with all 38 dimensions intact: none was added, removed, renamed, or
+re-valued between the initial draft and the freeze on 2026-09-23. The freeze was gated on
+per-dimension reliability rather than on a date, and the gate, Cohen's kappa of at least 0.6, was met on
+37 of 38 dimensions. The one change to the cell contract came before the freeze and added
+\texttt{unresolved} beside \texttt{not\_reported}, so that a cell the coder could not settle is never
+pooled with a source that is silent. The replication package's schema changelog records every change
+since the draft, and any later change needs a changelog line and a registration update, so that the
+released dataset and this section describe one instrument. Supplement~S1 carries the
+per-layer value sets, the judgment call for each layer, the decision rules, and the two worked examples.

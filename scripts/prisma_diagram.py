@@ -162,7 +162,7 @@ def render(c: dict, out_stem: Path) -> list[Path]:
     box(1.0, 0.5, 3.6, 2.0, f"Systems included in the review\n(n = {inc_s:,})\nReports of included systems\n(n = {inc_p:,})")
     arrow(2.8, 3.25, 2.8, 2.5)
 
-    ax.text(6.5, 0.15, "PRISMA 2020 flow diagram (Page et al., 2021). Counts from data/prisma_counts.json; rendered by scripts/prisma_diagram.py.", ha="center", va="center", fontdict={"family": "DejaVu Sans", "size": 7, "style": "italic"})
+    ax.text(6.5, 0.15, "PRISMA 2020 flow diagram (Page et al., 2021).", ha="center", va="center", fontdict={"family": "DejaVu Sans", "size": 7, "style": "italic"})
     fig.tight_layout()
     out_stem.parent.mkdir(parents=True, exist_ok=True)
     paths = []

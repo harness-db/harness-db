@@ -13,7 +13,10 @@ Measures (protocol Amendments 4 and 5):
   missing system is listed with the stage where it was lost.
 * Specificity on the NEGATIVE reference set (surveys, benchmarks, evaluation studies).
 * Pass-1 vs pass-2 agreement: Cohen's kappa (``scripts/kappa.py``) and the include/exclude
-  confusion table, raw and re-weighted to the population (pass 2 reads every pass-1 include but
+  confusion table, raw and re-weighted to the population (pass 2 coverage is uneven: the executed
+  run escalated every tier-1 exclude and every low-confidence decision, so it over-samples excludes
+  and disputed includes; the re-weighting corrects for that, and note that pass 2 does NOT read every
+  pass-1 include, but
   only 10% of excludes).
 * Wilson 95% intervals; exclusion codes and sub-reasons; deciding-step distribution;
   codable_count distribution; include rate by source and by pilot stratum; post-hoc flags
@@ -439,7 +442,11 @@ def build(args: argparse.Namespace) -> tuple[str, dict[str, Any], dict[str, Any]
         wk, wpo = weighted_kappa(pairs, wts)
         cm = Counter(pairs)
         kap = {"n": n, "kappa": k, "agreement": po, "weighted_kappa": wk, "weighted_agreement": wpo}
-        L += [f"Records read twice: {n} (every pass-1 include plus a hash-based {PASS2_EXCLUDE_FRACTION:.0%} of pass-1 LLM excludes).", "",
+        L += [(f"Records read twice: {n}. Coverage is uneven and non-random: the executed run "
+              f"used the two-tier escalation in scripts/phase3_autopilot.py, which routes every "
+              f"tier-1 exclude and every low-confidence decision to the second reader, so this "
+              f"sample characterises the disputed part of the screen rather than the screen as a "
+              f"whole. See docs/count_reconciliation.md for the per-decision coverage."), "",
               table(["", "pass 2 include", "pass 2 exclude"], [["pass 1 include", cm[("include", "include")], cm[("include", "exclude")]],
                                                              ["pass 1 exclude", cm[("exclude", "include")], cm[("exclude", "exclude")]]]), "",
               f"- Cohen's kappa (sample as drawn): {k:.3f}; observed agreement {ci(sum(a == b for a, b in pairs), n)}",

@@ -17,6 +17,7 @@ import math
 import sys
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -394,3 +395,22 @@ def test_reference_check_reports_disagreement_rather_than_trusting_it(corpus, pa
     assert any(p.startswith("gamma.") for p in problems)
     assert not any(p.startswith("alpha.") for p in problems)
     assert any("beta" in p and "missing from the reference" in p for p in problems)
+
+
+def test_layer_se_clusters_by_system_and_reduces_to_proportion_se(parts):
+    """Several rows per system (a layer) must be treated as one draw per system.
+
+    With one row per system the SE equals the stratified-proportion SE. With three rows per system
+    whose flags are perfectly correlated within a system, the clustered SE must equal the one-row
+    SE (no new information), whereas treating the rows as independent would shrink it by sqrt(3).
+    """
+    cells = parts["cells"]
+    one = cells[(cells["key"] == "alpha") & (cells["state"] != ad.STATE_UNRESOLVED)]
+    flag_one = (one["state"] == ad.STATE_NOT_REPORTED).astype(float)
+    rate1, se1, _ = ad.weighted_share(one, flag_one, parts["strata"])
+    three = pd.concat([one, one, one], ignore_index=True)
+    flag_three = (three["state"] == ad.STATE_NOT_REPORTED).astype(float)
+    rate3, se3, _ = ad.weighted_share(three, flag_three, parts["strata"])
+    assert rate3 == pytest.approx(rate1)
+    assert se3 == pytest.approx(se1)
+    assert se3 > se1 / math.sqrt(3) * 1.5

@@ -347,7 +347,11 @@ def test_a_contrast_varying_in_too_few_keys_is_reported_not_estimable_and_still_
     assert est["n_keys"] == 2 and len(est["keys"]) == 2  # the evidence is still shown
     assert "NOT ESTIMABLE" in est["power_sentence"]
     assert est["permutation"]["n_assignments"] == 4
-    assert est["permutation"]["p_min_attainable"] == pytest.approx(0.25)
+    # Two keys, each with options {+d, -d}: every assignment has a sign-mirror, so the smallest
+    # attainable TWO-SIDED p is 2/4 = 0.5, not the one-sided 1/4. Both are reported.
+    assert est["permutation"]["p_min_attainable"] == pytest.approx(0.5)
+    assert est["permutation"]["p_min_attainable_one_sided"] == pytest.approx(0.25)
+    assert est["permutation"]["floor_mode"] == "exact"
     assert est["permutation"]["floor_above_05"] is True
 
 

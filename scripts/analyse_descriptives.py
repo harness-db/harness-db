@@ -134,6 +134,7 @@ import logging
 import math
 import sys
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -306,15 +307,22 @@ def weighted_share(sub: pd.DataFrame, flag: pd.Series, strata_sizes: dict[str, f
                    ) -> tuple[float, float, float]:
     """Weighted share of ``flag`` over ``sub``, its design SE, and the weight base.
 
-    The estimator is the stratified ratio Sum(w*flag)/Sum(w) over the rows given (one row per
-    system). The SE is the stratified-SRS standard error of a proportion with a
-    finite-population correction,
+    The estimator is the stratified ratio Sum(w*flag)/Sum(w) over the rows given. The rows may be
+    one per system (a dimension) or several per system (a layer, or a layer-year cell); the SE
+    always treats the SYSTEM as the sampling unit, because that is what was drawn. Each system
+    contributes y_i = its flagged rows and x_i = its rows, the ratio R = Sum(w y)/Sum(w x) is the
+    share, and the variance is the stratified-SRS variance of the residual total e_i = y_i - R x_i
+    with a finite-population correction,
 
-        Var = Sum_h (N_h/N)^2 (1 - n_h/N_h) p_h(1-p_h)/(n_h - 1),
+        Var(R) = Sum_h N_h^2 (1 - n_h/N_h) s^2_{e,h} / n_h  /  X^2,   X = N * Sum(w x)/Sum(w),
 
     so the COMPLETE stratum H (n_h = N_h) contributes exactly zero variance, which is the point of
-    coding it exhaustively. It ignores the (small) extra variance from treating N_h as known and
-    from the 4 frame systems that did not reach the release; it is a design SE, not a model SE.
+    coding it exhaustively. With one row per system this is exactly the stratified proportion
+    variance Sum_h (N_h/N)^2 (1 - n_h/N_h) p_h(1-p_h)/(n_h-1). With several rows per system it is
+    the cluster (ratio-estimator) variance; treating the rows as independent draws understated the
+    layer SEs by up to 0.6 points and mis-sized the finite-population term (rows compared with a
+    frame counted in systems). It ignores the (small) extra variance from treating N_h as known and
+    from the frame systems that did not reach the release; it is a design SE, not a model SE.
     """
     w = sub["weight"].to_numpy(dtype=float)
     f = flag.to_numpy(dtype=float)
@@ -322,17 +330,29 @@ def weighted_share(sub: pd.DataFrame, flag: pd.Series, strata_sizes: dict[str, f
     if base <= 0:
         return (float("nan"), float("nan"), 0.0)
     rate = float((w * f).sum() / base)
+    per = (pd.DataFrame({"system_id": sub["system_id"].to_numpy(), "stratum": sub["stratum"].to_numpy(),
+                         "w": w, "y": f, "x": 1.0})
+           .groupby("system_id", sort=False)
+           .agg(stratum=("stratum", "first"), w=("w", "first"), y=("y", "sum"), x=("x", "sum")))
+    per = per[per["w"] > 0]
+    # the denominator is the frame total of x: N times the weighted mean rows per system, which is
+    # exactly N when there is one row per system (the stratified-proportion case)
+    w_sum = float(per["w"].sum())
+    total_N = float(sum(strata_sizes.values()))
+    if w_sum <= 0 or total_N <= 0:
+        return (rate, float("nan"), base)
+    x_total = total_N * float((per["w"] * per["x"]).sum()) / w_sum
+    resid = per["y"].to_numpy(dtype=float) - rate * per["x"].to_numpy(dtype=float)
     var = 0.0
-    total_N = sum(strata_sizes.values())
     for stratum, N_h in strata_sizes.items():
-        mask = (sub["stratum"].to_numpy() == stratum) & (w > 0)
+        mask = per["stratum"].to_numpy() == stratum
         n_h = int(mask.sum())
         if n_h < 2 or N_h <= 0:
             continue
-        p_h = float(f[mask].mean())
+        s2 = float(np.var(resid[mask], ddof=1))
         fpc = max(0.0, 1.0 - n_h / float(N_h))
-        var += (N_h / total_N) ** 2 * fpc * p_h * (1 - p_h) / (n_h - 1)
-    return (rate, float(math.sqrt(var)), base)
+        var += (N_h ** 2) * fpc * s2 / n_h
+    return (rate, float(math.sqrt(var) / x_total), base)
 
 
 # ----------------------------------------------------------------------------------------- tables
@@ -520,10 +540,27 @@ def entropy_by_dimension_year(cells: pd.DataFrame, dims: dict, min_n: int, reps:
 
     Only enum dimensions: entropy over ``stars``, ``tool_count``, ``pinned_version`` or a date
     counts distinct systems, not design diversity (see the module docstring).
+
+    THIS ESTIMATOR IS UNWEIGHTED, AND THE TABLE SAYS SO. ``Counter(grp["label"])`` counts coded
+    systems, one system one vote, so every entropy here and every verdict derived from it in
+    ``convergence_summary`` is a statement about the CODED SET, not a stratified estimate for the
+    frame. That is a deliberate choice - a weighted entropy over a design with weights 1, 4.55 and
+    48.37 would rest on a handful of O-stratum systems per dimension-year cell - but it is not a
+    neutral one, because the cohorts' stratum mix moves across the window. The ``n_H``/``n_P``/``n_O``
+    and ``share_H``/``share_P``/``share_O`` columns give the mix of the systems behind each cell, and
+    ``cohort_n_systems`` with ``cohort_share_H``/``_P``/``_O`` gives the mix of the whole release-year
+    cohort the cell is drawn from, so a reader can see how much of a year-on-year change could be
+    composition rather than practice. ``weighting`` carries the label on every row.
     """
     rng = np.random.default_rng(seed)
     enum_keys = [s["key"] for s in dims["dimensions"] if s["type"] == "enum"]
     k_max = {s["key"]: len(s.get("values") or []) for s in dims["dimensions"]}
+    strata_ids = sorted(cells["stratum"].dropna().unique())
+    # The whole release-year cohort's stratum mix, independent of any dimension: the comparator for
+    # the reporting subset's mix, and the quantity that moves across the window.
+    per_system = cells.drop_duplicates("system_id")
+    cohort = {int(y): Counter(g["stratum"])
+              for y, g in per_system[per_system["year"].notna()].groupby("year")}
     rows = []
     coded = cells[(cells["state"] == STATE_CODED) & cells["key"].isin(enum_keys) & cells["year"].notna()]
     for (key, year), grp in coded.groupby(["key", "year"], sort=True):
@@ -533,7 +570,8 @@ def entropy_by_dimension_year(cells: pd.DataFrame, dims: dict, min_n: int, reps:
         h = entropy_plugin(counts)
         h_mm = entropy_miller_madow(counts)
         lo, hi = bootstrap_entropy_ci(counts, reps if n >= min_n else 0, rng)
-        rows.append({
+        strat = Counter(grp["stratum"])
+        row = {
             "layer": grp["layer"].iloc[0], "dim_id": grp["dim_id"].iloc[0], "key": key,
             "multi": bool(grp["multi"].iloc[0]), "year": int(year),
             "n_systems": n, "k_observed": k_hat, "k_schema_values": k_max.get(key),
@@ -542,7 +580,19 @@ def entropy_by_dimension_year(cells: pd.DataFrame, dims: dict, min_n: int, reps:
             "h_ci_lo": lo, "h_ci_hi": hi,
             "max_possible_nats": math.log(k_hat) if k_hat else float("nan"),
             "suppressed": n < min_n,
-        })
+            "weighting": "unweighted (coded set)",
+        }
+        for s in strata_ids:
+            row[f"n_{s}"] = int(strat.get(s, 0))
+        for s in strata_ids:
+            row[f"share_{s}"] = (strat.get(s, 0) / n) if n else float("nan")
+        coh = cohort.get(int(year), Counter())
+        n_coh = sum(coh.values())
+        row["cohort_n_systems"] = int(n_coh)
+        for s in strata_ids:
+            row[f"cohort_share_{s}"] = (coh.get(s, 0) / n_coh) if n_coh else float("nan")
+        row["weight_sum"] = float(grp["weight"].sum())
+        rows.append(row)
     out = pd.DataFrame(rows)
     if out.empty:
         return out
@@ -551,8 +601,28 @@ def entropy_by_dimension_year(cells: pd.DataFrame, dims: dict, min_n: int, reps:
     return out.sort_values(["_d", "year"]).drop(columns="_d").reset_index(drop=True)
 
 
+def bh_fdr(p: Sequence[float]) -> list[float]:
+    """Benjamini-Hochberg adjusted p-values (q), NaN-safe and monotone.
+
+    NaN p-values (a dimension with no interval, so no test) are carried through as NaN and do not
+    enter the count of tests, because a test that was not run cannot spend multiplicity.
+    """
+    idx = [i for i, x in enumerate(p) if not math.isnan(x)]
+    m = len(idx)
+    q = [float("nan")] * len(p)
+    if m == 0:
+        return q
+    order = sorted(idx, key=lambda i: p[i])
+    prev = 1.0
+    for rank in range(m, 0, -1):
+        i = order[rank - 1]
+        prev = min(prev, float(p[i]) * m / rank)
+        q[i] = prev
+    return q
+
+
 def convergence_summary(entropy: pd.DataFrame, delta_threshold: float, reps: int, seed: int,
-                        cells: pd.DataFrame | None = None) -> pd.DataFrame:
+                        cells: pd.DataFrame | None = None, alpha: float = 0.05) -> pd.DataFrame:
     """First-to-last usable year change in Miller-Madow entropy, with n at both ends.
 
     ``verdict`` is "converged" / "diversified" only when the change exceeds
@@ -560,6 +630,18 @@ def convergence_summary(entropy: pd.DataFrame, delta_threshold: float, reps: int
     survives the n>=20 suppression rule for a single-valued dimension) AND the bootstrap interval
     for the change excludes 0. Everything else is "stable (within estimator noise)". n_first and
     n_last are carried so no verdict can be quoted without the sample behind it.
+
+    MULTIPLICITY. One verdict per dimension is one test per dimension, so the family is as large as
+    the table and an uncorrected interval is the wrong bar: at ``alpha`` = 0.05 over 34 tests about
+    1.7 intervals exclude zero under the global null. ``p_bootstrap`` inverts the same bootstrap
+    that produced the interval - twice the smaller tail mass on the wrong side of zero, with the
+    (1+x)/(reps+1) continuity correction, so the floor is 2/(reps+1) - and ``q_bh`` applies
+    Benjamini-Hochberg across the whole family. ``verdict_bh`` is the verdict that survives it;
+    ``bh_significant`` marks the rows that do. The verdicts whose interval only just excludes zero
+    are exactly the ones this drops, which is why both columns ship together.
+
+    This estimator is UNWEIGHTED throughout: it inherits ``entropy_by_dimension_year``'s coded-set
+    label counts, so every verdict is a statement about the coded set.
     """
     rng = np.random.default_rng(seed + 1)
     rows = []
@@ -577,7 +659,7 @@ def convergence_summary(entropy: pd.DataFrame, delta_threshold: float, reps: int
             continue
         first, last = grp.iloc[0], grp.iloc[-1]
         delta = float(last["h_miller_madow_nats"] - first["h_miller_madow_nats"])
-        lo = hi = float("nan")
+        lo = hi = p_boot = float("nan")
         if labels is not None and reps > 0:
             c0 = labels.get((key, int(first["year"])))
             c1 = labels.get((key, int(last["year"])))
@@ -589,6 +671,8 @@ def convergence_summary(entropy: pd.DataFrame, delta_threshold: float, reps: int
                 diffs = np.array([entropy_miller_madow(b) - entropy_miller_madow(a)
                                   for a, b in zip(d0, d1)])
                 lo, hi = float(np.quantile(diffs, 0.025)), float(np.quantile(diffs, 0.975))
+                tail = min(int(np.sum(diffs <= 0)), int(np.sum(diffs >= 0)))
+                p_boot = min(1.0, 2.0 * (1 + tail) / (reps + 1))
         significant = not (math.isnan(lo) or math.isnan(hi)) and (lo > 0 or hi < 0)
         if delta <= -delta_threshold and (significant or math.isnan(lo)):
             verdict = "converged"
@@ -607,9 +691,21 @@ def convergence_summary(entropy: pd.DataFrame, delta_threshold: float, reps: int
             "h_last_nats": float(last["h_miller_madow_nats"]),
             "delta_nats": delta, "delta_ci_lo": lo, "delta_ci_hi": hi,
             "ci_excludes_zero": significant, "verdict": verdict,
+            "p_bootstrap": p_boot,
         })
     out = pd.DataFrame(rows)
-    return out.sort_values("delta_nats").reset_index(drop=True) if not out.empty else out
+    if out.empty:
+        return out
+    out["n_tests_in_family"] = len(out)
+    out["expected_ci_exclusions_under_global_null"] = round(len(out) * alpha, 2)
+    out["q_bh"] = bh_fdr(out["p_bootstrap"].tolist())
+    out["bh_alpha"] = alpha
+    out["bh_significant"] = (out["q_bh"] < alpha).fillna(False)
+    out["verdict_bh"] = np.where(
+        out["verdict"].isin(("converged", "diversified")) & ~out["bh_significant"],
+        "stable (does not survive BH over the " + str(len(out)) + " convergence tests)",
+        out["verdict"])
+    return out.sort_values("delta_nats").reset_index(drop=True)
 
 
 def one_screen_summary(cells: pd.DataFrame, dists: pd.DataFrame, under: pd.DataFrame,
@@ -626,12 +722,27 @@ def one_screen_summary(cells: pd.DataFrame, dists: pd.DataFrame, under: pd.DataF
     rows = []
 
     def states(grp: pd.DataFrame) -> dict:
+        """Cell-state shares, twice over, because the two denominators mean different things.
+
+        ``share_not_reported`` divides by every cell, ``unresolved`` included, so the three shares
+        sum to 1 and the table reads as a decomposition. That is NOT the under-reporting rate: the
+        project's rule is that ``unresolved`` is an admission about the coder and is excluded from
+        every under-reporting denominator, which is the base ``rate_not_reported_weighted`` and
+        ``under_reporting_by_dimension.csv`` already use. ``share_not_reported_of_base`` is the
+        unweighted rate on that same unresolved-excluded base, so an unweighted column and a
+        weighted column quoted side by side rest on the same denominator.
+        """
         n = len(grp)
+        n_unresolved = int((grp["state"] == STATE_UNRESOLVED).sum())
+        n_base = n - n_unresolved
+        n_nr = int((grp["state"] == STATE_NOT_REPORTED).sum())
         return {
             "n_cells": n,
             "share_coded": float((grp["state"] == STATE_CODED).mean()),
             "share_not_reported": float((grp["state"] == STATE_NOT_REPORTED).mean()),
             "share_unresolved": float((grp["state"] == STATE_UNRESOLVED).mean()),
+            "n_cells_base_excl_unresolved": n_base,
+            "share_not_reported_of_base": (n_nr / n_base) if n_base else float("nan"),
         }
 
     for layer in layer_order:
@@ -932,6 +1043,9 @@ def fig_entropy_by_year(ent: pd.DataFrame, dims: dict, stem: Path, min_n: int) -
     ax.set_xlabel("year of first release (cohort)")
     ax.set_ylabel("dimension (grouped by layer)")
     ax.set_title("Value-distribution entropy by release year (Miller-Madow, nats)", loc="left")
+    ax.text(0.0, 1.0, "unweighted: coded set, one system one vote, not a stratified estimate "
+            "for the frame", transform=ax.transAxes, va="bottom", ha="left", fontsize=6.5,
+            color="#555555")
     cb = fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02)
     cb.set_label("entropy (nats)")
     ax.set_xticks(np.arange(-0.5, len(years), 1), minor=True)
@@ -977,7 +1091,8 @@ def fig_entropy_trajectories(ent: pd.DataFrame, conv: pd.DataFrame, stem: Path, 
         ax.set_xticks(sorted(usable["year"].unique()))
         ax.legend(loc="upper left", frameon=False, fontsize=6.5)
     axes[0].set_ylabel("entropy of the coded value distribution (nats)")
-    fig.suptitle("Convergence and diversification, 95% bootstrap bands, n annotated", fontsize=9)
+    fig.suptitle("Convergence and diversification, 95% bootstrap bands, n annotated\n"
+                 "unweighted: coded-set estimates, one system one vote", fontsize=9)
     fig.tight_layout()
     return save_figure(fig, stem)
 
@@ -1040,7 +1155,8 @@ def run(args) -> int:
                  Path(args.reference).name)
     ly = under_reporting_layer_year(cells, strata, args.min_n)
     ent = entropy_by_dimension_year(cells, dims, args.min_n, args.bootstrap, args.seed)
-    conv = convergence_summary(ent, args.delta_threshold, args.bootstrap, args.seed, cells)
+    conv = convergence_summary(ent, args.delta_threshold, args.bootstrap, args.seed, cells,
+                               args.bh_alpha)
     summary = one_screen_summary(cells, dists, under, strata, dims)
 
     written: list[Path] = []
@@ -1106,6 +1222,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--delta-threshold", type=float, default=0.15,
                    help="nats of entropy change needed to call convergence or diversification")
     p.add_argument("--bootstrap", type=int, default=1000, help="bootstrap replicates (0 to skip)")
+    p.add_argument("--bh-alpha", type=float, default=0.05,
+                   help="Benjamini-Hochberg FDR level for the convergence family (one test per "
+                        "dimension with a usable year series)")
     p.add_argument("--seed", type=int, default=20260924)
     p.add_argument("--no-figures", action="store_true")
     p.add_argument("--print-summary", action="store_true",
