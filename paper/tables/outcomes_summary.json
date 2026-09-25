@@ -1,0 +1,711 @@
+{
+  "generated_from": "results.csv",
+  "coverage": {
+    "coded_systems": 1253,
+    "with_any_result_row": 646,
+    "with_comparable_key": 100,
+    "in_multi_system_key": 53,
+    "gap_result_to_comparable": 593,
+    "share_of_coded_with_result": 0.515562649640862,
+    "share_of_coded_comparable": 0.04229848363926576
+  },
+  "comparable_set": {
+    "2": 23,
+    "3-4": 8,
+    "5+": 5,
+    "keys": 36,
+    "systems": 53,
+    "observations": 106
+  },
+  "standardisation": {
+    "rank_threshold": 4,
+    "rule": "z=(x-mean)/sd (ddof=1) at or above the threshold; standardised average rank below it; 0 when a key is degenerate",
+    "methods_used": {
+      "rank": 62,
+      "zscore": 42,
+      "degenerate": 2
+    },
+    "row_aggregation": "median"
+  },
+  "bootstrap": {
+    "unit": "comparable_key",
+    "draws": 10000,
+    "seed": 20260924
+  },
+  "not_fitted": "mixed-effects regression on 38 dimensions: not identifiable at this n",
+  "caveat": "Scaffold drift (docs/benchmark_caveats.md sec. 5): a leaderboard or paper row does not say which commit of the harness produced its number, while HARNESS-DB codes each system at a pinned commit, so the harness coded may not be the harness that scored. That is measurement error on the design variable, not the outcome; no fixed effect absorbs it and it attenuates estimates towards zero. Every effect shown is a LOWER BOUND on magnitude. Reporting is also self-selected (sec. 3): authors report where their system does well, so a within-key comparison is not a randomised one. Associational only; no causal reading is supported.",
+  "contrasts": [
+    {
+      "name": "executable_verification",
+      "dimension": "self_verification",
+      "dimension_id": "E1",
+      "exposed": "executes tests / typecheck / formal check",
+      "reference": "no executable check (none, self-critique or LLM judge only)",
+      "mechanism": "An executable check gives the loop ground truth about whether its edit works, so it can reject a wrong candidate before submitting it; self-critique and LLM judging supply only the model's own opinion.",
+      "drift_exposure": "high - verification wiring changes often between releases",
+      "n_keys": 3,
+      "n_systems": 11,
+      "n_observations": 13,
+      "n_exposed_obs": 10,
+      "n_reference_obs": 3,
+      "keys": [
+        {
+          "comparable_key": "SWE-bench|Lite|gpt-4o",
+          "n_systems": 9,
+          "n_exposed": 8,
+          "n_reference": 1,
+          "std_method": "zscore",
+          "d": -0.2584086548755128
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|o3-mini",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": -1.414213562373095
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-sonnet-3.7",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "zscore",
+          "d": -0.5293385049304401
+        }
+      ],
+      "key_differences": [
+        -0.2584086548755128,
+        -1.414213562373095,
+        -0.5293385049304401
+      ],
+      "estimable": true,
+      "fragile": true,
+      "effect": -0.733986907393016,
+      "ci_low": -1.414213562373095,
+      "ci_high": -0.2584086548755128,
+      "mde_80": 1.8717423446738506,
+      "se": 0.34898995807985506,
+      "bootstrap_unit": "comparable_key",
+      "n_boot": 10000,
+      "seed": 20260924,
+      "degenerate_interval": false,
+      "permutation": {
+        "available": true,
+        "mode": "exact",
+        "observed": -0.733986907393016,
+        "p_two_sided": 0.3055555555555556,
+        "n_assignments": 36,
+        "p_min_attainable": 0.027777777777777776,
+        "n_draws": 36,
+        "floor_above_05": false,
+        "saturated": false
+      },
+      "baseline_asymmetry": {
+        "keys": 3,
+        "reference_all_recurring_keys": 0,
+        "share": 0.0,
+        "recurring_comparators": [
+          "framepilot",
+          "live-swe-agent",
+          "mini-swe-agent",
+          "swe-agent"
+        ]
+      },
+      "ols": {
+        "available": true,
+        "formula": "z ~ x + C(key)",
+        "coef": -0.6360737377570587,
+        "ci_low": -1.394209272693645,
+        "ci_high": 0.12206179717952781,
+        "p_value": 0.10009264020595812,
+        "n_observations": 13,
+        "n_keys": 3,
+        "note": "cluster-robust on key; with few clusters the p-value is anti-conservative"
+      },
+      "ci_excludes_zero": true,
+      "perm_rejects": false,
+      "detected": false,
+      "null": true,
+      "disagreement": true,
+      "only_large_detectable": true,
+      "power_sentence": "executable_verification: with 3 keys, 13 observations and 11 distinct systems, the smallest effect detectable at 80% power (two-sided, alpha=0.05) is 1.87 within-key sd. Only a very large effect would have been detectable here, so the absence of a detected association is uninformative about anything smaller. FRAGILE: fewer than 5 keys, so the between-key spread that both the interval and this number rest on is itself barely estimated; treat the interval as descriptive. The design admits 36 distinct within-key label assignments, so the smallest attainable permutation p-value is 0.0278 (observed 0.3056)."
+    },
+    {
+      "name": "any_retry",
+      "dimension": "retry_policy",
+      "dimension_id": "E2",
+      "exposed": "retries on failure (fixed_n, until_pass or adaptive)",
+      "reference": "no retry",
+      "mechanism": "Sampling more than one attempt converts a per-attempt success probability into 1-(1-p)^k when failures are detectable, which is the mechanism behind pass@k gains.",
+      "drift_exposure": "high - retry counts are tuning knobs that move release to release",
+      "n_keys": 2,
+      "n_systems": 3,
+      "n_observations": 4,
+      "n_exposed_obs": 2,
+      "n_reference_obs": 2,
+      "keys": [
+        {
+          "comparable_key": "SWE-bench|Verified|claude-sonnet-4.5",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.0
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|gpt-5",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.0
+        }
+      ],
+      "key_differences": [
+        1.0,
+        1.0
+      ],
+      "estimable": false,
+      "fragile": true,
+      "effect": 1.0,
+      "ci_low": NaN,
+      "ci_high": NaN,
+      "mde_80": NaN,
+      "se": NaN,
+      "bootstrap_unit": "comparable_key",
+      "n_boot": 10000,
+      "seed": 20260924,
+      "degenerate_interval": false,
+      "permutation": {
+        "available": true,
+        "mode": "exact",
+        "observed": 1.0,
+        "p_two_sided": 0.5,
+        "n_assignments": 4,
+        "p_min_attainable": 0.25,
+        "n_draws": 4,
+        "floor_above_05": true,
+        "saturated": false
+      },
+      "baseline_asymmetry": {
+        "keys": 2,
+        "reference_all_recurring_keys": 2,
+        "share": 1.0,
+        "recurring_comparators": [
+          "framepilot",
+          "live-swe-agent",
+          "mini-swe-agent",
+          "swe-agent"
+        ]
+      },
+      "not_estimable_reason": "the contrast varies inside only 2 comparable key(s); 3 is the pre-specified minimum, below which the between-key spread has too few degrees of freedom for an interval or a power statement",
+      "ols": {
+        "available": false,
+        "reason": "not estimable"
+      },
+      "ci_excludes_zero": false,
+      "perm_rejects": false,
+      "detected": false,
+      "null": false,
+      "disagreement": false,
+      "only_large_detectable": false,
+      "power_sentence": "any_retry: NOT ESTIMABLE - the contrast varies inside only 2 comparable key(s), so no interval and no minimum detectable effect are defined. The design admits 4 distinct within-key label assignments, so the smallest attainable permutation p-value is 0.2500; no conventional significance level is reachable from this contrast whatever the point estimate."
+    },
+    {
+      "name": "any_compaction",
+      "dimension": "context_compaction",
+      "dimension_id": "A3",
+      "exposed": "compacts history (summarise, prune, checkpoint, truncate or model-native)",
+      "reference": "no compaction",
+      "mechanism": "Long agent trajectories overflow the window; compaction keeps the task description and the relevant state in view instead of losing them to truncation from the front.",
+      "drift_exposure": "high - compaction is among the fastest-churning parts of a harness",
+      "n_keys": 4,
+      "n_systems": 6,
+      "n_observations": 9,
+      "n_exposed_obs": 5,
+      "n_reference_obs": 4,
+      "keys": [
+        {
+          "comparable_key": "SWE-bench|Verified|claude-opus-4.5",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 2.0
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-sonnet-4",
+          "n_systems": 3,
+          "n_exposed": 2,
+          "n_reference": 1,
+          "std_method": "zscore",
+          "d": 2.1246225677726596
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|gpt-4o",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "zscore",
+          "d": 1.4435866298286886
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|o4-mini",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.414213562373095
+        }
+      ],
+      "key_differences": [
+        2.0,
+        2.1246225677726596,
+        1.4435866298286886,
+        1.414213562373095
+      ],
+      "estimable": true,
+      "fragile": true,
+      "effect": 1.7456056899936108,
+      "ci_low": 1.4289000961008917,
+      "ci_high": 2.06231128388633,
+      "mde_80": 0.7685568054829368,
+      "se": 0.1847084444822796,
+      "bootstrap_unit": "comparable_key",
+      "n_boot": 10000,
+      "seed": 20260924,
+      "degenerate_interval": false,
+      "permutation": {
+        "available": true,
+        "mode": "exact",
+        "observed": 1.7456056899936108,
+        "p_two_sided": 0.041666666666666664,
+        "n_assignments": 24,
+        "p_min_attainable": 0.041666666666666664,
+        "n_draws": 24,
+        "floor_above_05": false,
+        "saturated": true
+      },
+      "baseline_asymmetry": {
+        "keys": 4,
+        "reference_all_recurring_keys": 4,
+        "share": 1.0,
+        "recurring_comparators": [
+          "framepilot",
+          "live-swe-agent",
+          "mini-swe-agent",
+          "swe-agent"
+        ]
+      },
+      "ols": {
+        "available": true,
+        "formula": "z ~ x + C(key)",
+        "coef": 1.7747608344381522,
+        "ci_low": 1.2483241890721275,
+        "ci_high": 2.301197479804177,
+        "p_value": 3.9067781007451546e-11,
+        "n_observations": 9,
+        "n_keys": 4,
+        "note": "cluster-robust on key; with few clusters the p-value is anti-conservative"
+      },
+      "ci_excludes_zero": true,
+      "perm_rejects": true,
+      "detected": true,
+      "null": false,
+      "disagreement": false,
+      "only_large_detectable": false,
+      "power_sentence": "any_compaction: with 4 keys, 9 observations and 6 distinct systems, the smallest effect detectable at 80% power (two-sided, alpha=0.05) is 0.77 within-key sd. Effects smaller than that are beyond the resolution of this dataset. FRAGILE: fewer than 5 keys, so the between-key spread that both the interval and this number rest on is itself barely estimated; treat the interval as descriptive. The design admits 24 distinct within-key label assignments, so the smallest attainable permutation p-value is 0.0417 (observed 0.0417)."
+    },
+    {
+      "name": "multi_agent",
+      "dimension": "multi_agent_topology",
+      "dimension_id": "C3",
+      "exposed": "multiple agents (orchestrator-workers, peer, hierarchical, debate, pipeline)",
+      "reference": "single agent",
+      "mechanism": "Splitting a task across roles gives each a shorter context and a narrower tool set, at the cost of handoff loss between them; the sign of the net effect is the question.",
+      "drift_exposure": "low - topology is architectural and rarely changes within a system",
+      "n_keys": 17,
+      "n_systems": 36,
+      "n_observations": 60,
+      "n_exposed_obs": 27,
+      "n_reference_obs": 33,
+      "keys": [
+        {
+          "comparable_key": "GAIA|test|grok",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": -1.414213562373095
+        },
+        {
+          "comparable_key": "OSWorld|Verified|gpt-5",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.414213562373095
+        },
+        {
+          "comparable_key": "OSWorld|Verified|o3",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.414213562373095
+        },
+        {
+          "comparable_key": "OSWorld|self-reported/screenshot|gpt-4o",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.0
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|claude-sonnet-3.5",
+          "n_systems": 7,
+          "n_exposed": 3,
+          "n_reference": 4,
+          "std_method": "zscore",
+          "d": 1.3155214172637208
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|gpt-4-preview",
+          "n_systems": 4,
+          "n_exposed": 3,
+          "n_reference": 1,
+          "std_method": "zscore",
+          "d": 1.036416292737006
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|gpt-4o",
+          "n_systems": 11,
+          "n_exposed": 6,
+          "n_reference": 5,
+          "std_method": "zscore",
+          "d": 0.9800976469021987
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|o3-mini",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.414213562373095
+        },
+        {
+          "comparable_key": "SWE-bench|Multimodal|claude-sonnet-3.7",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": -1.414213562373095
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-opus-4.5",
+          "n_systems": 3,
+          "n_exposed": 1,
+          "n_reference": 2,
+          "std_method": "rank",
+          "d": 1.5
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-sonnet-4",
+          "n_systems": 5,
+          "n_exposed": 1,
+          "n_reference": 4,
+          "std_method": "zscore",
+          "d": 1.50559552110877
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-sonnet-4.5",
+          "n_systems": 3,
+          "n_exposed": 1,
+          "n_reference": 2,
+          "std_method": "rank",
+          "d": 1.5
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|gpt-4o",
+          "n_systems": 5,
+          "n_exposed": 2,
+          "n_reference": 3,
+          "std_method": "zscore",
+          "d": 1.1166541386774433
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|gpt-5",
+          "n_systems": 3,
+          "n_exposed": 1,
+          "n_reference": 2,
+          "std_method": "rank",
+          "d": 1.5
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|o3",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.414213562373095
+        },
+        {
+          "comparable_key": "SWE-bench|full|gpt-4o",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.414213562373095
+        },
+        {
+          "comparable_key": "WebArena|full|gpt-4o",
+          "n_systems": 3,
+          "n_exposed": 1,
+          "n_reference": 2,
+          "std_method": "rank",
+          "d": 1.5
+        }
+      ],
+      "key_differences": [
+        -1.414213562373095,
+        1.414213562373095,
+        1.414213562373095,
+        1.0,
+        1.3155214172637208,
+        1.036416292737006,
+        0.9800976469021987,
+        1.414213562373095,
+        -1.414213562373095,
+        1.5,
+        1.50559552110877,
+        1.5,
+        1.1166541386774433,
+        1.5,
+        1.414213562373095,
+        1.414213562373095,
+        1.5
+      ],
+      "estimable": true,
+      "fragile": false,
+      "effect": 1.0115838649299074,
+      "ci_low": 0.5252896977273172,
+      "ci_high": 1.3730810968973175,
+      "mde_80": 0.6742772522839023,
+      "se": 0.22592089729358056,
+      "bootstrap_unit": "comparable_key",
+      "n_boot": 10000,
+      "seed": 20260924,
+      "degenerate_interval": false,
+      "permutation": {
+        "available": true,
+        "mode": "monte-carlo",
+        "observed": 1.0115838649299074,
+        "p_two_sided": 0.00029997000299970003,
+        "n_assignments": 67060224000,
+        "p_min_attainable": 1.4911969277048642e-11,
+        "n_draws": 10000,
+        "floor_above_05": false,
+        "saturated": false
+      },
+      "baseline_asymmetry": {
+        "keys": 17,
+        "reference_all_recurring_keys": 7,
+        "share": 0.4117647058823529,
+        "recurring_comparators": [
+          "framepilot",
+          "live-swe-agent",
+          "mini-swe-agent",
+          "swe-agent"
+        ]
+      },
+      "ols": {
+        "available": true,
+        "formula": "z ~ x + C(key)",
+        "coef": 1.0731004140276696,
+        "ci_low": 0.7308122893255242,
+        "ci_high": 1.415388538729815,
+        "p_value": 8.01438053697388e-10,
+        "n_observations": 60,
+        "n_keys": 17,
+        "note": "cluster-robust on key; with few clusters the p-value is anti-conservative"
+      },
+      "ci_excludes_zero": true,
+      "perm_rejects": true,
+      "detected": true,
+      "null": false,
+      "disagreement": false,
+      "only_large_detectable": false,
+      "power_sentence": "multi_agent: with 17 keys, 60 observations and 36 distinct systems, the smallest effect detectable at 80% power (two-sided, alpha=0.05) is 0.67 within-key sd. Effects smaller than that are beyond the resolution of this dataset. The design admits 67,060,224,000 distinct within-key label assignments, so the smallest attainable permutation p-value is 0.0001 (observed 0.0003)."
+    },
+    {
+      "name": "explicit_plan",
+      "dimension": "planning_granularity",
+      "dimension_id": "C2",
+      "exposed": "explicit plan object or hierarchical plan",
+      "reference": "no plan or implicit planning only",
+      "mechanism": "A materialised plan is state the loop can check progress against and return to after a detour, which is what keeps a long trajectory from wandering.",
+      "drift_exposure": "medium - plan objects are added and removed across releases",
+      "n_keys": 11,
+      "n_systems": 28,
+      "n_observations": 37,
+      "n_exposed_obs": 12,
+      "n_reference_obs": 25,
+      "keys": [
+        {
+          "comparable_key": "GAIA|test|gemini",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.414213562373095
+        },
+        {
+          "comparable_key": "OSWorld|Verified|claude-opus-4.5",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": -1.414213562373095
+        },
+        {
+          "comparable_key": "OSWorld|self-reported/screenshot|gpt-4o",
+          "n_systems": 3,
+          "n_exposed": 1,
+          "n_reference": 2,
+          "std_method": "rank",
+          "d": -1.5
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|claude-sonnet-3.5",
+          "n_systems": 5,
+          "n_exposed": 2,
+          "n_reference": 3,
+          "std_method": "zscore",
+          "d": 0.4223874961540982
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|gpt-4-preview",
+          "n_systems": 3,
+          "n_exposed": 1,
+          "n_reference": 2,
+          "std_method": "zscore",
+          "d": 1.7691293634387975
+        },
+        {
+          "comparable_key": "SWE-bench|Lite|gpt-4o",
+          "n_systems": 9,
+          "n_exposed": 1,
+          "n_reference": 8,
+          "std_method": "zscore",
+          "d": 0.8217726518188562
+        },
+        {
+          "comparable_key": "SWE-bench|Multimodal|claude-sonnet-3.7",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": -1.414213562373095
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-opus-4.5",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "rank",
+          "d": 1.0
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-sonnet-3.5",
+          "n_systems": 4,
+          "n_exposed": 1,
+          "n_reference": 3,
+          "std_method": "zscore",
+          "d": 0.646377489915422
+        },
+        {
+          "comparable_key": "SWE-bench|Verified|claude-sonnet-4",
+          "n_systems": 2,
+          "n_exposed": 1,
+          "n_reference": 1,
+          "std_method": "zscore",
+          "d": 1.1978001537350507
+        },
+        {
+          "comparable_key": "WebArena|full|gpt-4o",
+          "n_systems": 3,
+          "n_exposed": 1,
+          "n_reference": 2,
+          "std_method": "rank",
+          "d": 0.0
+        }
+      ],
+      "key_differences": [
+        1.414213562373095,
+        -1.414213562373095,
+        -1.5,
+        0.4223874961540982,
+        1.7691293634387975,
+        0.8217726518188562,
+        -1.414213562373095,
+        1.0,
+        0.646377489915422,
+        1.1978001537350507,
+        0.0
+      ],
+      "estimable": true,
+      "fragile": false,
+      "effect": 0.2675685084262845,
+      "ci_low": -0.4208127890651651,
+      "ci_high": 0.9170197820494785,
+      "mde_80": 1.1202587885142237,
+      "se": 0.3605368129836779,
+      "bootstrap_unit": "comparable_key",
+      "n_boot": 10000,
+      "seed": 20260924,
+      "degenerate_interval": false,
+      "permutation": {
+        "available": true,
+        "mode": "monte-carlo",
+        "observed": 0.2675685084262845,
+        "p_two_sided": 0.45355464453554645,
+        "n_assignments": 311040,
+        "p_min_attainable": 3.215020576131687e-06,
+        "n_draws": 10000,
+        "floor_above_05": false,
+        "saturated": false
+      },
+      "baseline_asymmetry": {
+        "keys": 11,
+        "reference_all_recurring_keys": 1,
+        "share": 0.09090909090909091,
+        "recurring_comparators": [
+          "framepilot",
+          "live-swe-agent",
+          "mini-swe-agent",
+          "swe-agent"
+        ]
+      },
+      "ols": {
+        "available": true,
+        "formula": "z ~ x + C(key)",
+        "coef": 0.31248947875406197,
+        "ci_low": -0.4269625145805498,
+        "ci_high": 1.0519414720886737,
+        "p_value": 0.4075159077352867,
+        "n_observations": 37,
+        "n_keys": 11,
+        "note": "cluster-robust on key; with few clusters the p-value is anti-conservative"
+      },
+      "ci_excludes_zero": false,
+      "perm_rejects": false,
+      "detected": false,
+      "null": true,
+      "disagreement": false,
+      "only_large_detectable": true,
+      "power_sentence": "explicit_plan: with 11 keys, 37 observations and 28 distinct systems, the smallest effect detectable at 80% power (two-sided, alpha=0.05) is 1.12 within-key sd. Only a very large effect would have been detectable here, so the absence of a detected association is uninformative about anything smaller. The design admits 311,040 distinct within-key label assignments, so the smallest attainable permutation p-value is 0.0001 (observed 0.4536)."
+    }
+  ]
+}
