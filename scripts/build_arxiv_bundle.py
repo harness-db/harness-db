@@ -94,8 +94,8 @@ def main(argv: list[str] | None = None) -> int:
         text = main_tex.read_text(encoding="utf-8")
         if not a.keep_review:
             text = re.sub(r"\\documentclass\[([^\]]*)\]\{acmart\}",
-                          lambda m: "\\documentclass[%s]{acmart}" % ",".join(
-                              o for o in m.group(1).split(",") if o.strip() != "review"), text, count=1)
+                          lambda m: "\\documentclass[{}]{{acmart}}".format(",".join(
+                              o for o in m.group(1).split(",") if o.strip() != "review")), text, count=1)
         (work / "main.tex").write_text(text, encoding="utf-8")
         for f in files:
             dst = work / f.relative_to(PAPER)
