@@ -1,4 +1,4 @@
-"""Assemble a self-contained arXiv source bundle for the manuscript and verify it compiles.
+r"""Assemble a self-contained arXiv source bundle for the manuscript and verify it compiles.
 
     python scripts/build_arxiv_bundle.py [--out release/arxiv_v1.zip]
 
