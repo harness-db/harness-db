@@ -505,6 +505,7 @@ def test_pre_rule_reconstruction_on_the_real_snapshot():
         pytest.skip(f"the harvester has moved past the pooled snapshot: {exc}")
     assert res["g_contrasts"] > 0 and "G" not in res["zero_layers"]
     assert res["g_contrasts"] == sum(res["moved_out_of_g"].values())
+    assert res["g_contrasts"] == sum(res["g_fate"].values())   # every G row kept or dropped
     assert -1.0 <= res["rho"] <= 1.0 and 0.0 < res["p"] <= 1.0
     assert res["dcl"]["against"] <= res["dcl"]["pooled"] <= res["dcl"]["dropped"]
 

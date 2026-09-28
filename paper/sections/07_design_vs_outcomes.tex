@@ -77,9 +77,9 @@ field reports results.
 The within-study design pools authors' published ablations of their own systems. Each contrast is one
 codebase at one commit with one base model, differing in one component, and its effect is the relative
 change $(\text{with}-\text{without})/\text{with}$ in the paper's own metric. Beyond the
-\rqCodedContrasts{} coded-set contrasts from \rqCodedPapers{} papers, the extraction stage read the
-full text of \rqCorpusPapersExtracted{} included papers, in order of a prefilter score for ablation
-content, and added \rqCorpusContrasts{} pool-eligible contrasts from \rqCorpusPapersWithContrast{}
+\rqCodedContrasts{} coded-set contrasts from \rqCodedPapers{} papers, the completed extraction stage
+read the full text of \rqCorpusPapersExtracted{} included papers, \rqHarvestTierCoverage{} of a
+prefilter that ranks papers by ablation content, and added \rqCorpusContrasts{} pool-eligible contrasts from \rqCorpusPapersWithContrast{}
 papers. \rqPoolableDims{} dimensions now reach the three papers needed to pool, against 8 on the
 coded set alone.
 
@@ -93,48 +93,45 @@ direction is dropped. Every firing is logged in the replication package.
 \input{tables/rq3_pooled}
 
 Table~\ref{tab:ablations} gives the pooled result, and its central fact is convergence. Most
-dimensions show a positive relative gain of similar size, with overlapping intervals. Context
-compaction is the one well-populated exception: its gain is lower and nearly homogeneous, and its $z$
-interval lies wholly below those of the six best-populated dimensions. The bias signature
-repeats as well: \rqSignSharePct\% of the \rqSignDenom{} contrasts on pooled dimensions favour the
-authors' component, heterogeneity is high in most rows, and \rqPIIncludesZeroCount{} of the
-\rqPoolableDims{} prediction intervals include zero.
+dimensions show a positive relative gain of similar size: surviving gains span
+\rqEffectRangeSurviving{}, their middle half \rqEffectIQRSurviving, and most intervals overlap.
+Context compaction has the lowest surviving gain and the least heterogeneity of the well-populated
+rows; its $z$ interval lies below those of multi-agent topology and loop primitives but overlaps the
+other four best-populated dimensions. Short-term state, as well populated, pools near zero. The bias
+signature repeats: \rqSignSharePct\% of the \rqSignDenom{} contrasts on pooled dimensions favour the
+authors' component, heterogeneity is high in most rows, and all \rqPIIncludesZeroCount{} prediction
+intervals include zero.
 
-Gains of one size from components this different would be a coincidence; one reporting filter applied
-to every component would not. An ablation is written up to show that a component helps, so what
-reaches print reflects the threshold for a presentable gain more than the mechanism removed.
-Misassigned dimension labels would also pull the rows together, so convergence shows how
-little these ablations separate the dimensions, not which mechanism produced it.
+Gains of one size from components this different fit one reporting filter better than coincidence:
+an ablation is written up to show that a component helps. Misassigned labels would also pull rows
+together, so convergence shows how little these ablations separate dimensions, not why.
 
 The pre-stated discount rule fails to discriminate at this scale. The rule
 shrinks each pooled effect by the larger of its own trim-and-fill and one-null-per-contrast shrinkage
 \citep{duval2000trimfill,copas2000funnel}, and admits a dimension whose discounted confidence-interval
 lower bound still clears 2\% relative. Of \rqPoolableDims{} dimensions, \rqDiscountSurviveZ{} pass, and
 \rqDiscountSurviveHK{} pass with a Hartung--Knapp interval in place of the $z$ interval. The cause is
-structural. For positive effects the discounts sit near one half (median \rqMedianDiscountPct\%), so
+structural. For most positive effects the discount sits near one half (median \rqMedianDiscountPct\%), so
 the rule reduces to asking whether an interval clears zero, and more contrasts make that easier
 whatever produced the effect. On the coded set, with 3 to 14 papers per dimension, the same rule
 admitted two dimensions; its selectivity there was a property of small samples.
 
 The prediction-interval criterion \citep{higgins2009predictioninterval} is the secondary we can defend,
-and it admits only \rqPIExcludesZeroDims{}, whose lower end Table~\ref{tab:ablations} gives. A
-prediction interval clears zero only where between-paper heterogeneity is small, so the criterion asks
-whether the next published ablation would also favour the component. It remains an upper-bound
-criterion, because the next published ablation passes through the same reporting filter.
+and it admits no dimension. A prediction interval clears zero only where between-paper heterogeneity is small, so the criterion asks
+whether the next published ablation would also favour the component.
 
 Self-verification's estimate is stable and no longer distinguished. On the coded set it pooled to at
 most $+0.139$ on 14 papers ($+0.069$ after the discount); corpus-wide it pools to \rqSVPooled, 95\% CI
-\rqSVCIz, on \rqSVPapers{} papers, discounted to \rqSVDiscounted, with a prediction interval of
-\rqSVPI{} that includes zero. A filtered literature produces that stability as readily as a real
-effect does. The defensible sentence is that self-verification is worth at most about
+\rqSVCIz, on \rqSVPapers{} papers, with a prediction interval of \rqSVPI{} that includes zero, and
+discounts to \rqSVDiscounted{} under one unreported null per contrast. A filtered literature produces
+that stability as readily as a real effect does. The defensible sentence is that self-verification is worth at most about
 \rqSVDiscounted{} relative in published ablations, and a sentence of the same form can be written for
 most of the table.
 
 Every estimate in Table~\ref{tab:ablations} is an upper bound. The within-study design absorbs four of
 the five benchmark caveats we document, because both arms share one codebase, commit and team; what
-survives is self-reporting, concentrated: every contrast is an author reporting on a component they
-built. As of
-\rqHarvestDate{} the corpus-wide harvest has reached \rqHarvestTierCoverage.
+survives is self-reporting, concentrated: each contrast is an author reporting on a component they
+built.
 
 \emph{Takeaway.} Authors' own ablations bound most components from above and rank almost none:
 whatever is ablated appears to help by about the same amount, which fits selective reporting better
@@ -164,11 +161,10 @@ Egger's test \citep{egger1997bias} is reported and not leaned on, because its in
 construction. Papers publish no standard errors, so a contrast's variance is reconstructed binomially
 from its two arm scores where the metric is a proportion, and set by an assumed 10\% relative standard
 error for the other \rqVarAssumedN{} contrasts on pooled dimensions. Under the binomial reconstruction,
-at a given with-component score, the variance of the relative effect falls as the effect grows.
-Random-effects weights \citep{dersimonian1986meta} therefore favour the largest effects, pushing pooled
-estimates upward, in the direction the upper bound already declares. The same dependence tilts the
-funnel against the asymmetry that small-study bias produces, so the artefact biases Egger's test
-towards non-detection.
+at a given with-component score, the variance of the relative effect falls as the effect grows, so
+random-effects weights \citep{dersimonian1986meta} favour the largest effects, pushing pooled estimates
+upward as the upper bound declares, and the funnel tilts against small-study asymmetry, biasing
+Egger's test towards non-detection.
 
 \emph{Takeaway.} Author selection of what to publish is present at the magnitude the sign distribution
 measures, and it acts on which contrasts reach print.
@@ -180,16 +176,18 @@ against each layer's weighted \texttt{not\_reported} rate from the landscape ana
 substantive layers, the rank correlation between
 silence and ablation density is Spearman's $\rho$ of \rqCoverageRho, exact one-sided permutation $p$ of
 \rqCoverageP. On the coded set, layers F, G and H (budget and termination, sandbox and environment,
-observability and governance) carried no ablation at all. The corpus-wide harvest reaches some of their
-dimensions through a handful of papers each, among them guardrails (H4), one of the two dimensions whose
-prediction interval excludes zero, but \rqZeroDimCount{} dimensions still carry no published ablation
-(\rqZeroDimList), and the set of layers with no ablated dimension is \rqZeroLayerList{}.
+observability and governance) carried no ablation at all. The corpus-wide harvest reaches four of their
+dimensions, through 1 to 21 papers each: termination condition (F1) pools to a precise null,
+$-0.003$ $[-0.019, +0.014]$ with $I^2 = 0$, and guardrails (H4) to $-0.100$ with an interval spanning
+zero, but \rqZeroDimCount{} dimensions still carry no published ablation (\rqZeroDimList), and the set
+of layers with no ablated dimension is \rqZeroLayerList{}.
 
-The mapping rules produce that empty layer but not the gradient. The harvest first attributed
-\rqPreRuleGContrasts{} contrasts to the sandbox layer; the rules reassigned \rqPreRuleGRemapped{}
-removals of code-execution feedback or tool access to the dimensions they take away and dropped
-\rqPreRuleGDropped{} as unreadable or unattributable, and with all seven rules undone $\rho$ is
-\rqPreRuleRho{} (exact $p$ of \rqPreRuleP), steeper than with them.
+The mapping rules produce that empty layer but not the gradient. Of the \rqPreRuleGContrasts{}
+contrasts the harvest first attributed to the sandbox layer, the rules reassigned
+\rqPreRuleGRemapped{}, removals of code-execution feedback or file-system tools, to the dimensions they
+take away (\rqPreRuleGRemapList), and dropped \rqPreRuleGDropped{}: \rqPreRuleGDroppedUnread{} with
+unreadable scores and \rqPreRuleGDroppedUnnamed{} naming no isolation boundary or authorization. With
+all seven rules undone $\rho$ is unchanged, \rqPreRuleRho{} (exact $p$ of \rqPreRuleP).
 
 \input{tables/rq3_coverage}
 

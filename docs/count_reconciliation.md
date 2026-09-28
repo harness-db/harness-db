@@ -155,6 +155,15 @@ G 1.8 (1.2), H 2.0 (1.5), M 1.3 (1.3). The paper's "24.9 ± 1.4 to 81.6 ± 1.2" 
 Found by the `harnessdb` loader's independent implementation; test
 `test_layer_se_clusters_by_system_and_reduces_to_proportion_se` pins the behaviour.
 
+## Null-fill discount cap lifted (2026-09-28)
+
+`null_fill_sensitivity` in `scripts/analyse_ablations.py` added at most 500 null contrasts. On the
+completed harvest self_verification has 1,687 contrasts from 525 papers, so the one-null-per-contrast
+world was never reached and the dimension was silently left undiscounted (`discount` 0). The cap is now
+`max(500, 2k)`. Self-verification: pooled +0.152, one-null-each +0.076, nulls-to-halve 528, discount
+50%. No other dimension changed. The paper's "at most about +0.076 relative" (§1, §7, §8, §9) is the
+discounted value.
+
 ## Withdrawn figures
 
 Not derivable from any data file, and not to be used:

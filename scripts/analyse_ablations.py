@@ -1418,7 +1418,8 @@ def trim_and_fill(y: Sequence[float], v: Sequence[float], *, side: str = "auto",
     return out
 
 
-def null_fill_sensitivity(y: Sequence[float], v: Sequence[float], *, max_add: int = 500) -> dict[str, Any]:
+def null_fill_sensitivity(y: Sequence[float], v: Sequence[float], *, max_add: int | None = None
+                          ) -> dict[str, Any]:
     """A Copas-style bound: how many unreported NULL contrasts would flatten the pooled effect.
 
     The Copas selection model needs more information than this data has (it wants the selection
@@ -1428,11 +1429,15 @@ def null_fill_sensitivity(y: Sequence[float], v: Sequence[float], *, max_add: in
     out: the pooled effect after adding ONE null per observed contrast - the world in which every
     ablation that was run and came out null went unreported, one for one - and the number of nulls
     needed to halve the pooled effect. Small numbers here mean the finding is fragile to exactly the
-    selection the design invites.
+    selection the design invites. ``max_add`` defaults to twice the number of contrasts (at least
+    500), so the one-null-each world is always reached; a fixed cap below k silently left the
+    largest dimension undiscounted.
     """
     y_arr = np.asarray(list(y), dtype=float)
     v_arr = np.asarray(list(v), dtype=float)
     k = int(y_arr.size)
+    if max_add is None:
+        max_add = max(500, 2 * k)
     out: dict[str, Any] = {"k": k, "mu_observed": float("nan"), "mu_one_null_each": float("nan"),
                            "nulls_to_halve": -1, "nulls_to_ci_crosses_zero": -1}
     if k < 3:

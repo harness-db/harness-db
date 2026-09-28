@@ -3,8 +3,8 @@
 
 WHY THIS SCRIPT EXISTS
 ----------------------
-The corpus-wide ablation harvest (`scripts/harvest_ablations_corpus.py`) is incomplete and will be
-re-run, and every re-run moves every number in section 7. A number typed into the manuscript is a
+The corpus-wide ablation harvest (`scripts/harvest_ablations_corpus.py`) was run in stages, and
+every re-run moved every number in section 7. A number typed into the manuscript is a
 number that goes stale silently. This script is the only thing allowed to put an RQ3 number into the
 paper: it READS the existing analysis outputs and FORMATS them. It computes no inferential
 statistic - a confidence interval, a discount, a correlation is always read from the file that
@@ -136,6 +136,8 @@ PRE_CLASSIFICATION = frozenset({"malformed_row", "score_not_in_text", "scores_no
 SANDBOX_LAYER = "G"
 #: the two rules that reassign a sandbox-layer row to another dimension (the others drop it)
 REMAP_OUT_OF_SANDBOX = ("sandbox_is_execution_feedback", "tools_ablation_is_context")
+#: every rule that reads a sandbox-layer attribution (a row it drops named no G mechanism)
+G_MAPPING_RULES = REMAP_OUT_OF_SANDBOX + ("tool_gating_is_tool_interface",)
 
 PROVENANCE_CODED = "coded_harvest"
 PROVENANCE_CORPUS = "corpus_fulltext"
@@ -622,7 +624,7 @@ def build_pooled(d: Loaded, inp: Inputs, stamp: str, threshold: float) -> str:
         body.append(" & ".join(cells) + r" \tabularnewline")
     caption = (
         r"Within-study meta-analysis of published ablations, coded-set and corpus-wide harvests "
-        rf"combined (harvest snapshot of {date}; the harvest is incomplete). One row per design "
+        rf"combined (completed harvest, snapshot of {date}). One row per design "
         rf"dimension with contrasts from at least {min_papers} papers ({len(rows)} dimensions; "
         rf"{n_all - len(rows)} more have contrasts from fewer papers and are not pooled). Effect: "
         r"relative change $(\mathrm{with}-\mathrm{without})/\mathrm{with}$ on the paper's own "
@@ -810,7 +812,7 @@ def within_study_row(d: Loaded, inp: Inputs, focal: str, facts: dict[str, Any]) 
                     "(relative change)",
         "interval": (f"$z$ {interval(num(row['ci_low'], w), num(row['ci_high'], w))}; "
                      f"HK {interval(num(row['hk_ci_low'], w), num(row['hk_ci_high'], w))}"),
-        "status": f"interim (harvest has read {facts['tier_phrase']}); {verdict}",
+        "status": f"complete (harvest read {facts['tier_phrase']}); {verdict}",
     }
 
 
@@ -1086,6 +1088,7 @@ def pre_rule_sensitivity(d: Loaded, inp: Inputs) -> dict[str, Any]:
     kept_keys = {_dup_key(r) for r in rows if r["drop_reason"] == ""}
     pre = Counter(post)
     moved_out_of_g: Counter = Counter()
+    g_fate: Counter = Counter()
     dcl = {"dropped": 0, "pooled": 0, "against": 0}
     for r in rows:
         if (r["drop_reason"] in PRE_CLASSIFICATION
@@ -1106,6 +1109,9 @@ def pre_rule_sensitivity(d: Loaded, inp: Inputs) -> dict[str, Any]:
             continue
         if key_to_layer.get(cf_dim) == SANDBOX_LAYER:
             moved_out_of_g[rule] += 1
+            # what became of the row: kept under another dimension, or dropped and why
+            g_fate[("reassigned", r["norm_dimension"]) if r["drop_reason"] == ""
+                   else ("dropped", r["drop_reason"])] += 1
         if rule == "direction_contradicts_label":
             dcl["dropped"] += 1
             if cf_dim in pooled_dims:
@@ -1116,7 +1122,7 @@ def pre_rule_sensitivity(d: Loaded, inp: Inputs) -> dict[str, Any]:
             "p": float(pre_stats["exact_permutation_p_one_sided"]),
             "zero_layers": pre_stats["zero_contrast_layers"],
             "g_contrasts": sum(n for k, n in pre.items() if key_to_layer.get(k) == SANDBOX_LAYER),
-            "moved_out_of_g": dict(moved_out_of_g), "dcl": dcl}
+            "moved_out_of_g": dict(moved_out_of_g), "g_fate": dict(g_fate), "dcl": dcl}
 
 
 # ------------------------------------------------------------------------------------------------
@@ -1181,20 +1187,34 @@ def sensitivity_macros(d: Loaded, inp: Inputs, headline: str) -> list[tuple[str,
     pr = pre_rule_sensitivity(d, inp)
     nb = non_baseline_sensitivity(d, inp, headline)
     w = sign_warrant(d, inp)
-    dcl, moved = pr["dcl"], pr["moved_out_of_g"]
-    remapped = sum(n for k, n in moved.items() if k in REMAP_OUT_OF_SANDBOX)
-    dropped = {k: n for k, n in sorted(moved.items()) if k not in REMAP_OUT_OF_SANDBOX}
+    dcl, fate = pr["dcl"], pr["g_fate"]
+    # a G row's fate is what finally happened to it, not which rule fired first: a row a
+    # sandbox-remapping rule matched can still be dropped (its text names neither an execution
+    # step nor an isolation boundary), so rule names alone would over-count the reassignments
+    remapped = sorted(((n, dim) for (kind, dim), n in fate.items() if kind == "reassigned"),
+                      key=lambda x: (-x[0], x[1]))
+    dropped = {why: n for (kind, why), n in sorted(fate.items()) if kind == "dropped"}
+    unnamed = sum(n for why, n in dropped.items() if why in G_MAPPING_RULES)
+    parts = [f"{n} to {d.names.prose(dim)}" for n, dim in remapped]
+    remap_list = (" and ".join(parts) if len(parts) <= 2
+                  else ", ".join(parts[:-1]) + ", and " + parts[-1]) or "none"
     return [
         ("rqPreRuleRho", eff(pr["rho"]),
          "Spearman rho, silence vs density, with the seven classification rules undone"),
         ("rqPreRuleP", pval(pr["p"]), "its exact one-sided permutation p"),
         ("rqPreRuleGContrasts", count(pr["g_contrasts"]),
          "sandbox-layer (G) contrasts before the rules; after them there are none"),
-        ("rqPreRuleGRemapped", count(remapped),
-         "of those, reassigned by a rule to the dimension the removal takes away"),
+        ("rqPreRuleGRemapped", count(sum(n for n, _ in remapped)),
+         "of those, kept and reassigned by a rule to the dimension the removal takes away"),
+        ("rqPreRuleGRemapList", remap_list,
+         "those reassignments by destination dimension, largest first"),
         ("rqPreRuleGDropped", count(sum(dropped.values())),
-         "of those, dropped by a rule: " + (", ".join(f"{k} {n}" for k, n in dropped.items())
-                                           or "none")),
+         "of those, dropped: " + (", ".join(f"{k} {n}" for k, n in dropped.items()) or "none")),
+        ("rqPreRuleGDroppedUnnamed", count(unnamed),
+         "of the dropped, by a sandbox-layer mapping rule: the text names no execution step, "
+         "isolation boundary or enforced authorisation"),
+        ("rqPreRuleGDroppedUnread", count(sum(dropped.values()) - unnamed),
+         "of the dropped, by a score-reading guard (delta metric, run-together scores)"),
         ("rqDCLDropped", count(dcl["pooled"]),
          "rows the label-contradicts-orientation rule dropped, on pooled dimensions"),
         ("rqDCLAgainst", count(dcl["against"]),
