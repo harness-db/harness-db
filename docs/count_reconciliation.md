@@ -293,15 +293,16 @@ Recount:
 
 prints `613 0`.
 
-**What 1,403 / 2,073 counts.** `data/screening/fulltext_report.md` §5 labels it "pass-1 includes
-confirmed by pass 2". In `fulltext_final_pass1.csv` the pass-1 row is the **decision of record**
-(for the 3,075 twice-read records a tier-2 model, Claude Opus 5 or for 30 records Opus 4.8, apart from
-12 not-retrievable rows with no model, i.e. the tier-2 decisive reading) and `fulltext_final_pass2.csv`
-holds the other reading (Claude Sonnet 5, tier 1). So 2,073 = includes of
-record that were read twice, and 1,403 (67.7%) = those on which the tier-1 reading also said include;
-the other 670 are records the tier-1 reading excluded and the decisive reading included (every tier-1
-exclude is escalated), or tier-2-first records whose sampled tier-1 reading disagreed. The paper's old
-label "tier-1 includes confirmed at second reading" (methods, screening-checks table) and "surviving" (threats table) had the direction
-backwards; both now say the two readings agree on 1,403 of the 2,073 includes of record. The
-overturn rate of the hash-selected 10% audit sample of tier-1 includes is **not** in any screening
-output (no per-record escalation reason is stored), so the paper does not report it.
+**What 1,403 / 2,073 counts (settled 2026-09-28 from the raw files).** For the 3,075 twice-read
+records the `fulltext_final_pass1.csv` row is the **decision of record**, produced by the tier-2 model
+(Claude Opus 5 for 3,031, Opus 4.8 for 30, no call 12, Sonnet 5 for 2); `fulltext_final_pass2.csv`
+holds the tier-1 reading (Claude Sonnet 5, 3,063), and `fulltext_votes_tier1.csv` reproduces it row
+for row. Cross-tab (record × tier 1): tier-1 exclude 1,532 = 862 confirmed + 670 overturned to include
+(43.7%, Wilson [0.413, 0.462]); tier-1 include 1,543 = 1,403 confirmed + 140 overturned to exclude
+(9.1%, [0.077, 0.106]). So 2,073 is the number of includes OF RECORD among the escalated set
+(1,403 + 670), not a count of first-reading includes: "2,073 of 7,085 includes read twice" was true
+but uninformative, and "first-reading includes confirmed 67.7%" (the old caption of
+`fulltext_report.md` §5, and one review's reading of it) is wrong. The paper now reports the two
+overturn rates (methods §4.3, `tab:screening-checks`, threats table). The 9.1% is an upper bound on
+the false-include rate of the unescalated includes, because the sampled includes contain every
+low-confidence one.

@@ -7,6 +7,23 @@ few systems read closely, and outcome studies compare harnesses by name. The clo
 question (RQ3) is \citet{guo2026qa2task}. Each group is limited for our purpose by a mechanism, not by
 incompleteness.
 
+\paragraph{Broader surveys of LLM agents}
+Beyond these seven, surveys of LLM agents organize the field by agent component or method rather than
+by harness. \citet{wang2023agentsurvey} propose a unified framework for constructing agents and review
+applications and evaluation strategies, and \citet{xi2023riseagents} divide an agent into brain,
+perception, and action. Later surveys decompose agents into components and orchestration patterns
+\citep{agenticai2026taxonomies,agentsystems2026survey}, classify reasoning frameworks as single-agent,
+tool-based, or multi-agent \citep{agenticreasoning2025survey}, treat workflows as computation graphs
+fixed before or during a run \citep{workflowopt2026survey}, and frame post-training, memory, and skills
+as adaptation of an agent or its tools \citep{adaptation2025survey}. Others cover one domain, software
+engineering \citep{seagentic2025survey} or deep research \citep{deepresearch2025agents}, or one
+artifact: \citet{agenticframeworks2025} compare seven frameworks, among them CrewAI, LangGraph, and
+AutoGen, and \citet{skills2026lifecycle} reads a 124-paper audit set on skill libraries, assembled by
+snowballing rather than a PRISMA-style query. The unit in these surveys is a paper, method, or
+framework, not a sampled population of released systems, and none reports an inter-coder agreement
+statistic. Outside the survey literature, \citet{frameworksfallshort2026} classify 5,669 bug reports
+from five agent frameworks and find that 76.00\% manifest as incorrect functionality.
+
 \paragraph{Catalogues and completeness matrices}
 These works estimate what the field contains. \citet{li2026harnessengineering} apply the seven-layer
 ETCLOVG taxonomy to a public catalogue of 171 entries at its 2026-05-08 snapshot (368 at our last
@@ -25,18 +42,19 @@ and gives silence a state of its own, which turns under-reporting into a measure
 These works give the strongest evidence per claim. \citet{rombaut2026insidescaffold} grew twelve
 dimensions by open coding the source of 13 coding scaffolds at pinned commits. Every classification
 carries a file path and line number, and a post-hoc pass checked 296 claims and corrected 19.
-\citet{barbaste2026anatomy} apply the same method to eleven production coding harnesses, organized
-into seven subsystems and re-pinned to observe change over a quarter. \citet{zhong2026responsibilities}
-propose eleven component responsibilities and an H0--H3 ladder that ranks systems rather than
-partitioning them. \citet{harnesscategorical2026} identifies the harness with a triple
+\citet{barbaste2026anatomy} read the source of eleven harnesses, one of them a non-coding contrast
+point, at pinned releases, organize them into seven subsystems, and re-pin eight of them to observe
+change over a quarter; they deliberately omit line-number citations. \citet{zhong2026responsibilities}
+propose eleven component responsibilities and an H0--H3 ladder, a cumulative ablation that exposes more
+of those responsibilities to one agent at each level while holding task, repository, and model fixed,
+tested on a single constructed task. \citet{harnesscategorical2026} identifies the harness with a triple
 $(G,\mathrm{Know},\Phi)$: wiring graph, structural certificates, and stage-to-model deployment map. Its
 largest empirical test is a 10-instance SWE-bench-lite run in which no instance resolved. The limitation
 is the cost of the evidence. Reading source code costs enough per system that both code studies stop at
-eleven to thirteen coding agents. A sample that size cannot show how often a choice occurs, whether it is reported, or
+eleven to thirteen systems. A sample that size cannot show how often a choice occurs, whether it is reported, or
 whether it co-varies with outcomes, and Rombaut makes no claim about task success. We adopt Rombaut's
 observation, classification, and evidence template and several of its value sets. We apply them to
-documents rather than code, over 1,256 systems across domains, 247 of them coded twice. Barbaste et al.\
-and Zhong and Zhu were read in abstract only before our schema froze and are not crosswalked.
+documents rather than code, over 1,256 systems across domains, 247 of them coded twice.
 
 \paragraph{Harness-identity outcome studies}
 These works measure whether the harness matters. \citet{guo2026qa2task} decompose the harness into six
@@ -46,7 +64,15 @@ SWE-bench Verified. Among the 20 Terminal-Bench models with at least three harne
 within-model range is 13.6 points, and 14 of 20 vary by at least 10. Comparisons that hold the model
 fixed and swap the harness agree \citep{harnessbench2026,samemodel2026harness,scaffoldeffect2026}, and
 \citet{zhang2026harnessreporting} argue that a comparison which does not disclose the harness cannot be
-interpreted. The limitation is the unit of contrast. A harness enters as a name, and a name bundles
+interpreted.
+Under a fixed prompt, budget, and evaluator, changing only the harness moves Pass@1 by up to 27.4 points
+\citep{clawswebench2026}, and a multi-agent scaffold raises SWE-bench Pro resolution by 6.3 to 18.5
+points over three existing scaffolds with the same models \citep{icatagent2026}. Harnesses that edit
+themselves improve held-out pass rates in all nine model--benchmark cells tested
+\citep{selfharness2026}, the gains of evolved harnesses compensate recoverable execution defects
+\citep{onerecipe2026harnesses}, and \citet{intentexecution2026} name the mismatch between what a model
+intends and what its harness executes.
+The limitation is the unit of contrast. A harness enters as a name, and a name bundles
 dozens of design choices. A spread between two harnesses therefore has as many candidate causes as the
 harnesses have differences: the design shows that the harness matters, not which choice does. Our
 outcome analysis contrasts coded design dimensions within benchmark, split, and base-model keys, and
@@ -55,27 +81,36 @@ design, which Guo et al.\ set aside by choosing not to add another component tax
 
 \begin{table}[t]
 \centering
-\footnotesize
-\caption{Crosswalk of our nine layers onto the five prior schemes with a mapping recorded before the
-schema froze (held in the replication package). A parenthesis names the dimensions a slot covers; the
-layer's other dimensions have no slot there. ``--'' marks no construct for the layer. Barbaste et al.\
-and Zhong and Zhu have no recorded mapping.}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Crosswalk of our nine layers onto seven prior schemes. For the first five a mapping was
+recorded before the schema froze (held in the replication package); Barbaste et al.\ and Zhong and
+Zhu were mapped after the freeze from the full text. A parenthesis names the dimensions a slot
+covers; the layer's other dimensions have no slot there. ``--'' marks no construct for the layer.
+$^\dagger$A cross-cutting surface outside Barbaste et al.'s seven subsystems.}
 \label{tab:crosswalk}
-\begin{tabular}{@{}p{2.1cm}p{1.6cm}p{1.6cm}p{1.8cm}p{1.6cm}p{1.5cm}@{}}
+\begin{tabular}{@{}p{1.7cm}p{1.35cm}p{1.3cm}p{1.5cm}p{1.35cm}p{1.15cm}p{2.0cm}p{1.6cm}@{}}
 \toprule
-Our layer & Li et al.\ (ETCLOVG) & Guo et al. & Rombaut & Meng et al.\ $(E,T,C,S,L,V)$ & Banu \\
+Our layer & Li et al.\ (ETCLOVG) & Guo et al. & Rombaut & Meng et al.\ $(E,T,C,$\allowbreak$S,L,V)$ & Banu &
+Barbaste et al. & Zhong and Zhu \\
 \midrule
-A Context assembly & Context & observation, context & context strategy & $C$ (A2, A3) & -- \\
-B Tool interface & Tool interface & action & tool and environment interface & $T$ (B1--B5) & $G$ wiring \\
-C Control loop & Lifecycle and orchestration & control & control architecture & $E$ (C1) & $G$ wiring \\
-D Memory and state & Context & state & state management & $S$ (D1--D3) & coalgebraic state \\
-E Verification and repair & Verification & verification & control architecture & $E$ (E2) & Know \\
-F Budget and termination & Lifecycle and orchestration & control & resource management & $E$ (F1) & Know \\
+A Context assembly & Context & observation, context & context strategy & $C$ (A2, A3) & -- &
+LLM integration (A1); memory \& context (A2, A3) & context manager (A2) \\
+B Tool interface & Tool interface & action & tool and environment interface & $T$ (B1--B5) & $G$ wiring &
+tools \& actions (B1--B4); extensibility, orchestration (B5) & tool registry (B2) \\
+C Control loop & Lifecycle and orchestration & control & control architecture & $E$ (C1) & $G$ wiring &
+agent loop (C1, C2); orchestration (C3, C4); safety \& permissions (C5) & permission boundary (C5) \\
+D Memory and state & Context & state & state management & $S$ (D1--D3) & coalgebraic state &
+memory \& context (D1, D2); session substrate$^\dagger$ (D3) & task state (D1); project memory (D2) \\
+E Verification and repair & Verification & verification & control architecture & $E$ (E2) & Know &
+agent loop (E1, E2); memory \& context (E3) & verification protocol (E1) \\
+F Budget and termination & Lifecycle and orchestration & control & resource management & $E$ (F1) & Know &
+agent loop (F1--F3); LLM integration (F2) & -- \\
 G Sandbox and environment & Execution environment & verification and governance (V) & execution
-isolation & $L$ (G4) & -- \\
+isolation & $L$ (G4) & -- & safety \& permissions (G1--G4) & permission boundary (G4) \\
 H Observability and governance & Observability; Governance & not separated & -- & $V$ (H1, H3); $L$ (H4) &
-Know \\
-M Meta & -- & -- & -- & -- & $\Phi$ (M3) \\
+Know & safety \& permissions (H4) & observability layer (H1); permission boundary (H4) \\
+M Meta & -- & -- & -- & -- & $\Phi$ (M3) & LLM integration (M3) & -- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -86,8 +121,22 @@ also merge control loop and budget, and Rombaut folds generate-test-repair verif
 architecture. Down the columns, our observability and governance layer has no separate construct in Guo
 et al.\ or Rombaut, and our sandbox layer has none in Banu. Under Meng et al.'s tuple, 14 of our 31
 design dimensions (38 with metadata) have no slot, among them execution isolation, network policy, and replayability.
-Li et al.\ and Banu each relate one pair of schemes; neither maps Rombaut's dimensions onto a layer
-scheme.
+Li et al.\ and Banu each relate one pair of schemes, and \citet{barbaste2026anatomy} map Rombaut's
+twelve dimensions onto their seven subsystems; Table~\ref{tab:crosswalk} sets all seven schemes side by side.
+
+\citet{barbaste2026anatomy} merge three of our layers in their agent loop, which ``owns stop
+conditions and failure recovery'' and so spans control loop, verification, and termination, and they
+join context assembly with memory, and sandbox with guardrails, in their memory-and-context and
+safety-and-permissions subsystems. None of their seven subsystems records tracing, replay, or
+evaluation hooks, and three of their constructs have no dimension of ours: the extensibility
+subsystem of hooks, skills, and plugins; the interface layer; and the provider-facing side of LLM
+integration, such as streaming, reasoning effort, and per-model prompts, of which our schema keeps
+only provider agnosticism (M3) and routing and caching as cost controls (F2).
+\citet{zhong2026responsibilities} keep most of our layers apart but fold the permission model, action
+guardrails, and approval gates (G4, H4, C5) into one permission boundary, and they have no construct
+for our control loop beyond those gates and none for budget and termination. Four of their eleven
+responsibilities have no dimension of ours: the task interface, failure attribution, the entropy
+auditor, and the intervention logger.
 
 The crosswalk also runs the other way, and there it exposes gaps in our schema. Three of Rombaut's
 dimensions have no dimension of ours: loop driver, which that paper calls its most fundamental
@@ -105,4 +154,4 @@ kappa of at least 0.6, and because both codings are model readings this is repro
 Second, the released matrix joins depth, breadth, and evidence: 1,256 systems on 38 dimensions, 47,728
 cells, each valued cell carrying a quote and a locator. Third, the outcome analysis runs on coded design dimensions rather than
 harness identity, over a comparable set published in full. Fourth, Table~\ref{tab:crosswalk} reconciles
-five prior schemes at once.
+seven prior schemes, five of them mapped before the schema froze and two after it.

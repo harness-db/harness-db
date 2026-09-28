@@ -1,0 +1,292 @@
+%% S7 -- full search strategy for every source (PRISMA 2020 item 7; PRISMA-S).
+%% Every string below is copied from the harvest files, not retyped: the protocol blocks from
+%% docs/protocol_prisma_p.md section 6, and each per-source query from the query_used field of the
+%% records it returned (data/raw/*.jsonl). Every count is from data/prisma_counts.json,
+%% data/raw/search_log.md, data/raw/freeze_notes.md or data/raw/grey_notes.md.
+\section{Search strategy}
+\label{app:search}
+
+This section reproduces the search of \S4 in full, one source at a time, so that it can be re-run
+without the replication package. All sources were searched on a single day, 2026-09-16: the database
+harvest is logged from 19:47 to 20:50 UTC, the two survey bibliographies were snowballed from 20:53
+to 20:58 UTC, and the search was frozen at 20:59 UTC, when the last deduplication wrote the candidate
+set. The information sources are arXiv, Semantic Scholar, OpenAlex, the ACL Anthology, OpenReview and
+GitHub, supplemented by citation searching (Semantic Scholar citations and references of eleven seed
+papers, the bibliographies of two surveys that Semantic Scholar does not index, and three curated
+``awesome'' lists) and by grey literature (vendor documentation and eight agent leaderboards). Every
+database query is a conjunction of two blocks, a harness-vocabulary block and a language-model block
+(Section~\ref{subsec:search-blocks}). The harness block is the second version, adopted under
+amendment~1 after the registered known-item rule failed on the first; under amendment~2 the
+language-model block is waived when one of seven strong harness terms is present, which applies on
+arXiv, the ACL Anthology and OpenReview and not on the other three sources. On Semantic Scholar and
+OpenAlex a third, structure block is added for precision. Every dated source is limited to the
+release window 2022-10-01 to 2026-08-31 inclusive, by publication, submission or repository-creation
+date as the source allows. No language filter is applied at search: the English-language requirement
+is an eligibility criterion (protocol section 4.6), applied at screening. No source was capped
+(\texttt{--max-records 0}). Table~\ref{tab:search-sources} gives the records each source returned;
+the 50,724 raw records deduplicate to 27,747 candidates (22,977 duplicates removed), matching on DOI,
+then arXiv identifier, then exact normalized title, then a fuzzy title match at ratio 95 or above.
+
+\subsection{Search blocks}
+\label{subsec:search-blocks}
+
+The blocks as registered, with their amendments (protocol section 6). An asterisk is a
+right-truncation wildcard; quotation marks enclose a phrase. In the listings, lines are wrapped for
+print only at spaces between tokens, never inside a quoted phrase, and an indented line continues the
+one above it.
+
+\noindent\textbf{Harness block (v2, amendment 1).}
+{\footnotesize
+\begin{verbatim}
+"agent harness" OR harness OR "agent scaffold*" OR "agentic framework" OR
+  "agent framework" OR "LLM agent*" OR "LM agent*" OR "language agent*" OR "AI agent*"
+  OR "computer agent*" OR "multi-agent" OR "tool-use agent" OR "coding agent" OR
+  "software engineering agent" OR "computer-use agent" OR "GUI agent" OR "web agent" OR
+  "multi-agent framework" OR "agent orchestration" OR "LLM orchestration"
+\end{verbatim}
+}
+
+\noindent\textbf{Language-model block.}
+{\footnotesize
+\begin{verbatim}
+"large language model" OR LLM OR "foundation model" OR "language model agent"
+\end{verbatim}
+}
+
+\noindent\textbf{Strong harness terms that waive the language-model block (amendment 2).} Where the
+waiver applies, a record is retrieved if it matches (harness block AND language-model block) OR any
+of:
+{\footnotesize
+\begin{verbatim}
+"agent harness*" OR "agentic harness*" OR "coding agent*" OR "agent scaffold*" OR
+  "agentic scaffold*" OR "software engineering agent*" OR "web agent*"
+\end{verbatim}
+}
+
+\noindent\textbf{Structure block (Semantic Scholar and OpenAlex only).}
+{\footnotesize
+\begin{verbatim}
+"tool call*" OR "function call*" OR "control loop" OR "context management" OR memory OR
+  sandbox OR verification OR retry OR planning
+\end{verbatim}
+}
+
+\subsection{Per-source queries as submitted}
+\label{subsec:search-queries}
+
+Table~\ref{tab:search-sources} gives, for every source, the interface, the fields searched, the
+filters and limits, and the records retrieved. The strings below are the queries each source
+received, copied from the records it returned. Wildcards are translated per source: arXiv and
+OpenAlex stem server-side, so a truncated term is sent as its stem (\texttt{"agent scaffold"},
+\texttt{"LLM agent"}); the Semantic Scholar bulk search has no phrase-internal wildcard and does not
+stem phrases, so every variant is sent and the plural forms of the language-model terms are added.
+Nothing else in the protocol strings was changed.
+
+\noindent\textbf{arXiv, harness AND language-model blocks.} Sent per submission-date slice, because
+the API cannot page past 10,000 results; the listing is the first slice. The eight slices, with the
+records each returned, are 2022-10-01 to 2024-09-15 (1,329), 2024-09-16 to 2025-03-13 (1,064),
+2025-03-14 to 2025-09-08 (1,818), 2025-09-09 to 2025-12-07 (1,281), 2025-12-07 to 2026-02-11 (991),
+2026-02-12 to 2026-04-19 (1,321), 2026-04-20 to 2026-06-25 (1,903) and 2026-06-26 to 2026-08-31
+(1,544); the day 2025-12-07 falls in two slices and is deduplicated by identifier, and the file holds
+the 11,242 records the API reports for the whole window.
+{\footnotesize
+\begin{verbatim}
+(ti:"agent harness" OR abs:"agent harness" OR ti:harness OR abs:harness OR
+  ti:"agent scaffold" OR abs:"agent scaffold" OR ti:"agentic framework" OR
+  abs:"agentic framework" OR ti:"agent framework" OR abs:"agent framework" OR
+  ti:"LLM agent" OR abs:"LLM agent" OR ti:"LM agent" OR abs:"LM agent" OR
+  ti:"language agent" OR abs:"language agent" OR ti:"AI agent" OR abs:"AI agent" OR
+  ti:"computer agent" OR abs:"computer agent" OR ti:"multi-agent" OR abs:"multi-agent"
+  OR ti:"tool-use agent" OR abs:"tool-use agent" OR ti:"coding agent" OR
+  abs:"coding agent" OR ti:"software engineering agent" OR
+  abs:"software engineering agent" OR ti:"computer-use agent" OR
+  abs:"computer-use agent" OR ti:"GUI agent" OR abs:"GUI agent" OR ti:"web agent" OR
+  abs:"web agent" OR ti:"multi-agent framework" OR abs:"multi-agent framework" OR
+  ti:"agent orchestration" OR abs:"agent orchestration" OR ti:"LLM orchestration" OR
+  abs:"LLM orchestration") AND (ti:"large language model" OR abs:"large language model"
+  OR ti:LLM OR abs:LLM OR ti:"foundation model" OR abs:"foundation model" OR
+  ti:"language model agent" OR abs:"language model agent") AND (cat:cs.AI OR cat:cs.CL
+  OR cat:cs.SE OR cat:cs.LG) AND submittedDate:[202210010000 TO 202409152359]
+\end{verbatim}
+}
+
+\noindent\textbf{arXiv, strong-term waiver (amendment 2).} The waiver query as submitted; it still
+lists \texttt{"computer-use agent"} and \texttt{"GUI agent"}, the nine-term form measured before
+adoption. Of the records it returned that the first query had not, only those matching one of the
+seven adopted strong terms in title or abstract were added: 593 records.
+{\footnotesize
+\begin{verbatim}
+(ti:"agent harness" OR abs:"agent harness" OR ti:"agentic harness" OR
+  abs:"agentic harness" OR ti:"coding agent" OR abs:"coding agent" OR
+  ti:"agent scaffold" OR abs:"agent scaffold" OR ti:"agentic scaffold" OR
+  abs:"agentic scaffold" OR ti:"software engineering agent" OR
+  abs:"software engineering agent" OR ti:"computer-use agent" OR
+  abs:"computer-use agent" OR ti:"GUI agent" OR abs:"GUI agent" OR ti:"web agent" OR
+  abs:"web agent") AND (cat:cs.AI OR cat:cs.CL OR cat:cs.SE OR cat:cs.LG) AND
+  submittedDate:[202210010000 TO 202608312359]
+\end{verbatim}
+}
+
+\noindent\textbf{Semantic Scholar} (\texttt{/graph/v1/paper/search/bulk}; \texttt{|} is OR,
+\texttt{+} is AND).
+{\footnotesize
+\begin{verbatim}
+("agent harness" | harness | "agent scaffold" | "agent scaffolding" | "agent scaffolds"
+  | "agentic framework" | "agent framework" | "LLM agent" | "LLM agents" | "LM agent" |
+  "LM agents" | "language agent" | "language agents" | "AI agent" | "AI agents" |
+  "computer agent" | "computer agents" | "multi-agent" | "tool-use agent" |
+  "coding agent" | "software engineering agent" | "computer-use agent" | "GUI agent" |
+  "web agent" | "multi-agent framework" | "agent orchestration" | "LLM orchestration") +
+  ("large language model" | "large language models" | LLM | LLMs | "foundation model" |
+  "foundation models" | "language model agent") + ("tool call" | "tool calls" |
+  "tool calling" | "function call" | "function calls" | "function calling" |
+  "control loop" | "context management" | memory | sandbox | verification | retry |
+  planning)
+\end{verbatim}
+}
+
+\noindent\textbf{OpenAlex} (\texttt{/works}; the filter parameter, whose comma-separated clauses are
+ANDed; the line breaks after the first three commas are for print).
+{\footnotesize
+\begin{verbatim}
+filter=from_publication_date:2022-10-01,
+to_publication_date:2026-08-31,
+concepts.id:C41008148,
+title_and_abstract.search:("agent harness" OR harness OR "agent scaffold" OR
+  "agentic framework" OR "agent framework" OR "LLM agent" OR "LM agent" OR
+  "language agent" OR "AI agent" OR "computer agent" OR "multi-agent" OR
+  "tool-use agent" OR "coding agent" OR "software engineering agent" OR
+  "computer-use agent" OR "GUI agent" OR "web agent" OR "multi-agent framework" OR
+  "agent orchestration" OR "LLM orchestration") AND ("large language model" OR LLM OR
+  "foundation model" OR "language model agent") AND ("tool call" OR "function call" OR
+  "control loop" OR "context management" OR memory OR sandbox OR verification OR retry
+  OR planning)
+\end{verbatim}
+}
+
+\noindent\textbf{ACL Anthology and OpenReview.} Neither offers a Boolean query interface, so every
+record in the window is fetched and filtered locally: a case-insensitive regular expression built
+from each block (\texttt{common.HARNESS\_RE} and \texttt{common.LLM\_RE} in
+\texttt{scripts/harvest/common.py}) is applied to title and abstract, keeping a record that matches
+(harness AND language-model) OR a strong term. The expression lets a hyphen or space inside a phrase
+match either (\texttt{"tool-use agent"} matches ``tool use agent''), makes an asterisk a word-character
+wildcard, and tolerates a trailing plural \emph{s} on the last word of every term.
+
+\noindent\textbf{GitHub} (\texttt{gh api search/repositories}, nine queries). A repository returned by
+any of them is kept when its README or description matches the language-model block regex; the
+strong-term waiver is not applied, because the full READMEs of the rejected repositories were not
+cached.
+{\footnotesize
+\begin{verbatim}
+topic:llm-agent stars:>500 created:2022-10-01..2026-08-31
+topic:ai-agent stars:>500 created:2022-10-01..2026-08-31
+topic:coding-agent stars:>500 created:2022-10-01..2026-08-31
+topic:llm-agents stars:>500 created:2022-10-01..2026-08-31
+topic:agent-framework stars:>500 created:2022-10-01..2026-08-31
+"agent harness" in:name,description,readme stars:>500 created:2022-10-01..2026-08-31
+"coding agent" in:name,description,readme stars:>500 created:2022-10-01..2026-08-31
+"computer-use agent" in:name,description,readme stars:>500 created:2022-10-01..2026-08-31
+"browser agent" llm in:name,description,readme stars:>500 created:2022-10-01..2026-08-31
+\end{verbatim}
+}
+
+\begin{table}[H]
+\caption{Search strategy per source, all sources searched 2026-09-16 and frozen at 20:59 UTC. Records
+are the raw records each source contributed before deduplication, from
+\texttt{data/prisma\_counts.json} and \texttt{data/raw/search\_log.md}; the queries are in
+Section~\ref{subsec:search-queries}. H, L, S: harness, language-model and structure blocks; W: the
+seven-term strong waiver. Window: 2022-10-01 to 2026-08-31 inclusive on every dated source.}
+\label{tab:search-sources}
+\footnotesize
+\begin{tabular}{@{}p{0.11\linewidth} p{0.19\linewidth} p{0.13\linewidth} p{0.12\linewidth} p{0.25\linewidth} r@{}}
+\toprule
+Source & Interface & Query & Fields & Filters and limits & Records \\
+\midrule
+\multicolumn{6}{@{}l}{\emph{Databases}} \\
+\raggedright arXiv & \raggedright \texttt{export.arxiv.org/\allowbreak api/\allowbreak query}, 200 per page & \raggedright (H AND L) OR W & \raggedright title (\texttt{ti:}), abstract (\texttt{abs:}) & \raggedright categories cs.AI, cs.CL, cs.SE, cs.LG; \texttt{submittedDate} window in eight slices; no cap & 11,835 \\
+\raggedright Semantic Scholar & \raggedright \texttt{/graph/\allowbreak v1/\allowbreak paper/\allowbreak search/\allowbreak bulk}, sorted by citation count & \raggedright H AND L AND S & \raggedright bulk-search text match & \raggedright \texttt{fieldsOfStudy=Computer Science}; \texttt{publicationDateOrYear} window; no waiver; 20,019 records without S & 6,744 \\
+\raggedright OpenAlex & \raggedright \texttt{api.openalex.org/\allowbreak works}, cursor, 200 per page & \raggedright H AND L AND S & \raggedright \texttt{title\_and\_\allowbreak abstract.\allowbreak search} & \raggedright concept C41008148 (computer science); publication-date window; no waiver; 40,607 records without S & 14,812 \\
+\raggedright ACL Anthology & \raggedright bulk \texttt{anthology+\allowbreak abstracts.\allowbreak bib.gz}, local filter & \raggedright (H AND L) OR W, as regex & \raggedright title, abstract & \raggedright entries of 2022--2026, trimmed by month at the window ends; 131,040 entries parsed, 50,461 in 2022--2026 & 1,393 \\
+\raggedright OpenReview & \raggedright \texttt{/notes?\allowbreak invitation=\allowbreak <venue>/\allowbreak -/\allowbreak Submission} (API v2) or \texttt{Blind\_Submission} (v1), authenticated; local filter & \raggedright (H AND L) OR W, as regex & \raggedright title, abstract & \raggedright 11 venues: ICLR 2023--2026, NeurIPS 2023--2025, ICML 2023--2026; 70,268 submissions scanned & 1,754 \\
+\raggedright GitHub & \raggedright \texttt{gh api search/repositories}, then \texttt{repos/\allowbreak \{repo\}/\allowbreak readme} & \raggedright nine topic and keyword queries, then L on README or description & \raggedright topics; name, description, README & \raggedright \texttt{stars:>500}; \texttt{created:} window; slices over 1,000 hits split by creation date; 3,228 hits, 2,555 unique repositories & 1,361 \\
+\midrule
+\multicolumn{6}{@{}l}{\emph{Citation searching} (12,526 records in \texttt{data/prisma\_counts.json})} \\
+\raggedright Snowballing & \raggedright Semantic Scholar \texttt{/paper/\allowbreak \{id\}/\allowbreak citations} and \texttt{/references} & \raggedright one round, both directions, 11 seeds & \raggedright -- & \raggedright window; ReAct citations truncated at the API ceiling of 9,999; 13,269 listed & 11,289 \\
+\raggedright Survey biblio\-graphies & \raggedright reference lists parsed from two survey PDFs, resolved on Semantic Scholar & \raggedright every reference & \raggedright -- & \raggedright window (5 references outside it dropped); 420 entries & 415 \\
+\raggedright Curated lists & \raggedright three GitHub ``awesome'' catalogues & \raggedright every entry & \raggedright -- & \raggedright none: seed material, not filtered by date or block; 825 entries parsed & 822 \\
+\midrule
+\multicolumn{6}{@{}l}{\emph{Grey literature} (299 records in \texttt{data/prisma\_counts.json})} \\
+\raggedright Vendor documen\-tation & \raggedright 185 documentation URLs for 48 systems, 160 resolved & \raggedright named systems & \raggedright -- & \raggedright one record per system & 48 \\
+\raggedright Leader\-boards & \raggedright eight public leaderboards & \raggedright every entry & \raggedright -- & \raggedright GAIA's open submission log excluded from candidates; 3,946 records kept for the outcomes table & 251 \\
+\midrule
+\multicolumn{5}{@{}l}{All sources, before deduplication (27,747 candidates after it)} & 50,724 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Citation searching and grey literature}
+\label{subsec:search-other}
+
+\emph{Snowballing.} One round of forward and backward citation searching was run through the Semantic
+Scholar citations and references endpoints from eleven seeds: the two competitor surveys that
+Semantic Scholar indexes (arXiv 2606.20683 and 2604.03515), six further harness papers (2605.12239,
+2609.00006, 2605.13357, 2605.27922, 2607.22585, 2608.26218), and SWE-agent (2405.15793), OpenHands
+(2407.16741) and ReAct (2210.03629). Semantic Scholar listed 13,269 citing and cited records, of which
+11,289 fall in the window and were kept (11,024 citations and 265 references). ReAct's citations stop
+at 9,999, the most the API returns for one paper, so its citing set is truncated.
+
+\emph{Survey bibliographies.} The other two competitor surveys have no Semantic Scholar record: Li et
+al., \emph{Agent Harness Engineering: A Survey} (OpenReview eONq7FdiHa), and Meng et al., \emph{Agent
+Harness for Large Language Model Agents: A Survey} (Preprints.org 202604.0428). Their reference lists
+were parsed from the PDFs (250 and 170 entries) and each entry resolved on Semantic Scholar by arXiv
+identifier or DOI, else by title at a fuzzy-match ratio of 85 or above. Of the 420 entries, 5 fall
+outside the window and 415 were kept: 195 resolved papers, 81 repositories and 139 blog or
+documentation references.
+
+\emph{Curated lists.} Three curated catalogues, two of them companions of the competitor surveys,
+were harvested in full, without date or block filters: \texttt{Picrew/awesome-agent-harness} (368
+entries), \texttt{Gloriaameng/Awesome-Agent-Harness} (158) and \texttt{ggjy/Awesome-Agent-Engineering}
+(296), 822 records.
+
+\emph{Vendor documentation.} Official documentation pages were fetched for 48 closed or vendor
+systems (from Claude Code, Codex CLI and Gemini CLI to AutoGen and OpenHands); of 185 URLs tried, 160
+resolved and 25 failed, and every system has at least one resolving page, so each contributes one
+record.
+
+\emph{Leaderboards.} SWE-bench, HAL, OSWorld, WebArena (with VisualWebArena), Terminal-Bench, GAIA,
+tau-bench and tau2-bench were harvested from their public data (4,893 entries, 3,946 records, one per
+system per leaderboard), for the outcomes table and to find systems that have no paper. GAIA's test
+split is an open submission log of mostly one-off names, so it is excluded from the candidate set;
+the other leaderboards contribute 251 systems. The Terminal-Bench 2.0 leaderboard could not be
+obtained.
+
+\emph{Supplementary arm.} The independent search of amendment~7 (2026-09-20, an Elicit
+systematic-review pipeline given the same definition and eligibility criteria) returned 987 records,
+of which it included 411; 103 of those were not among the frozen candidates and enter the review
+through PRISMA's ``other methods'' arm. Its five queries, semantic and keyword, were written by the
+pipeline, and their strings are not recorded in the release.
+
+\subsection{Validation against known items}
+\label{subsec:search-validation}
+
+The registered validation rule requires known-item recall of at least 90\%. On the test run, the
+first harness block found 3 of 12 canonical harness papers on arXiv (4,030 records). The misses
+described themselves as ``LM agents'', ``LLM agents'', ``AI agents'', ``computer agents'', a
+``multi-agent'' framework, or a bare ``harness'', none of them a phrase of the block, and one, ReAct,
+never uses the word ``agent'' in its abstract. A broadened block found 11 of 12 (11,834 records), ReAct
+being left to snowballing. Amendment~1 adopted that block, replacing bare \emph{orchestration} with
+``agent orchestration'' and ``LLM orchestration'' (the harness block above).
+
+At freeze, recall was measured on 48 known items, the arXiv identifiers of every entry in the review's
+must-cite bibliography (\texttt{data/raw/known\_items.txt}). With the second block alone, the six
+search sources found 31 of 48, and 42 of 48 with snowballing and the curated lists. Eight of the
+misses matched the harness block but not the language-model block: the 2026 harness literature often
+writes ``model'' or ``agent'' without ``LLM'' or ``large language model''. Amendment~2 waives the
+language-model block for strong harness terms. Its nine-term form, measured first, added 963 arXiv
+records, of which 12 in a random sample of 40 were clearly relevant and 15 clearly irrelevant, the
+noise concentrated in ``GUI agent'' and ``computer-use agent''; the seven-term form adopted drops those
+two, keeps all eight recovered items, and added 593 arXiv, 30 ACL and 68 OpenReview records. With it,
+the searches alone find 39 of 48 known items (81\%), and 46 of 48 (96\%) with snowballing, the survey
+bibliographies and the curated lists, above the 90\% threshold. The survey bibliographies added no
+known item. The two still missing are arXiv 2607.10113, a survey of agent skills that uses no harness
+term, and 2609.17394, dated 2026-09-15, after the window closes.

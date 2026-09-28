@@ -290,8 +290,6 @@ def test_screening_counts_equal_the_files(figs):
     v = {n.name: n.value for n in d.numbers}
     md = REPORT.read_text(encoding="utf-8")
     pc = load(PRISMA)
-    assert v["inc_read_twice"] == num(md, r"Pass-1 includes confirmed by pass 2: \d+/(\d+)")
-    assert v["exc_read_twice"] == num(md, r"Sampled pass-1 excludes confirmed by pass 2: \d+/(\d+)")
     assert v["kappa"] == num(md, r"Cohen's kappa \(sample as drawn\): ([\d.]+)")
     assert v["read_twice"] == num(md, r"Records read twice: (\d+)")
     assert v["agreement"] == num(md, r"observed agreement \d+/\d+ = ([\d.]+)%")
@@ -299,10 +297,8 @@ def test_screening_counts_equal_the_files(figs):
     stages = re.findall(r"^- \w+: (\d+)/(\d+) = ", md.split("Recall by stage:")[1].split("\n\n")[1],
                         re.MULTILINE)
     assert v["ref_found"] == min(int(a) for a, _ in stages)
-    assert v["inc_total"] == v["included"] == pc["included_papers"]
-    assert v["exc_total"] == v["excluded_ft"] == sum(pc["excluded_full_text"].values())
-    assert v["inc_share"] == pytest.approx(v["inc_read_twice"] / v["inc_total"])
-    assert v["inc_read_twice"] + v["exc_read_twice"] == v["read_twice"]
+    assert v["included"] == pc["included_papers"]
+    assert v["excluded_ft"] == sum(pc["excluded_full_text"].values())
     assert v["sought"] == pc["sought_full_text"] and v["excluded_ta"] == pc["excluded_title_abstract"]
     assert v["not_retrieved"] == pc["not_retrieved"]
     assert v["assessed"] == v["assessed_h"] == pc["assessed_full_text"]
@@ -331,6 +327,40 @@ def test_screening_reader_split_equals_the_decision_files(figs):
     assert v["tier2_decided"] + v["tier1_stands"] + v["no_read"] == len(f1) == v["assessed"]
     assert v["tier1_read"] + v["tier2_only"] + v["no_read"] == v["assessed"]
     assert len(f2) == v["read_twice"]          # the second-reading file is the report's sample
+
+
+def test_screening_overturn_rates_equal_the_raw_files(figs):
+    """The escalation box prints how often tier 2 overturned tier 1, read from the raw files.
+
+    Independent reading: merge the decision of record (pass-1 file) with the tier-1 reading
+    (pass-2 file) on ``record_id`` and cross-tabulate; then check the same four cells against the
+    report's section-5 confusion matrix, whose rows are the decision of record and whose columns
+    are the tier-1 reading.
+    """
+    d = figs["screening_framework"]
+    v = {n.name: n.value for n in d.numbers}
+    record = {r["record_id"]: r["decision"] for r in rows(FINAL1)}
+    cross = Counter((r["decision"], record[r["record_id"]]) for r in rows(FINAL2))
+    assert v["exclude_escalated"] == cross["exclude", "include"] + cross["exclude", "exclude"]
+    assert v["exclude_overturned"] == cross["exclude", "include"]
+    assert v["include_escalated"] == cross["include", "include"] + cross["include", "exclude"]
+    assert v["include_overturned"] == cross["include", "exclude"]
+    assert v["exclude_overturn_rate"] == pytest.approx(v["exclude_overturned"] / v["exclude_escalated"])
+    assert v["include_overturn_rate"] == pytest.approx(v["include_overturned"] / v["include_escalated"])
+    # the twice-read sample is exactly the two escalated groups, and agreement is their diagonal
+    assert v["exclude_escalated"] + v["include_escalated"] == v["read_twice"]
+    md = REPORT.read_text(encoding="utf-8")
+    m = re.search(r"\| pass 1 include \| (\d+) \| (\d+) \|\s*\n\| pass 1 exclude \| (\d+) \| (\d+) \|", md)
+    assert m, "the report's section-5 confusion matrix changed shape"
+    ii, ie, ei, ee = (int(g) for g in m.groups())
+    assert (v["exclude_overturned"], v["exclude_escalated"]) == (ie, ie + ee)
+    assert (v["include_overturned"], v["include_escalated"]) == (ei, ii + ei)
+    agree = num(md, r"observed agreement (\d+)/\d+")
+    assert agree == ii + ee == v["read_twice"] - v["exclude_overturned"] - v["include_overturned"]
+    # the old coverage rows (includes/excludes of record "read twice") are gone
+    text = " ".join(lb.text for lb in d.labels)
+    assert "read twice" not in text.replace("records read twice", "")
+    assert not {"inc_read_twice", "exc_read_twice", "inc_share", "exc_share"} & set(v)
 
 
 def test_tiebreak_sits_at_title_abstract_not_after_tier_two(figs):

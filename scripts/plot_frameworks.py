@@ -26,9 +26,11 @@ The five figures (each written as ``paper/figures/<name>.svg`` and ``.pdf``):
                         ``schema/dimensions.json``.
 ``screening_framework`` Two-Tier Escalation Screening: the title/abstract votes with the third-vote
                         tiebreak, then the full-text tier-1 reading, escalation rules and decisive
-                        tier-2 reading, with the coverage it produced. Counts:
-                        ``data/screening/fulltext_report.md``, ``data/prisma_counts.json``,
-                        ``data/screening/triage.csv``, ``data/screening/fulltext_final_pass1.csv``.
+                        tier-2 reading, with how often tier 2 overturned tier 1 on the records
+                        read twice. Counts: ``data/screening/fulltext_report.md``,
+                        ``data/prisma_counts.json``, ``data/screening/triage.csv``,
+                        ``data/screening/fulltext_final_pass1.csv`` + ``fulltext_final_pass2.csv``
+                        (the overturn rates are their cross-tab, merged on ``record_id``).
 ``tier3_design``        the three arms of the filed ablation per instance, the per-instance
                         call match from B to C, and an inset of the arm-A pilot grid against the
                         pre-stated band. Numbers: ``data/tier3/pilot/pilot_summary.json``.
@@ -56,7 +58,7 @@ of the acmart ``manuscript`` format used by ``paper/main.tex``, whose ``\\textwi
 = 5.95 in (``paper/main.log``). Include each at ``width=\\linewidth`` and the scale factor is 1.0,
 so the point sizes below are the printed sizes: body text 6.5 pt, notes 5.9 pt, titles 7.4 pt.
 Heights follow from the content (at the 2026-09-25 data: pipeline 3.46 in, coding 4.83 in,
-screening 4.17 in, tier 3 4.82 in, RQ3 3.02 in, 3.69 in with the corpus-wide row). Nothing depends
+screening 4.27 in, tier 3 4.82 in, RQ3 3.02 in, 3.69 in with the corpus-wide row). Nothing depends
 on colour: states and bound directions are carried by text, border style (solid / dashed /
 dotted) and hatching, and every fill is a grey. Text is measured with the Agg renderer itself and
 ``check_fit`` refuses a figure in which any line leaves its box; ``main`` exits 1 if one does.
@@ -642,7 +644,13 @@ def parse_reconciliation(text: str) -> dict:
 
 
 def parse_fulltext_report(text: str) -> dict:
-    """The second-reading coverage, agreement and reference-set recall of the screening report."""
+    """The second-reading sample size, agreement and reference-set recall of the screening report.
+
+    The report's "Pass-1 includes confirmed by pass 2" line is not read: its pass 1 is the decision
+    of record, not the first reading, so it counts includes OF RECORD among the escalated set
+    (``docs/count_reconciliation.md``, "What 1,403 / 2,073 counts"). The overturn rates come from
+    the raw decision files instead (``decided_by_counts``).
+    """
     out: dict = {}
     out["read_twice"] = int(_need(r"Records read twice: (\d+)", text, "records read twice")
                             .group(1))
@@ -651,11 +659,6 @@ def parse_fulltext_report(text: str) -> dict:
     out["kappa"] = float(m.group(1))
     out["agree_n"], out["agree_d"] = int(m.group(2)), int(m.group(3))
     out["agreement_pct"] = float(m.group(4))
-    m = _need(r"Pass-1 includes confirmed by pass 2: (\d+)/(\d+)", text, "includes read twice")
-    out["inc_confirmed"], out["inc_read_twice"] = int(m.group(1)), int(m.group(2))
-    m = _need(r"Sampled pass-1 excludes confirmed by pass 2: (\d+)/(\d+)", text,
-              "excludes read twice")
-    out["exc_confirmed"], out["exc_read_twice"] = int(m.group(1)), int(m.group(2))
     out["reference_n"] = int(_need(r"Positive set: (\d+) known harness systems", text,
                                    "reference set").group(1))
     block = _need(r"Recall by stage:\s*\n(.*?)\n\s*\n", text, "recall block", re.DOTALL).group(1)
@@ -682,10 +685,16 @@ def decided_by_counts(final: Path, second: Path) -> dict:
     where both exist, which is always the tier-1 one. A row whose ``model`` is ``none`` is a record
     with no retrievable text, excluded without any reading. So tier 1 read the records it decided
     plus every real reading in the second file; the rest were read by the tier-2 model alone.
+
+    The same merge (on ``record_id``) gives the overturn rates: of the records read twice, those
+    tier 1 excluded (every one escalated) and how many the decision of record turned to include,
+    and those tier 1 included (low-confidence or hash-sampled) and how many it turned to exclude.
     """
     rows = read_csv(final)
     ids = {r["record_id"] for r in rows}
     second_rows = [r for r in read_csv(second) if r["record_id"] in ids]
+    of_record = {r["record_id"]: r["decision"] for r in rows}
+    cross = Counter((r["decision"], of_record[r["record_id"]]) for r in second_rows)
     no_read = sum(1 for r in rows if r["model"] == "none")
     tier2 = sum(1 for r in rows if r["decided_by"] == "opus" and r["model"] != "none")
     tier1 = [r for r in rows if r["decided_by"] == "tier1"]
@@ -695,7 +704,11 @@ def decided_by_counts(final: Path, second: Path) -> dict:
             "tier1_decisions": sorted({r["decision"] for r in tier1}),
             "second_rows": len(second_rows),
             "second_by": sorted({r["decided_by"] for r in second_rows}),
-            "tier1_read": tier1_read, "tier2_only": len(rows) - tier1_read - no_read}
+            "tier1_read": tier1_read, "tier2_only": len(rows) - tier1_read - no_read,
+            "t1_exclude": cross[("exclude", "include")] + cross[("exclude", "exclude")],
+            "t1_exclude_overturned": cross[("exclude", "include")],
+            "t1_include": cross[("include", "include")] + cross[("include", "exclude")],
+            "t1_include_overturned": cross[("include", "exclude")]}
 
 
 def pilot_cells(pilot: dict) -> list[dict]:
@@ -1134,7 +1147,7 @@ def layout_coding(paths: Paths) -> Diagram:
 
 
 def layout_screening(paths: Paths) -> Diagram:
-    """Fig. 3: the title/abstract votes, then the full-text two-tier escalation, then coverage.
+    """Fig. 3: the title/abstract votes, then the full-text two-tier escalation, then what it changed.
 
     The third-vote tiebreak is drawn in the title/abstract row because that is where it runs: at
     full text the tier-2 reading is decisive wherever it exists and there is no third vote.
@@ -1249,20 +1262,22 @@ def layout_screening(paths: Paths) -> Diagram:
                      "handover", P) + " sought but never retrieved",
              at=((sx + fx) / 2, ym))
 
-    # the coverage the escalation produced
+    # what the escalation changed: how often the decisive tier-2 reading overturned tier 1
     cy = yby + 0.2
     read_twice = rep["read_twice"]
+    overturn_rows = (
+        ("exclude", "tier-1 excludes (every one escalated) overturned to include"),
+        ("include", "tier-1 includes (low-confidence or sampled) overturned to exclude"),
+    )
     cov_items = [
-        KV("includes read twice", d.num("inc_read_twice", rep["inc_read_twice"],
-                                        fmt_int(rep["inc_read_twice"]), "coverage", Q) + " of "
-           + d.num("inc_total", inc, fmt_int(inc), "coverage", P) + "  ("
-           + d.num("inc_share", rep["inc_read_twice"] / inc,
-                   fmt_pct(rep["inc_read_twice"], inc), "coverage", Q) + ")"),
-        KV("excludes read twice", d.num("exc_read_twice", rep["exc_read_twice"],
-                                        fmt_int(rep["exc_read_twice"]), "coverage", Q) + " of "
-           + d.num("exc_total", exc, fmt_int(exc), "coverage", P) + "  ("
-           + d.num("exc_share", rep["exc_read_twice"] / exc,
-                   fmt_pct(rep["exc_read_twice"], exc), "coverage", Q) + ")"),
+        KV(label, d.num(f"{p}_overturned", dec[f"t1_{p}_overturned"],
+                        fmt_int(dec[f"t1_{p}_overturned"]), "coverage", FF) + " of "
+           + d.num(f"{p}_escalated", dec[f"t1_{p}"], fmt_int(dec[f"t1_{p}"]), "coverage", FF)
+           + "  (" + d.num(f"{p}_overturn_rate", dec[f"t1_{p}_overturned"] / dec[f"t1_{p}"],
+                           fmt_pct(dec[f"t1_{p}_overturned"], dec[f"t1_{p}"]), "coverage", FF)
+           + ")")
+        for p, label in overturn_rows
+    ] + [
         KV("agreement of the two readings on those records", "κ = " + d.num(
             "kappa", rep["kappa"], f"{rep['kappa']:.3f}", "coverage", Q) + ",  "
            + d.num("agreement", rep["agreement_pct"], f"{rep['agreement_pct']:.1f}%",
@@ -1280,9 +1295,11 @@ def layout_screening(paths: Paths) -> Diagram:
     cov_items.append(KV("known harnesses in the reference set kept", ref_text))
     cov_items.append(T("Escalation fires on an exclude or on low confidence, so the records "
                        "read twice are a non-random sample tilted towards excludes and hard "
-                       "cases, and κ describes that sample, not the corpus.", "note"))
+                       "cases, and κ describes that sample, not the corpus. The sampled includes "
+                       "hold every low-confidence one, so their overturn rate bounds the "
+                       "false-include rate of the unescalated includes from above.", "note"))
     cw = WIDTH - MARGIN - x0
-    add_box(d, "coverage", x0, cy, cw, "Coverage the escalation produced", cov_items,
+    add_box(d, "coverage", x0, cy, cw, "What the escalation changed", cov_items,
             ls="dashed", fill=PALE, structural_title=False)
     for y, h, text in ((y1, h1, "title / abstract"), (y2, h2, "full text")):
         add_text(d, "rowlabel", MARGIN + 0.07, y + h / 2, text, "tag", ha="center", rotation=90)
