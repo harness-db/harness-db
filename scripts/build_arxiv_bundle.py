@@ -8,8 +8,9 @@ What arXiv receives:
   tables/*.tex        only the fragments main.tex or a section inputs
   figures/*.pdf       only the figures actually included
   references/*.bib    the bibliography, plus main.bbl so arXiv need not run BibTeX
-  acmart.cls, ACM-Reference-Format.bst   pinned to the local versions, so arXiv's TeX Live
-                      renders the same pages
+  (acmart.cls and the .bst are NOT shipped by default: arXiv's TeX Live provides acmart, and its
+  upload checker scans any shipped .cls for \includegraphics and rejects the bundle over the
+  class's own optional logo files; main.bbl is shipped, so no .bst is needed. --pin-class ships them.)
   anc/supplement.pdf  the supplementary material as an ancillary file
   00README.XXX        tells arXiv the main file
 
@@ -75,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=str(ROOT / "release" / "arxiv_v1.zip"))
     ap.add_argument("--keep-review", action="store_true", help="keep the acmart review option (line numbers)")
+    ap.add_argument("--pin-class", action="store_true",
+                    help="also ship acmart.cls and ACM-Reference-Format.bst (arXiv's checker rejects this)")
     a = ap.parse_args(argv)
 
     main_tex = PAPER / "main.tex"
@@ -107,8 +110,9 @@ def main(argv: list[str] | None = None) -> int:
         (work / "references").mkdir(exist_ok=True)
         for b in bibs:
             shutil.copy2(b, work / "references" / b.name)
-        shutil.copy2(_kpsewhich("acmart.cls"), work / "acmart.cls")
-        shutil.copy2(_kpsewhich("ACM-Reference-Format.bst"), work / "ACM-Reference-Format.bst")
+        if a.pin_class:
+            shutil.copy2(_kpsewhich("acmart.cls"), work / "acmart.cls")
+            shutil.copy2(_kpsewhich("ACM-Reference-Format.bst"), work / "ACM-Reference-Format.bst")
         (work / "anc").mkdir()
         shutil.copy2(supplement_pdf, work / "anc" / "supplement.pdf")
         (work / "00README.XXX").write_text("main.tex toplevelfile\n", encoding="utf-8")
