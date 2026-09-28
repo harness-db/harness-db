@@ -263,3 +263,45 @@ cover 428 distinct records) and is listed twice in `elicit_disagreement_queue.cs
 screened by the independent pipeline, 411 included, 103 not in the frozen search, 103 sought, 40 not
 retrieved, 63 assessed, 26 excluded (out_of_scope 22, duplicate_system 3, no_harness_description 1),
 37 included.
+
+## Codability gate as implemented, and the 2,073 label (2026-09-28)
+
+**The release gate is not the registered criterion (b).** Protocol §4.7 counts a dimension towards
+the 19 only when it is *assigned a value with evidence* ("`not_reported` does not count") and requires
+at least one such dimension in each of layers A, B and C. `scripts/build_tables.py` (the
+`CODABILITY_MIN` check) counts every *settled* cell, valued or `not_reported`, and has no layer
+condition. Amendment 5 moved enforcement from screening to coding but did not change the definition,
+so this is a deviation, reported in §4.1, in Table 1 row (b), and in S2 (text and amendment-5 row).
+Counted from `data/systems.json` (1,256 released systems, 38 cells each):
+
+| quantity | systems |
+|---|---|
+| fewer than 19 **valued** cells (value with evidence; not `not_reported`, not `unresolved`) | **613** |
+| at least 19 valued cells | 643 |
+| fewer than 19 **settled** cells (valued or `not_reported`) — the gate as implemented | **0** (minimum settled: 29) |
+| no valued cell in at least one of layers A, B, C | 396 |
+| fail registered §4.7 on either clause (count or layer) | **664** (592 pass) |
+
+Reconciliation with §6.4 (583 clustered, 673 below): the clustering keeps systems valued on at least
+half of the **37** dimensions it uses (all but the free-text `pinned_version`), i.e. at least 19 of 37
+(`analyse_families.build_distance`, `min_coded_share=0.5`). All 583 are among the 643 with at least 19
+of 38 valued; the other 60 reach 19 of 38 only through a valued `pinned_version`. 583 + 673 = 1,256.
+
+Recount:
+
+    python -c "import json;d=json.load(open('data/systems.json',encoding='utf-8'));v=lambda c:not c.get('unresolved') and not c.get('not_reported');print(sum(sum(map(v,s['coding'].values()))<19 for s in d), sum(sum(not c.get('unresolved') for c in s['coding'].values())<19 for s in d))"
+
+prints `613 0`.
+
+**What 1,403 / 2,073 counts.** `data/screening/fulltext_report.md` §5 labels it "pass-1 includes
+confirmed by pass 2". In `fulltext_final_pass1.csv` the pass-1 row is the **decision of record**
+(for the 3,075 twice-read records a tier-2 model, Claude Opus 5 or for 30 records Opus 4.8, apart from
+12 not-retrievable rows with no model, i.e. the tier-2 decisive reading) and `fulltext_final_pass2.csv`
+holds the other reading (Claude Sonnet 5, tier 1). So 2,073 = includes of
+record that were read twice, and 1,403 (67.7%) = those on which the tier-1 reading also said include;
+the other 670 are records the tier-1 reading excluded and the decisive reading included (every tier-1
+exclude is escalated), or tier-2-first records whose sampled tier-1 reading disagreed. The paper's old
+label "tier-1 includes confirmed at second reading" (methods, screening-checks table) and "surviving" (threats table) had the direction
+backwards; both now say the two readings agree on 1,403 of the 2,073 includes of record. The
+overturn rate of the hash-selected 10% audit sample of tier-1 includes is **not** in any screening
+output (no per-record escalation reason is stored), so the paper does not report it.

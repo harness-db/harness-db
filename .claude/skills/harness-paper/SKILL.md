@@ -83,8 +83,8 @@ design dimensions** rather than harness identity; a **crosswalk** of all prior t
 
 ## 4. Amendments and adverse results
 
-**HARD: disclose, do not bury.** Eleven protocol amendments exist and the manuscript states that ten of
-eleven are pre-stage and evidence-backed. The two that draw fire are amendment 4 (no human screener) and
+**HARD: disclose, do not bury.** Eleven accepted protocol amendments exist (12 and 12a filed, pending) and the manuscript states that nine of
+eleven are pre-stage and evidence-backed (9 was taken mid-stage; 11 followed the assembly of the comparable set, and its +1.01 is superseded by +0.88 on the rebuilt release). The codability gate as implemented counts `not_reported` as settled — a logged deviation from registered §4.7, never to be described as the registered criterion. The two that draw fire are amendment 4 (no human screener) and
 amendment 9 (a coding rule rewritten mid-project); both are stated in the main text, in the methods, not
 in an appendix. For amendment 9 the defence is the sequence: the rule was rewritten, validated on 217
 systems, and only then applied — say it in that order.

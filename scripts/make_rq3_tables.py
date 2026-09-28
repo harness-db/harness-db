@@ -791,6 +791,37 @@ def check_headline(d: Loaded, inp: Inputs, headline: str) -> None:
                             "headline again (--cross-paper-headline) and revise the prose")
 
 
+def _baseline_only(c: dict[str, Any], src: Path) -> bool:
+    """Every key of this contrast has only recurring baseline harnesses on its reference side."""
+    recurring = c.get("baseline_asymmetry", {}).get("reference_all_recurring_keys", 0)
+    return int(recurring) == integer(need(c, "n_keys", src), "n_keys")
+
+
+def headline_clause(d: Loaded, inp: Inputs, headline: str) -> str:
+    """Why the headline is the headline, as the caption states it, read rather than asserted.
+
+    Any other contrast that also clears both tests is named beside it: `detected`, fragile or not,
+    since a contrast detected only at its permutation design floor has still cleared both. The
+    caption says the headline, unlike those, is not confined to baseline-only keys, so the build
+    refuses if that stops being true (another detected contrast drawing on non-baseline keys, or a
+    headline confined to baseline keys) rather than print a caption the data no longer carry.
+    """
+    src = inp.outcomes_summary
+    head = _outcome_contrast(d, inp, headline)
+    others = [c for c in need(d.outcomes, "contrasts", src)
+              if c is not head and c.get("estimable") and c.get("detected")]
+    if not others:
+        return "the one that clears both the key bootstrap and the permutation test"
+    if _baseline_only(head, src) or not all(_baseline_only(c, src) for c in others):
+        raise RQ3InputError(f"{rel(src)}: another contrast clears both tests and the headline "
+                            f"{headline!r} is no longer the only one drawing on keys that are not "
+                            "baseline-only; revise the caption and the prose")
+    names = [d.names.prose(str(need(c, "dimension", src))) for c in others]
+    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    return (f"which with {joined} clears both the key bootstrap and the permutation test and, "
+            f"unlike {'it' if len(names) == 1 else 'them'}, is not confined to baseline-only keys")
+
+
 def within_study_row(d: Loaded, inp: Inputs, focal: str, facts: dict[str, Any]) -> dict[str, str]:
     row = next((r for r in d.pooled if r["dimension"] == focal), None)
     if row is None or not flag(row["pooled"], "pooled") or focal not in d.credible:
@@ -836,7 +867,7 @@ def clean_supply(inp: Inputs, suite_name: str) -> tuple[int, int]:
 
 
 def registered_row(d: Loaded, inp: Inputs) -> dict[str, str]:
-    """The registered compute-matched ablation: pilot grid, revision pilot, and the supply verdict.
+    """The compute-matched ablation, filed or registered: pilot grid, revision pilot, verdict.
 
     Everything printed is read: the number of pilot cells and the instances the analysis plan needs
     at the planning correlation from the pilot summary, the revision pilot's runs from its own
@@ -866,7 +897,7 @@ def registered_row(d: Loaded, inp: Inputs) -> dict[str, str]:
     _, clean = clean_supply(inp, str(need(suite, "suite", src)))
     if clean >= need_n:
         raise RQ3InputError(f"the selected suite now supplies {clean} clean confirmatory instances "
-                            f"against the {need_n} required: the registered row's verdict ('not "
+                            f"against the {need_n} required: the ablation row's verdict ('not "
                             "runnable') no longer holds; revise it and the prose")
     status = "registered" if registered else "filed, amendment pending"
     return {
@@ -896,7 +927,8 @@ def build_designs(d: Loaded, inp: Inputs, stamp: str, focal: str,
         ("Within-study meta-analysis",
          "the component's contribution inside the host systems whose authors ablated it",
          [within_study_row(d, inp, focal, facts)], "upper (selective reporting)"),
-        ("Registered compute-matched ablation",
+        (("Registered" if (inp.tier3_dir / "REGISTERED.txt").exists() else "Filed")
+         + " compute-matched ablation",
          "causal effect of the component at a matched model-call budget, on one suite and model",
          [registered_row(d, inp)], "unbiased (for that suite and model)"),
     ]
@@ -909,10 +941,10 @@ def build_designs(d: Loaded, inp: Inputs, stamp: str, focal: str,
             # ragged p-cells: `\raggedright` redefines `\\`, so the row ends with `\tabularnewline`
             body.append(" & ".join(RAGGED + c for c in cells) + r" \tabularnewline")
     caption = (
-        r"Three designs for RQ3 and the direction of their bounds. The within-study and registered "
+        r"Three designs for RQ3 and the direction of their bounds. The within-study and controlled "
         rf"designs are shown for {d.names.prose(focal)}, the one component all three measure; the "
-        rf"cross-paper design shows its headline contrast ({d.names.prose(headline)}, the one that "
-        r"survives both the key bootstrap and the permutation test) and, beneath it, the focal "
+        rf"cross-paper design shows its headline contrast ({d.names.prose(headline)}, "
+        rf"{headline_clause(d, inp, headline)}) and, beneath it, the focal "
         r"dimension's own cross-paper value. The cross-paper estimate is a standardised within-key "
         r"difference ($d$, in within-key SDs); the within-study estimate is a relative change. They "
         r"are not on one scale; what they share is the direction in which each can be wrong."
@@ -1211,8 +1243,8 @@ def sensitivity_macros(d: Loaded, inp: Inputs, headline: str) -> list[tuple[str,
         ("rqPreRuleGDropped", count(sum(dropped.values())),
          "of those, dropped: " + (", ".join(f"{k} {n}" for k, n in dropped.items()) or "none")),
         ("rqPreRuleGDroppedUnnamed", count(unnamed),
-         "of the dropped, by a sandbox-layer mapping rule: the text names no execution step, "
-         "isolation boundary or enforced authorisation"),
+         ("of the dropped, by a sandbox-layer mapping rule: the text names no execution step, "
+          "isolation boundary or enforced authorisation")),
         ("rqPreRuleGDroppedUnread", count(sum(dropped.values()) - unnamed),
          "of the dropped, by a score-reading guard (delta metric, run-together scores)"),
         ("rqDCLDropped", count(dcl["pooled"]),

@@ -313,6 +313,41 @@ def test_cross_paper_bound_names_baseline_keys_when_there_are_any(world):
     assert "baseline selection" not in focal
 
 
+def _add_compaction_contrast(inputs, recurring):
+    o = json.loads(inputs.outcomes_summary.read_text(encoding="utf-8"))
+    o["contrasts"].append({"name": "any_compaction", "dimension": "context_compaction",
+                           "n_keys": 4, "n_systems": 6, "estimable": True, "effect": 1.746,
+                           "ci_low": 1.429, "ci_high": 2.062, "permutation": {"p_two_sided": 0.042},
+                           "detected": True, "fragile": True,
+                           "baseline_asymmetry": {"reference_all_recurring_keys": recurring}})
+    inputs.outcomes_summary.write_text(json.dumps(o), encoding="utf-8")
+
+
+def test_designs_caption_and_label_say_what_the_data_and_the_registry_carry(world):
+    inputs, _ = world
+    frag = mod.build(inputs)["rq3_designs.tex"]
+    assert "the one that clears both the key bootstrap and the permutation test" in frag
+    assert "within-study and controlled designs" in frag and "registered designs" not in frag
+    tier3 = _rows(frag)[3]
+    assert tier3.startswith(mod.RAGGED + "Filed compute-matched ablation")
+    # a second contrast that clears both tests, on baseline-only keys, is named beside the headline
+    _add_compaction_contrast(inputs, recurring=4)
+    frag = mod.build(inputs)["rq3_designs.tex"]
+    assert ("multi-agent topology (A3), which with context compaction (A1) clears both the key "
+            "bootstrap and the permutation test and, unlike it, is not confined to baseline-only "
+            "keys") in frag
+    # once the amendment is accepted the row says so
+    (inputs.tier3_dir / "REGISTERED.txt").write_text("accepted", encoding="utf-8")
+    rows = _rows(mod.build(inputs)["rq3_designs.tex"])
+    assert rows[3].startswith(mod.RAGGED + "Registered compute-matched ablation")
+
+
+def test_designs_caption_refuses_when_another_detected_contrast_is_not_baseline_only(world, capsys):
+    inputs, out = world
+    _add_compaction_contrast(inputs, recurring=2)
+    _assert_refuses(inputs, out, capsys, "not baseline-only")
+
+
 def test_refuses_when_the_cross_paper_headline_is_no_longer_robust(world, capsys):
     inputs, out = world
     o = json.loads(inputs.outcomes_summary.read_text(encoding="utf-8"))

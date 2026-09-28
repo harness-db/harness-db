@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Framework figures for the v2 manuscript: the study pipeline (Fig. 1), the two named frameworks,
-the registered compute-matched ablation, and the RQ3 triangulation.
+the filed compute-matched ablation, and the RQ3 triangulation.
 
 WHY this script exists
 ----------------------
@@ -29,9 +29,9 @@ The five figures (each written as ``paper/figures/<name>.svg`` and ``.pdf``):
                         tier-2 reading, with the coverage it produced. Counts:
                         ``data/screening/fulltext_report.md``, ``data/prisma_counts.json``,
                         ``data/screening/triage.csv``, ``data/screening/fulltext_final_pass1.csv``.
-``tier3_design``        the three arms of the registered ablation per instance, the per-instance
+``tier3_design``        the three arms of the filed ablation per instance, the per-instance
                         call match from B to C, and an inset of the arm-A pilot grid against the
-                        pre-registered band. Numbers: ``data/tier3/pilot/pilot_summary.json``.
+                        pre-stated band. Numbers: ``data/tier3/pilot/pilot_summary.json``.
 ``rq3_triangulation``   the three RQ3 designs on one axis of what each can identify, with their
                         headline estimate and bound direction. Numbers:
                         ``paper/tables/outcomes_summary.json``, ``data/analysis/ablation_*.{csv,json}``,
@@ -1291,7 +1291,7 @@ def layout_screening(paths: Paths) -> Diagram:
     d.height = cy + d.shape("coverage").h + MARGIN
     return d
 
-# ---------------------------------------------------- Fig. 4: the registered ablation design
+# ---------------------------------------------------- Fig. 4: the filed ablation design
 
 
 def layout_tier3(paths: Paths) -> Diagram:
@@ -1398,7 +1398,7 @@ def layout_tier3(paths: Paths) -> Diagram:
     # contrasts
     top2 = lanes_bottom + 0.22
     target = pilot["target_effect"]
-    con = add_box(d, "contrasts", MARGIN, top2, 2.0, "Pre-registered contrasts",
+    con = add_box(d, "contrasts", MARGIN, top2, 2.0, "Pre-stated contrasts",
                   [KV("primary", "B − C", "em"),
                    T("paired by instance: checking and repair against the same number of "
                      "calls spent on unguided retries", "note"),
@@ -1414,7 +1414,7 @@ def layout_tier3(paths: Paths) -> Diagram:
     # the pilot inset
     cells = sorted(pilot_cells(pilot), key=lambda c: c["est"])
     ix0, ix1 = con.right + 0.18, WIDTH - MARGIN
-    inset_title = "Pilot, arm A only: the baseline score against the pre-registered band"
+    inset_title = "Pilot, arm A only: the baseline score against the pre-stated band"
     ith = box_height(ix1 - ix0, inset_title, [])
     row = 0.12
     lab_col = max(tw(suite_label(c["suite"], c["model"]) + f"  n = {c['n']}", "tag")
@@ -1449,7 +1449,7 @@ def layout_tier3(paths: Paths) -> Diagram:
                           plot_h + 0.04, fill=PALE, hatch="....", edge=MID, lw=0.4, z=2.2,
                           parent="inset", rounded=False))
     add_text(d, "inset", (X(lo) + X(hi)) / 2, plot_top - 0.02 - lh("tag") / 2 - 0.01,
-             "pre-registered band " + d.num("band_low", lo, f"{100 * lo:.0f}", "inset", PI)
+             "pre-stated band " + d.num("band_low", lo, f"{100 * lo:.0f}", "inset", PI)
              + "–" + d.num("band_high", hi, f"{100 * hi:.0f}%", "inset", PI), "tag",
              ha="center", bounds=(ax0 - 0.3, ix1 - PADX))
     d.links.append(Link("inset_axis", [(ax0, axis_y), (ax1, axis_y)], arrow=False, lw=0.6))
@@ -1569,7 +1569,7 @@ def layout_rq3(paths: Paths) -> Diagram:
         rows.append({"key": "corpus", "level": 2, "bound": "upper", "title": "corpus-wide",
                      "sub": sub, "bound_text": "upper bound, as above"})
     rows.append({"key": "ablation", "level": 3, "bound": "unbiased",
-                 "title": "Registered compute-matched ablation",
+                 "title": "Filed compute-matched ablation",
                  "sub": "arms paired by instance; verification against unguided retries at "
                         "equal calls",
                  "bound_text": "unbiased by design, once it can run"})
