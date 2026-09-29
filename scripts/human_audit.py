@@ -845,7 +845,7 @@ def results_tex(res: dict, strata: dict[str, int]) -> str:
         "% protocol: docs/human_audit_protocol.md; data: data/audit/results.json",
         "\\begin{table}",
         "\\centering",
-        (f"\\caption{{Blinded human audit of the released model coding: {res['n_systems']} systems "
+        (f"\\caption{{Human audit of the released model coding (readers blind to the model's answers): {res['n_systems']} systems "
         f"({st}) not in the reliability sample, 7 dimensions, {p['n_ref']} cells with a human "
         "reference. Accuracy is exact agreement of state and value set with the human reading, "
         "with a Wilson 95\\% interval; pooled interval from a paper-clustered bootstrap. "

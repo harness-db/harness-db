@@ -72,7 +72,13 @@ def test_committed_sheet_is_blind():
         pytest.skip("pack not built")
     sheet = ha.read_csv(AUDIT / "human_sheet.csv")
     model = ha.read_csv(AUDIT / "model_answers.csv")
-    assert_blind(sheet, model)
+    # Once the readers have filled the sheet, their own columns may legitimately quote the same code
+    # line as the model; blindness is a property of what they were shown, i.e. the columns to the
+    # left of human_state, so those are checked with the human columns cleared.
+    human = ("human_state", "human_value", "human_evidence_quote", "human_locator",
+             "human_confidence", "human_minutes", "human_note", "coder_id")
+    shown = [{k: ("" if k in human else v) for k, v in r.items()} for r in sheet]
+    assert_blind(shown, model)
     assert len(sheet) == 350
 
 

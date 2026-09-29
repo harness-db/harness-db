@@ -216,3 +216,21 @@ URL (paper-only sources) and 16 have no recorded pin (the sheet tells the coder 
 The distribution of the model's states over these 350 cells is deliberately not recorded here:
 this protocol is linked from the coder's instructions, and a base rate is itself a hint. It is
 computed from `model_answers.csv` at analysis time.
+
+## Deviations recorded after the audit (2026-09-28)
+
+1. **Coder.** Section 2 and the coder README call for an independent coder blind to the project. The
+   350 cells were read by the author together with colleagues and recorded under one coder id (`BG`).
+   The readers saw only the blinded sheet (via `data/audit/human_audit_form.html`, generated from
+   `data/audit/human_sheet.csv` by `scripts/make_audit_form.py`) and not the model's answers, but they
+   were not blind to the project. Disclosed in the paper (§4, human correctness audit; §9).
+2. **Minutes.** The `human_minutes` column (total 61.6, median 0.2) does not measure the effort spent
+   and is not reported; the workload figures of §6 are planning figures only.
+3. **Adjudication.** The post-unblinding adjudication of §4.4 was done mechanically rather than by
+   reading each case (`scripts/human_audit_adjudicate.py` → `data/audit/adjudication.{csv,json}`): each
+   audited system's bundle is rebuilt with `code_system.assemble_bundle` (validated: 100 of 108 of the
+   model's own quote fragments are found in it), and a disagreement is `bundle_gap` when the human's
+   quoted passage or cited file-and-line is not in the text the model was sent. 117 of 148 are bundle
+   gaps (113-119 across match probes of 30-100 characters). Within the 31 with the evidence in the bundle,
+   `model_misread`, `manual_ambiguity` and `human_error` are not separated. The registered accuracy
+   (§4.2) is unchanged by the adjudication, as the protocol requires.
