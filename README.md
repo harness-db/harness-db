@@ -217,6 +217,19 @@ rule and the validator gate are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 [`docs/COVERAGE_WANTED.md`](docs/COVERAGE_WANTED.md), generated from the data, lists the
 most-starred uncoded systems and the dimensions where evidence is thinnest.
 
+Open work, smallest first: settle one silent cell of a system you know
+([#2](https://github.com/harness-db/harness-db/issues/2), 5–15 minutes); code an uncoded system
+([#1](https://github.com/harness-db/harness-db/issues/1)); tooling
+([#6](https://github.com/harness-db/harness-db/issues/6) Dockerfile for the MCP server,
+[#7](https://github.com/harness-db/harness-db/issues/7) loader on PyPI,
+[#9](https://github.com/harness-db/harness-db/issues/9) stale-pin checker); research, with
+co-authorship for substantive work ([#3](https://github.com/harness-db/harness-db/issues/3) larger
+evidence bundle, [#4](https://github.com/harness-db/harness-db/issues/4) second human reader,
+[#5](https://github.com/harness-db/harness-db/issues/5) a controlled study that varies one agent bound,
+[#8](https://github.com/harness-db/harness-db/issues/8) crosswalks). If you maintain a harness in the
+dataset, you can co-maintain its entry. Say hello in
+[Discussions](https://github.com/harness-db/harness-db/discussions/10).
+
 Built with a pre-registered protocol ([osf.io/ab2wn](https://osf.io/ab2wn); amendments logged in
 [`docs/protocol_prisma_p.md`](docs/protocol_prisma_p.md)) and an evidence-per-cell design: no value
 enters the dataset without a quote and a locator that a reader can re-open.
