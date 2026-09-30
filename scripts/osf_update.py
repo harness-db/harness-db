@@ -109,8 +109,8 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"these keys are not questions on this registration: {unknown}")
     changed = {k: v for k, v in answers.items() if current.get(k) != v}
     print(f"{len(answers)} answers supplied, {len(changed)} differ from the live record:")
-    for k in changed:
-        print(f"  {k:10} {len(str(current.get(k, ''))):6} -> {len(str(changed[k])):6} chars")
+    for k, v in changed.items():
+        print(f"  {k:10} {len(str(current.get(k, ''))):6} -> {len(str(v)):6} chars")
     print(f"justification: {len(justification)} chars")
     if not changed:
         print("nothing to file")
