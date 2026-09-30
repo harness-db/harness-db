@@ -57,7 +57,7 @@ GROUPS = [
   r"\S4 (grouping)", ["data/coded/_pre_regroup_systems_candidates.csv", "data/coded/_pre_regroup2_systems.csv"], FROZEN),
 ]),
 ("Protocol, definition, coding frame and coded release", "tab:artefacts-coding", [
- ("Registered protocol (working copy), the eleven accepted amendments, and the pending twelfth with its dated revision (12a)",
+ ("Registered protocol (working copy), the eleven accepted amendments, and the accepted twelfth with its dated revision (12a)",
   r"\S4 (registration); S2; S3 items~24a--24c", ["docs/protocol_prisma_p.md"], DOC),
  ("Definition of a harness; eligibility criterion (a)",
   r"\S2; \S4 (eligibility); \S3 crosswalk", ["docs/definition.md"], DOC),
