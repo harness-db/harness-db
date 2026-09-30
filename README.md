@@ -6,7 +6,7 @@
 [![Code: MIT](https://img.shields.io/badge/code-MIT-blue)](LICENSE-CODE)
 [![Dataset 1.0.0](https://img.shields.io/badge/dataset-1.0.0-informational)](CITATION.cff)
 [![validate](https://github.com/harness-db/harness-db/actions/workflows/validate.yml/badge.svg)](https://github.com/harness-db/harness-db/actions/workflows/validate.yml)
-[![DOI](https://img.shields.io/badge/DOI-pending-lightgrey)](#cite)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23031354.svg)](https://doi.org/10.5281/zenodo.23031354)
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-pending-lightgrey)](DATASET_CARD.md)
 [![Pre-registered](https://img.shields.io/badge/pre--registered-osf.io%2Fab2wn-green)](https://osf.io/ab2wn)
 
@@ -104,7 +104,7 @@ applies both rules for you.
 | `datapackage.json` | [Frictionless](https://frictionlessdata.io/) descriptor with the type of every column |
 | `harness-db-1.0.0.zip` | Everything above, with checksums and a validation report: the Zenodo deposit |
 
-Where to get it: GitHub Releases and Zenodo (DOI pending), and Hugging Face (pending; see
+Where to get it: GitHub Releases, Zenodo (doi:10.5281/zenodo.23031354; v1.0.0 is 10.5281/zenodo.23031355), and Hugging Face (pending; see
 [`DATASET_CARD.md`](DATASET_CARD.md)). You can also build it from a clone with
 `python scripts/release_dataset.py --version 1.0.0 --out release/`. The build derives every file
 from `data/systems.json` and stops if the data fails validation.
@@ -204,9 +204,9 @@ Please cite the paper, and the dataset with the version you used.
   year      = {2026},
   version   = {1.0.0},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.XXXXXXX},
+  doi       = {10.5281/zenodo.23031354},
   url       = {https://github.com/harness-db/harness-db},
-  note      = {DOI to be added at release}
+  url       = {https://doi.org/10.5281/zenodo.23031354}
 }
 ```
 

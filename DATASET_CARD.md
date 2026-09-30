@@ -57,7 +57,7 @@ about the coded set.
 - Paper: *The Anatomy of Agent Harnesses: A Systematic Review, Unified Taxonomy, and Coded Dataset
   (HARNESS-DB) of LLM Agent Scaffolding, 2022–2026* (arXiv identifier to be added at release)
 - Version: 1.0.0 (schema 1.0.0, frozen 2026-09-23)
-- DOI: pending (Zenodo, at public release)
+- DOI: 10.5281/zenodo.23031354 (Zenodo concept DOI; version 1.0.0: 10.5281/zenodo.23031355)
 
 ## Supported uses
 
@@ -255,7 +255,7 @@ scripts) is released under the MIT License.
   year      = {2026},
   version   = {1.0.0},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.XXXXXXX},
+  doi       = {10.5281/zenodo.23031354},
   url       = {https://github.com/harness-db/harness-db}
 }
 ```
