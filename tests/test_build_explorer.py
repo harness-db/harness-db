@@ -286,9 +286,12 @@ def test_uncoded_cell_fails_loudly(tmp_path, release):
 
 def test_makefile_rebuilds_the_explorer_with_figures():
     raw = (ROOT / "Makefile").read_bytes()
-    assert b"\r\n" in raw and raw.count(b"\n") == raw.count(b"\r\n"), "Makefile must stay CRLF"
-    mk = raw.decode("utf-8")
-    block = mk.split("ANALYSIS_SCRIPTS =")[1].split("\r\n\r\n")[0]
+    # .gitattributes stores every text file with LF (eol=lf), so a CI checkout is LF while a Windows
+    # working copy may be CRLF; what must never happen is a mix of the two in one file.
+    crlf = raw.count(b"\r\n")
+    assert crlf in (0, raw.count(b"\n")), "Makefile mixes CRLF and LF line endings"
+    mk = raw.decode("utf-8").replace("\r\n", "\n")
+    block = mk.split("ANALYSIS_SCRIPTS =")[1].split("\n\n")[0]
     lines = [ln.rstrip("\r") for ln in block.splitlines()[1:]]
     assert any(ln.strip().rstrip(" \\") == "scripts/build_explorer.py" for ln in lines)
     assert all(ln.startswith("\t") for ln in lines)
