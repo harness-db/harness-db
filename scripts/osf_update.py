@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--responses", type=Path, default=REPO / "data" / "osf" / "update2_responses.json")
     p.add_argument("--show", action="store_true", help="list question ids with their current answers and exit")
     p.add_argument("--dry-run", action="store_true", help="report what would change without filing")
+    p.add_argument("--comment", default="", help="short submit comment shown to the approver (default: names the responses file)")
     args = p.parse_args(argv)
     token = env_token()
 
@@ -141,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     call("POST", f"{API}/schema_responses/{rid}/actions/", token,
          {"data": {"type": "schema-response-actions",
                    "attributes": {"trigger": "submit",
-                                  "comment": "Amendments 2-8; see the revision justification."},
+                                  "comment": args.comment or f"Registration update from {args.responses.name}; see the revision justification."},
                    "relationships": {"target": {
                        "data": {"id": rid, "type": "schema-responses"}}}}})
     print("submitted for approval")
