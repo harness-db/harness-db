@@ -180,7 +180,13 @@ prompt (`code-v2-2026-09-23`). The coder id is recorded on every cell. Every cod
 repair pass that checks the cells against the schema, and cells that still failed at release are
 marked `unresolved`. Two offensive-security systems (`cai`, `pentagi`) were coded with a different
 model from the same family, because the primary model's safety classifier stopped the coding on
-both. No cell was verified by a human.
+both. After release, the author and colleagues, blind to the model's answers, re-read 50 systems on
+7 dimensions (350 cells; sample and seed fixed in advance). The model coding agreed with the human
+reading on 202 of 350 cells (57.7%, 95% CI 48.6–66.9); 117 of the 148 disagreements were cells whose
+evidence lay in files the model's capped evidence bundle never contained, and on cells whose evidence
+the model did receive it agreed on 202 of 233 (86.7%). Almost every disagreement is a `not_reported`
+cell that the human could value, so every silence rate in this card is an upper bound. The audit
+protocol, sheet and results are in `data/audit/` of the repository.
 
 **Reliability.** 247 systems were coded twice, independently, through the identical procedure
 (9,386 cells compared):
@@ -211,12 +217,12 @@ counts are public figures, date-stamped in the evidence.
   when weighted. For example, repository-primary systems are 69.2% of the coded set but 33.3% of
   the field. Use the weights in `systems_wide.csv` for field-level claims. The 23 weight-0 systems
   belong in unweighted statements only.
-- **Reliability is model–model reproducibility, not correctness.** Both readings in the
-  reliability sample came from the same kind of coder under the same protocol, so shared
-  systematic errors would not show up as disagreement. The checks outside the coding procedure
-  test coverage, not cell values: reference-set recall was 27/27, and an independently built
-  screening pipeline agreed with the inclusion decisions at 0.84 (κ 0.66). The quote and locator
-  on every value let a reader check any cell directly.
+- **Reliability is model–model reproducibility; accuracy comes from the human audit.** Both readings in
+  the reliability sample came from the same kind of coder under the same protocol, so shared
+  systematic errors would not show up as disagreement. The human audit (above) puts cell-level
+  agreement at 57.7% overall and 86.7% where the model had the evidence; the gap is mostly
+  evidence the model was never shown. Treat `not_reported` as "not found in the evidence bundle",
+  not as "not documented anywhere". The quote and locator on every value let a reader check any cell.
 - **Silence is not absence.** 48.9% of cells are `not_reported`. Imputing them, or treating them
   as a category in association analyses, produces artefacts. With silence counted as a level, 265
   of 666 dimension pairs test as associated that do not test as associated on complete pairs.
@@ -241,12 +247,12 @@ scripts) is released under the MIT License.
 ## Citation
 
 ```bibtex
-@article{gurram2027anatomy,
+@article{gurram2026anatomy,
   title   = {The Anatomy of Agent Harnesses: A Systematic Review, Unified Taxonomy, and Coded
              Dataset ({HARNESS-DB}) of {LLM} Agent Scaffolding, 2022--2026},
   author  = {Gurram, Bhaskar},
   journal = {arXiv preprint arXiv:XXXX.XXXXX},
-  year    = {2027}
+  year    = {2026}
 }
 
 @misc{gurram2026harnessdb,

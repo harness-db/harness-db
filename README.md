@@ -189,12 +189,12 @@ The checks outside the coding procedure test coverage, not cell values. Referenc
 Please cite the paper, and the dataset with the version you used.
 
 ```bibtex
-@article{gurram2027anatomy,
+@article{gurram2026anatomy,
   title   = {The Anatomy of Agent Harnesses: A Systematic Review, Unified Taxonomy, and Coded
              Dataset ({HARNESS-DB}) of {LLM} Agent Scaffolding, 2022--2026},
   author  = {Gurram, Bhaskar},
   journal = {arXiv preprint arXiv:XXXX.XXXXX},
-  year    = {2027},
+  year    = {2026},
   note    = {arXiv identifier to be added at release}
 }
 
