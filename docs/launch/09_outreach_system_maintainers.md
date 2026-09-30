@@ -28,7 +28,46 @@ snapshot the ranking used.
 - For company-owned repositories (Anthropic, OpenAI, Microsoft, ByteDance), use the public contact
   channel. Do not guess employee addresses.
 
-## Template
+## Template (v2, 2026-09-30): lead with the collaboration ask
+
+The version actually drafted in Gmail on 2026-09-30 for the 10 maintainers with a public address
+(see the table at the end). It leads with three ways to collaborate (co-maintain the entry, integrate
+the loader/HF dataset/MCP server, co-author the bound-varying follow-up) and keeps the three quick
+cells as the low-effort option. Example (CrewAI):
+
+```text
+Subject: HARNESS-DB: invitation to co-maintain CrewAI's entry, integrate, or co-author a follow-up
+
+Hello João and the crewAI team,
+
+I maintain HARNESS-DB, an open dataset (CC BY 4.0) that codes 1,256 LLM agent harnesses on 38 design dimensions, with a verbatim quote and a file:line@commit locator behind every value. CrewAI is in it, coded at 1.15.18 (commit 4bc5d2924218, 2026-08-27): 14 of its 38 cells have a value and 24 are not_reported, meaning the sources we read were silent, not that the feature is missing.
+Card: https://github.com/harness-db/harness-db/blob/main/docs/launch/cards/crewai.md
+Explorer: https://harness-db.github.io/harness-db/#system=crewai
+
+I am writing because I would like the CrewAI team as a collaborator, not only as a data point. Any one of these would help:
+
+1. Co-maintain your entry. We list you as its maintainer; at each release (roughly every four months) you confirm or correct your 38 cells, about 15 minutes, credited in the release notes.
+2. Integrate. HARNESS-DB ships as a Python package, a Hugging Face dataset (huggingface.co/datasets/bhaskar-ai/harness-db) and an MCP server, so an agent can query design facts about harnesses directly. If CrewAI has a docs page comparing designs, or an agent that could use the MCP server, I will help wire it in.
+3. Co-author a follow-up. Our review found that the layers that bound an agent (sandbox, budgets, governance) are the least documented and the least tested: no published ablation we could find varies the sandbox layer. The paper proposes a small controlled study that varies one such bound inside a real harness, and I would like to run it with a harness team as joint authors.
+
+If you only have two minutes, these three cells are where a line of your code would settle the most (each link opens a prefilled issue on our repository, not yours):
+- network_policy (G3), on which up to 93.3% of the field is silent: https://github.com/harness-db/harness-db/issues/new?template=wrong_cell.yml&title=%5Bwrong%20cell%5D%20crewai%20%2F%20network_policy&system=crewai&dimension=G3%20network_policy&current=not_reported
+- filesystem_access (G2), on which up to 87.5% of the field is silent: https://github.com/harness-db/harness-db/issues/new?template=wrong_cell.yml&title=%5Bwrong%20cell%5D%20crewai%20%2F%20filesystem_access&system=crewai&dimension=G2%20filesystem_access&current=not_reported
+- rollback (E3), on which up to 86.4% of the field is silent: https://github.com/harness-db/harness-db/issues/new?template=wrong_cell.yml&title=%5Bwrong%20cell%5D%20crewai%20%2F%20rollback&system=crewai&dimension=E3%20rollback&current=not_reported
+
+Dataset: https://doi.org/10.5281/zenodo.23031354
+Pre-registration: https://doi.org/10.17605/OSF.IO/AB2WN
+Repository: https://github.com/harness-db/harness-db
+(The paper is in arXiv moderation; I will send the link when it is live.)
+
+A reply to this email is the easiest way to say yes to any of the three.
+
+Thank you,
+Bhaskar Gurram
+gurrambhaskar.ai@gmail.com
+```
+
+## Template (v1, superseded)
 
 ```text
 Subject: HARNESS-DB coded <system> at <tag>: 3 cells you can settle in two minutes
@@ -709,3 +748,13 @@ https://github.com/harness-db/harness-db
 - The three dimensions repeat across systems (network policy, replayability, filesystem access,
   rollback) because they are the most silent in the field. That is the finding. Do not vary the
   list to make the emails look different.
+
+
+## Drafted in Gmail (2026-09-30)
+
+Only addresses the maintainers print themselves (GitHub profile or package metadata):
+learn-claude-code ai-lab@foxmail.com; Ruflo ruv@ruv.io; MetaGPT alexanderwu@deepwisdom.ai;
+oh-my-openagent public.kim.yeon.gyu@gmail.com; daily_stock_analysis zhuls345@gmail.com; Strix hi@usestrix.com;
+CrewAI joao@crewai.com; Cherry Studio support@cherry-ai.com; BettaFish baifu.guohj@gmail.com;
+DeepTutor bingxizhao39@gmail.com. The other ten (Hermes, Claude Code, Codex, Browser Use, TradingAgents,
+Pi, OpenHands, DeerFlow, AutoGen, nanobot) print no address: use GitHub Discussions where enabled.
