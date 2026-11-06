@@ -1,5 +1,14 @@
 # HARNESS-DB human audit: instructions for the coder
 
+> **Withdrawn 2026-11-06.** The v1.0 readings of this sheet (`human_sheet.csv`, filled 2026-09-28) and
+> everything computed from them (`results.*`, `adjudication.*`) have been removed. The readings carry
+> a single coder id and 0.1-0.3 recorded minutes per cell, so they cannot serve as an independent
+> human reference. Any figure derived from them (e.g. "57.7% agreement") is withdrawn until a new
+> study replaces it: a redesigned sheet, two blinded external coders and tool-captured timings.
+> That study is tracked in the co-authors' research program. The blank instrument (`human_sheet.xlsx`,
+> `human_audit_form.html`, `sample.csv`, `scripts/human_audit.py`) stays as a starting point. The
+> v1.0.0 Zenodo release still contains the old files; an erratum will be added there.
+
 You are checking how agent harnesses are built, by reading their source code and papers. Your
 reading is the reference that the released dataset will be scored against, so it has to be your own.
 The full protocol is `docs/human_audit_protocol.md`; this page is all you need while coding.
